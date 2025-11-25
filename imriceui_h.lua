@@ -45,3 +45,14 @@ ImGuiWindowFlags_.NoInputs = bit.bor(
     ImGuiWindowFlags_.NoNavInputs,
     ImGuiWindowFlags_.NoNavFocus
 )
+
+--- enum ImGuiItemFlags_
+local ImGuiItemFlags_ = {
+    None              = 0,
+    NoTabStop         = bit.lshift(1, 0),
+    NoNav             = bit.lshift(1, 1),
+    NoNavDefaultFocus = bit.lshift(1, 2),
+    ButtonRepeat      = bit.lshift(1, 3),
+    AutoClosePopups   = bit.lshift(1, 4),
+    AllowDuplicateID  = bit.lshift(1, 5)
+}

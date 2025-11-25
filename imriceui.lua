@@ -452,6 +452,8 @@ local function CreateNewWindow(name)
             -- PrevLineSize   = 0,
         },
 
+        ClipRect = {min = {x = 0, y = 0}, max = {x = 0, y = 0}},
+
         LastFrameActive = -1
     }
 
@@ -460,6 +462,13 @@ local function CreateNewWindow(name)
     insert_at(GImRiceUI.Windows, window)
 
     return window
+end
+
+local function Overlaps(this, other)
+    return not (this.max.x < other.min.x or
+                this.min.x > other.max.x or
+                this.max.y < other.min.y or
+                this.min.y > other.max.y)
 end
 
 --- void ImGui::KeepAliveID(ImGuiID id)
@@ -476,9 +485,31 @@ local function KeepAliveID(id)
 end
 
 --- bool ImGui::ItemAdd
--- local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
+local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
+    local g = GImRiceUI
+    local window = g.CurrentWindow
 
--- end
+    g.LastItemData.ID = id
+    g.LastItemData.Rect = bb
+
+    if nav_bb_arg then
+        g.LastItemData.NavRect = nav_bb_arg
+    else
+        g.LastItemData.NavRect = bb
+    end
+
+    -- g.LastItemData.ItemFlags = g.CurrentItemFlags | g.NextItemData.ItemFlags | extra_flags;
+    -- g.LastItemData.StatusFlags = ImGuiItemStatusFlags_None;
+
+    if id ~= 0 then
+        KeepAliveID(id)
+    end
+
+    -- g.NextItemData.HasFlags = ImGuiNextItemDataFlags_None;
+    -- g.NextItemData.ItemFlags = ImGuiItemFlags_None;
+
+    local is_rect_visible = Overlaps(bb, window.ClipRect)
+end
 
 --- void ImGuiStyle::ScaleAllSizes
 -- local function ScaleAllSizes(scale_factor)
