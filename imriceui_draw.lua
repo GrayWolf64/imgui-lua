@@ -28,7 +28,7 @@ local StyleColorsDark = {
 }
 
 local function AddDrawCmd(draw_list, draw_call, ...)
-    draw_list[#draw_list + 1] = {draw_call = draw_call, args = {...}}
+    draw_list.CmdBuffer[#draw_list.CmdBuffer + 1] = {draw_call = draw_call, args = {...}}
 end
 
 local function AddRectFilled(draw_list, color, x, y, w, h)
@@ -74,6 +74,26 @@ local function RenderTextClipped(draw_list, text, font, x, y, color, w, h)
     if need_clipping then
         AddDrawCmd(draw_list, render.SetScissorRect, 0, 0, 0, 0, false)
     end
+end
+
+local function PushClipRect(draw_list, cr_min, cr_max, intersect_with_current_clip_rect)
+    local cr = {x = cr_min.x, y = cr_min.y, z = cr_max.x, w = cr_max.y} -- TODO: ImVec4!
+
+    if intersect_with_current_clip_rect then
+        local current = draw_list._CmdHeader.ClipRect
+
+        if cr.x < current.x then cr.x = current.x end
+        if cr.y < current.y then cr.y = current.y end
+        if cr.z > current.z then cr.z = current.z end
+        if cr.w > current.w then cr.w = current.w end
+    end
+
+    cr.z = math.max(cr.x, cr.z)
+    cr.w = math.max(cr.y, cr.w)
+
+    table.insert(draw_list._ClipRectStack, cr)
+    draw_list._CmdHeader.ClipRect = cr
+    -- _OnChangedClipRect()
 end
 
 return ImNoColor, StyleColorsDark,

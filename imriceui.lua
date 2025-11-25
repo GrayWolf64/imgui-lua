@@ -316,6 +316,8 @@ local MouseButtonMap = {
     [2] = MOUSE_RIGHT
 }
 
+local ImVector = include("imriceui_internal.lua")
+
 --- struct ImGuiContext
 local function CreateNewContext()
     GImRiceUI = {
@@ -334,12 +336,12 @@ local function CreateNewContext()
         Config = DefaultConfig,
         Initialized = true,
 
-        Windows = {}, -- Windows sorted in display order, back to front
+        Windows = ImVector(), -- Windows sorted in display order, back to front
         WindowsByID = {}, -- Map window's ID to window ref
 
         WindowsBorderHoverPadding = 0,
 
-        CurrentWindowStack = {},
+        CurrentWindowStack = ImVector(),
         CurrentWindow = nil,
 
         IO = {
@@ -403,7 +405,7 @@ local function CreateNewContext()
         FontSize = 18,
         FontSizeBase = 18,
 
-        --- ImFontStackData
+        --- Contains ImFontStackData
         FontStack = {}
     }
 
@@ -437,7 +439,13 @@ local function CreateNewWindow(name)
         Open = true,
         Collapsed = false,
 
-        DrawList = {},
+        --- struct ImDrawList
+        DrawList = {
+            CmdBuffer = {},
+
+            _CmdHeader = {},
+            _ClipRectStack = {}
+        },
 
         IDStack = {},
 
@@ -459,10 +467,15 @@ local function CreateNewWindow(name)
 
     GImRiceUI.WindowsByID[window_id] = window
 
-    insert_at(GImRiceUI.Windows, window)
+    GImRiceUI.Windows:push_back(window)
 
     return window
 end
+
+--- TODO: fix drawlist
+--- void ImGui::PushClipRect
+
+--- void ImGui::PopClipRect
 
 local function Overlaps(this, other)
     return not (this.max.x < other.min.x or
@@ -518,18 +531,18 @@ end
 
 --- ImGui::BringWindowToDisplayFront
 local function BringWindowToDisplayFront(window)
-    local current_front_window = GImRiceUI.Windows[#GImRiceUI.Windows]
+    local current_front_window = GImRiceUI.Windows:peek()
 
     if current_front_window == window then return end
 
     for i, this_window in ipairs(GImRiceUI.Windows) do
         if this_window == window then
-            remove_at(GImRiceUI.Windows, i)
+            GImRiceUI.Windows:erase(i)
             break
         end
     end
 
-    insert_at(GImRiceUI.Windows, window)
+    GImRiceUI.Windows:push_back(window)
 end
 
 --- void ImGui::SetNavWindow
@@ -983,9 +996,9 @@ local function RenderWindowTitleBarContents(window)
 end
 
 local function Render()
-    for _, window in ipairs(GImRiceUI.Windows) do
+    for _, window in GImRiceUI.Windows:iter() do
         if window and window.Open and window.DrawList then
-            for _, cmd in ipairs(window.DrawList) do
+            for _, cmd in ipairs(window.DrawList.CmdBuffer) do
                 cmd.draw_call(unpack(cmd.args))
             end
         end
@@ -1079,7 +1092,7 @@ local function Begin(name)
     PushID(window_id)
     window.MoveID = GetID("#MOVE") -- TODO: investigate
 
-    insert_at(GImRiceUI.CurrentWindowStack, window)
+    GImRiceUI.CurrentWindowStack:push_back(window)
 
     window.Active = true
 
@@ -1093,8 +1106,8 @@ local function Begin(name)
         window.Size.h = window.SizeFull.h
     end
 
-    for i = #window.DrawList, 1, -1 do
-        window.DrawList[i] = nil
+    for i = #window.DrawList.CmdBuffer, 1, -1 do
+        window.DrawList.CmdBuffer[i] = nil
     end
 
     local resize_grip_colors
@@ -1117,9 +1130,9 @@ local function End()
     if not window then return end
 
     PopID()
-    remove_at(GImRiceUI.CurrentWindowStack)
+    GImRiceUI.CurrentWindowStack:pop_back()
     -- TODO: SetCurrentWindow
-    GImRiceUI.CurrentWindow = GImRiceUI.CurrentWindowStack[#GImRiceUI.CurrentWindowStack]
+    GImRiceUI.CurrentWindow = GImRiceUI.CurrentWindowStack:peek()
 end
 
 --- FIXME: UpdateHoveredWindowAndCaptureFlags???
@@ -1128,8 +1141,8 @@ local function FindHoveredWindow()
 
     local x, y, w, h
 
-    for i = #GImRiceUI.Windows, 1, -1 do
-        local window = GImRiceUI.Windows[i]
+    for i = GImRiceUI.Windows:size(), 1, -1 do
+        local window = GImRiceUI.Windows:at(i)
 
         if window and window.Open then
             x, y, w, h = window.Pos.x, window.Pos.y, window.Size.w, window.Size.h
@@ -1195,9 +1208,8 @@ end
 local function NewFrame()
     if not GImRiceUI or not GImRiceUI.Initialized then return end
 
-    for i = #GImRiceUI.CurrentWindowStack, 1, -1 do
-        GImRiceUI.CurrentWindowStack[i] = nil
-    end
+    GImRiceUI.CurrentWindowStack:clear()
+
     GImRiceUI.CurrentWindow = nil
 
     UpdateFontsNewFrame()
@@ -1239,7 +1251,7 @@ hook.Add("PostRender", "ImRiceUI", function()
     NewFrame()
 
     -- Temporary, internal function used
-    -- UpdateCurrentFontSize(ImMax(10, math.abs(90 * math.sin(SysTime()))))
+    UpdateCurrentFontSize(ImMax(10, math.abs(90 * math.sin(SysTime()))))
 
     Begin("Hello World!")
     End()
