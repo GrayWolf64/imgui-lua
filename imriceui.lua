@@ -87,7 +87,6 @@ local function ParseRGBA(str)
 end
 
 --- Use FNV1a, as one ImGui FIXME suggested
--- TODO: fix other places where ids are treated as strings!!!
 local str_byte, bit_bxor, bit_band = string.byte, bit.bxor, bit.band
 local function ImHashStr(str)
     local FNV_OFFSET_BASIS = 0x811C9DC5
@@ -354,7 +353,10 @@ local function CreateNewContext()
             MouseDownDuration     = {-1, -1},
             MouseDownDurationPrev = {-1, -1},
 
-            MouseClickedPos = {[1] = {}, [2] = {}}
+            MouseClickedPos = {[1] = ImVec2(0, 0), [2] = ImVec2(0, 0)},
+
+            DeltaTime = 1 / 60,
+            Framerate = 0
         },
 
         MovingWindow = nil,
@@ -408,8 +410,18 @@ local function CreateNewContext()
         FontSizeBase = 18,
 
         --- Contains ImFontStackData
-        FontStack = ImVector()
+        FontStack = ImVector(),
+
+        --- Misc
+        FramerateSecPerFrame = {}, -- size = 60
+        FramerateSecPerFrameIdx = 0,
+        FramerateSecPerFrameCount = 0,
+        FramerateSecPerFrameAccum = 0
     }
+
+    for i = 0, 59 do --TODO: IM_ARRAYSIZE
+        GImRiceUI.FramerateSecPerFrame[i] = 0
+    end
 
     hook.Add("PostGamemodeLoaded", "ImGDummyWindow", function()
         SetupDummyPanel()
@@ -1037,15 +1049,14 @@ end
 
 --- void ImGui::StartMouseMovingWindow
 local function StartMouseMovingWindow(window)
+    local g = GImRiceUI
+
     FocusWindow(window)
     SetActiveID(window.MoveID, window)
 
-    GImRiceUI.ActiveIDClickOffset = {
-        x = GImRiceUI.IO.MouseClickedPos[1].x - window.Pos.x,
-        y = GImRiceUI.IO.MouseClickedPos[1].y - window.Pos.y
-    }
+    g.ActiveIDClickOffset = g.IO.MouseClickedPos[1] - window.Pos
 
-    GImRiceUI.MovingWindow = window
+    g.MovingWindow = window
 end
 
 --- void ImGui::UpdateMouseMovingWindowNewFrame
@@ -1215,7 +1226,6 @@ local function UpdateMouseInputs()
 
     io.MousePos.x = io.MouseX()
     io.MousePos.y = io.MouseY()
-    GImRiceUI.FrameCount = GImRiceUI.FrameCount + 1
 
     for i = 1, #MouseButtonMap do
         local button_down = io.IsMouseDown(MouseButtonMap[i])
@@ -1223,7 +1233,7 @@ local function UpdateMouseInputs()
         io.MouseClicked[i] = button_down and (io.MouseDownDuration[i] < 0)
 
         if io.MouseClicked[i] then
-            io.MouseClickedPos[i] = {x = io.MousePos.x, y = io.MousePos.y}
+            io.MouseClickedPos[i] = ImVec2(io.MousePos.x, io.MousePos.y)
         end
 
         io.MouseReleased[i] = not button_down and (io.MouseDownDuration[i] >= 0)
@@ -1248,6 +1258,19 @@ local function NewFrame()
     local g = GImRiceUI
 
     if not g or not g.Initialized then return end
+
+    g.FrameCount = g.FrameCount + 1
+
+    -- FIXME: are lines below correct and necessary
+    g.FramerateSecPerFrameAccum = g.FramerateSecPerFrameAccum + (g.IO.DeltaTime - g.FramerateSecPerFrame[g.FramerateSecPerFrameIdx])
+    g.FramerateSecPerFrame[g.FramerateSecPerFrameIdx] = g.IO.DeltaTime
+    g.FramerateSecPerFrameIdx = (g.FramerateSecPerFrameIdx + 1) % 60
+    g.FramerateSecPerFrameCount = ImMin(g.FramerateSecPerFrameCount + 1, 60)
+    if g.FramerateSecPerFrameAccum > 0 then
+        g.IO.Framerate = (1.0 / (g.FramerateSecPerFrameAccum / g.FramerateSecPerFrameCount))
+    else
+        g.IO.Framerate = INF
+    end
 
     g.CurrentWindowStack:clear_delete()
 
@@ -1275,7 +1298,7 @@ local function NewFrame()
     UpdateMouseMovingWindowNewFrame()
 end
 
---- TODO: FrameCountEnded
+--- TODO: FrameRate
 local function EndFrame()
     local g = GImRiceUI
 
@@ -1285,6 +1308,8 @@ local function EndFrame()
     UpdateFontsEndFrame()
 
     UpdateMouseMovingWindowEndFrame()
+
+    g.IO.DeltaTime = RealFrameTime() -- FIXME:
 end
 
 --- void ImGui::Shutdown()
@@ -1314,12 +1339,13 @@ hook.Add("PostRender", "ImRiceUI", function()
     -- Temporary
     draw.DrawText(
         str_format(
-            "ActiveID: %s\nActiveIDWindow: %s\nActiveIDIsAlive: %s\nActiveIDPreviousFrame: %s\nMem: %dkb",
+            "ActiveID: %s\nActiveIDWindow: %s\nActiveIDIsAlive: %s\nActiveIDPreviousFrame: %s\n\nMem: %dkb\nFramerate: %d",
             GImRiceUI.ActiveID,
             GImRiceUI.ActiveIDWindow and GImRiceUI.ActiveIDWindow.ID or nil,
             GImRiceUI.ActiveIDIsAlive,
             GImRiceUI.ActiveIDPreviousFrame,
-            ImRound(collectgarbage("count"))
+            ImRound(collectgarbage("count")),
+            GImRiceUI.IO.Framerate
         ), "CloseCaption_Bold", 0, 0, color_white
     )
 
