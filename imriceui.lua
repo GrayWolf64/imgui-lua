@@ -2,9 +2,6 @@ ImRiceUI = ImRiceUI or {}
 
 local IsValid = IsValid
 
-local remove_at = table.remove
-local insert_at = table.insert
-
 local ipairs = ipairs
 local assert = assert
 
@@ -32,6 +29,10 @@ local ImResizeGripDef = {
     {CornerPos = ImVec2(1, 1), InnerDir = ImVec2(-1, -1)}, -- Bottom right grip
     {CornerPos = ImVec2(0, 1), InnerDir = ImVec2( 1, -1)} -- Bottom left
 }
+
+--- If lower, the window title cross or arrow will look awful
+-- TODO: let client decide?
+RunConsoleCommand("mat_antialias", "8")
 
 --- Notable: VGUIMousePressAllowed?
 local GDummyPanel = GDummyPanel or nil
@@ -81,15 +82,6 @@ local function SetMouseCursor(cursor_str)
     if not IsValid(GDummyPanel) then return end
 
     GDummyPanel:SetCursor(cursor_str)
-end
-
---- If lower, the window title cross or arrow will look awful
--- TODO: let client decide?
-RunConsoleCommand("mat_antialias", "8")
-
-local function ParseRGBA(str)
-    local r, g, b, a = str:match("ImVec4%(([%d%.]+)f?, ([%d%.]+)f?, ([%d%.]+)f?, ([%d%.]+)f?%)")
-    return {r = tonumber(r) * 255, g = tonumber(g) * 255, b = tonumber(b) * 255, a = tonumber(a) * 255}
 end
 
 --- Use FNV1a, as one ImGui FIXME suggested
@@ -1208,7 +1200,7 @@ local function FindHoveredWindow()
     end
 
     --- Our window isn't actually a window. It doesn't "exist"
-    -- need to block input to other game ui like Derma panels, and prevent render artifacts
+    -- need to block input to other game ui like Derma panels
     if GImRiceUI.HoveredWindow then
         AttachDummyPanel(0, 0, ScrW(), ScrH())
     else
