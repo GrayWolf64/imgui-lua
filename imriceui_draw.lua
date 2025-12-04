@@ -2,7 +2,7 @@ local surface = surface
 local render  = render
 local draw    = draw
 
-local ImVector, ImVec2, ImVec4, ImRect = include("imriceui_internal.lua")
+local ImVector, ImVec2, ImVec4, ImVec1, ImRect = include("imriceui_internal.lua")
 
 local function ParseImGuiCol(str)
     local r, g, b, a = str:match("ImVec4%(([%d%.]+)f?, ([%d%.]+)f?, ([%d%.]+)f?, ([%d%.]+)f?%)")
