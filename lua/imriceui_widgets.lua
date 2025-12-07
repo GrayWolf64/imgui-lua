@@ -1,3 +1,5 @@
+if IMGUI_INCLUDE_START() then return end
+
 IMGUI_FUNC_DEF_START("ButtonBehavior")
 local function ButtonBehavior(button_id, bb)
     local g = GImRiceUI

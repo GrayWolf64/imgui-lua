@@ -1,5 +1,5 @@
 --- This is a temporary load file script for testing ImRiceUI
--- This also should be a preprocessor file that includes code into the imriceui.lua file before it is executed
+-- This also should be a preprocessor file that includes code into the imriceui.lua file before it's executed
 -- because GMod limits a file size compressed to 64kb, and the main file is growing so quickly
 --
 
@@ -7,6 +7,10 @@ local pattern_funcdef = "IMGUI_FUNC_DEF_START%(%\"(.-)%\"%)(.-)IMGUI_FUNC_DEF_EN
 local pattern_funcinclude = "IMGUI_INCLUDE_FUNC%(%\"(.-)%\", %\"(.-)%\"%)"
 
 local function func_to_replace(func_name, file_name) return "IMGUI_INCLUDE_FUNC(\"" .. func_name .. "\", \"" .. file_name .. "\")" end
+
+--- use `if IMGUI_INCLUDE_START() then return end` to mark the include section has started.
+-- The rest of the file will be ignored by GMod `include()`
+function IMGUI_INCLUDE_START() return true end
 
 function IMGUI_FUNC_DEF_START(_func_name) end
 function IMGUI_FUNC_DEF_END() end
