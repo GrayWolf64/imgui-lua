@@ -355,6 +355,17 @@ local function ItemSize(size, text_baseline_y)
     -- SameLine();
 end
 
+--- bool ImGui::IsItemActive()
+local function IsItemActive()
+    local g = GImRiceUI
+
+    if g.ActiveID ~= 0 then
+        return g.ActiveID == g.LastItemData.ID
+    end
+
+    return false
+end
+
 --- void ImGuiStyle::ScaleAllSizes
 -- local function ScaleAllSizes(scale_factor)
 
@@ -1122,11 +1133,17 @@ local function EndFrame()
     UpdateMouseMovingWindowEndFrame()
 end
 
+--- void ImGui::Shutdown()
+
 --- Exposure, have to be careful with this
 --
 function ImRiceUI:GetIO() return GImRiceUI.IO end
 
---- void ImGui::Shutdown()
+-- function ImRiceUI:Begin(name, p_open) return Begin(name, p_open) end
+-- function ImRiceUI:End() End() end
+
+-- function ImRiceUI:NewFrame() NewFrame() end
+-- function ImRiceUI:EndFrame() EndFrame() end
 
 --- TEST HERE:
 
