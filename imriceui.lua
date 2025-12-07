@@ -1,1 +1,1 @@
-/lua/imriceui.lua
+./lua/imriceui.lua
