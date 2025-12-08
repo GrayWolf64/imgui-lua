@@ -2,8 +2,6 @@
 --
 ImGui = ImGui or {}
 
-local INF = math.huge
-
 local GImGui = nil
 
 local ImDir_Left  = 0
@@ -14,8 +12,6 @@ local ImDir_Down  = 3
 --- font_data size range: 4~255
 local IM_FONT_SIZE_MIN = 4
 local IM_FONT_SIZE_MAX = 255
-
-local IMGUI_WINDOW_HARD_MIN_SIZE = 16
 
 IMGUI_INCLUDE("imgui_internal.lua")
 
@@ -47,30 +43,6 @@ local function ImHashStr(str)
 end
 
 IMGUI_INCLUDE("imgui_draw.lua")
-
---- ImGui::RenderArrow
-local function RenderArrow(draw_list, pos, color, dir, scale)
-    local h = GImGui.FontSize
-    local r = h * 0.40 * scale
-
-    center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
-
-    local a, b, c
-
-    if dir == ImDir_Up or dir == ImDir_Down then
-        if dir == ImDir_Up then r = -r end
-        a = ImVec2( 0.000,  0.750) * r
-        b = ImVec2(-0.866, -0.750) * r
-        c = ImVec2( 0.866, -0.750) * r
-    elseif dir == ImDir_Left or dir == ImDir_Right then
-        if dir == ImDir_Left then r = -r end
-        a = ImVec2( 0.750,  0.000) * r
-        b = ImVec2(-0.750,  0.866) * r
-        c = ImVec2(-0.750, -0.866) * r
-    end
-
-    AddTriangleFilled(draw_list, {center + a, center + b, center + c}, color)
-end
 
 local FontDataDefault, FontCopy, FontDataToString = include("imgui_h.lua")
 
@@ -701,12 +673,12 @@ local function RenderFrame(p_min, p_max, fill_col, borders, rounding) -- TODO: i
     local g = GImGui
     local window = g.CurrentWindow
 
-    AddRectFilled(window.DrawList, fill_col, p_min, p_max, rounding)
+    window.DrawList:AddRectFilled(fill_col, p_min, p_max, rounding)
 
     local border_size = g.Style.FrameBorderSize
     if borders and border_size > 0 then
-        AddRectOutline(window.DrawList, g.Style.Colors.BorderShadow, p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), border_size)
-        AddRectOutline(window.DrawList, g.Style.Colors.Border, p_min, p_max, border_size)
+        window.DrawList:AddRectOutline(g.Style.Colors.BorderShadow, p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), border_size)
+        window.DrawList:AddRectOutline(g.Style.Colors.Border, p_min, p_max, border_size)
     end
 end
 
@@ -727,10 +699,10 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
         RenderFrame(title_bar_rect.Min, title_bar_rect.Max, g.Style.Colors.TitleBgCollapsed, true)
     else
         -- Title bar
-        AddRectFilled(window.DrawList, title_color,
+        window.DrawList:AddRectFilled(title_color,
             title_bar_rect.Min, title_bar_rect.Max)
         -- Window background
-        AddRectFilled(window.DrawList, g.Style.Colors.WindowBg,
+        window.DrawList:AddRectFilled(g.Style.Colors.WindowBg,
             window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size)
 
         -- Resize grip(s)
@@ -756,11 +728,11 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
                 }
             end
 
-            AddTriangleFilled(window.DrawList, grip_indices, resize_grip_colors[i] or ImNoColor)
+            window.DrawList:AddTriangleFilled(grip_indices, resize_grip_colors[i] or ImNoColor)
         end
 
         -- RenderWindowOuterBorders?
-        AddRectOutline(window.DrawList, g.Style.Colors.Border,
+        window.DrawList:AddRectOutline(g.Style.Colors.Border,
             window.Pos, window.Pos + window.Size, border_width)
     end
 end
@@ -792,7 +764,7 @@ local function RenderWindowTitleBarContents(window, p_open)
     surface.SetFont(g.Font) -- TODO: layouting
     local _, text_h = surface.GetTextSize(window.Name)
     local text_clip_width = window.Size.x - window.TitleBarHeight - close_button_size - collapse_button_size
-    RenderTextClipped(window.DrawList, window.Name, g.Font,
+    window.DrawList:RenderTextClipped(window.Name, g.Font,
         ImVec2(window.Pos.x + window.TitleBarHeight, window.Pos.y + (window.TitleBarHeight - text_h) / 1.3),
         g.Style.Colors.Text,
         text_clip_width, window.Size.y)

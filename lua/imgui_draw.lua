@@ -52,52 +52,52 @@ function _ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleSegmentMaxError)
 end
 
-local function AddDrawCmd(draw_list, draw_call, ...)
-    draw_list.CmdBuffer[#draw_list.CmdBuffer + 1] = {draw_call = draw_call, args = {...}}
+function _ImDrawList:AddDrawCmd(draw_call, ...)
+    self.CmdBuffer[#self.CmdBuffer + 1] = {draw_call = draw_call, args = {...}}
 end
 
-local function AddRectFilled(draw_list, color, p_min, p_max)
-    AddDrawCmd(draw_list, surface.SetDrawColor, color)
-    AddDrawCmd(draw_list, surface.DrawRect, p_min.x, p_min.y, p_max.x - p_min.x, p_max.y - p_min.y)
+function _ImDrawList:AddRectFilled(color, p_min, p_max)
+    self:AddDrawCmd(surface.SetDrawColor, color)
+    self:AddDrawCmd(surface.DrawRect, p_min.x, p_min.y, p_max.x - p_min.x, p_max.y - p_min.y)
 end
 
-local function AddRectOutline(draw_list, color, p_min, p_max, thickness)
-    AddDrawCmd(draw_list, surface.SetDrawColor, color)
-    AddDrawCmd(draw_list, surface.DrawOutlinedRect, p_min.x, p_min.y, p_max.x - p_min.x, p_max.y - p_min.y, thickness)
+function _ImDrawList:AddRectOutline(color, p_min, p_max, thickness)
+    self:AddDrawCmd(surface.SetDrawColor, color)
+    self:AddDrawCmd(surface.DrawOutlinedRect, p_min.x, p_min.y, p_max.x - p_min.x, p_max.y - p_min.y, thickness)
 end
 
-local function AddText(draw_list, text, font, pos, color)
-    AddDrawCmd(draw_list, surface.SetTextPos, pos.x, pos.y)
-    AddDrawCmd(draw_list, surface.SetFont, font)
-    AddDrawCmd(draw_list, surface.SetTextColor, color)
-    AddDrawCmd(draw_list, surface.DrawText, text)
+function _ImDrawList:AddText(text, font, pos, color)
+    self:AddDrawCmd(surface.SetTextPos, pos.x, pos.y)
+    self:AddDrawCmd(surface.SetFont, font)
+    self:AddDrawCmd(surface.SetTextColor, color)
+    self:AddDrawCmd(surface.DrawText, text)
 end
 
-local function AddLine(draw_list, p1, p2, color)
-    AddDrawCmd(draw_list, surface.SetDrawColor, color)
-    AddDrawCmd(draw_list, surface.DrawLine, p1.x, p1.y, p2.x, p2.y)
+function _ImDrawList:AddLine(p1, p2, color)
+    self:AddDrawCmd(surface.SetDrawColor, color)
+    self:AddDrawCmd(surface.DrawLine, p1.x, p1.y, p2.x, p2.y)
 end
 
 --- Points must be in clockwise order
-local function AddTriangleFilled(draw_list, indices, color)
-    AddDrawCmd(draw_list, surface.SetDrawColor, color)
-    AddDrawCmd(draw_list, draw.NoTexture)
-    AddDrawCmd(draw_list, surface.DrawPoly, indices)
+function _ImDrawList:AddTriangleFilled(indices, color)
+    self:AddDrawCmd(surface.SetDrawColor, color)
+    self:AddDrawCmd(draw.NoTexture)
+    self:AddDrawCmd(surface.DrawPoly, indices)
 end
 
-local function RenderTextClipped(draw_list, text, font, pos, color, w, h)
+function _ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     surface.SetFont(font)
     local text_width, text_height = surface.GetTextSize(text)
     local need_clipping = text_width > w or text_height > h
 
     if need_clipping then
-        AddDrawCmd(draw_list, render.SetScissorRect, pos.x, pos.y, pos.x + w, pos.y + h, true)
+        self:AddDrawCmd(render.SetScissorRect, pos.x, pos.y, pos.x + w, pos.y + h, true)
     end
 
-    AddText(draw_list, text, font, pos, color)
+    self:AddText(text, font, pos, color)
 
     if need_clipping then
-        AddDrawCmd(draw_list, render.SetScissorRect, 0, 0, 0, 0, false)
+        self:AddDrawCmd(render.SetScissorRect, 0, 0, 0, 0, false)
     end
 end
 
@@ -116,7 +116,31 @@ local function PushClipRect(draw_list, cr_min, cr_max, intersect_with_current_cl
     cr.z = math.max(cr.x, cr.z) -- TODO: ImMax
     cr.w = math.max(cr.y, cr.w)
 
-    table.insert(draw_list._ClipRectStack, cr)
+    insert_at(draw_list._ClipRectStack, cr)
     draw_list._CmdHeader.ClipRect = cr
     -- _OnChangedClipRect()
+end
+
+--- ImGui::RenderArrow
+local function RenderArrow(draw_list, pos, color, dir, scale)
+    local h = GImGui.FontSize -- TODO: draw_list->_Data->FontSize * 1.00f?
+    local r = h * 0.40 * scale
+
+    center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
+
+    local a, b, c
+
+    if dir == ImDir_Up or dir == ImDir_Down then
+        if dir == ImDir_Up then r = -r end
+        a = ImVec2( 0.000,  0.750) * r
+        b = ImVec2(-0.866, -0.750) * r
+        c = ImVec2( 0.866, -0.750) * r
+    elseif dir == ImDir_Left or dir == ImDir_Right then
+        if dir == ImDir_Left then r = -r end
+        a = ImVec2( 0.750,  0.000) * r
+        b = ImVec2(-0.750,  0.866) * r
+        c = ImVec2(-0.750, -0.866) * r
+    end
+
+    draw_list:AddTriangleFilled({center + a, center + b, center + c}, color)
 end

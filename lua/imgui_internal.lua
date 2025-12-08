@@ -1,6 +1,7 @@
 --- Some internal structures
 -- I won't implement type checks, since I ensure that types are correct in internal usage,
 -- and runtime type checking is very slow
+local insert_at    = table.insert
 local remove_at    = table.remove
 local setmetatable = setmetatable
 local next         = next
@@ -23,6 +24,7 @@ local surface = surface
 local render  = render
 local draw    = draw
 
+local INF = math.huge
 local IM_PI = math.pi
 local ImMin = math.min
 local ImMax = math.max
@@ -36,6 +38,8 @@ local function ImLerp(a, b, t) return a + (b - a) * t end
 local function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 local function ImTrunc(f) return ImFloor(f + 0.5) end
 local function IM_ROUNDUP_TO_EVEN(n) return ImCeil(n / 2) * 2 end
+
+local IMGUI_WINDOW_HARD_MIN_SIZE = 16 -- 4
 
 local IM_DRAWLIST_ARCFAST_TABLE_SIZE = 48
 local IM_DRAWLIST_ARCFAST_SAMPLE_MAX = 48
@@ -110,6 +114,22 @@ function _ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (sel
 
 local function ImRect(min, max) return setmetatable({Min = ImVec2(min and min.x or 0, min and min.y or 0), Max = ImVec2(max and max.x or 0, max and max.y or 0)}, _ImRect) end
 
+--- struct ImDrawList
+-- imgui.h
+local _ImDrawList = {}
+_ImDrawList.__index = _ImDrawList
+
+function ImDrawList()
+    return setmetatable({
+        CmdBuffer = {},
+
+        _CmdHeader = {},
+        _ClipRectStack = {}
+    }, _ImDrawList)
+end
+
+--- struct IMGUI_API ImDrawListSharedData
+-- imgui_internal.h
 local _ImDrawListSharedData = {}
 _ImDrawListSharedData.__index = _ImDrawListSharedData
 
@@ -284,13 +304,7 @@ local function ImGuiWindow()
         ScrollbarX = false,
         ScrollbarY = false,
 
-        --- struct ImDrawList
-        DrawList = {
-            CmdBuffer = {},
-
-            _CmdHeader = {},
-            _ClipRectStack = {}
-        },
+        DrawList = ImDrawList(),
 
         IDStack = ImVector(),
 
