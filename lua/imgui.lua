@@ -1,10 +1,10 @@
 --- ImGui for Garry's Mod written in pure Lua
 --
-ImRiceUI = ImRiceUI or {}
+ImGui = ImGui or {}
 
 local INF = math.huge
 
-local GImRiceUI = nil
+local GImGui = nil
 
 local ImDir_Left  = 0
 local ImDir_Right = 1
@@ -17,14 +17,14 @@ local IM_FONT_SIZE_MAX = 255
 
 local IMGUI_WINDOW_HARD_MIN_SIZE = 16
 
-IMGUI_INCLUDE("imriceui_internal.lua")
+IMGUI_INCLUDE("imgui_internal.lua")
 
 local ImResizeGripDef = {
     {CornerPos = ImVec2(1, 1), InnerDir = ImVec2(-1, -1)}, -- Bottom right grip
     {CornerPos = ImVec2(0, 1), InnerDir = ImVec2( 1, -1)} -- Bottom left
 }
 
-IMGUI_INCLUDE("imriceui_impl_gmod.lua")
+IMGUI_INCLUDE("imgui_impl_gmod.lua")
 
 --- Use FNV1a, as one ImGui FIXME suggested
 local str_byte, bit_bxor, bit_band = string.byte, bit.bxor, bit.band
@@ -46,11 +46,11 @@ local function ImHashStr(str)
     return hash
 end
 
-IMGUI_INCLUDE("imriceui_draw.lua")
+IMGUI_INCLUDE("imgui_draw.lua")
 
 --- ImGui::RenderArrow
 local function RenderArrow(draw_list, pos, color, dir, scale)
-    local h = GImRiceUI.FontSize
+    local h = GImGui.FontSize
     local r = h * 0.40 * scale
 
     center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
@@ -72,7 +72,7 @@ local function RenderArrow(draw_list, pos, color, dir, scale)
     AddTriangleFilled(draw_list, {center + a, center + b, center + c}, color)
 end
 
-local FontDataDefault, FontCopy, FontDataToString = include("imriceui_h.lua")
+local FontDataDefault, FontCopy, FontDataToString = include("imgui_h.lua")
 
 local function ImHashFontData(font_data)
     return "ImFont" .. ImHashStr(FontDataToString(font_data))
@@ -96,7 +96,7 @@ end
 
 --- void ImGui::UpdateCurrentFontSize
 local function UpdateCurrentFontSize(restore_font_size_after_scaling)
-    local g = GImRiceUI
+    local g = GImGui
 
     local final_size
     if restore_font_size_after_scaling > 0 then
@@ -127,7 +127,7 @@ end
 
 --- void ImGui::SetCurrentFont
 local function SetCurrentFont(font_name, font_size_before_scaling, font_size_after_scaling)
-    local g = GImRiceUI
+    local g = GImGui
 
     g.Font = font_name
     g.FontSizeBase = font_size_before_scaling
@@ -135,7 +135,7 @@ local function SetCurrentFont(font_name, font_size_before_scaling, font_size_aft
 end
 
 local function PushFont(font_name, font_size_base) -- FIXME: checks not implemented?
-    local g = GImRiceUI
+    local g = GImGui
 
     if not font_name or font_name == "" then
         font_name = g.Font
@@ -155,7 +155,7 @@ local function PushFont(font_name, font_size_base) -- FIXME: checks not implemen
 end
 
 local function PopFont()
-    local g = GImRiceUI
+    local g = GImGui
 
     if g.FontStack:size() == 0 then return end
 
@@ -174,7 +174,7 @@ end
 
 --- void ImGui::UpdateFontsNewFrame
 local function UpdateFontsNewFrame() -- TODO: investigate
-    local g = GImRiceUI
+    local g = GImGui
 
     g.Font = GetDefaultFont()
 
@@ -207,14 +207,14 @@ local MouseButtonMap = {
 
 -- ImGuiContext::ImGuiContext(ImFontAtlas* shared_font_atlas)
 local function CreateContext()
-    GImRiceUI = ImGuiContext()
+    GImGui = ImGuiContext()
 
-    GImRiceUI.Style.Colors = StyleColorsDark
-    GImRiceUI.Config = DefaultConfig
+    GImGui.Style.Colors = StyleColorsDark
+    GImGui.Config = DefaultConfig
 
-    for i = 0, 59 do GImRiceUI.FramerateSecPerFrame[i] = 0 end
+    for i = 0, 59 do GImGui.FramerateSecPerFrame[i] = 0 end
 
-    return GImRiceUI
+    return GImGui
 end
 
 --- void ImGui::DestroyContext
@@ -223,7 +223,7 @@ end
 -- end
 
 local function CreateNewWindow(name)
-    local g = GImRiceUI
+    local g = GImGui
 
     if not g then return end
 
@@ -255,7 +255,7 @@ end
 
 --- void ImGui::KeepAliveID(ImGuiID id)
 local function KeepAliveID(id)
-    local g = GImRiceUI
+    local g = GImGui
 
     if g.ActiveID == id then
         g.ActiveIDIsAlive = id
@@ -268,7 +268,7 @@ end
 
 --- bool ImGui::ItemAdd
 local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
-    local g = GImRiceUI
+    local g = GImGui
     local window = g.CurrentWindow
 
     g.LastItemData.ID = id
@@ -294,7 +294,7 @@ local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
 end
 
 local function ItemSize(size, text_baseline_y)
-    local g = GImRiceUI
+    local g = GImGui
     local window = g.CurrentWindow
 
     if window.SkipItems then return end
@@ -336,7 +336,7 @@ end
 
 --- bool ImGui::IsItemActive()
 local function IsItemActive()
-    local g = GImRiceUI
+    local g = GImGui
 
     if g.ActiveID ~= 0 then
         return g.ActiveID == g.LastItemData.ID
@@ -352,7 +352,7 @@ end
 
 --- void ImGui::BringWindowToDisplayFront(ImGuiWindow* window)
 local function BringWindowToDisplayFront(window)
-    local g = GImRiceUI
+    local g = GImGui
 
     local current_front_window = g.Windows:peek()
 
@@ -370,14 +370,14 @@ end
 
 --- void ImGui::SetNavWindow
 local function SetNavWindow(window)
-    if GImRiceUI.NavWindow ~= window then
-        GImRiceUI.NavWindow = window
+    if GImGui.NavWindow ~= window then
+        GImGui.NavWindow = window
     end
 end
 
 --- void ImGui::FocusWindow
 local function FocusWindow(window)
-    if GImRiceUI.NavWindow ~= window then
+    if GImGui.NavWindow ~= window then
         SetNavWindow(window)
     end
 
@@ -390,12 +390,12 @@ end
 
 --- void ImGui::StopMouseMovingWindow()
 local function StopMouseMovingWindow()
-    GImRiceUI.MovingWindow = nil
+    GImGui.MovingWindow = nil
 end
 
 --- void ImGui::SetActiveID
 local function SetActiveID(id, window)
-    local g = GImRiceUI
+    local g = GImGui
 
     if g.ActiveID ~= 0 then
         g.DeactivatedItemData.ID = g.ActiveID
@@ -424,14 +424,14 @@ local function ClearActiveID()
 end
 
 local function PushID(str_id)
-    local window = GImRiceUI.CurrentWindow
+    local window = GImGui.CurrentWindow
     if not window then return end
 
     window.IDStack:push_back(str_id)
 end
 
 local function PopID()
-    local window = GImRiceUI.CurrentWindow
+    local window = GImGui.CurrentWindow
     if not window then return end
 
     window.IDStack:pop_back()
@@ -439,7 +439,7 @@ end
 
 local table_concat = table.concat
 local function GetID(str_id)
-    local window = GImRiceUI.CurrentWindow
+    local window = GImGui.CurrentWindow
     if not window then return end
 
     local full_string = table_concat(window.IDStack._items, "#") .. "#" .. (str_id or "") -- FIXME: no _items
@@ -450,19 +450,19 @@ end
 local function IsMouseHoveringRect(r_min, r_max)
     local rect_clipped = ImRect(r_min, r_max)
 
-    return rect_clipped:contains_point(GImRiceUI.IO.MousePos)
+    return rect_clipped:contains_point(GImGui.IO.MousePos)
 end
 
 --- void ImGui::SetHoveredID
 local function SetHoveredID(id)
-    local g = GImRiceUI
+    local g = GImGui
 
     g.HoveredID = id
 end
 
 --- bool ImGui::ItemHoverable
 local function ItemHoverable(id, bb)
-    local g = GImRiceUI
+    local g = GImGui
 
     local window = g.CurrentWindow
 
@@ -487,14 +487,14 @@ end
 
 --- bool ImGui::IsMouseDown
 local function IsMouseDown(button)
-    local g = GImRiceUI
+    local g = GImGui
 
     return g.IO.MouseDown[button]
 end
 
 --- bool ImGui::IsMouseClicked
 local function IsMouseClicked(button)
-    local g = GImRiceUI
+    local g = GImGui
 
     if not g.IO.MouseDown[button] then
         return false
@@ -513,7 +513,7 @@ local function IsMouseClicked(button)
     return true
 end
 
-IMGUI_INCLUDE("imriceui_widgets.lua")
+IMGUI_INCLUDE("imgui_widgets.lua")
 
 --- static bool IsWindowActiveAndVisible
 local function IsWindowActiveAndVisible(window)
@@ -522,7 +522,7 @@ end
 
 --- static inline ImVec2 CalcWindowMinSize
 local function CalcWindowMinSize(window)
-    local g = GImRiceUI
+    local g = GImGui
 
     local size_min = ImVec2()
 
@@ -573,7 +573,7 @@ end
 
 --- static int ImGui::UpdateWindowManualResize
 local function UpdateWindowManualResize(window, resize_grip_colors)
-    local g = GImRiceUI
+    local g = GImGui
 
     if window.WasActive == false then return end
 
@@ -669,7 +669,7 @@ end
 local function CalcWrapWidthForPos(pos, wrap_pos_x)
     if wrap_pos_x < 0 then return 0 end
 
-    local g = GImRiceUI
+    local g = GImGui
     local window = g.CurrentWindow
 
     -- if wrap_pos_x == 0 then
@@ -678,7 +678,7 @@ local function CalcWrapWidthForPos(pos, wrap_pos_x)
 end
 
 local function Text(str_text)
-    local g = GImRiceUI
+    local g = GImGui
     local window = g.CurrentWindow
 
     if window.SkipItems then return end
@@ -698,7 +698,7 @@ end
 
 --- ImGui::RenderFrame
 local function RenderFrame(p_min, p_max, fill_col, borders, rounding) -- TODO: implement rounding
-    local g = GImRiceUI
+    local g = GImGui
     local window = g.CurrentWindow
 
     AddRectFilled(window.DrawList, fill_col, p_min, p_max, rounding)
@@ -712,7 +712,7 @@ end
 
 --- ImGui::RenderWindowDecorations
 local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highlight, resize_grip_colors, resize_grip_draw_size)
-    local g = GImRiceUI
+    local g = GImGui
 
     local title_color
     if titlebar_is_highlight then
@@ -767,7 +767,7 @@ end
 
 --- ImGui::RenderWindowTitleBarContents
 local function RenderWindowTitleBarContents(window, p_open)
-    local g = GImRiceUI
+    local g = GImGui
 
     local pad_l = g.Style.FramePadding.x
     local pad_r = g.Style.FramePadding.x
@@ -800,7 +800,7 @@ end
 
 local unpack = unpack
 local function Render()
-    for _, window in GImRiceUI.Windows:iter() do
+    for _, window in GImGui.Windows:iter() do
         if window and IsWindowActiveAndVisible(window) and window.DrawList then
             for _, cmd in ipairs(window.DrawList.CmdBuffer) do
                 cmd.draw_call(unpack(cmd.args))
@@ -811,7 +811,7 @@ end
 
 --- static void SetCurrentWindow
 local function SetCurrentWindow(window)
-    local g = GImRiceUI
+    local g = GImGui
     g.CurrentWindow = window
 
     if window then
@@ -843,7 +843,7 @@ end
 
 --- void ImGui::StartMouseMovingWindow
 local function StartMouseMovingWindow(window)
-    local g = GImRiceUI
+    local g = GImGui
 
     FocusWindow(window)
     SetActiveID(window.MoveID, window)
@@ -855,7 +855,7 @@ end
 
 --- void ImGui::UpdateMouseMovingWindowNewFrame
 local function UpdateMouseMovingWindowNewFrame()
-    local g = GImRiceUI
+    local g = GImGui
     local window = g.MovingWindow
 
     if window then
@@ -882,7 +882,7 @@ end
 
 --- void ImGui::UpdateMouseMovingWindowEndFrame()
 local function UpdateMouseMovingWindowEndFrame()
-    local g = GImRiceUI
+    local g = GImGui
 
     if g.ActiveID ~= 0 or g.HoveredID ~= 0 then return end
 
@@ -900,7 +900,7 @@ end
 
 --- ImGui::FindWindowByID
 local function FindWindowByID(id)
-    local g = GImRiceUI
+    local g = GImGui
 
     if not g then return end
 
@@ -915,7 +915,7 @@ end
 
 -- `p_open` will be set to false when the close button is pressed.
 local function Begin(name, p_open)
-    local g = GImRiceUI
+    local g = GImGui
 
     if name == nil or name == "" then return false end
     -- IM_ASSERT(g.FrameCountEnded != g.FrameCount)
@@ -979,7 +979,7 @@ local function Begin(name, p_open)
 end
 
 local function End()
-    local g = GImRiceUI
+    local g = GImGui
 
     local window = g.CurrentWindow
     if not window then return end
@@ -991,7 +991,7 @@ local function End()
 end
 
 local function FindHoveredWindowEx()
-    local g = GImRiceUI
+    local g = GImGui
 
     g.HoveredWindow = nil
 
@@ -1012,7 +1012,7 @@ end
 
 --- void ImGui::UpdateHoveredWindowAndCaptureFlags
 local function UpdateHoveredWindowAndCaptureFlags()
-    local g = GImRiceUI
+    local g = GImGui
     local io = g.IO
 
     FindHoveredWindowEx()
@@ -1052,7 +1052,7 @@ end
 
 --- ImGui::UpdateMouseInputs()
 local function UpdateMouseInputs()
-    local g = GImRiceUI
+    local g = GImGui
     local io = g.IO
 
     io.MousePos.x = GetMouseX()
@@ -1090,7 +1090,7 @@ local function UpdateMouseInputs()
 end
 
 local function NewFrame()
-    local g = GImRiceUI
+    local g = GImGui
 
     g.Time = g.Time + g.IO.DeltaTime
 
@@ -1141,7 +1141,7 @@ local function NewFrame()
 end
 
 local function EndFrame()
-    local g = GImRiceUI
+    local g = GImGui
 
     if g.FrameCountEnded == g.FrameCount then return end
 
@@ -1155,25 +1155,24 @@ end
 
 --- Exposure, have to be careful with this
 --
-function ImRiceUI:GetIO() return GImRiceUI.IO end
+function ImGui:GetIO() return GImGui.IO end
 
--- function ImRiceUI:Begin(name, p_open) return Begin(name, p_open) end
--- function ImRiceUI:End() End() end
+-- function ImGui:Begin(name, p_open) return Begin(name, p_open) end
+-- function ImGui:End() End() end
 
--- function ImRiceUI:NewFrame() NewFrame() end
--- function ImRiceUI:EndFrame() EndFrame() end
+-- function ImGui:NewFrame() NewFrame() end
+-- function ImGui:EndFrame() EndFrame() end
 
 --- TEST HERE:
 
-ImRiceUI_ImplGMOD_Init()
+ImGui_ImplGMOD_Init()
 
 CreateContext()
 
-local str_format = string.format
-hook.Add("PostRender", "ImRiceUI", function()
+hook.Add("PostRender", "ImGuiTest", function()
     cam.Start2D()
 
-    ImRiceUI_ImplGMOD_NewFrame()
+    ImGui_ImplGMOD_NewFrame()
 
     NewFrame()
 
@@ -1185,7 +1184,7 @@ hook.Add("PostRender", "ImRiceUI", function()
     End()
 
     local window2_open = {true}
-    Begin("ImRiceUI Demo", window2_open)
+    Begin("ImGui Demo", window2_open)
     End()
 
     EndFrame()
@@ -1193,7 +1192,7 @@ hook.Add("PostRender", "ImRiceUI", function()
     Render()
 
     -- Temporary
-    local g = GImRiceUI
+    local g = GImGui
     draw.DrawText(
         str_format(
             "ActiveID: %s\nActiveIDWindow: %s\nHoveredWindow: %s\nActiveIDIsAlive: %s\nActiveIDPreviousFrame: %s\n\nMem: %dkb\nFramerate: %d\n\n io.WantCaptureMouse: %s",

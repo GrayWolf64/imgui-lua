@@ -52,10 +52,10 @@ local function SetMouseCursor(cursor_str)
     GDummyPanel:SetCursor(cursor_str)
 end
 
-local ImRiceUI_ImplGMOD_Data = ImRiceUI_ImplGMOD_Data or nil
+local ImGui_ImplGMOD_Data = ImGui_ImplGMOD_Data or nil
 
-local function ImRiceUI_ImplGMOD_Init()
-    ImRiceUI_ImplGMOD_Data = {
+local function ImGui_ImplGMOD_Init()
+    ImGui_ImplGMOD_Data = {
         Time = 0
     }
 
@@ -64,13 +64,13 @@ local function ImRiceUI_ImplGMOD_Init()
     end)
 end
 
-local function ImRiceUI_ImplGMOD_Shutdown()
+local function ImGui_ImplGMOD_Shutdown()
     hook.Remove("PostGamemodeLoaded", "ImGDummyWindow")
 end
 
-local function ImRiceUI_ImplGMOD_NewFrame()
-    local io = ImRiceUI:GetIO()
-    local bd = ImRiceUI_ImplGMOD_Data
+local function ImGui_ImplGMOD_NewFrame()
+    local io = ImGui:GetIO()
+    local bd = ImGui_ImplGMOD_Data
 
     io.DisplaySize = ImVec2(ScrW(), ScrH())
 

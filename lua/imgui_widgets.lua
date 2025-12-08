@@ -1,5 +1,5 @@
 local function ButtonBehavior(button_id, bb)
-    local g = GImRiceUI
+    local g = GImGui
 
     local io = g.IO
     local hovered = ItemHoverable(button_id, bb)
@@ -30,7 +30,7 @@ local function ButtonBehavior(button_id, bb)
 end
 
 local function CloseButton(id, pos)
-    local g = GImRiceUI
+    local g = GImGui
     local window = g.CurrentWindow
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
@@ -55,7 +55,7 @@ local function CloseButton(id, pos)
 end
 
 local function CollapseButton(id, pos)
-    local g = GImRiceUI
+    local g = GImGui
     local window = g.CurrentWindow
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
