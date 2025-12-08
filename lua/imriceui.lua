@@ -2,17 +2,6 @@
 --
 ImRiceUI = ImRiceUI or {}
 
-local ipairs = ipairs
-local assert = assert
-
-local ScrW = ScrW
-local ScrH = ScrH
-
-local SysTime = SysTime
-
-local GetMouseX = gui.MouseX
-local GetMouseY = gui.MouseY
-
 local INF = math.huge
 
 local GImRiceUI = nil
@@ -26,16 +15,16 @@ local ImDir_Down  = 3
 local IM_FONT_SIZE_MIN = 4
 local IM_FONT_SIZE_MAX = 255
 
-local ImVector, ImVec2, ImVec4, ImVec1, ImRect,
-    ImGuiContext, ImGuiWindow = include("imriceui_internal.lua")
+local IMGUI_WINDOW_HARD_MIN_SIZE = 16
+
+IMGUI_INCLUDE("imriceui_internal.lua")
 
 local ImResizeGripDef = {
     {CornerPos = ImVec2(1, 1), InnerDir = ImVec2(-1, -1)}, -- Bottom right grip
     {CornerPos = ImVec2(0, 1), InnerDir = ImVec2( 1, -1)} -- Bottom left
 }
 
-local SetupDummyPanel, AttachDummyPanel, DetachDummyPanel, SetMouseCursor,
-    ImRiceUI_ImplGMOD_Init, ImRiceUI_ImplGMOD_Shutdown, ImRiceUI_ImplGMOD_NewFrame = include("imriceui_impl_gmod.lua")
+IMGUI_INCLUDE("imriceui_impl_gmod.lua")
 
 --- Use FNV1a, as one ImGui FIXME suggested
 local str_byte, bit_bxor, bit_band = string.byte, bit.bxor, bit.band
@@ -57,17 +46,7 @@ local function ImHashStr(str)
     return hash
 end
 
-local ImMin = math.min
-local ImMax = math.max
-local ImFloor = math.floor
-local ImRound = math.Round
-local function ImLerp(a, b, t) return a + (b - a) * t end
-local function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
-local function ImTrunc(f) return ImFloor(f + 0.5) end
-
-local ImNoColor, StyleColorsDark,
-    AddDrawCmd, AddRectFilled, AddRectOutline, AddText, AddLine,
-    AddTriangleFilled, RenderTextClipped = include("imriceui_draw.lua")
+IMGUI_INCLUDE("imriceui_draw.lua")
 
 --- ImGui::RenderArrow
 local function RenderArrow(draw_list, pos, color, dir, scale)
@@ -534,7 +513,7 @@ local function IsMouseClicked(button)
     return true
 end
 
-IMGUI_INCLUDE_FUNC("ButtonBehavior", "imriceui_widgets.lua")
+IMGUI_INCLUDE("imriceui_widgets.lua")
 
 --- static bool IsWindowActiveAndVisible
 local function IsWindowActiveAndVisible(window)
@@ -542,15 +521,27 @@ local function IsWindowActiveAndVisible(window)
 end
 
 --- static inline ImVec2 CalcWindowMinSize
--- local function CalcWindowMinSize()
+local function CalcWindowMinSize(window)
+    local g = GImRiceUI
 
--- end
+    local size_min = ImVec2()
+
+    size_min.x = ImMax(g.Style.WindowMinSize.x, IMGUI_WINDOW_HARD_MIN_SIZE)
+    size_min.y = ImMax(g.Style.WindowMinSize.y, IMGUI_WINDOW_HARD_MIN_SIZE)
+
+    local window_for_height = window
+    size_min.y = ImMax(size_min.y, window_for_height.TitleBarHeight + ImMax(0, g.Style.WindowRounding - 1))
+
+    return size_min
+end
 
 --- static ImVec2 CalcWindowSizeAfterConstraint
-local function CalcWindowSizeAfterConstraint(window, size_desired) -- TODO: finish
+local function CalcWindowSizeAfterConstraint(window, size_desired)
+    local size_min = CalcWindowMinSize(window)
+
     return ImVec2(
-        ImMax(size_desired.x, GImRiceUI.Style.WindowMinSize.x),
-        ImMax(size_desired.y, GImRiceUI.Style.WindowMinSize.y)
+        ImMax(size_desired.x, size_min.x),
+        ImMax(size_desired.y, size_min.y)
     )
 end
 
@@ -673,8 +664,35 @@ local function UpdateWindowManualResize(window, resize_grip_colors)
     PopID()
 end
 
-IMGUI_INCLUDE_FUNC("CloseButton", "imriceui_widgets.lua")
-IMGUI_INCLUDE_FUNC("CollapseButton", "imriceui_widgets.lua")
+--- TODO: AutoFit -> ScrollBar() -> Text()
+--- float ImGui::CalcWrapWidthForPos
+local function CalcWrapWidthForPos(pos, wrap_pos_x)
+    if wrap_pos_x < 0 then return 0 end
+
+    local g = GImRiceUI
+    local window = g.CurrentWindow
+
+    -- if wrap_pos_x == 0 then
+    --     wrap_pos_x = 
+    -- end
+end
+
+local function Text(str_text)
+    local g = GImRiceUI
+    local window = g.CurrentWindow
+
+    if window.SkipItems then return end
+
+    local strlen = #str_text
+    local text_pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
+
+    local wrap_pos_x = window.DC.TextWrapPos
+    local wrap_enabled = wrap_pos_x >= 0
+
+    -- if strlen <= 2e11 or wrap_enabled then
+
+    -- end
+end
 
 --- ImGui::RenderMouseCursor
 

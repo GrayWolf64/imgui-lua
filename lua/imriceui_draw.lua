@@ -1,19 +1,11 @@
-local surface = surface
-local render  = render
-local draw    = draw
-
 --- If lower, the window title cross or arrow will look awful
 -- TODO: let client decide?
 RunConsoleCommand("mat_antialias", "8")
-
-local ImVector, ImVec2, ImVec4, ImVec1, ImRect = include("imriceui_internal.lua")
 
 local function ParseImGuiCol(str)
     local r, g, b, a = str:match("ImVec4%(([%d%.]+)f?, ([%d%.]+)f?, ([%d%.]+)f?, ([%d%.]+)f?%)")
     return {r = tonumber(r) * 255, g = tonumber(g) * 255, b = tonumber(b) * 255, a = tonumber(a) * 255}
 end
-
-local ImNoColor = {r = 0, g = 0, b = 0, a = 0}
 
 --- ImGui::StyleColorsDark
 local StyleColorsDark = {
@@ -32,6 +24,33 @@ local StyleColorsDark = {
     ResizeGripHovered = ParseImGuiCol("ImVec4(0.26f, 0.59f, 0.98f, 0.67f)"),
     ResizeGripActive  = ParseImGuiCol("ImVec4(0.26f, 0.59f, 0.98f, 0.95f)")
 }
+
+local ImNoColor = {r = 0, g = 0, b = 0, a = 0}
+
+local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN = 4
+local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
+
+function _ImDrawListSharedData:ImDrawListSharedData()
+    for i = 0, IM_DRAWLIST_ARCFAST_TABLE_SIZE - 1 do
+        local a = (i * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
+        self.ArcFastVtx[i] = ImVec2(ImCos(a), ImSin(a))
+    end
+
+    self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleSegmentMaxError)
+end
+
+function _ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
+    if self.CircleSegmentMaxError == max_error then return end
+    -- IM_ASSERT(max_error > 0)
+
+    self.CircleSegmentMaxError = max_error
+    for i = 0, 64 - 1 do
+        local radius = i
+        self.CircleSegmentCounts[i] = i > 0 and IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self.CircleSegmentMaxError) or IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+    end
+
+    self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleSegmentMaxError)
+end
 
 local function AddDrawCmd(draw_list, draw_call, ...)
     draw_list.CmdBuffer[#draw_list.CmdBuffer + 1] = {draw_call = draw_call, args = {...}}
@@ -94,14 +113,10 @@ local function PushClipRect(draw_list, cr_min, cr_max, intersect_with_current_cl
         if cr.w > current.w then cr.w = current.w end
     end
 
-    cr.z = math.max(cr.x, cr.z)
+    cr.z = math.max(cr.x, cr.z) -- TODO: ImMax
     cr.w = math.max(cr.y, cr.w)
 
     table.insert(draw_list._ClipRectStack, cr)
     draw_list._CmdHeader.ClipRect = cr
     -- _OnChangedClipRect()
 end
-
-return ImNoColor, StyleColorsDark,
-    AddDrawCmd, AddRectFilled, AddRectOutline, AddText, AddLine,
-    AddTriangleFilled, RenderTextClipped

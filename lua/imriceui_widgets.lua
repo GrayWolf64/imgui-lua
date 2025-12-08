@@ -1,6 +1,3 @@
-if IMGUI_INCLUDE_START() then return end
-
-IMGUI_FUNC_DEF_START("ButtonBehavior")
 local function ButtonBehavior(button_id, bb)
     local g = GImRiceUI
 
@@ -31,9 +28,7 @@ local function ButtonBehavior(button_id, bb)
 
     return pressed, hovered, held
 end
-IMGUI_FUNC_DEF_END()
 
-IMGUI_FUNC_DEF_START("CloseButton")
 local function CloseButton(id, pos)
     local g = GImRiceUI
     local window = g.CurrentWindow
@@ -58,9 +53,7 @@ local function CloseButton(id, pos)
 
     return pressed
 end
-IMGUI_FUNC_DEF_END()
 
-IMGUI_FUNC_DEF_START("CollapseButton")
 local function CollapseButton(id, pos)
     local g = GImRiceUI
     local window = g.CurrentWindow
@@ -83,4 +76,3 @@ local function CollapseButton(id, pos)
 
     return pressed
 end
-IMGUI_FUNC_DEF_END()

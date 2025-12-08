@@ -1,13 +1,5 @@
 --- All the things strongly related to GMod go here
 -- TODO: Rename the dummy panel?
-local ImRiceUI = ImRiceUI
-
-local IsValid = IsValid
-local SysTime = SysTime
-local ScrW = ScrW
-local ScrH = ScrH
-
-local ImVector, ImVec2, ImVec4, ImVec1, ImRect = include("imriceui_internal.lua")
 
 --- VGUIMousePressAllowed hook can only block mouse clicks to derma elements
 -- and can't block mouse hovering
@@ -86,6 +78,3 @@ local function ImRiceUI_ImplGMOD_NewFrame()
     io.DeltaTime = current_time - bd.Time
     bd.Time = current_time
 end
-
-return SetupDummyPanel, AttachDummyPanel, DetachDummyPanel, SetMouseCursor,
-    ImRiceUI_ImplGMOD_Init, ImRiceUI_ImplGMOD_Shutdown, ImRiceUI_ImplGMOD_NewFrame
