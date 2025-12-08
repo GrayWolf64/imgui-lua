@@ -2,10 +2,9 @@
 
 ## Primary Goal
 
-Try to make RiceLib an *Immediate Mode UI* library.
+Try to make an *Immediate Mode UI* library for Garry's Mod.
 
-In other words, currently I'm implementing an ImGui clone in **pure Lua**, and
-this time it got a name, which is **ImGui**.
+In other words, currently I'm implementing an ImGui clone in **pure Lua**.
 
 Originally I just wanted to make some contributions to [RiceLib](https://github.com/RiceMCUT/Lib-Rice), and it wasn't the first time that I got terrified by the messy and bloat codebase of it. So I set out to remove all the non-UI related features added by *RiceLib* author [RiceMCUT](https://github.com/RiceMCUT) and to make UI creation for GMod in general easier.
 
