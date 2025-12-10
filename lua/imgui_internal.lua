@@ -57,22 +57,21 @@ local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD) return (1 - Im
 local _ImVector = {}
 _ImVector.__index = _ImVector
 
-function _ImVector:push_back(value) self._top = self._top + 1 self._items[self._top] = value end
-function _ImVector:pop_back() if self._top == 0 then return nil end local value = self._items[self._top] self._items[self._top] = nil self._top = self._top - 1 return value end
-function _ImVector:clear() self._top = 0 end
-function _ImVector:clear_delete() for i = 1, self._top do self._items[i] = nil end self._top = 0 end
-function _ImVector:size() return self._top end
-function _ImVector:empty() return self._top == 0 end
-function _ImVector:peek() if self._top == 0 then return nil end return self._items[self._top] end
-function _ImVector:erase(i) if i < 1 or i > self._top then return nil end local removed = remove_at(self._items, i) self._top = self._top - 1 return removed end
-function _ImVector:at(i) if i < 1 or i > self._top then return nil end return self._items[i] end
-function _ImVector:iter() local i, n = 0, self._top return function() i = i + 1 if i <= n then return i, self._items[i] end end end
-function _ImVector:find_index(value) for i = 1, self._top do if self._items[i] == value then return i end end return 0 end
-function _ImVector:erase_unsorted(index) if index < 1 or index > self._top then return false end local last_idx = self._top if index ~= last_idx then self._items[index] = self._items[last_idx] end self._items[last_idx] = nil self._top = self._top - 1 return true end
+function _ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
+function _ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
+function _ImVector:clear() self.Size = 0 end
+function _ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
+function _ImVector:empty() return self.Size == 0 end
+function _ImVector:peek() if self.Size == 0 then return nil end return self.Data[self.Size] end
+function _ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = remove_at(self.Data, i) self.Size = self.Size - 1 return removed end
+function _ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
+function _ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
+function _ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
+function _ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
 function _ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
 function _ImVector:reserve() return end
 
-local function ImVector() return setmetatable({_items = {}, _top = 0}, _ImVector) end
+local function ImVector() return setmetatable({Data = {}, Size = 0}, _ImVector) end
 
 --- ImVec2
 --

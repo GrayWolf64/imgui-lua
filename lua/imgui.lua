@@ -413,7 +413,7 @@ local function GetID(str_id)
     local window = GImGui.CurrentWindow
     if not window then return end
 
-    local full_string = table_concat(window.IDStack._items, "#") .. "#" .. (str_id or "") -- FIXME: no _items
+    local full_string = table_concat(window.IDStack.Data, "#") .. "#" .. (str_id or "") -- FIXME: no Data
 
     return ImHashStr(full_string)
 end
@@ -969,7 +969,7 @@ local function FindHoveredWindowEx()
 
     g.HoveredWindow = nil
 
-    for i = g.Windows:size(), 1, -1 do
+    for i = g.Windows.Size, 1, -1 do
         local window = g.Windows:at(i)
 
         if not window or ((not window.WasActive) or window.Hidden) then continue end
