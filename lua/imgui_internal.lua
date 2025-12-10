@@ -26,6 +26,7 @@ local draw    = draw
 
 local INF = math.huge
 local IM_PI = math.pi
+local ImAbs = math.abs
 local ImMin = math.min
 local ImMax = math.max
 local ImFloor = math.floor
@@ -40,6 +41,9 @@ local function ImTrunc(f) return ImFloor(f + 0.5) end
 local function IM_ROUNDUP_TO_EVEN(n) return ImCeil(n / 2) * 2 end
 
 local IMGUI_WINDOW_HARD_MIN_SIZE = 16 -- 4
+
+local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN = 4
+local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
 
 local IM_DRAWLIST_ARCFAST_TABLE_SIZE = 48
 local IM_DRAWLIST_ARCFAST_SAMPLE_MAX = 48
@@ -63,6 +67,10 @@ function _ImVector:peek() if self._top == 0 then return nil end return self._ite
 function _ImVector:erase(i) if i < 1 or i > self._top then return nil end local removed = remove_at(self._items, i) self._top = self._top - 1 return removed end
 function _ImVector:at(i) if i < 1 or i > self._top then return nil end return self._items[i] end
 function _ImVector:iter() local i, n = 0, self._top return function() i = i + 1 if i <= n then return i, self._items[i] end end end
+function _ImVector:find_index(value) for i = 1, self._top do if self._items[i] == value then return i end end return 0 end
+function _ImVector:erase_unsorted(index) if index < 1 or index > self._top then return false end local last_idx = self._top if index ~= last_idx then self._items[index] = self._items[last_idx] end self._items[last_idx] = nil self._top = self._top - 1 return true end
+function _ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
+function _ImVector:reserve() return end
 
 local function ImVector() return setmetatable({_items = {}, _top = 0}, _ImVector) end
 
@@ -114,17 +122,58 @@ function _ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (sel
 
 local function ImRect(min, max) return setmetatable({Min = ImVec2(min and min.x or 0, min and min.y or 0), Max = ImVec2(max and max.x or 0, max and max.y or 0)}, _ImRect) end
 
+--- struct ImDrawCmd
+--
+local _ImDrawCmd = {}
+_ImDrawCmd.__index = _ImDrawCmd
+
+function ImDrawCmd()
+    return setmetatable({
+        ClipRect = ImVec4(),
+        VtxOffset = 0,
+        IdxOffset = 0,
+        ElemCount = 0
+    }, _ImDrawCmd)
+end
+
+--- struct ImDrawCmdHeader
+--
+local _ImDrawCmdHeader = {}
+_ImDrawCmdHeader.__index = _ImDrawCmdHeader
+
+function ImDrawCmdHeader()
+    return setmetatable({
+        ClipRect = ImVec4(),
+        VtxOffset = 0
+    }, _ImDrawCmdHeader)
+end
+
 --- struct ImDrawList
 -- imgui.h
 local _ImDrawList = {}
 _ImDrawList.__index = _ImDrawList
 
+function _ImDrawList:PathClear()
+    self._Path:clear_delete() -- TODO: is clear() fine?
+end
+
+function _ImDrawList:PathLineTo(pos)
+    self._Path:push_back(pos)
+end
+
 function ImDrawList()
     return setmetatable({
-        CmdBuffer = {},
+        CmdBuffer = ImVector(),
+        IdxBuffer = ImVector(),
+        VtxBuffer = ImVector(),
 
-        _CmdHeader = {},
-        _ClipRectStack = {}
+        _VtxCurrentIdx = 0,
+        _Data = nil, -- ImDrawListSharedData*, Pointer to shared draw data (you can use ImGui:GetDrawListSharedData() to get the one from current ImGui context)
+        _VtxWritePtr = 0,
+        _IdxWritePtr = 0,
+        _Path = ImVector(),
+        _CmdHeader = ImDrawCmdHeader(),
+        _ClipRectStack = ImVector()
     }, _ImDrawList)
 end
 
@@ -134,13 +183,25 @@ local _ImDrawListSharedData = {}
 _ImDrawListSharedData.__index = _ImDrawListSharedData
 
 function ImDrawListSharedData()
-    return setmetatable({
-        CircleSegmentMaxError = nil,
+    local this = setmetatable({
+        CircleSegmentMaxError = 0,
+
+        DrawLists = ImVector(),
 
         ArcFastVtx = {}, -- size = IM_DRAWLIST_ARCFAST_TABLE_SIZE
         ArcFastRadiusCutoff = nil,
         CircleSegmentCounts = {} -- size = 64
     }, _ImDrawListSharedData)
+
+    for i = 0, IM_DRAWLIST_ARCFAST_TABLE_SIZE - 1 do
+        local a = (i * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
+        this.ArcFastVtx[i] = ImVec2(ImCos(a), ImSin(a))
+    end
+
+    -- this is odd. CircleSegmentMaxError = 0 at this time resulting in ArcFastRadiusCutoff = 0
+    this.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, this.CircleSegmentMaxError)
+
+    return this
 end
 
 --- struct ImGuiContext
@@ -159,7 +220,9 @@ local function ImGuiContext()
             WindowMinSize = ImVec2(60, 60),
 
             FrameBorderSize = 1,
-            ItemSpacing = ImVec2(8, 4)
+            ItemSpacing = ImVec2(8, 4),
+
+            CircleTessellationMaxError = 0.30
         },
 
         Config = nil,
@@ -254,7 +317,7 @@ local function ImGuiContext()
         --- Contains ImFontStackData
         FontStack = ImVector(),
 
-        DrawListSharedData = nil,
+        DrawListSharedData = ImDrawListSharedData(),
 
         -- StackSizesInBeginForCurrentWindow = nil,
 
@@ -271,13 +334,15 @@ local function ImGuiContext()
 end
 
 --- struct IMGUI_API ImGuiWindow
-local function ImGuiWindow()
-    return {
+local function ImGuiWindow(ctx, name)
+    local this = {
         ID = 0,
 
         MoveID = 0,
 
-        Name = "",
+        Ctx = ctx,
+        Name = name,
+
         Pos = nil,
         Size = nil, -- Current size (==SizeFull or collapsed title bar size)
         SizeFull = nil,
@@ -336,4 +401,8 @@ local function ImGuiWindow()
 
         LastFrameActive = -1
     }
+
+    this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)
+
+    return this
 end

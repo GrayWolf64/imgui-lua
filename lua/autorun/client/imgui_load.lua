@@ -16,7 +16,7 @@ for file_name in string.gmatch(main_file, pattern_fileinclude) do
     main_file = string.Replace(main_file, func_to_replace_with_file(file_name), file.Read(file_name, "LUA"))
 end
 
--- file.Write("preprocessed_main.txt", main_file)
+file.Write("preprocessed_main.txt", main_file)
 
 --- GMod doesn't allow saving a lua file to LUA folder
 --

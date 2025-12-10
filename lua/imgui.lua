@@ -129,7 +129,7 @@ end
 local function PopFont()
     local g = GImGui
 
-    if g.FontStack:size() == 0 then return end
+    if g.FontStack:empty() then return end
 
     local font_stack_data = g.FontStack:peek()
     SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, font_stack_data.FontSizeAfterScaling)
@@ -201,10 +201,9 @@ local function CreateNewWindow(name)
 
     local window_id = ImHashStr(name)
 
-    local window = ImGuiWindow()
+    local window = ImGuiWindow(g, name)
 
     window.ID = window_id
-    window.Name = name
     window.Pos = ImVec2(g.Config.WindowPos.x, g.Config.WindowPos.y)
     window.Size = ImVec2(g.Config.WindowSize.w, g.Config.WindowSize.h) -- TODO: Don't use this Config thing
     window.SizeFull = ImVec2(g.Config.WindowSize.w, g.Config.WindowSize.h)
@@ -774,7 +773,7 @@ local unpack = unpack
 local function Render()
     for _, window in GImGui.Windows:iter() do
         if window and IsWindowActiveAndVisible(window) and window.DrawList then
-            for _, cmd in ipairs(window.DrawList.CmdBuffer) do
+            for _, cmd in window.DrawList.CmdBuffer:iter() do
                 cmd.draw_call(unpack(cmd.args))
             end
         end
@@ -850,6 +849,11 @@ local function UpdateMouseMovingWindowNewFrame()
             end
         end
     end
+end
+
+--- ImDrawListSharedData* ImGui::GetDrawListSharedData()
+local function GetDrawListSharedData()
+    return GImGui.DrawListSharedData
 end
 
 --- void ImGui::UpdateMouseMovingWindowEndFrame()
@@ -929,9 +933,7 @@ local function Begin(name, p_open)
         window.Size.y = window.SizeFull.y
     end
 
-    for i = #window.DrawList.CmdBuffer, 1, -1 do
-        window.DrawList.CmdBuffer[i] = nil
-    end
+    window.DrawList.CmdBuffer:clear_delete() -- TODO: investigate
 
     local resize_grip_colors = {}
     if not window.Collapsed then
@@ -1061,6 +1063,14 @@ local function UpdateMouseInputs()
     end
 end
 
+--- static void SetupDrawListSharedData()
+local function SetupDrawListSharedData()
+    local g = GImGui
+
+    g.DrawListSharedData:SetCircleTessellationMaxError(g.Style.CircleTessellationMaxError)
+end
+-- TODO: Have to be careful that e.g. every drawlist can have a pointer to shareddata(the same) of the context
+
 local function NewFrame()
     local g = GImGui
 
@@ -1085,6 +1095,7 @@ local function NewFrame()
 
     g.CurrentWindow = nil
 
+    SetupDrawListSharedData()
     UpdateFontsNewFrame()
 
     g.HoveredID = 0
@@ -1141,6 +1152,7 @@ ImGui_ImplGMOD_Init()
 
 CreateContext()
 
+--- TODO: can i actually switch different hooks dynamically to achieve our windows rendered under and above the game ui or derma?
 hook.Add("PostRender", "ImGuiTest", function()
     cam.Start2D()
 

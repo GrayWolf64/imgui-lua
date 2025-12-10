@@ -27,18 +27,6 @@ local StyleColorsDark = {
 
 local ImNoColor = {r = 0, g = 0, b = 0, a = 0}
 
-local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN = 4
-local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
-
-function _ImDrawListSharedData:ImDrawListSharedData()
-    for i = 0, IM_DRAWLIST_ARCFAST_TABLE_SIZE - 1 do
-        local a = (i * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
-        self.ArcFastVtx[i] = ImVec2(ImCos(a), ImSin(a))
-    end
-
-    self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleSegmentMaxError)
-end
-
 function _ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     if self.CircleSegmentMaxError == max_error then return end
     -- IM_ASSERT(max_error > 0)
@@ -52,8 +40,19 @@ function _ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleSegmentMaxError)
 end
 
+--- void ImDrawList::_SetDrawListSharedData(ImDrawListSharedData* data)
+function _ImDrawList:_SetDrawListSharedData(data)
+    if self._Data ~= nil then
+        self._Data.DrawLists:find_erase_unsorted(self)
+    end
+    self._Data = data
+    if self._Data ~= nil then
+        self._Data.DrawLists:push_back(self)
+    end
+end
+
 function _ImDrawList:AddDrawCmd(draw_call, ...)
-    self.CmdBuffer[#self.CmdBuffer + 1] = {draw_call = draw_call, args = {...}}
+    self.CmdBuffer:push_back({draw_call = draw_call, args = {...}})
 end
 
 function _ImDrawList:AddRectFilled(color, p_min, p_max)
@@ -101,11 +100,21 @@ function _ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     end
 end
 
-local function PushClipRect(draw_list, cr_min, cr_max, intersect_with_current_clip_rect)
+function _ImDrawList:_CalcCircleAutoSegmentCount(radius)
+    local radius_idx = ImFloor(radius + 0.999999)
+
+    if radius_idx >= 0 and radius_idx < 64 then -- IM_ARRAYSIZE(_Data->CircleSegmentCounts))
+        return self._Data.CircleSegmentCounts[radius_idx] -- Use cached value 
+    else
+        return IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self._Data.CircleSegmentMaxError)
+    end
+end
+
+function _ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_rect)
     local cr = ImVec4(cr_min.x, cr_min.y, cr_max.x, cr_max.y)
 
     if intersect_with_current_clip_rect then
-        local current = draw_list._CmdHeader.ClipRect
+        local current = self._CmdHeader.ClipRect
 
         if cr.x < current.x then cr.x = current.x end
         if cr.y < current.y then cr.y = current.y end
@@ -113,12 +122,168 @@ local function PushClipRect(draw_list, cr_min, cr_max, intersect_with_current_cl
         if cr.w > current.w then cr.w = current.w end
     end
 
-    cr.z = math.max(cr.x, cr.z) -- TODO: ImMax
-    cr.w = math.max(cr.y, cr.w)
+    cr.z = ImMax(cr.x, cr.z)
+    cr.w = ImMax(cr.y, cr.w)
 
-    insert_at(draw_list._ClipRectStack, cr)
-    draw_list._CmdHeader.ClipRect = cr
+    self._ClipRectStack:push_back(cr)
+    self._CmdHeader.ClipRect = cr
     -- _OnChangedClipRect()
+end
+
+function _ImDrawList:PrimReserve(idx_count, vtx_count)
+    -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0)
+
+
+end
+
+--- void ImDrawList::_PathArcToFastEx
+-- currently we use push_back instead of resizing and indexing
+function _ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
+    if radius < 0.5 then
+        self._Path:push_back(center)
+        return
+    end
+
+    if a_step <= 0 then
+        a_step = ImFloor(IM_DRAWLIST_ARCFAST_SAMPLE_MAX / self:_CalcCircleAutoSegmentCount(radius)) -- FIXME: I may forget to add ImFloor if result is int somewhere
+    end
+
+    a_step = ImClamp(a_step, 1, ImFloor(IM_DRAWLIST_ARCFAST_TABLE_SIZE / 4))
+
+    local sample_range = ImAbs(a_max_sample - a_min_sample)
+    local a_next_step = a_step
+
+    local extra_max_sample = false
+
+    if a_step > 1 then
+        local overstep = sample_range % a_step
+
+        if overstep > 0 then
+            extra_max_sample = true
+
+            if sample_range > 0 then
+                a_step = a_step - ImFloor((a_step - overstep) / 2)
+            end
+        end
+    end
+
+    local sample_index = a_min_sample
+    if sample_index < 0 or sample_index >= IM_DRAWLIST_ARCFAST_SAMPLE_MAX then
+        sample_index = sample_index % IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+        if sample_index < 0 then
+            sample_index = sample_index + IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+        end
+    end
+
+    if a_max_sample >= a_min_sample then
+        local a = a_min_sample
+        while a <= a_max_sample do
+            if sample_index >= IM_DRAWLIST_ARCFAST_SAMPLE_MAX then
+                sample_index = sample_index - IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+            end
+
+            local s = self._Data.ArcFastVtx[sample_index]
+            self._Path:push_back(ImVec2(center.x + s.x * radius, center.y + s.y * radius))
+
+            a = a + a_step
+            sample_index = sample_index + a_step
+            a_step = a_next_step
+        end
+    else
+        local a = a_min_sample
+        while a >= a_max_sample do
+            if sample_index < 0 then
+                sample_index = sample_index + IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+            end
+
+            local s = self._Data.ArcFastVtx[sample_index]
+            self._Path:push_back(ImVec2(center.x + s.x * radius, center.y + s.y * radius))
+
+            a = a - a_step
+            sample_index = sample_index - a_step
+            a_step = a_next_step
+        end
+    end
+
+    if extra_max_sample then
+        local normalized_max_sample = a_max_sample % IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+        if normalized_max_sample < 0 then
+            normalized_max_sample = normalized_max_sample + IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+        end
+
+        local s = self._Data.ArcFastVtx[normalized_max_sample]
+        self._Path:push_back(ImVec2(center.x + s.x * radius, center.y + s.y * radius))
+    end
+end
+
+function _ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
+    if radius < 0.5 then
+        self._Path:push_back(center)
+        return
+    end
+
+    self:_PathArcToFastEx(center, radius, a_min_of_12 * IM_DRAWLIST_ARCFAST_SAMPLE_MAX / 12, a_max_of_12 * IM_DRAWLIST_ARCFAST_SAMPLE_MAX / 12, 0)
+end
+
+function _ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
+    if radius < 0.5 then
+        self._Path:push_back(center)
+        return
+    end
+
+    for i = 0, num_segments do
+        local a = a_min + (i / num_segments) * (a_max - a_min)
+        self._Path:push_back(ImVec2(center.x + ImCos(a) * radius, center.y + ImSin(a) * radius))
+    end
+end
+
+function _ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
+    if radius < 0.5 then
+        self._Path:push_back(center)
+        return
+    end
+
+    if num_segments > 0 then
+        self:_PathArcToN(center, radius, a_min, a_max, num_segments)
+        return
+    end
+
+    if radius <= self._Data.ArcFastRadiusCutoff then
+        local a_is_reverse = a_max < a_min
+
+        local a_min_sample_f = IM_DRAWLIST_ARCFAST_SAMPLE_MAX * a_min / (IM_PI * 2.0)
+        local a_max_sample_f = IM_DRAWLIST_ARCFAST_SAMPLE_MAX * a_max / (IM_PI * 2.0)
+
+        local a_min_sample = a_is_reverse and ImFloor(a_min_sample_f) or ImCeil(a_min_sample_f)
+        local a_max_sample = a_is_reverse and ImCeil(a_max_sample_f) or ImFloor(a_max_sample_f)
+        local a_mid_samples = a_is_reverse and ImMax(a_min_sample - a_max_sample, 0) or ImMax(a_max_sample - a_min_sample, 0)
+
+        local a_min_segment_angle = a_min_sample * IM_PI * 2.0 / IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+        local a_max_segment_angle = a_max_sample * IM_PI * 2.0 / IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+        local a_emit_start = ImAbs(a_min_segment_angle - a_min) >= 1e-5
+        local a_emit_end = ImAbs(a_max - a_max_segment_angle) >= 1e-5
+
+        if a_emit_start then
+            self._Path:push_back(ImVec2(center.x + ImCos(a_min) * radius, center.y + ImSin(a_min) * radius))
+        end
+
+        if a_mid_samples > 0 then
+            self:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, 0)
+        end
+
+        if a_emit_end then
+            self._Path:push_back(ImVec2(center.x + ImCos(a_max) * radius, center.y + ImSin(a_max) * radius))
+        end
+    else
+        local arc_length = ImAbs(a_max - a_min)
+        local circle_segment_count = self:_CalcCircleAutoSegmentCount(radius)
+        local arc_segment_count = ImMax(
+            ImCeil(circle_segment_count * arc_length / (IM_PI * 2.0)),
+            2.0 * IM_PI / arc_length
+        )
+
+        self:_PathArcToN(center, radius, a_min, a_max, arc_segment_count)
+    end
 end
 
 --- ImGui::RenderArrow
