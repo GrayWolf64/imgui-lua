@@ -5,10 +5,12 @@ local insert_at    = table.insert
 local remove_at    = table.remove
 local setmetatable = setmetatable
 local next         = next
+local unpack       = unpack
 local isnumber     = isnumber
 local IsValid      = IsValid
 local str_format   = string.format
 
+local pairs  = pairs
 local ipairs = ipairs
 local assert = assert
 
@@ -23,6 +25,7 @@ local GetMouseY = gui.MouseY
 local surface = surface
 local render  = render
 local draw    = draw
+local bit     = bit
 
 local INF = math.huge
 local IM_PI = math.pi
@@ -35,10 +38,14 @@ local ImCeil = math.ceil
 local ImSin = math.sin
 local ImCos = math.cos
 local ImAcos = math.acos
+local ImSqrt = math.sqrt
 local function ImLerp(a, b, t) return a + (b - a) * t end
 local function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 local function ImTrunc(f) return ImFloor(f + 0.5) end
 local function IM_ROUNDUP_TO_EVEN(n) return ImCeil(n / 2) * 2 end
+local function ImRsqrt(x) return 1 / ImSqrt(x) end
+
+local function IM_ASSERT(_EXPR) end -- TODO: preprocess
 
 local IMGUI_WINDOW_HARD_MIN_SIZE = 16 -- 4
 
@@ -47,6 +54,8 @@ local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
 
 local IM_DRAWLIST_ARCFAST_TABLE_SIZE = 48
 local IM_DRAWLIST_ARCFAST_SAMPLE_MAX = 48
+
+local IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) return ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX) end
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR) return MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI))) end
@@ -70,6 +79,9 @@ function _ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == 
 function _ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
 function _ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
 function _ImVector:reserve() return end
+function _ImVector:reserve_discard() return end
+function _ImVector:shrink() return end
+function _ImVector:resize(new_size) self.Size = new_size end
 
 local function ImVector() return setmetatable({Data = {}, Size = 0}, _ImVector) end
 
@@ -104,7 +116,7 @@ function _ImVec4:__eq(other) return self.x == other.x and self.y == other.y and 
 local _ImVec1 = {}
 _ImVec1.__index = _ImVec1
 
-function ImVec1(x) return setmetatable({x = x or 0}, _ImVec1) end
+local function ImVec1(x) return setmetatable({x = x or 0}, _ImVec1) end
 
 function _ImVec1:__tostring() return str_format("ImVec1(%g)", self.x) end
 function _ImVec1:copy() return ImVec1.new(self.x) end
@@ -119,20 +131,33 @@ function _ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.
 function _ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
 function _ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
 
-local function ImRect(min, max) return setmetatable({Min = ImVec2(min and min.x or 0, min and min.y or 0), Max = ImVec2(max and max.x or 0, max and max.y or 0)}, _ImRect) end
+local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, _ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, _ImRect) end
 
 --- struct ImDrawCmd
 --
 local _ImDrawCmd = {}
 _ImDrawCmd.__index = _ImDrawCmd
 
-function ImDrawCmd()
+local function ImDrawCmd()
     return setmetatable({
         ClipRect = ImVec4(),
         VtxOffset = 0,
         IdxOffset = 0,
         ElemCount = 0
-    }, _ImDrawCmd)
+    }, _ImDrawCmd) -- TODO: callback
+end
+
+--- struct ImDrawVert
+-- imgui.h
+local _ImDrawVert = {}
+_ImDrawVert.__index = _ImDrawVert
+
+local function ImDrawVert()
+    return setmetatable({
+        pos = ImVec2(),
+        uv  = nil,
+        col = nil
+    }, _ImDrawVert)
 end
 
 --- struct ImDrawCmdHeader
@@ -140,7 +165,7 @@ end
 local _ImDrawCmdHeader = {}
 _ImDrawCmdHeader.__index = _ImDrawCmdHeader
 
-function ImDrawCmdHeader()
+local function ImDrawCmdHeader()
     return setmetatable({
         ClipRect = ImVec4(),
         VtxOffset = 0
@@ -160,20 +185,57 @@ function _ImDrawList:PathLineTo(pos)
     self._Path:push_back(pos)
 end
 
-function ImDrawList()
+function _ImDrawList:PathLineToMergeDuplicate(pos)
+    local path_size = self._Path.Size
+    if path_size == 0 or self._Path.Data[path_size].x ~= pos.x or self._Path.Data[path_size].y ~= pos.y then
+        self._Path:push_back(pos)
+    end
+end
+
+function _ImDrawList:PathFillConvex(col)
+    self:AddConvexPolyFilled(self._Path.Data, self._Path.Size, col)
+    self._Path.Size = 0
+end
+
+function _ImDrawList:PathStroke(col, flags, thickness)
+    self:AddPolyline(self._Path.Data, self._Path.Size, col, flags, thickness)
+    self._Path.Size = 0
+end
+
+local function ImDrawList(data)
     return setmetatable({
         CmdBuffer = ImVector(),
         IdxBuffer = ImVector(),
         VtxBuffer = ImVector(),
+        Flags = 0,
 
-        _VtxCurrentIdx = 0,
-        _Data = nil, -- ImDrawListSharedData*, Pointer to shared draw data (you can use ImGui:GetDrawListSharedData() to get the one from current ImGui context)
-        _VtxWritePtr = 0,
-        _IdxWritePtr = 0,
+        _VtxCurrentIdx = 1, -- TODO: validate
+        _Data = data, -- ImDrawListSharedData*, Pointer to shared draw data (you can use ImGui:GetDrawListSharedData() to get the one from current ImGui context)
+        _VtxWritePtr = 1,
+        _IdxWritePtr = 1,
         _Path = ImVector(),
         _CmdHeader = ImDrawCmdHeader(),
-        _ClipRectStack = ImVector()
+        _ClipRectStack = ImVector(),
+
+        _FringeScale = 0
     }, _ImDrawList)
+end
+
+--- struct ImDrawData
+-- imgui.h
+local _ImDrawData = {}
+_ImDrawData.__index = _ImDrawData
+
+local function ImDrawData()
+    return setmetatable({
+        Valid = false,
+        CmdListsCount = 0,
+        TotalIdxCount = 0,
+        TotalVtxCount = 0,
+        CmdLists = ImVector(),
+        DisplayPos = ImVec2(),
+        DisplaySize = ImVec2()
+    }, _ImDrawData)
 end
 
 --- struct IMGUI_API ImDrawListSharedData
@@ -181,10 +243,15 @@ end
 local _ImDrawListSharedData = {}
 _ImDrawListSharedData.__index = _ImDrawListSharedData
 
-function ImDrawListSharedData()
+local function ImDrawListSharedData()
     local this = setmetatable({
+        TexUvWhitePixel = nil,
+
+        InitialFringeScale = 1,
+
         CircleSegmentMaxError = 0,
 
+        TempBuffer = ImVector(),
         DrawLists = ImVector(),
 
         ArcFastVtx = {}, -- size = IM_DRAWLIST_ARCFAST_TABLE_SIZE
@@ -210,6 +277,7 @@ local function ImGuiContext()
             FramePadding = ImVec2(4, 3),
 
             WindowRounding = 0,
+            WindowBorderSize = 1,
 
             Colors = nil,
 
@@ -258,7 +326,9 @@ local function ImGuiContext()
             -- WantTextInput = nil,
 
             DeltaTime = 1 / 60,
-            Framerate = 0
+            Framerate = 0,
+
+            MetricsRenderWindows = 0,
         },
 
         MovingWindow = nil,
@@ -309,6 +379,8 @@ local function ImGuiContext()
             -- Shortcut = 
         },
 
+        Viewports = ImVector(),
+
         Font = nil, -- Currently bound *FontName* to be used with surface.SetFont
         FontSize = 18,
         FontSizeBase = 18,
@@ -333,6 +405,7 @@ local function ImGuiContext()
 end
 
 --- struct IMGUI_API ImGuiWindow
+-- TODO: make this a struct
 local function ImGuiWindow(ctx, name)
     local this = {
         ID = 0,
@@ -341,6 +414,8 @@ local function ImGuiWindow(ctx, name)
 
         Ctx = ctx,
         Name = name,
+
+        Flags = 0,
 
         Pos = nil,
         Size = nil, -- Current size (==SizeFull or collapsed title bar size)
@@ -363,6 +438,9 @@ local function ImGuiWindow(ctx, name)
         HiddenFramesCannotSkipItems = 0,
         HiddenFramesForRenderOnly = 0,
 
+        WindowRounding = 0,
+        WindowBorderSize = 1,
+
         HasCloseButton = true,
 
         ScrollbarX = false,
@@ -371,6 +449,8 @@ local function ImGuiWindow(ctx, name)
         DrawList = ImDrawList(),
 
         IDStack = ImVector(),
+
+        Viewport = nil,
 
         --- struct IMGUI_API ImGuiWindowTempData
         DC = {
@@ -402,6 +482,98 @@ local function ImGuiWindow(ctx, name)
     }
 
     this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)
+
+    return this
+end
+
+--- struct ImGuiViewport
+-- imgui.h
+local _ImGuiViewport = {}
+_ImGuiViewport.__index = _ImGuiViewport
+
+function _ImGuiViewport:GetCenter()
+    return ImVec2(self.Pos.x + self.Size.x * 0.5, self.Pos.y + self.Size.y * 0.5)
+end
+
+function _ImGuiViewport:GetWorkCenter()
+    return ImVec2(self.WorkPos.x + self.WorkSize.x * 0.5, self.WorkPos.y + self.WorkSize.y * 0.5)
+end
+
+local function ImGuiViewport()
+    return setmetatable({
+        ID = 0,
+        Flags = 0,
+        Pos = ImVec2(),
+        Size = ImVec2(),
+        WorkPos = ImVec2(),
+        WorkSize = ImVec2(),
+
+        PlatformHandle = nil,
+        PlatformHandleRaw = nil
+    }, _ImGuiViewport)
+end
+
+--- struct ImDrawDataBuilder
+--
+local _ImDrawDataBuilder = {}
+_ImDrawDataBuilder.__index = _ImDrawDataBuilder
+
+local function ImDrawDataBuilder()
+    return setmetatable({
+        Layers = {nil, nil},
+        LayerData1 = ImVector()
+    }, _ImDrawDataBuilder)
+end
+
+--- struct ImGuiViewportP : public ImGuiViewport
+-- imgui_internal.h
+local _ImGuiViewportP = {}
+_ImGuiViewportP.__index = _ImGuiViewportP
+setmetatable(_ImGuiViewportP, {__index = _ImGuiViewport})
+
+function _ImGuiViewportP:CalcWorkRectPos(inset_min)
+    return ImVec2(self.Pos.x + inset_min.x, self.Pos.y + inset_min.y)
+end
+
+function _ImGuiViewportP:CalcWorkRectSize(inset_min, inset_max)
+    return ImVec2(ImMax(0.0, self.Size.x - inset_min.x - inset_max.x), ImMax(0.0, self.Size.y - inset_min.y - inset_max.y))
+end
+
+function _ImGuiViewportP:UpdateWorkRect()
+    self.WorkPos = self:CalcWorkRectPos(self.WorkInsetMin)
+    self.WorkSize = self:CalcWorkRectSize(self.WorkInsetMin, self.WorkInsetMax)
+end
+
+function _ImGuiViewportP:GetMainRect()
+    return ImRect(self.Pos.x, self.Pos.y,
+        self.Pos.x + self.Size.x,
+        self.Pos.y + self.Size.y)
+end
+
+function _ImGuiViewportP:GetWorkRect()
+    return ImRect(self.WorkPos.x, self.WorkPos.y,
+        self.WorkPos.x + self.WorkSize.x,
+        self.WorkPos.y + self.WorkSize.y)
+end
+
+function _ImGuiViewportP:GetBuildWorkRect()
+    local pos = self:CalcWorkRectPos(self.BuildWorkInsetMin)
+    local size = self:CalcWorkRectSize(self.BuildWorkInsetMin, self.BuildWorkInsetMax)
+    return ImRect(pos.x, pos.y, pos.x + size.x, pos.y + size.y)
+end
+
+local function ImGuiViewportP()
+    local this = setmetatable(ImGuiViewport(), _ImGuiViewportP)
+
+    this.BgFgDrawListsLastFrame = {-1, -1}
+    this.BgFgDrawLists = {nil, nil}
+    this.DrawDataP = ImDrawData()
+    this.DrawDataBuilder = ImDrawDataBuilder()
+
+    this.WorkInsetMin = ImVec2(0, 0)
+    this.WorkInsetMax = ImVec2(0, 0)
+    this.BuildWorkInsetMin = ImVec2(0, 0)
+    this.BuildWorkInsetMax = ImVec2(0, 0)
 
     return this
 end

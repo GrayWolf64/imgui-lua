@@ -13,11 +13,13 @@ local ImDir_Down  = 3
 local IM_FONT_SIZE_MIN = 4
 local IM_FONT_SIZE_MAX = 255
 
+IMGUI_INCLUDE("imgui_h.lua")
+
 IMGUI_INCLUDE("imgui_internal.lua")
 
 local ImResizeGripDef = {
-    {CornerPos = ImVec2(1, 1), InnerDir = ImVec2(-1, -1)}, -- Bottom right grip
-    {CornerPos = ImVec2(0, 1), InnerDir = ImVec2( 1, -1)} -- Bottom left
+    {CornerPos = ImVec2(1, 1), InnerDir = ImVec2(-1, -1), AngleMin12 = 0, AngleMax12 = 3}, -- Bottom right grip
+    {CornerPos = ImVec2(0, 1), InnerDir = ImVec2( 1, -1), AngleMin12 = 3, AngleMax12 = 6} -- Bottom left
 }
 
 IMGUI_INCLUDE("imgui_impl_gmod.lua")
@@ -43,8 +45,6 @@ local function ImHashStr(str)
 end
 
 IMGUI_INCLUDE("imgui_draw.lua")
-
-local FontDataDefault, FontCopy, FontDataToString = include("imgui_h.lua")
 
 local function ImHashFontData(font_data)
     return "ImFont" .. ImHashStr(FontDataToString(font_data))
@@ -177,6 +177,15 @@ local MouseButtonMap = {
     [2] = MOUSE_RIGHT
 }
 
+--- void ImGui::Initialize()
+local function Initialize()
+    local g = GImGui
+
+    local viewport = ImGuiViewportP()
+    viewport.ID = IMGUI_VIEWPORT_DEFAULT_ID
+    g.Viewports:push_back(viewport)
+end
+
 -- ImGuiContext::ImGuiContext(ImFontAtlas* shared_font_atlas)
 local function CreateContext()
     GImGui = ImGuiContext()
@@ -186,8 +195,12 @@ local function CreateContext()
 
     for i = 0, 59 do GImGui.FramerateSecPerFrame[i] = 0 end
 
+    Initialize()
+
     return GImGui
 end
+
+
 
 --- void ImGui::DestroyContext
 -- local function DestroyContext()
@@ -672,17 +685,17 @@ local function RenderFrame(p_min, p_max, fill_col, borders, rounding) -- TODO: i
     local g = GImGui
     local window = g.CurrentWindow
 
-    window.DrawList:AddRectFilled(fill_col, p_min, p_max, rounding)
+    window.DrawList:AddRectFilled(p_min, p_max, fill_col, rounding, 0)
 
     local border_size = g.Style.FrameBorderSize
     if borders and border_size > 0 then
-        window.DrawList:AddRectOutline(g.Style.Colors.BorderShadow, p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), border_size)
-        window.DrawList:AddRectOutline(g.Style.Colors.Border, p_min, p_max, border_size)
+        window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), g.Style.Colors.BorderShadow, rounding, 0, border_size)
+        window.DrawList:AddRect(p_min, p_max, g.Style.Colors.Border, rounding, 0, border_size)
     end
 end
 
 --- ImGui::RenderWindowDecorations
-local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highlight, resize_grip_colors, resize_grip_draw_size)
+local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highlight, resize_grip_col, resize_grip_draw_size)
     local g = GImGui
 
     local title_color
@@ -693,46 +706,34 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
     end
 
     local border_width = g.Style.FrameBorderSize
+    local window_rounding = window.WindowRounding
+    local window_border_size = window.WindowBorderSize
 
     if window.Collapsed then
-        RenderFrame(title_bar_rect.Min, title_bar_rect.Max, g.Style.Colors.TitleBgCollapsed, true)
+        RenderFrame(title_bar_rect.Min, title_bar_rect.Max, g.Style.Colors.TitleBgCollapsed, true, 0)
     else
         -- Title bar
-        window.DrawList:AddRectFilled(title_color,
-            title_bar_rect.Min, title_bar_rect.Max)
+        window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_color, 0, 0) -- TODO: rounding
         -- Window background
-        window.DrawList:AddRectFilled(g.Style.Colors.WindowBg,
-            window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size)
+        window.DrawList:AddRectFilled(window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size, g.Style.Colors.WindowBg, 0, 0) -- TODO: rounding
 
         -- Resize grip(s)
         for i = 1, #ImResizeGripDef do
             local corner_pos = ImResizeGripDef[i].CornerPos
             local inner_dir = ImResizeGripDef[i].InnerDir
+            local angle_min_12 = ImResizeGripDef[i].AngleMin12
+            local angle_max_12 = ImResizeGripDef[i].AngleMax12
 
             local corner = window.Pos + corner_pos * window.Size
-
-            local padding = border_width * 1.3
-            local grip_indices -- TODO: this is hard to maintain
-            if inner_dir.x == -1 and inner_dir.y == -1 then
-                grip_indices = {
-                    corner + padding * inner_dir, -- Bottom-right corner
-                    ImVec2(corner.x - resize_grip_draw_size - padding, corner.y - padding), -- Left
-                    ImVec2(corner.x + padding * inner_dir.x, corner.y - resize_grip_draw_size - padding) -- Up
-                }
-            elseif inner_dir.x  == 1 and inner_dir.y == -1 then
-                grip_indices = {
-                    corner + padding * inner_dir, -- Bottom-left corner
-                    ImVec2(corner.x + padding * inner_dir.x, corner.y - resize_grip_draw_size - padding), -- Up
-                    ImVec2(corner.x + resize_grip_draw_size + padding, corner.y - padding) -- Right
-                }
-            end
-
-            window.DrawList:AddTriangleFilled(grip_indices, resize_grip_colors[i] or ImNoColor)
+            local border_inner = ImRound(window_border_size * 0.5)
+            window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 1) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
+            window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 1) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
+            window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, angle_min_12, angle_max_12)
+            window.DrawList:PathFillConvex(resize_grip_col[i])
         end
 
         -- RenderWindowOuterBorders?
-        window.DrawList:AddRectOutline(g.Style.Colors.Border,
-            window.Pos, window.Pos + window.Size, border_width)
+        window.DrawList:AddRect(window.Pos, window.Pos + window.Size, g.Style.Colors.Border, 0, 0, border_width)
     end
 end
 
@@ -767,17 +768,6 @@ local function RenderWindowTitleBarContents(window, p_open)
         ImVec2(window.Pos.x + window.TitleBarHeight, window.Pos.y + (window.TitleBarHeight - text_h) / 1.3),
         g.Style.Colors.Text,
         text_clip_width, window.Size.y)
-end
-
-local unpack = unpack
-local function Render()
-    for _, window in GImGui.Windows:iter() do
-        if window and IsWindowActiveAndVisible(window) and window.DrawList then
-            for _, cmd in window.DrawList.CmdBuffer:iter() do
-                cmd.draw_call(unpack(cmd.args))
-            end
-        end
-    end
 end
 
 --- static void SetCurrentWindow
@@ -889,8 +879,19 @@ local function FindWindowByName(name)
     return FindWindowByID(id)
 end
 
+local function GetMainViewport()
+    local g = GImGui
+
+    return g.Viewports:at(1)
+end
+
+--- void ImGui::SetWindowViewport(ImGuiWindow* window, ImGuiViewportP* viewport)
+local function SetWindowViewport(window, viewport)
+    window.Viewport = viewport
+end
+
 -- `p_open` will be set to false when the close button is pressed.
-local function Begin(name, p_open)
+local function Begin(name, p_open, flags)
     local g = GImGui
 
     if name == nil or name == "" then return false end
@@ -906,17 +907,32 @@ local function Begin(name, p_open)
     local first_begin_of_the_frame = (window.LastFrameActive ~= current_frame)
     local window_just_activated_by_user = (window.LastFrameActive < (current_frame - 1))
 
+    if first_begin_of_the_frame then
+        window.LastFrameActive = current_frame
+    else
+        flags = window.Flags
+    end
+
+    g.CurrentWindow = nil
+
     if first_begin_of_the_frame and not window.SkipRefresh then
         window.Active = true
         window.HasCloseButton = (p_open[1] ~= nil)
         window.ClipRect = ImVec4(-INF, -INF, INF, INF)
 
-        window.LastFrameActive = current_frame
+        window.DrawList:_ResetForNewFrame()
+
+        local viewport = GetMainViewport()
+        SetWindowViewport(window, viewport)
+        SetCurrentWindow(window)
+
+        -- TODO: if (flags & ImGuiWindowFlags_ChildWindow)
+        --     window->WindowBorderSize = style.ChildBorderSize;
+        -- else
+        --     window->WindowBorderSize = ((flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip)) && !(flags & ImGuiWindowFlags_Modal)) ? style.PopupBorderSize : style.WindowBorderSize;
     end
 
     local window_id = window.ID
-
-    g.CurrentWindow = window
 
     window.IDStack:clear_delete()
 
@@ -933,9 +949,7 @@ local function Begin(name, p_open)
         window.Size.y = window.SizeFull.y
     end
 
-    window.DrawList.CmdBuffer:clear_delete() -- TODO: investigate
-
-    local resize_grip_colors = {}
+    local resize_grip_colors = {ImNoColor, ImNoColor, ImNoColor} -- TODO: change this
     if not window.Collapsed then
         UpdateWindowManualResize(window, resize_grip_colors)
     end
@@ -1071,6 +1085,126 @@ local function SetupDrawListSharedData()
 end
 -- TODO: Have to be careful that e.g. every drawlist can have a pointer to shareddata(the same) of the context
 
+local function InitViewportDrawData(viewport)
+    local g = GImGui
+    local draw_data = viewport.DrawDataP
+
+    viewport.DrawDataBuilder.Layers[1] = draw_data.CmdLists
+    viewport.DrawDataBuilder.Layers[2] = viewport.DrawDataBuilder.LayerData1
+    viewport.DrawDataBuilder.Layers[1]:resize(0)
+    viewport.DrawDataBuilder.Layers[2]:resize(0)
+
+    draw_data.Valid = true
+    draw_data.CmdListsCount = 0
+    draw_data.TotalVtxCount = 0
+    draw_data.TotalIdxCount = 0
+    draw_data.DisplayPos = viewport.Pos
+    draw_data.DisplaySize = viewport.Size
+end
+
+local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
+    local g = GImGui
+
+    local draw_list = viewport.BgFgDrawLists[drawlist_no]
+    if draw_list == nil then
+        draw_list = ImDrawList(g.DrawListSharedData)
+        draw_list._OwnerName = drawlist_name
+        viewport.BgFgDrawLists[drawlist_no] = draw_list
+    end
+
+    if viewport.BgFgDrawListsLastFrame[drawlist_no] ~= g.FrameCount then
+        draw_list:_ResetForNewFrame()
+        draw_list:PushClipRect(viewport.Pos, viewport.Pos + viewport.Size, false)
+        viewport.BgFgDrawListsLastFrame[drawlist_no] = g.FrameCount
+    end
+
+    return draw_list
+end
+
+local function GetBackgroundDrawList(viewport)
+    local g = GImGui
+
+    if viewport ~= nil then
+        return GetViewportBgFgDrawList(viewport, 1, "##Background")
+    end
+
+    return GetViewportBgFgDrawList(g.Viewports:at(1), 1, "##Background")
+end
+
+local function GetForegroundDrawList(viewport)
+    local g = GImGui
+
+    if viewport ~= nil then
+        return GetViewportBgFgDrawList(viewport, 2, "##Foreground")
+    end
+
+    return GetViewportBgFgDrawList(g.Viewports:at(1), 2, "##Foreground")
+end
+
+--- static void AddWindowToDrawData(ImGuiWindow* window, int layer)
+local function AddWindowToDrawData(window, layer)
+    local g = GImGui
+    local viewport = g.Viewports:at(1)
+    g.IO.MetricsRenderWindows = g.IO.MetricsRenderWindows + 1
+    -- splitter
+    AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[layer], window.DrawList)
+    -- child windows
+end
+
+--- static inline int GetWindowDisplayLayer(ImGuiWindow* window)
+local function GetWindowDisplayLayer(window)
+    return (bit.band(window.Flags, ImGuiWindowFlags_.Tooltip) ~= 0) and 2 or 1
+end
+
+--- static inline void AddRootWindowToDrawData(ImGuiWindow* window)
+local function AddRootWindowToDrawData(window)
+    AddWindowToDrawData(window, GetWindowDisplayLayer(window))
+end
+
+local function FlattenDrawDataIntoSingleLayer(builder)
+    local n = builder.Layers[1].Size
+    local full_size = n
+
+    for i = 2, #builder.Layers do
+        full_size = full_size + builder.Layers[i].Size
+    end
+
+    builder.Layers[1]:resize(full_size)
+
+    for layer_n = 2, #builder.Layers do
+        local layer = builder.Layers[layer_n]
+        if layer:empty() then
+            continue
+        end
+
+        for i = 1, #layer do
+            builder.Layers[1][n + i] = layer[i]
+        end
+
+        n = n + layer.Size
+
+        layer:resize(0)
+    end
+end
+
+--- static void ImGui::UpdateViewportsNewFrame()
+local function UpdateViewportsNewFrame()
+    local g = GImGui
+    IM_ASSERT(g.Viewports.Size == 1)
+
+    local main_viewport = g.Viewports:at(1)
+    main_viewport.Pos = ImVec2(0, 0)
+    main_viewport.Size = g.IO.DisplaySize
+
+    for _, viewport in g.Viewports:iter() do
+        viewport.WorkInsetMin = viewport.BuildWorkInsetMin
+        viewport.WorkInsetMax = viewport.BuildWorkInsetMax
+        viewport.BuildWorkInsetMax = ImVec2(0.0, 0.0)
+        viewport.BuildWorkInsetMin = ImVec2(0.0, 0.0)
+        viewport:UpdateWorkRect()
+    end
+end
+
 local function NewFrame()
     local g = GImGui
 
@@ -1095,8 +1229,14 @@ local function NewFrame()
 
     g.CurrentWindow = nil
 
+    UpdateViewportsNewFrame()
+
     SetupDrawListSharedData()
     UpdateFontsNewFrame()
+
+    for _, viewport in g.Viewports:iter() do
+        viewport.DrawDataP.Valid = false
+    end
 
     g.HoveredID = 0
     g.HoveredWindow = nil
@@ -1121,6 +1261,8 @@ local function NewFrame()
     UpdateHoveredWindowAndCaptureFlags()
 
     UpdateMouseMovingWindowNewFrame()
+
+    g.CurrentWindowStack:resize(0)
 end
 
 local function EndFrame()
@@ -1134,11 +1276,64 @@ local function EndFrame()
     UpdateMouseMovingWindowEndFrame()
 end
 
+local function Render()
+    local g = GImGui
+    IM_ASSERT(g.Initialized)
+
+    if g.FrameCountEnded ~= g.FrameCount then
+        EndFrame()
+    end
+    if g.FrameCountRendered == g.FrameCount then return end
+    g.FrameCountRendered = g.FrameCount
+
+    g.IO.MetricsRenderWindows = 0
+
+    for _, viewport in g.Viewports:iter() do
+        InitViewportDrawData(viewport)
+        if viewport.BgFgDrawLists[1] ~= nil then
+            AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], GetBackgroundDrawList(viewport))
+        end
+    end
+
+    -- RenderDimmedBackgrounds()
+
+    for _, window in g.Windows:iter() do
+        if IsWindowActiveAndVisible(window) then
+            AddRootWindowToDrawData(window)
+        end
+    end
+
+    g.IO.MetricsRenderVertices = 0
+    g.IO.MetricsRenderIndices = 0
+    for _, viewport in g.Viewports:iter() do
+        FlattenDrawDataIntoSingleLayer(viewport.DrawDataBuilder)
+
+        if viewport.BgFgDrawLists[2] ~= nil then
+            AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], GetForegroundDrawList(viewport))
+        end
+
+        local draw_data = viewport.DrawDataP
+        -- IM_ASSERT(draw_data.CmdLists.Size == draw_data.CmdListsCount)
+        for _, draw_list in draw_data.CmdLists:iter() do
+            draw_list:_PopUnusedDrawCmd()
+        end
+
+        g.IO.MetricsRenderVertices = g.IO.MetricsRenderVertices + draw_data.TotalVtxCount
+        g.IO.MetricsRenderIndices = g.IO.MetricsRenderIndices + draw_data.TotalIdxCount
+    end
+end
+
+local function GetDrawData()
+    local g = GImGui
+    local viewport = g.Viewports:at(1)
+    return viewport.DrawDataP.Valid and viewport.DrawDataP or nil
+end
+
 --- void ImGui::Shutdown()
 
 --- Exposure, have to be careful with this
 --
-function ImGui:GetIO() return GImGui.IO end
+function ImGui.GetIO() return GImGui.IO end
 
 -- function ImGui:Begin(name, p_open) return Begin(name, p_open) end
 -- function ImGui:End() End() end
@@ -1146,11 +1341,37 @@ function ImGui:GetIO() return GImGui.IO end
 -- function ImGui:NewFrame() NewFrame() end
 -- function ImGui:EndFrame() EndFrame() end
 
+--- ImGuiViewport* ImGui::GetMainViewport()
+ImGui.GetMainViewport = GetMainViewport
+
+--- static void ScaleWindow(ImGuiWindow* window, float scale)
+local function ScaleWindow(window, scale)
+    local origin = window.Viewport.Pos
+    window.Pos.x = ImFloor((window.Pos.x - origin.x) * scale + origin.x) -- TODO: those for vecs
+    window.Pos.y = ImFloor((window.Pos.y - origin.y) * scale + origin.y)
+    window.Size.x = ImTrunc(window.Size.x * scale)
+    window.Size.y = ImTrunc(window.Size.y * scale)
+    window.SizeFull.x = ImTrunc(window.SizeFull.x * scale)
+    window.SizeFull.y = ImTrunc(window.SizeFull.y * scale)
+    window.ContentSize.x = ImTrunc(window.ContentSize.x * scale)
+    window.ContentSize.y = ImTrunc(window.ContentSize.y * scale)
+end
+
+--- void ImGui::ScaleWindowsInViewport(ImGuiViewportP* viewport, float scale)
+local function ScaleWindowsInViewport(viewport, scale)
+    local g = GImGui
+
+    for _, window in g.Windows:iter() do
+        if window.Viewport == viewport then
+            ScaleWindow(window, scale)
+        end
+    end
+end
+
 --- TEST HERE:
+CreateContext()
 
 ImGui_ImplGMOD_Init()
-
-CreateContext()
 
 --- TODO: can i actually switch different hooks dynamically to achieve our windows rendered under and above the game ui or derma?
 hook.Add("PostRender", "ImGuiTest", function()
@@ -1161,19 +1382,25 @@ hook.Add("PostRender", "ImGuiTest", function()
     NewFrame()
 
     -- Temporary, internal function used
-    UpdateCurrentFontSize(ImMax(15, math.abs(90 * math.sin(SysTime()))))
+    -- UpdateCurrentFontSize(ImMax(15, math.abs(90 * math.sin(SysTime()))))
 
     local window1_open = {true}
     Begin("Hello World!", window1_open)
     End()
 
-    local window2_open = {true}
-    Begin("ImGui Demo", window2_open)
-    End()
+    -- local window2_open = {true}
+    -- Begin("ImGui Demo", window2_open)
+    -- End()
+
+    -- local drawlist = ImDrawList()
+    -- drawlist:AddRectFilled(ImVec2(60, 60), ImVec2(120, 120), color_white, 0.01)
+    -- TODO: Finish this rendering!
 
     EndFrame()
 
     Render()
+
+    ImGui_ImplGMOD_RenderDrawData(GetDrawData())
 
     -- Temporary
     local g = GImGui

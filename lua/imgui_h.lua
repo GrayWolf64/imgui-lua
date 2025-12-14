@@ -1,5 +1,5 @@
-local bit = bit
-
+--- Flag defs, misc small functions and some constants
+--
 local FontDataDefault = {
     font      = "Arial",
     size      = 13,
@@ -18,7 +18,6 @@ local FontDataDefault = {
     outline   = false
 }
 
-local pairs = pairs
 local function FontCopy(font_data)
     local copy = {}
     for k, v in pairs(font_data) do
@@ -47,6 +46,8 @@ local function FontDataToString(font_data)
         (font_data.outline   or FontDataDefault.outline)   and 1 or 0
     )
 end
+
+local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
 
 --- enum ImGuiWindowFlags_
 local ImGuiWindowFlags_ = {
@@ -126,4 +127,50 @@ local ImGuiItemStatusFlags_ = {
 -- ImGuiItemStatusFlags_.Checked   = bit.lshift(1, 23)
 -- ImGuiItemStatusFlags_.Inputable = bit.lshift(1, 24)
 
-return FontDataDefault, FontCopy, FontDataToString
+--- enum ImDrawFlags_
+local ImDrawFlags_ = {
+    None                    = 0,
+    Closed                  = bit.lshift(1, 0),
+    RoundCornersTopLeft     = bit.lshift(1, 4),
+    RoundCornersTopRight    = bit.lshift(1, 5),
+    RoundCornersBottomLeft  = bit.lshift(1, 6),
+    RoundCornersBottomRight = bit.lshift(1, 7),
+    RoundCornersNone        = bit.lshift(1, 8)
+}
+
+ImDrawFlags_.RoundCornersTop = bit.bor(
+    ImDrawFlags_.RoundCornersTopLeft,
+    ImDrawFlags_.RoundCornersTopRight
+)
+ImDrawFlags_.RoundCornersBottom = bit.bor(
+    ImDrawFlags_.RoundCornersBottomLeft,
+    ImDrawFlags_.RoundCornersBottomRight
+)
+ImDrawFlags_.RoundCornersLeft = bit.bor(
+    ImDrawFlags_.RoundCornersBottomLeft,
+    ImDrawFlags_.RoundCornersTopLeft
+)
+ImDrawFlags_.RoundCornersRight = bit.bor(
+    ImDrawFlags_.RoundCornersBottomRight,
+    ImDrawFlags_.RoundCornersTopRight
+)
+ImDrawFlags_.RoundCornersAll = bit.bor(
+    ImDrawFlags_.RoundCornersTopLeft,
+    ImDrawFlags_.RoundCornersTopRight,
+    ImDrawFlags_.RoundCornersBottomLeft,
+    ImDrawFlags_.RoundCornersBottomRight
+)
+ImDrawFlags_.RoundCornersDefault_ = ImDrawFlags_.RoundCornersAll
+ImDrawFlags_.RoundCornersMask_ = bit.bor(
+    ImDrawFlags_.RoundCornersAll,
+    ImDrawFlags_.RoundCornersNone
+)
+
+--- enum ImDrawListFlags_
+local ImDrawListFlags_ = {
+    None                   = 0,
+    AntiAliasedLines       = bit.lshift(1, 0),
+    AntiAliasedLinesUseTex = bit.lshift(1, 1),
+    AntiAliasedFill        = bit.lshift(1, 2),
+    AllowVtxOffset         = bit.lshift(1, 3),
+}

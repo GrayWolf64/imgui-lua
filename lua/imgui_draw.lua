@@ -27,6 +27,62 @@ local StyleColorsDark = {
 
 local ImNoColor = {r = 0, g = 0, b = 0, a = 0}
 
+local function IM_NORMALIZE2F_OVER_ZERO(VX, VY)
+    local d2 = VX * VX + VY * VY
+    if d2 > 0.0 then
+        local inv_len = ImRsqrt(d2)
+        VX = VX * inv_len
+        VY = VY * inv_len
+    end
+    return VX, VY
+end
+
+local IM_FIXNORMAL2F_MAX_INVLEN2 = 100
+
+local function IM_FIXNORMAL2F(VX, VY)
+    local d2 = VX * VX + VY * VY
+    if d2 > 0.000001 then
+        local inv_len2 = 1.0 / d2
+        if inv_len2 > IM_FIXNORMAL2F_MAX_INVLEN2 then
+            inv_len2 = IM_FIXNORMAL2F_MAX_INVLEN2
+        end
+        VX = VX * inv_len2
+        VY = VY * inv_len2
+    end
+    return VX, VY
+end
+
+function _ImDrawData:Clear()
+    self.Valid = false
+    self.CmdListsCount = 0
+    self.TotalIdxCount = 0
+    self.TotalVtxCount = 0
+    self.CmdLists:clear_delete()
+    self.DisplayPos = ImVec2()
+    self.DisplaySize = ImVec2()
+end
+
+local function AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
+    if draw_list.CmdBuffer.Size == 0 then return end
+    if draw_list.CmdBuffer.Size == 1 and draw_list.CmdBuffer.Data[1].ElemCount == 0 then return end
+
+    IM_ASSERT(draw_list.VtxBuffer.Size == 0 or draw_list._VtxWritePtr == draw_list.VtxBuffer.Size + 1)
+    IM_ASSERT(draw_list.IdxBuffer.Size == 0 or draw_list._IdxWritePtr == draw_list.IdxBuffer.Size + 1)
+
+    -- indexable check
+
+    out_list:push_back(draw_list)
+    draw_data.CmdListsCount = draw_data.CmdListsCount + 1
+    draw_data.TotalVtxCount = draw_data.TotalVtxCount + draw_list.VtxBuffer.Size
+    draw_data.TotalIdxCount = draw_data.TotalIdxCount + draw_list.IdxBuffer.Size
+end
+
+function _ImDrawData:AddDrawList(draw_list)
+    IM_ASSERT(self.CmdLists.Size == self.CmdListsCount)
+    draw_list:_PopUnusedDrawCmd()
+    AddDrawListToDrawDataEx(self, self.CmdLists, draw_list)
+end
+
 function _ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     if self.CircleSegmentMaxError == max_error then return end
     -- IM_ASSERT(max_error > 0)
@@ -51,37 +107,616 @@ function _ImDrawList:_SetDrawListSharedData(data)
     end
 end
 
-function _ImDrawList:AddDrawCmd(draw_call, ...)
-    self.CmdBuffer:push_back({draw_call = draw_call, args = {...}})
+function _ImDrawList:_ResetForNewFrame()
+    self.CmdBuffer:resize(0)
+    self.IdxBuffer:resize(0)
+    self.VtxBuffer:resize(0)
+    self._VtxCurrentIdx = 1
+    self._VtxWritePtr = 1
+    self._IdxWritePtr = 1
+    self._ClipRectStack:resize(0)
+    self._Path:resize(0)
+    self.CmdBuffer:push_back(ImDrawCmd())
+    self._FringeScale = self._Data.InitialFringeScale
 end
 
-function _ImDrawList:AddRectFilled(color, p_min, p_max)
-    self:AddDrawCmd(surface.SetDrawColor, color)
-    self:AddDrawCmd(surface.DrawRect, p_min.x, p_min.y, p_max.x - p_min.x, p_max.y - p_min.y)
+function _ImDrawList:AddDrawCmd()
+    local draw_cmd = ImDrawCmd()
+    draw_cmd.ClipRect = self._CmdHeader.ClipRect
+    draw_cmd.VtxOffset = self._CmdHeader.VtxOffset
+    draw_cmd.IdxOffset = self.IdxBuffer.Size
+
+    --- IM_ASSERT(draw_cmd.ClipRect.x <= draw_cmd.ClipRect.z && draw_cmd.ClipRect.y <= draw_cmd.ClipRect.w);
+    self.CmdBuffer:push_back(draw_cmd)
 end
 
-function _ImDrawList:AddRectOutline(color, p_min, p_max, thickness)
-    self:AddDrawCmd(surface.SetDrawColor, color)
-    self:AddDrawCmd(surface.DrawOutlinedRect, p_min.x, p_min.y, p_max.x - p_min.x, p_max.y - p_min.y, thickness)
+function _ImDrawList:_PopUnusedDrawCmd()
+    while self.CmdBuffer.Size > 0 do
+        local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+        if curr_cmd.ElemCount ~= 0 then
+            break
+        end
+
+        self.CmdBuffer:pop_back()
+    end
+end
+
+function _ImDrawList:_OnChangedVtxOffset()
+    self._VtxCurrentIdx = 1
+    -- IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
+
+    local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    if curr_cmd.ElemCount ~= 0 then
+        self:AddDrawCmd()
+        return
+    end
+    -- IM_ASSERT(curr_cmd->UserCallback == NULL)
+    curr_cmd.VtxOffset = self._CmdHeader.VtxOffset
+end
+
+function _ImDrawList:AddConvexPolyFilled(points, points_count, col)
+    if points_count < 3 or col.a == 0 then return end
+
+    local uv = self._Data.TexUvWhitePixel
+
+    if bit.band(self.Flags, ImDrawListFlags_.AntiAliasedFill) ~= 0 then
+        local AA_SIZE = self._FringeScale
+        local col_trans = {r = col.r, g = col.g, b = col.b, a = 0}
+        local idx_count = (points_count - 2) * 3 + points_count * 6
+        local vtx_count = points_count * 2
+        self:PrimReserve(idx_count, vtx_count)
+
+        local vtx_inner_idx = self._VtxCurrentIdx
+        local vtx_outer_idx = self._VtxCurrentIdx + 1
+        for i = 2, points_count - 1 do
+            local idx_write_ptr = self._IdxWritePtr
+            self.IdxBuffer.Data[idx_write_ptr] = vtx_inner_idx
+            self.IdxBuffer.Data[idx_write_ptr + 1] = vtx_inner_idx + ((i - 1) * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 2] = vtx_inner_idx + (i * 2)
+            self._IdxWritePtr = idx_write_ptr + 3
+        end
+
+        self._Data.TempBuffer:reserve_discard(points_count)
+        local temp_normals = self._Data.TempBuffer.Data
+
+        local i0 = points_count
+        for i1 = 1, points_count do
+            local p0 = points[i0]
+            local p1 = points[i1]
+            local dx = p1.x - p0.x
+            local dy = p1.y - p0.y
+            dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
+            temp_normals[i0].x = dy
+            temp_normals[i0].y = -dx
+
+            i0 = i1
+        end
+
+        i0 = points_count
+        for i1 = 1, points_count do
+            local n0 = temp_normals[i0]
+            local n1 = temp_normals[i1]
+            local dm_x = (n0.x + n1.x) * 0.5
+            local dm_y = (n0.y + n1.y) * 0.5
+            dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
+            dm_x = dm_x * AA_SIZE * 0.5
+            dm_y = dm_y * AA_SIZE * 0.5
+
+            local p1 = points[i1]
+            local vtx_write_ptr = self._VtxWritePtr
+
+            self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
+            self.VtxBuffer.Data[vtx_write_ptr].pos.x = p1.x - dm_x
+            self.VtxBuffer.Data[vtx_write_ptr].pos.y = p1.y - dm_y
+            self.VtxBuffer.Data[vtx_write_ptr].uv = uv
+            self.VtxBuffer.Data[vtx_write_ptr].col = col
+
+            self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
+            self.VtxBuffer.Data[vtx_write_ptr + 1].pos.x = p1.x + dm_x
+            self.VtxBuffer.Data[vtx_write_ptr + 1].pos.y = p1.y + dm_y
+            self.VtxBuffer.Data[vtx_write_ptr + 1].uv = uv
+            self.VtxBuffer.Data[vtx_write_ptr + 1].col = col_trans
+
+            self._VtxWritePtr = vtx_write_ptr + 2
+
+            local idx_write_ptr = self._IdxWritePtr
+
+            self.IdxBuffer.Data[idx_write_ptr] = vtx_inner_idx + ((i1 - 1) * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 1] = vtx_inner_idx + ((i0 - 1) * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 2] = vtx_outer_idx + ((i0 - 1) * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 3] = vtx_outer_idx + ((i0 - 1) * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 4] = vtx_outer_idx + ((i1 - 1) * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 5] = vtx_inner_idx + ((i1 - 1) * 2)
+            self._IdxWritePtr = idx_write_ptr + 6
+
+            i0 = i1
+        end
+        self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
+    else
+        local idx_count = (points_count - 2) * 3
+        local vtx_count = points_count
+        self:PrimReserve(idx_count, vtx_count)
+
+        for i = 1, points_count do
+            local vtx_write_ptr = self._VtxWritePtr
+            self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
+            self.VtxBuffer.Data[vtx_write_ptr].pos = points[i]
+            self.VtxBuffer.Data[vtx_write_ptr].uv = uv
+            self.VtxBuffer.Data[vtx_write_ptr].col = col
+            self._VtxWritePtr = vtx_write_ptr + 1
+        end
+
+        for i = 3, points_count do
+            local idx_write_ptr = self._IdxWritePtr
+            self.IdxBuffer.Data[idx_write_ptr] = self._VtxCurrentIdx
+            self.IdxBuffer.Data[idx_write_ptr + 1] = self._VtxCurrentIdx + i - 2
+            self.IdxBuffer.Data[idx_write_ptr + 2] = self._VtxCurrentIdx + i - 1
+            self._IdxWritePtr = idx_write_ptr + 3
+        end
+
+        self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
+    end
+end
+
+--- TODO: LIMIT: 65536 for imesh, 4096 for drawpoly
+function _ImDrawList:PrimReserve(idx_count, vtx_count)
+    -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0)
+    if self._VtxCurrentIdx + vtx_count >= 4096 then
+        self._CmdHeader.VtxOffset = self.VtxBuffer.Size + 1
+        self:_OnChangedVtxOffset()
+    end
+
+    local draw_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    draw_cmd.ElemCount = draw_cmd.ElemCount + idx_count
+
+    local vtx_buffer_old_size = self.VtxBuffer.Size
+    self.VtxBuffer:resize(vtx_buffer_old_size + vtx_count)
+    self._VtxWritePtr = vtx_buffer_old_size + 1
+
+    local idx_buffer_old_size = self.IdxBuffer.Size
+    self.IdxBuffer:resize(idx_buffer_old_size + idx_count)
+    self._IdxWritePtr = idx_buffer_old_size + 1
+end
+
+function _ImDrawList:PrimUnreserve(idx_count, vtx_count)
+    -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0);
+
+    local draw_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    draw_cmd.ElemCount = draw_cmd.ElemCount - idx_count
+    self.VtxBuffer:shrink(self.VtxBuffer.Size - vtx_count)
+    self.IdxBuffer:shrink(self.IdxBuffer.Size - idx_count)
+end
+
+function _ImDrawList:PrimRect(a, c, col)
+    local b = ImVec2(c.x, a.y)
+    local d = ImVec2(a.x, c.y)
+
+    -- TODO: uv
+    local idx = self._VtxCurrentIdx
+
+    local idx_write_ptr = self._IdxWritePtr
+    self.IdxBuffer.Data[idx_write_ptr] = idx
+    self.IdxBuffer.Data[idx_write_ptr + 1] = idx + 1
+    self.IdxBuffer.Data[idx_write_ptr + 2] = idx + 2
+
+    self.IdxBuffer.Data[idx_write_ptr + 3] = idx
+    self.IdxBuffer.Data[idx_write_ptr + 4] = idx + 2
+    self.IdxBuffer.Data[idx_write_ptr + 5] = idx + 3
+
+    local vtx_write_ptr = self._VtxWritePtr
+    self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
+    self.VtxBuffer.Data[vtx_write_ptr].pos = a
+    self.VtxBuffer.Data[vtx_write_ptr].col = col
+
+    self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
+    self.VtxBuffer.Data[vtx_write_ptr + 1].pos = b
+    self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+
+    self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
+    self.VtxBuffer.Data[vtx_write_ptr + 2].pos = c
+    self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
+
+    self.VtxBuffer.Data[vtx_write_ptr + 3] = ImDrawVert()
+    self.VtxBuffer.Data[vtx_write_ptr + 3].pos = d
+    self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
+
+    self._VtxWritePtr = vtx_write_ptr + 4
+    self._VtxCurrentIdx = idx + 4
+    self._IdxWritePtr = idx_write_ptr + 6
+end
+
+--- void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32 col, ImDrawFlags flags, float thickness)
+--
+function _ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
+    if points_count < 2 or col.a == 0 then
+        return
+    end
+
+    local closed = bit.band(flags, ImDrawFlags_.Closed) ~= 0
+    local opaque_uv = self._Data.TexUvWhitePixel
+    local count = closed and points_count or points_count - 1  -- Number of line segments
+    local thick_line = thickness > self._FringeScale
+
+    if bit.band(self.Flags, ImDrawListFlags_.AntiAliasedLines) ~= 0 then
+        -- Anti-aliased stroke
+        local AA_SIZE = self._FringeScale
+        local col_trans = {r = col.r, g = col.g, b = col.b, a = 0}
+
+        -- Thicknesses <1.0 should behave like thickness 1.0
+        thickness = math.max(thickness, 1.0)
+        local integer_thickness = math.floor(thickness)
+        local fractional_thickness = thickness - integer_thickness
+
+        -- Do we want to draw this line using a texture?
+        local use_texture = bit.band(self.Flags, ImDrawListFlags_.AntiAliasedLinesUseTex) ~= 0
+                        and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX
+                        and fractional_thickness <= 0.00001
+                        and AA_SIZE == 1.0
+
+        local idx_count = use_texture and (count * 6) or (thick_line and count * 18 or count * 12)
+        local vtx_count = use_texture and (points_count * 2) or (thick_line and points_count * 4 or points_count * 3)
+        self:PrimReserve(idx_count, vtx_count)
+
+        -- Temporary buffer
+        local temp_buffer_size = points_count * (use_texture or not thick_line and 3 or 5)
+        self._Data.TempBuffer:reserve_discard(temp_buffer_size)
+        local temp_normals = self._Data.TempBuffer.Data
+        local temp_points = {}  -- Will be calculated
+
+        -- Calculate normals (tangents) for each line segment
+        for i1 = 1, count do
+            local i2 = (i1 == points_count) and 1 or i1 + 1
+            local p1 = points[i1]
+            local p2 = points[i2]
+            local dx = p2.x - p1.x
+            local dy = p2.y - p1.y
+            dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
+            temp_normals[i1] = ImVec2(dy, -dx)
+        end
+        if not closed then
+            temp_normals[points_count] = temp_normals[points_count - 1]
+        end
+
+        -- If we are drawing a one-pixel-wide line without a texture, or a textured line of any width
+        if use_texture or not thick_line then
+            -- [PATH 1] Texture-based lines (thick or non-thick)
+            -- [PATH 2] Non texture-based lines (non-thick)
+            local half_draw_size = use_texture and (thickness * 0.5 + 1) or AA_SIZE
+            temp_points = {}
+
+            -- If line is not closed, the first and last points need to be generated differently
+            if not closed then
+                temp_points[1] = points[1] + temp_normals[1] * half_draw_size
+                temp_points[2] = points[1] - temp_normals[1] * half_draw_size
+                local last_idx = (points_count - 1) * 2
+                temp_points[last_idx + 1] = points[points_count] + temp_normals[points_count] * half_draw_size
+                temp_points[last_idx + 2] = points[points_count] - temp_normals[points_count] * half_draw_size
+            end
+
+            -- Generate indices and vertices
+            local idx1 = self._VtxCurrentIdx
+            for i1 = 1, count do
+                local i2 = (i1 == points_count) and 1 or i1 + 1
+                local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + (use_texture and 2 or 3))
+
+                -- Average normals
+                local n1 = temp_normals[i1]
+                local n2 = temp_normals[i2]
+                local dm_x = (n1.x + n2.x) * 0.5
+                local dm_y = (n1.y + n2.y) * 0.5
+                dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
+                dm_x = dm_x * half_draw_size
+                dm_y = dm_y * half_draw_size
+
+                -- Add temporary vertices for the outer edges
+                local out_idx = i2 * 2
+                temp_points[out_idx - 1] = ImVec2(points[i2].x + dm_x, points[i2].y + dm_y)
+                temp_points[out_idx] = ImVec2(points[i2].x - dm_x, points[i2].y - dm_y)
+
+                if use_texture then
+                    -- Add indices for two triangles
+                    local idx_write_ptr = self._IdxWritePtr
+                    self.IdxBuffer.Data[idx_write_ptr] = idx2
+                    self.IdxBuffer.Data[idx_write_ptr + 1] = idx1
+                    self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 1
+                    self.IdxBuffer.Data[idx_write_ptr + 3] = idx2 + 1
+                    self.IdxBuffer.Data[idx_write_ptr + 4] = idx1 + 1
+                    self.IdxBuffer.Data[idx_write_ptr + 5] = idx2
+                    self._IdxWritePtr = idx_write_ptr + 6
+                else
+                    -- Add indices for four triangles
+                    local idx_write_ptr = self._IdxWritePtr
+                    self.IdxBuffer.Data[idx_write_ptr] = idx2
+                    self.IdxBuffer.Data[idx_write_ptr + 1] = idx1
+                    self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 2
+                    self.IdxBuffer.Data[idx_write_ptr + 3] = idx1 + 2
+                    self.IdxBuffer.Data[idx_write_ptr + 4] = idx2 + 2
+                    self.IdxBuffer.Data[idx_write_ptr + 5] = idx2
+                    self.IdxBuffer.Data[idx_write_ptr + 6] = idx2 + 1
+                    self.IdxBuffer.Data[idx_write_ptr + 7] = idx1 + 1
+                    self.IdxBuffer.Data[idx_write_ptr + 8] = idx1
+                    self.IdxBuffer.Data[idx_write_ptr + 9] = idx1
+                    self.IdxBuffer.Data[idx_write_ptr + 10] = idx2
+                    self.IdxBuffer.Data[idx_write_ptr + 11] = idx2 + 1
+                    self._IdxWritePtr = idx_write_ptr + 12
+                end
+
+                idx1 = idx2
+            end
+
+            -- Add vertices
+            if use_texture then
+                -- Texture-based: need to implement TexUvLines lookup
+                local tex_uvs = self._Data.TexUvLines[integer_thickness] or ImVec4(0, 0, 1, 1)
+                local tex_uv0 = ImVec2(tex_uvs.x, tex_uvs.y)
+                local tex_uv1 = ImVec2(tex_uvs.z, tex_uvs.w)
+                for i = 1, points_count do
+                    local vtx_write_ptr = self._VtxWritePtr
+                    self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
+                    self.VtxBuffer.Data[vtx_write_ptr].pos = temp_points[i * 2 - 1]
+                    self.VtxBuffer.Data[vtx_write_ptr].uv = tex_uv0
+                    self.VtxBuffer.Data[vtx_write_ptr].col = col
+
+                    self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
+                    self.VtxBuffer.Data[vtx_write_ptr + 1].pos = temp_points[i * 2]
+                    self.VtxBuffer.Data[vtx_write_ptr + 1].uv = tex_uv1
+                    self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+
+                    self._VtxWritePtr = vtx_write_ptr + 2
+                end
+            else
+                -- Non-texture: center vertex plus two outer vertices
+                for i = 1, points_count do
+                    local vtx_write_ptr = self._VtxWritePtr
+
+                    -- Center of line
+                    self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
+                    self.VtxBuffer.Data[vtx_write_ptr].pos = points[i]
+                    self.VtxBuffer.Data[vtx_write_ptr].uv = opaque_uv
+                    self.VtxBuffer.Data[vtx_write_ptr].col = col
+
+                    -- Left outer edge
+                    self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
+                    self.VtxBuffer.Data[vtx_write_ptr + 1].pos = temp_points[i * 2 - 1]
+                    self.VtxBuffer.Data[vtx_write_ptr + 1].uv = opaque_uv
+                    self.VtxBuffer.Data[vtx_write_ptr + 1].col = col_trans
+
+                    -- Right outer edge
+                    self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
+                    self.VtxBuffer.Data[vtx_write_ptr + 2].pos = temp_points[i * 2]
+                    self.VtxBuffer.Data[vtx_write_ptr + 2].uv = opaque_uv
+                    self.VtxBuffer.Data[vtx_write_ptr + 2].col = col_trans
+
+                    self._VtxWritePtr = vtx_write_ptr + 3
+                end
+            end
+        else
+            -- [PATH 3] Non texture-based lines (thick)
+            local half_inner_thickness = (thickness - AA_SIZE) * 0.5
+            temp_points = {}
+
+            -- If line is not closed, handle first and last points
+            if not closed then
+                local last_idx = (points_count - 1) * 4
+                local n1 = temp_normals[1]
+                local n_last = temp_normals[points_count]
+
+                temp_points[1] = points[1] + n1 * (half_inner_thickness + AA_SIZE)
+                temp_points[2] = points[1] + n1 * half_inner_thickness
+                temp_points[3] = points[1] - n1 * half_inner_thickness
+                temp_points[4] = points[1] - n1 * (half_inner_thickness + AA_SIZE)
+
+                temp_points[last_idx + 1] = points[points_count] + n_last * (half_inner_thickness + AA_SIZE)
+                temp_points[last_idx + 2] = points[points_count] + n_last * half_inner_thickness
+                temp_points[last_idx + 3] = points[points_count] - n_last * half_inner_thickness
+                temp_points[last_idx + 4] = points[points_count] - n_last * (half_inner_thickness + AA_SIZE)
+            end
+
+            -- Generate indices and vertices
+            local idx1 = self._VtxCurrentIdx
+            for i1 = 1, count do
+                local i2 = (i1 == points_count) and 1 or i1 + 1
+                local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + 4)
+
+                -- Average normals
+                local n1 = temp_normals[i1]
+                local n2 = temp_normals[i2]
+                local dm_x = (n1.x + n2.x) * 0.5
+                local dm_y = (n1.y + n2.y) * 0.5
+                dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
+                local dm_out_x = dm_x * (half_inner_thickness + AA_SIZE)
+                local dm_out_y = dm_y * (half_inner_thickness + AA_SIZE)
+                local dm_in_x = dm_x * half_inner_thickness
+                local dm_in_y = dm_y * half_inner_thickness
+
+                -- Add temporary vertices
+                local out_idx = i2 * 4 - 3
+                temp_points[out_idx] = ImVec2(points[i2].x + dm_out_x, points[i2].y + dm_out_y)
+                temp_points[out_idx + 1] = ImVec2(points[i2].x + dm_in_x, points[i2].y + dm_in_y)
+                temp_points[out_idx + 2] = ImVec2(points[i2].x - dm_in_x, points[i2].y - dm_in_y)
+                temp_points[out_idx + 3] = ImVec2(points[i2].x - dm_out_x, points[i2].y - dm_out_y)
+
+                -- Add indices (18 per segment)
+                local idx_write_ptr = self._IdxWritePtr
+                local base = 1
+                self.IdxBuffer.Data[idx_write_ptr] = idx2 + 1; self.IdxBuffer.Data[idx_write_ptr + 1] = idx1 + 1; self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 2
+                self.IdxBuffer.Data[idx_write_ptr + 3] = idx1 + 2; self.IdxBuffer.Data[idx_write_ptr + 4] = idx2 + 2; self.IdxBuffer.Data[idx_write_ptr + 5] = idx2 + 1
+                self.IdxBuffer.Data[idx_write_ptr + 6] = idx2 + 1; self.IdxBuffer.Data[idx_write_ptr + 7] = idx1 + 1; self.IdxBuffer.Data[idx_write_ptr + 8] = idx1 + 0
+                self.IdxBuffer.Data[idx_write_ptr + 9] = idx1 + 0; self.IdxBuffer.Data[idx_write_ptr + 10] = idx2 + 0; self.IdxBuffer.Data[idx_write_ptr + 11] = idx2 + 1
+                self.IdxBuffer.Data[idx_write_ptr + 12] = idx2 + 2; self.IdxBuffer.Data[idx_write_ptr + 13] = idx1 + 2; self.IdxBuffer.Data[idx_write_ptr + 14] = idx1 + 3
+                self.IdxBuffer.Data[idx_write_ptr + 15] = idx1 + 3; self.IdxBuffer.Data[idx_write_ptr + 16] = idx2 + 3; self.IdxBuffer.Data[idx_write_ptr + 17] = idx2 + 2
+                self._IdxWritePtr = idx_write_ptr + 18
+
+                idx1 = idx2
+            end
+
+            -- Add vertices
+            for i = 1, points_count do
+                local vtx_write_ptr = self._VtxWritePtr
+                local base = i * 4 - 3
+
+                self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
+                self.VtxBuffer.Data[vtx_write_ptr].pos = temp_points[base]
+                self.VtxBuffer.Data[vtx_write_ptr].uv = opaque_uv
+                self.VtxBuffer.Data[vtx_write_ptr].col = col_trans
+
+                self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
+                self.VtxBuffer.Data[vtx_write_ptr + 1].pos = temp_points[base + 1]
+                self.VtxBuffer.Data[vtx_write_ptr + 1].uv = opaque_uv
+                self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+
+                self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
+                self.VtxBuffer.Data[vtx_write_ptr + 2].pos = temp_points[base + 2]
+                self.VtxBuffer.Data[vtx_write_ptr + 2].uv = opaque_uv
+                self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
+
+                self.VtxBuffer.Data[vtx_write_ptr + 3] = ImDrawVert()
+                self.VtxBuffer.Data[vtx_write_ptr + 3].pos = temp_points[base + 3]
+                self.VtxBuffer.Data[vtx_write_ptr + 3].uv = opaque_uv
+                self.VtxBuffer.Data[vtx_write_ptr + 3].col = col_trans
+
+                self._VtxWritePtr = vtx_write_ptr + 4
+            end
+        end
+        self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
+    else
+        -- [PATH 4] Non texture-based, Non anti-aliased lines
+        local idx_count = count * 6
+        local vtx_count = count * 4
+        self:PrimReserve(idx_count, vtx_count)
+
+        for i1 = 1, count do
+            local i2 = (i1 == points_count) and 1 or i1 + 1
+            local p1 = points[i1]
+            local p2 = points[i2]
+
+            local dx = p2.x - p1.x
+            local dy = p2.y - p1.y
+            dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
+            dx = dx * (thickness * 0.5)
+            dy = dy * (thickness * 0.5)
+
+            -- Add vertices for this segment
+            local vtx_write_ptr = self._VtxWritePtr
+            self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
+            self.VtxBuffer.Data[vtx_write_ptr].pos.x = p1.x + dy
+            self.VtxBuffer.Data[vtx_write_ptr].pos.y = p1.y - dx
+            self.VtxBuffer.Data[vtx_write_ptr].uv = opaque_uv
+            self.VtxBuffer.Data[vtx_write_ptr].col = col
+
+            self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
+            self.VtxBuffer.Data[vtx_write_ptr + 1].pos.x = p2.x + dy
+            self.VtxBuffer.Data[vtx_write_ptr + 1].pos.y = p2.y - dx
+            self.VtxBuffer.Data[vtx_write_ptr + 1].uv = opaque_uv
+            self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+
+            self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
+            self.VtxBuffer.Data[vtx_write_ptr + 2].pos.x = p2.x - dy
+            self.VtxBuffer.Data[vtx_write_ptr + 2].pos.y = p2.y + dx
+            self.VtxBuffer.Data[vtx_write_ptr + 2].uv = opaque_uv
+            self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
+
+            self.VtxBuffer.Data[vtx_write_ptr + 3] = ImDrawVert()
+            self.VtxBuffer.Data[vtx_write_ptr + 3].pos.x = p1.x - dy
+            self.VtxBuffer.Data[vtx_write_ptr + 3].pos.y = p1.y + dx
+            self.VtxBuffer.Data[vtx_write_ptr + 3].uv = opaque_uv
+            self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
+
+            self._VtxWritePtr = vtx_write_ptr + 4
+
+            -- Add indices for two triangles
+            local idx_write_ptr = self._IdxWritePtr
+            self.IdxBuffer.Data[idx_write_ptr] = self._VtxCurrentIdx
+            self.IdxBuffer.Data[idx_write_ptr + 1] = self._VtxCurrentIdx + 1
+            self.IdxBuffer.Data[idx_write_ptr + 2] = self._VtxCurrentIdx + 2
+            self.IdxBuffer.Data[idx_write_ptr + 3] = self._VtxCurrentIdx
+            self.IdxBuffer.Data[idx_write_ptr + 4] = self._VtxCurrentIdx + 2
+            self.IdxBuffer.Data[idx_write_ptr + 5] = self._VtxCurrentIdx + 3
+            self._IdxWritePtr = idx_write_ptr + 6
+
+            self._VtxCurrentIdx = self._VtxCurrentIdx + 4
+        end
+    end
+end
+
+local function FixRectCornerFlags(flags)
+    -- IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
+
+    if (bit.band(flags, ImDrawFlags_.RoundCornersMask_) == 0) then
+        flags = bit.bor(flags, ImDrawFlags_.RoundCornersAll)
+    end
+
+    return flags
+end
+
+function _ImDrawList:PathRect(a, b, rounding, flags)
+    if rounding >= 0.5 then
+        flags = FixRectCornerFlags(flags)
+        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags_.RoundCornersTop) == ImDrawFlags_.RoundCornersTop) or (bit.band(flags, ImDrawFlags_.RoundCornersBottom) == ImDrawFlags_.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags_.RoundCornersLeft) == ImDrawFlags_.RoundCornersLeft) or (bit.band(flags, ImDrawFlags_.RoundCornersRight) == ImDrawFlags_.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
+    end
+    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_.RoundCornersMask_) == ImDrawFlags_.RoundCornersNone) then
+        self:PathLineTo(a)
+        self:PathLineTo(ImVec2(b.x, a.y))
+        self:PathLineTo(b)
+        self:PathLineTo(ImVec2(a.x, b.y))
+    else
+        local rounding_tl = (bit.band(flags, ImDrawFlags_.RoundCornersTopLeft) ~= 0) and rounding or 0.0
+        local rounding_tr = (bit.band(flags, ImDrawFlags_.RoundCornersTopRight) ~= 0) and rounding or 0.0
+        local rounding_br = (bit.band(flags, ImDrawFlags_.RoundCornersBottomRight) ~= 0) and rounding or 0.0
+        local rounding_bl = (bit.band(flags, ImDrawFlags_.RoundCornersBottomLeft) ~= 0) and rounding or 0.0
+        self:PathArcToFast(ImVec2(a.x + rounding_tl, a.y + rounding_tl), rounding_tl, 6, 9)
+        self:PathArcToFast(ImVec2(b.x - rounding_tr, a.y + rounding_tr), rounding_tr, 9, 12)
+        self:PathArcToFast(ImVec2(b.x - rounding_br, b.y - rounding_br), rounding_br, 0, 3)
+        self:PathArcToFast(ImVec2(a.x + rounding_bl, b.y - rounding_bl), rounding_bl, 3, 6)
+    end
+end
+
+function _ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
+    if col.a == 0 then return end -- TODO: pack color?
+
+    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_.RoundCornersMask_) == ImDrawFlags_.RoundCornersNone) then
+        self:PrimReserve(6, 4)
+        self:PrimRect(p_min, p_max, col)
+    else
+        self:PathRect(p_min, p_max, rounding, flags)
+        self:PathFillConvex(col)
+    end
+end
+
+function _ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
+    if col.a == 0 then return end
+    if bit.band(self.Flags, ImDrawListFlags_.AntiAliasedLines) ~= 0 then
+        self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
+    else
+        self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
+    end
+
+    self:PathStroke(col, ImDrawFlags_.Closed, thickness)
+end
+
+function _ImDrawList:AddLine(p1, p2, col, thickness)
+    if col.a == 0 then return end
+
+    self:PathLineTo(p1 + ImVec2(0.5, 0.5))
+    self:PathLineTo(p2 + ImVec2(0.5, 0.5))
+    self:PathStroke(col, 0, thickness)
+end
+
+function _ImDrawList:AddTriangleFilled(p1, p2, p3, col)
+    if col.a == 0 then return end
+
+    self:PathLineTo(p1)
+    self:PathLineTo(p2)
+    self:PathLineTo(p3)
+    self:PathFillConvex(col)
 end
 
 function _ImDrawList:AddText(text, font, pos, color)
-    self:AddDrawCmd(surface.SetTextPos, pos.x, pos.y)
-    self:AddDrawCmd(surface.SetFont, font)
-    self:AddDrawCmd(surface.SetTextColor, color)
-    self:AddDrawCmd(surface.DrawText, text)
-end
-
-function _ImDrawList:AddLine(p1, p2, color)
-    self:AddDrawCmd(surface.SetDrawColor, color)
-    self:AddDrawCmd(surface.DrawLine, p1.x, p1.y, p2.x, p2.y)
-end
-
---- Points must be in clockwise order
-function _ImDrawList:AddTriangleFilled(indices, color)
-    self:AddDrawCmd(surface.SetDrawColor, color)
-    self:AddDrawCmd(draw.NoTexture)
-    self:AddDrawCmd(surface.DrawPoly, indices)
+    surface.SetTextPos(pos.x, pos.y)
+    surface.SetFont(font)
+    surface.SetTextColor(color)
+    surface.DrawText(text)
 end
 
 function _ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
@@ -89,15 +724,15 @@ function _ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     local text_width, text_height = surface.GetTextSize(text)
     local need_clipping = text_width > w or text_height > h
 
-    if need_clipping then
-        self:AddDrawCmd(render.SetScissorRect, pos.x, pos.y, pos.x + w, pos.y + h, true)
-    end
+    -- if need_clipping then
+    --self:AddDrawCmd(render.SetScissorRect, pos.x, pos.y, pos.x + w, pos.y + h, true)
+    -- end
 
     self:AddText(text, font, pos, color)
 
-    if need_clipping then
-        self:AddDrawCmd(render.SetScissorRect, 0, 0, 0, 0, false)
-    end
+    -- if need_clipping then
+    --self:AddDrawCmd(render.SetScissorRect, 0, 0, 0, 0, false)
+    -- end
 end
 
 function _ImDrawList:_CalcCircleAutoSegmentCount(radius)
@@ -130,14 +765,7 @@ function _ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_re
     -- _OnChangedClipRect()
 end
 
-function _ImDrawList:PrimReserve(idx_count, vtx_count)
-    -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0)
-
-
-end
-
 --- void ImDrawList::_PathArcToFastEx
--- currently we use push_back instead of resizing and indexing
 function _ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
     if radius < 0.5 then
         self._Path:push_back(center)
@@ -153,19 +781,24 @@ function _ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample
     local sample_range = ImAbs(a_max_sample - a_min_sample)
     local a_next_step = a_step
 
+    local samples = sample_range + 1
     local extra_max_sample = false
-
     if a_step > 1 then
+        samples = sample_range / a_step + 1
         local overstep = sample_range % a_step
 
         if overstep > 0 then
             extra_max_sample = true
+            samples = samples + 1
 
             if sample_range > 0 then
                 a_step = a_step - ImFloor((a_step - overstep) / 2)
             end
         end
     end
+
+    self._Path:resize(self._Path.Size + samples)
+    local out_ptr = _Path.Size - samples + 1
 
     local sample_index = a_min_sample
     if sample_index < 0 or sample_index >= IM_DRAWLIST_ARCFAST_SAMPLE_MAX then
@@ -183,7 +816,8 @@ function _ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample
             end
 
             local s = self._Data.ArcFastVtx[sample_index]
-            self._Path:push_back(ImVec2(center.x + s.x * radius, center.y + s.y * radius))
+            self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+            out_ptr = out_ptr + 1
 
             a = a + a_step
             sample_index = sample_index + a_step
@@ -197,7 +831,8 @@ function _ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample
             end
 
             local s = self._Data.ArcFastVtx[sample_index]
-            self._Path:push_back(ImVec2(center.x + s.x * radius, center.y + s.y * radius))
+            self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+            out_ptr = out_ptr + 1
 
             a = a - a_step
             sample_index = sample_index - a_step
@@ -211,9 +846,12 @@ function _ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample
             normalized_max_sample = normalized_max_sample + IM_DRAWLIST_ARCFAST_SAMPLE_MAX
         end
 
-        local s = self._Data.ArcFastVtx[normalized_max_sample]
-        self._Path:push_back(ImVec2(center.x + s.x * radius, center.y + s.y * radius))
+        local s = self._Data.ArcFastVtx[sample_index]
+        self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+        out_ptr = out_ptr + 1
     end
+
+    --- IM_ASSERT_PARANOID(_Path.Data + _Path.Size == out_ptr);
 end
 
 function _ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
@@ -307,5 +945,5 @@ local function RenderArrow(draw_list, pos, color, dir, scale)
         c = ImVec2(-0.750, -0.866) * r
     end
 
-    draw_list:AddTriangleFilled({center + a, center + b, center + c}, color)
+    draw_list:AddTriangleFilled(center + a, center + b, center + c, color)
 end

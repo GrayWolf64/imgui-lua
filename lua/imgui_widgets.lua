@@ -40,7 +40,7 @@ local function CloseButton(id, pos)
     local pressed, hovered = ButtonBehavior(id, bb)
 
     if hovered then
-        window.DrawList:AddRectFilled(g.Style.Colors.ButtonHovered, bb.Min, bb.Max)
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered, 0, 0) -- TODO: 0 rounding
     end
 
     --- DrawLine draws lines of different thickness, why? Antialiasing
@@ -48,8 +48,8 @@ local function CloseButton(id, pos)
     local cross_center = bb:GetCenter() - ImVec2(0.5, 0.5)
     local cross_extent = g.FontSize * 0.5 * 0.7071 - 1
 
-    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, cross_extent), cross_center + ImVec2(-cross_extent, -cross_extent), g.Style.Colors.Text)
-    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, -cross_extent), cross_center + ImVec2(-cross_extent, cross_extent), g.Style.Colors.Text)
+    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, cross_extent), cross_center + ImVec2(-cross_extent, -cross_extent), g.Style.Colors.Text, 1)
+    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, -cross_extent), cross_center + ImVec2(-cross_extent, cross_extent), g.Style.Colors.Text, 1)
 
     return pressed
 end
@@ -65,7 +65,7 @@ local function CollapseButton(id, pos)
     local pressed, hovered = ButtonBehavior(id, bb)
 
     if hovered then
-        window.DrawList:AddRectFilled(g.Style.Colors.ButtonHovered, bb.Min, bb.Max)
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered, 0, 0) -- TODO: 0 rounding
     end
 
     if window.Collapsed then
