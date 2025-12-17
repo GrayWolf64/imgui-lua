@@ -21,3 +21,6 @@ file.Write("preprocessed_main.txt", main_file)
 --- GMod doesn't allow saving a lua file to LUA folder
 --
 CompileString(main_file, "ImGui")()
+
+--- TEMPORARY: test for compile errors
+include("imstb_truetype.lua")

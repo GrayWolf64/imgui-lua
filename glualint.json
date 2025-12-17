@@ -10,7 +10,9 @@
     "lint_beginnerMistakes": true,
     "lint_emptyBlocks": true,
     "lint_shadowing": true,
-    "lint_gotos": true,
+
+    "lint_gotos": false,
+
     "lint_goto_identifier": true,
     "lint_doubleNegations": true,
     "lint_redundantIfStatements": false,
