@@ -310,6 +310,7 @@ local STBTT_sqrt = math.sqrt
 local STBTT_fabs = math.abs
 local STBTT_pow = math.pow
 local STBTT_cos = math.cos
+local STBTT_acos = math.acos
 local floor = math.floor
 local STBTT_ifloor = floor
 local STBTT_iceil = math.ceil
@@ -679,7 +680,7 @@ local function stbtt__new_buf(p, size)
     local r = stbtt__buf()
     STBTT_assert(size < 0x40000000)
     r.data = p
-    r.size = size
+    r.size = trunc(size)
     r.cursor = 0
     return r
 end
@@ -712,7 +713,7 @@ end
 
 local function stbtt__cff_int(b)
     local b0 = stbtt__buf_get8(b)
-    if b0 >= 32 and b0 <= 256 then return b0 - 139
+    if b0 >= 32 and b0 <= 246 then return b0 - 139
     elseif b0 >= 247 and b0 <= 250 then return (b0 - 247) * 256 + stbtt__buf_get8(b) + 108
     elseif b0 >= 251 and b0 <= 254 then return -(b0 - 251) * 256 - stbtt__buf_get8(b) - 108
     elseif b0 == 28 then return stbtt__buf_get16(b)
@@ -1175,9 +1176,10 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
     local vertices = nil
 
     local g = stbtt__GetGlyfOffset(info, glyph_index)
-    if g < 0 then return 0 end
 
     pvertices:set_deref(nil)
+
+    if g < 0 then return 0 end
 
     local numberOfContours = ttSHORT(data + g)
 
@@ -1275,16 +1277,16 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                 end
 
                 -- now start the new one
-                start_off = (band(flags, 1) == 0)
-                if start_off then
+                start_off = ((band(flags, 1) == 0) and 1 or 0)
+                if start_off ~= 0 then
                     scx = x
                     scy = y
                     if band(vertices[off + i + 1].type, 1) == 0 then
-                        sx = rshift(x + vertices[off + i + 1].x, 1)
-                        sy = rshift(y + vertices[off + i + 1].y, 1)
+                        sx = rshift(x + stbtt_int32(vertices[off + i + 1].x), 1)
+                        sy = rshift(y + stbtt_int32(vertices[off + i + 1].y), 1)
                     else
-                        sx = vertices[off + i + 1].x
-                        sy = vertices[off + i + 1].y
+                        sx = stbtt_int32(vertices[off + i + 1].x)
+                        sy = stbtt_int32(vertices[off + i + 1].y)
                         i = i + 1
                     end
                 else
@@ -2005,7 +2007,7 @@ local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
         local subTableCount = ttUSHORT(lookupTable + 4)
         local subTableOffsets = lookupTable + 6
         if lookupType ~= 2 then -- Pair Adjustment Positioning Subtable
-            continue
+            goto outer_continue
         end
 
         for sti = 0, subTableCount - 1 do
@@ -2014,7 +2016,9 @@ local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
             local posFormat = ttUSHORT(_table)
             local coverageOffset = ttUSHORT(_table + 2)
             local coverageIndex = stbtt__GetCoverageIndex(_table + coverageOffset, glyph1)
-            if coverageIndex == -1 then continue end
+            if coverageIndex == -1 then
+                goto inner_continue
+            end
 
             if posFormat == 1 then
                 local valueFormat1 = ttUSHORT(_table + 4)
@@ -2077,7 +2081,9 @@ local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
             else
                 return 0 -- Unsupported position format
             end
+            :: inner_continue ::
         end
+        :: outer_continue ::
     end
 
     return 0
@@ -2513,7 +2519,6 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
         -- find center of pixel for this scanline
         local scan_y_top = y + 0.0
         local scan_y_bottom = y + 1.0
-        local step = active
 
         STBTT_memset(scanline, 0, result.w)
         STBTT_memset(scanline2, 0, result.w + 1)
@@ -2521,37 +2526,29 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
         local prev = nil
         local curr = active
         while curr do
+            local next = curr.next
             if curr.ey <= scan_y_top then
-                if prev then
-                    prev.next = curr.next
-                else
-                    active = curr.next
-                end
-                STBTT_assert(curr.direction ~= 0)
+                if prev then prev.next = next
+                else          active   = next end
                 curr.direction = 0
             else
                 prev = curr
             end
-            curr = curr.next
+            curr = next
         end
 
         local edge = e:deref()
         while edge.y0 <= scan_y_bottom do
             if edge.y0 ~= edge.y1 then
                 local z = stbtt__new_active(edge, off_x, scan_y_top)
-
-                if j == 0 and off_y ~= 0 then
-                    if z.ey < scan_y_top then
-                        z.ey = scan_y_top
-                    end
+                if j == 0 and off_y ~= 0 and z.ey < scan_y_top then
+                    z.ey = scan_y_top
                 end
-
                 STBTT_assert(z.ey >= scan_y_top)
                 z.next = active
                 active = z
             end
             e:inc()
-
             edge = e:deref()
         end
 
@@ -2699,8 +2696,7 @@ local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y,
             local b = j
             -- skip the edge if horizontal
             if p[j].y == p[k].y then
-                j = k
-                continue
+                goto inner_continue
             end
             -- add edge from j to k to the list
             e[n].invert = 0
@@ -2723,6 +2719,7 @@ local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y,
             e[n].y1 = (p[b].y * y_scale_inv + shift_y) * vsubsample
 
             n = n + 1
+            :: inner_continue ::
             j = k
         end
     end
@@ -3443,7 +3440,7 @@ function stbtt_GetScaledFontVMetrics(fontdata, index, size, ascent, descent, lin
     local info = stbtt_fontinfo()
 
     stbtt_InitFont(info, fontdata, stbtt_GetFontOffsetForIndex(fontdata, index))
-    scale = size > 0 and stbtt_ScaleForPixelHeight(info, size) or stbtt_ScaleForMappingEmToPixels(info, -size)
+    scale = (size > 0) and stbtt_ScaleForPixelHeight(info, size) or stbtt_ScaleForMappingEmToPixels(info, -size)
     stbtt_GetFontVMetrics(info, i_ascent, i_descent, i_lineGap)
 
     ascent:set_deref(i_ascent:deref() * scale)
@@ -3490,8 +3487,8 @@ end
 --- sdf computation
 --
 
-local STBTT_min = function(a, b) return a < b and a or b end
-local STBTT_max = function(a, b) return a < b and b or a end
+local STBTT_min = function(a, b) return (a < b) and a or b end
+local STBTT_max = function(a, b) return (a < b) and b or a end
 
 local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
     local q0perp = q0[1] * ray[0] - q0[0] * ray[1]
@@ -3564,8 +3561,8 @@ end
 
 
 local function stbtt__compute_crossings_x(x, y, nverts, verts)
-    local orig = {[0] = x, [1] = y}
-    local ray = {[0] = 1, [1] = 0}
+    local orig = CArray(2)
+    local ray = CArray(2, {1, 0})
     local y_frac
     local winding = 0
 
@@ -3580,12 +3577,11 @@ local function stbtt__compute_crossings_x(x, y, nverts, verts)
     orig[1] = y
 
     for i = 0, nverts - 1 do
-        local vert = verts[i]
-        if vert.type == STBTT_vline then
+        if verts[i].type == STBTT_vline then
             local x0 = trunc(verts[i - 1].x)
             local y0 = trunc(verts[i - 1].y)
-            local x1 = trunc(vert.x)
-            local y1 = trunc(vert.y)
+            local x1 = trunc(verts[i].x)
+            local y1 = trunc(verts[i].y)
             if y > STBTT_min(y0, y1) and y < STBTT_max(y0, y1) and x > STBTT_min(x0, x1) then
                 local x_inter = (y - y0) / (y1 - y0) * (x1 - x0) + x0
                 if x_inter < x then
@@ -3593,13 +3589,13 @@ local function stbtt__compute_crossings_x(x, y, nverts, verts)
                 end
             end
         end
-        if vert.type == STBTT_vcurve then
+        if verts[i].type == STBTT_vcurve then
             local x0 = trunc(verts[i - 1].x)
             local y0 = trunc(verts[i - 1].y)
-            local x1 = trunc(vert.cx)
-            local y1 = trunc(vert.cy)
-            local x2 = trunc(vert.x)
-            local y2 = trunc(vert.y)
+            local x1 = trunc(verts[i].cx)
+            local y1 = trunc(verts[i].cy)
+            local x2 = trunc(verts[i].x)
+            local y2 = trunc(verts[i].y)
             local ax = STBTT_min(x0, STBTT_min(x1, x2))
             local ay = STBTT_min(y0, STBTT_min(y1, y2))
             local by = STBTT_max(y0, STBTT_max(y1, y2))
@@ -3614,8 +3610,8 @@ local function stbtt__compute_crossings_x(x, y, nverts, verts)
                 if equal(q0, q1) or equal(q1, q2) then
                     x0 = trunc(verts[i - 1].x)
                     y0 = trunc(verts[i - 1].y)
-                    x1 = trunc(vert.x)
-                    y1 = trunc(vert.y)
+                    x1 = trunc(verts[i].x)
+                    y1 = trunc(verts[i].y)
                     if y > STBTT_min(y0, y1) and y < STBTT_max(y0, y1) and x > STBTT_min(x0, x1) then
                         local x_inter = (y - y0) / (y1 - y0) * (x1 - x0) + x0
                         if x_inter < x then
@@ -3626,12 +3622,12 @@ local function stbtt__compute_crossings_x(x, y, nverts, verts)
                     local num_hits = stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
                     if num_hits >= 1 then
                         if hits[0][0] < 0 then
-                            winding = winding + (hits[0][1] < 0 and -1 or 1)
+                            winding = winding + ((hits[0][1] < 0) and -1 or 1)
                         end
                     end
                     if num_hits >= 2 then
                         if hits[1][0] < 0 then
-                            winding = winding + (hits[1][1] < 0 and -1 or 1)
+                            winding = winding + ((hits[1][1] < 0) and -1 or 1)
                         end
                     end
                 end
@@ -3717,21 +3713,20 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
     for i = 0, num_verts - 1 do
         local j = i - 1
         if i == 0 then j = num_verts - 1 end
-        local vert = verts[i]
-        if vert.type == STBTT_vline then
-            local x0 = vert.x * scale_x
-            local y0 = vert.y * scale_y
+        if verts[i].type == STBTT_vline then
+            local x0 = verts[i].x * scale_x
+            local y0 = verts[i].y * scale_y
             local x1 = verts[j].x * scale_x
             local y1 = verts[j].y * scale_y
             local dist = STBTT_sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
-            precompute[i] = dist == 0 and 0.0 or 1.0 / dist
-        elseif vert.type == STBTT_vcurve then
+            precompute[i] = (dist == 0) and 0.0 or (1.0 / dist)
+        elseif verts[i].type == STBTT_vcurve then
             local x2 = verts[j].x * scale_x
             local y2 = verts[j].y * scale_y
-            local x1 = vert.cx * scale_x
-            local y1 = vert.cy * scale_y
-            local x0 = vert.x * scale_x
-            local y0 = vert.y * scale_y
+            local x1 = verts[i].cx * scale_x
+            local y1 = verts[i].cy * scale_y
+            local x0 = verts[i].x * scale_x
+            local y0 = verts[i].y * scale_y
             local bx = x0 - 2 * x1 + x2
             local by = y0 - 2 * y1 + y2
             local len2 = bx * bx + by * by
@@ -3903,8 +3898,14 @@ end
 
 --- TEST!
 
+
+
+
+
+
+
 local ttf_buffer = CArray(lshift(1, 25))
-local __f = file.Open("resource/fonts/Roboto-Light.ttf", "rb", "GAME")
+local __f = file.Open("resource/fonts/Roboto-Regular.ttf", "rb", "GAME")
 
 local ii = 0
 
@@ -3942,8 +3943,10 @@ local function render_character_to_ascii(codepoint, pixel_height)
     end
 end
 
--- Example usage:
--- local font_data = load_font_file("arial.ttf")
-render_character_to_ascii(string.byte('a'), 20)
-
-render_character_to_ascii(string.byte('G'), 50)
+render_character_to_ascii(string.byte('O'), 30)
+print()
+render_character_to_ascii(string.byte('P'), 30)
+print()
+render_character_to_ascii(string.byte('E'), 30)
+print()
+render_character_to_ascii(string.byte('N'), 30)
