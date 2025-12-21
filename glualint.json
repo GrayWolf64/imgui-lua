@@ -8,13 +8,15 @@
     "lint_trailingWhitespace": true,
     "lint_whitespaceStyle": true,
     "lint_beginnerMistakes": true,
-    "lint_emptyBlocks": true,
+
+    "lint_emptyBlocks": false,
+
     "lint_shadowing": true,
 
     "lint_gotos": false,
 
     "lint_goto_identifier": true,
-    "lint_doubleNegations": true,
+    "lint_doubleNegations": false,
     "lint_redundantIfStatements": false,
     "lint_redundantParentheses": true,
     "lint_duplicateTableKeys": true,

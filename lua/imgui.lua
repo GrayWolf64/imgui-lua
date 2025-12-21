@@ -106,24 +106,26 @@ local function SetCurrentFont(font_name, font_size_before_scaling, font_size_aft
     UpdateCurrentFontSize(font_size_after_scaling) -- TODO: investigate
 end
 
-local function PushFont(font_name, font_size_base) -- FIXME: checks not implemented?
+local function PushFont(font, font_size_base) -- FIXME: checks not implemented?
     local g = GImGui
 
-    if not font_name or font_name == "" then
-        font_name = g.Font
+    if not font or font == "" then
+        font = g.Font
     end
+    -- IM_ASSERT(font != NULL)
+    -- IM_ASSERT(font_size_base >= 0.0f)
 
     g.FontStack:push_back({
-        Font = font_name,
+        Font = font,
         FontSizeBeforeScaling = g.FontSizeBase,
         FontSizeAfterScaling = g.FontSize
-    })
+    }) -- TODO: ImFontStackData
 
     if font_size_base == 0 then
         font_size_base = g.FontSizeBase
     end
 
-    SetCurrentFont(font_name, font_size_base, 0)
+    SetCurrentFont(font, font_size_base, 0)
 end
 
 local function PopFont()
@@ -1381,12 +1383,14 @@ hook.Add("PostRender", "ImGuiTest", function()
 
     NewFrame()
 
-    -- Temporary, internal function used
-    -- UpdateCurrentFontSize(ImMax(15, math.abs(90 * math.sin(SysTime()))))
+    -- Temporary, cool timed scaling
+    PushFont(nil, ImMax(15, math.abs(90 * math.sin(SysTime()))))
 
     local window1_open = {true}
     Begin("Hello World!", window1_open)
     End()
+
+    PopFont()
 
     -- local window2_open = {true}
     -- Begin("ImGui Demo", window2_open)

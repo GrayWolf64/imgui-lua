@@ -5,138 +5,282 @@
 ---------------------------------
 --- To mock C arrays and pointers
 --
-local _Buf = {}
-_Buf.__index = _Buf
+local malloc, calloc, CArray, CValue, memset, memcpy, NULL do
+    local _Buf = {}
+    _Buf.__index = _Buf
 
-function _Buf:new(size)
-    local t = {data = {}, size = size}
-    return setmetatable(t, _Buf)
-end
-
-local _View = {}
-_View.__index = _View
-
-local function CArray(size)
-    local buf = _Buf:new(size)
-    return setmetatable({buf = buf, off = 0}, _View)
-end
-
-function _View:top() self.off = 0 return self end
-function _View:offset() return self.off end
-function _View:size() return self.buf.size end
-
-local function check_bounds(v, delta)
-    local no = v.off + delta
-    if no < 0 or no >= v.buf.size then error("pointer arithmetic out of bounds", 3) end
-end
-
-function _View.__add(lhs, rhs)
-    local v, d
-    if type(lhs) == "number" and getmetatable(rhs) == _View then v, d = rhs, lhs
-    elseif getmetatable(lhs) == _View and type(rhs) == "number" then v, d = lhs, rhs
-    else error("bad operand to + (need View + number or number + View)") end
-    check_bounds(v, d)
-    return setmetatable({ buf = v.buf, off = v.off + d }, _View)
-end
-
-function _View.__sub(lhs, rhs)
-    if getmetatable(lhs) == _View and type(rhs) == "number" then
-        check_bounds(lhs, -rhs); return setmetatable({ buf = lhs.buf, off = lhs.off - rhs }, _View)
+    local function is_integer(n)
+        return type(n) == "number" and n == math.floor(n) and n > -math.huge and n < math.huge
     end
-    if getmetatable(lhs) == _View and getmetatable(rhs) == _View then
-        if lhs.buf ~= rhs.buf then error("cannot subtract pointers to different buffers") end
-        return lhs.off - rhs.off
+
+    function _Buf:new(size)
+        assert(size > 0, "Buffer size must be positive")
+        assert(is_integer(size), "Buffer size must be integer")
+        local data = {}
+        return setmetatable({data = data, size = size}, _Buf)
     end
-    error("bad operand to - (need View - number or View - View)")
-end
 
-function _View:inc() check_bounds(self, 1)  self.off = self.off + 1 return self end
-function _View:dec() check_bounds(self, -1) self.off = self.off - 1 return self end
+    local _View = {}
+    _View.__index = _View
 
-function _View.__eq(lhs, rhs)
-    return getmetatable(lhs) == _View and getmetatable(rhs) == _View and lhs.buf == rhs.buf and lhs.off == rhs.off
-end
-
-local function view_lt(lhs, rhs)
-    if getmetatable(lhs) ~= _View or getmetatable(rhs) ~= _View then
-        error("bad operand to comparison", 2)
+    function _View:top()
+        if self.buf._null then error("arithmetic on NULL pointer", 3) end
+        self._offset = 0
+        return self
     end
-    if lhs.buf ~= rhs.buf then error("cannot compare pointers to different buffers") end
-    return lhs.off < rhs.off
-end
-function _View.__lt(lhs, rhs) return view_lt(lhs, rhs) end
-function _View.__le(lhs, rhs)
-    return lhs == rhs or view_lt(lhs, rhs)
-end
 
-function _View.__gt(lhs, rhs) return view_lt(rhs, lhs) end
-function _View.__ge(lhs, rhs)
-    return lhs == rhs or view_lt(rhs, lhs)
-end
+    function _View:size()
+        if self.buf._null then error("sizeof of NULL pointer", 3) end
+        return self.buf.size
+    end
 
-local function abs2lua(o) return o + 1 end
+    function _View:__len() error("# operator is not allowed", 2) end
 
-function _View:deref()
-    local k = abs2lua(self.off)
-    if k < 1 or k > self.buf.size then error("dereference out of bounds", 2) end
-    return self.buf.data[k]
-end
-function _View:set_deref(v)
-    local k = abs2lua(self.off)
-    if k < 1 or k > self.buf.size then error("dereference out of bounds", 2) end
-    self.buf.data[k] = v
-end
-
-function _View.__index(self, key)
-    if type(key) == "number" then
-        if key < 0 then error("negative index forbidden, use (ptr + n):deref()", 2) end
-        local abs = self.off + key
-        local k = abs2lua(abs)
-        if k < 1 or k > self.buf.size then
-            error("index " .. key .. " out of bounds", 2)
+    function _View:inc(n)
+        if self.buf._null then error("arithmetic on NULL pointer", 3) end
+        n = n or 1
+        if not is_integer(n) then error("integer delta required", 3) end
+        local new_off = (self._offset or 0) + n
+        if new_off < 0 or new_off > self.buf.size then
+            error(string.format("pointer arithmetic out of bounds: offset %d + %d not in [0, %d]",
+                self._offset or 0, n, self.buf.size), 3)
         end
-        return self.buf.data[k]
-    else
-        error("invalid key type")
+        self._offset = new_off
     end
-    return _View[key]
-end
 
-function _View.__newindex(self, key, value)
-    if type(key) == "number" then
-        if key < 0 then error("negative index forbidden, use (ptr + n):set_deref(value)", 2) end
-        local abs = self.off + key
-        local k = abs2lua(abs)
-        if k < 1 or k > self.buf.size then
-            error("index " .. key .. " out of bounds", 2)
+    function _View:dec(n)
+        if self.buf._null then error("arithmetic on NULL pointer", 3) end
+        n = n or 1
+        self:inc(-n)
+    end
+
+    function _View.__add(lhs, rhs)
+        local v, d = (type(lhs) == "number" and rhs or lhs),
+                    (type(lhs) == "number" and lhs or rhs)
+        if getmetatable(v) ~= _View or type(d) ~= "number" then
+            error("bad operand to + (need View + number or number + View)", 2)
         end
-        self.buf.data[k] = value
-    else
-        error("invalid key type")
+        if not is_integer(d) then error("integer operand required", 2) end
+
+        if v.buf._null then
+            if d == 0 then
+                return v
+            else
+                error("arithmetic on NULL pointer", 2)
+            end
+        end
+
+        local new_off = (v._offset or 0) + d
+        if new_off < 0 or new_off > v.buf.size then
+            error(string.format("pointer arithmetic out of bounds: offset %d + %d not in [0, %d]",
+                v._offset or 0, d, v.buf.size), 2)
+        end
+        local new_view = setmetatable({buf = v.buf, _offset = new_off}, _View)
+        return new_view
+    end
+
+    function _View.__sub(lhs, rhs)
+        if getmetatable(lhs) == _View and type(rhs) == "number" then
+            if not is_integer(rhs) then error("integer operand required", 2) end
+            if lhs.buf._null then error("arithmetic on NULL pointer", 2) end
+            local new_off = (lhs._offset or 0) - rhs
+            if new_off < 0 or new_off > lhs.buf.size then
+                error(string.format("pointer arithmetic out of bounds: offset %d - %d not in [0, %d]",
+                    lhs._offset or 0, rhs, lhs.buf.size), 2)
+            end
+            local new_view = setmetatable({buf = lhs.buf, _offset = new_off}, _View)
+            return new_view
+        elseif getmetatable(lhs) == _View and getmetatable(rhs) == _View then
+            if lhs.buf._null or rhs.buf._null then error("arithmetic on NULL pointer", 2) end
+            if lhs.buf ~= rhs.buf then error("cannot subtract pointers to different buffers", 2) end
+            return (lhs._offset or 0) - (rhs._offset or 0)
+        end
+        error("bad operand to - (need View - number or View - View)", 2)
+    end
+
+    function _View.__eq(lhs, rhs)
+        local lhs_meta = getmetatable(lhs)
+        local rhs_meta = getmetatable(rhs)
+        if lhs_meta ~= _View or rhs_meta ~= _View then return false end
+
+        if lhs.buf._null and not rhs.buf._null then return false end
+        if not lhs.buf._null and rhs.buf._null then return false end
+        if lhs.buf._null and rhs.buf._null then return true end
+
+        if lhs.buf ~= rhs.buf then
+            error("cannot compare pointers to different buffers", 2)
+        end
+        return (lhs._offset or 0) == (rhs._offset or 0)
+    end
+
+    local function view_lt(lhs, rhs)
+        if getmetatable(lhs) ~= _View or getmetatable(rhs) ~= _View then
+            error("bad operand to comparison", 3)
+        end
+        if lhs.buf ~= rhs.buf then error("cannot compare pointers to different buffers", 3) end
+        return (lhs._offset or 0) < (rhs._offset or 0)
+    end
+
+    function _View.__lt(lhs, rhs) return view_lt(lhs, rhs) end
+    function _View.__le(lhs, rhs) return not view_lt(rhs, lhs) end
+    function _View.__gt(lhs, rhs) return view_lt(rhs, lhs) end
+    function _View.__ge(lhs, rhs) return not view_lt(lhs, rhs) end
+
+    function _View:deref()
+        if self.buf._null then error("dereference of NULL pointer", 3) end
+        local off = self._offset or 0
+        if off < 0 or off >= self.buf.size then
+            error(string.format("dereference at offset %d out of bounds [0, %d)", off, self.buf.size), 3)
+        end
+        return self.buf.data[off + 1]
+    end
+
+    function _View:set_deref(v)
+        if self.buf._null then error("dereference of NULL pointer", 3) end
+        local off = self._offset or 0
+        if off < 0 or off >= self.buf.size then
+            error(string.format("dereference at offset %d out of bounds [0, %d)", off, self.buf.size), 3)
+        end
+        self.buf.data[off + 1] = v
+    end
+
+    function _View:__index(key)
+        if self.buf._null then error("dereference of NULL pointer", 3) end
+
+        if type(key) == "number" then
+            if not is_integer(key) then error("integer index required", 3) end
+            if key < 0 then error(string.format("negative index %d forbidden", key), 3) end
+            local abs_off = (self._offset or 0) + key
+            if abs_off < 0 or abs_off >= self.buf.size then
+                error(string.format("index [%d] at offset %d out of bounds", key, self._offset or 0), 3)
+            end
+
+            return self.buf.data[abs_off + 1]
+        elseif type(key) == "string" then
+            local method = _View[key]
+            if type(method) == "function" then
+                return method
+            else
+                error("invalid key: " .. key, 2)
+            end
+        else
+            error("invalid index type: " .. type(key), 2)
+        end
+    end
+
+    function _View:__newindex(key, value)
+        if self.buf._null then error("dereference of NULL pointer", 3) end
+
+        if type(key) == "number" then
+            if not is_integer(key) then error("integer index required", 3) end
+            if key < 0 then error(string.format("negative index %d forbidden", key), 3) end
+            local abs_off = (self._offset or 0) + key
+            if abs_off < 0 or abs_off >= self.buf.size then
+                error(string.format("index [%d] at offset %d out of bounds", key, self._offset or 0), 3)
+            end
+
+            self.buf.data[abs_off + 1] = value
+        else
+            error("invalid key type: " .. type(key), 2)
+        end
+    end
+
+    function _View:__tostring()
+        return string.format("View(%p, off=%d/%d)", self.buf, self._offset or 0, self.buf.size)
+    end
+
+    function _View:__call()
+        return self:deref()
+    end
+
+    function malloc(size)
+        local buf = _Buf:new(size)
+        return setmetatable({buf = buf, _offset = 0}, _View)
+    end
+
+    function calloc(size)
+        local arr = malloc(size)
+        for i = 0, size - 1 do arr[i] = 0 end
+        return arr
+    end
+
+    function CArray(size, init)
+        local arr = malloc(size)
+        if type(init) == "table" then
+            assert(#init == size, string.format("init size %d != buffer size %d", #init, size))
+            for i = 0, size - 1 do arr[i] = init[i + 1] end
+        elseif type(init) == "function" then
+            for i = 0, size - 1 do arr[i] = init(i) end
+        elseif init == nil then
+            for i = 0, size - 1 do arr[i] = nil end
+        else
+            error("init must be table, function or nil", 2)
+        end
+        return arr
+    end
+
+    function CValue(init)
+        local arr = malloc(1)
+        if init ~= nil then arr:set_deref(init) end
+        return arr
+    end
+
+    function memset(_v, value, count)
+        if _v.buf._null then error("memset on NULL pointer", 3) end
+        count = count or (_v.buf.size - (_v._offset or 0))
+        if not is_integer(count) then error("integer count required", 3) end
+        if count < 0 or count > _v.buf.size - (_v._offset or 0) then
+            error("memset count exceeds buffer bounds", 3)
+        end
+        local base = (_v._offset or 0) + 1
+        for i = base, base + count - 1 do
+            _v.buf.data[i] = value
+        end
+    end
+
+    function memcpy(_v, dest, count)
+        if _v.buf._null then error("memcpy on NULL pointer", 3) end
+        if dest.buf._null then error("memcpy to NULL pointer", 3) end
+
+        count = count or math.min(_v.buf.size - (_v._offset or 0),
+                                dest.buf.size - (dest._offset or 0))
+        if not is_integer(count) then error("integer count required", 3) end
+
+        if count < 0 or count > _v.buf.size - (_v._offset or 0) or count > dest.buf.size - (dest._offset or 0) then
+            error("memcpy count exceeds buffer bounds", 3)
+        end
+
+        local src_base = (_v._offset or 0) + 1
+        local dst_base = (dest._offset or 0) + 1
+
+        if _v.buf == dest.buf and src_base < dst_base and src_base + count > dst_base then
+            for i = count - 1, 0, -1 do
+                dest.buf.data[dst_base + i] = _v.buf.data[src_base + i]
+            end
+        else
+            for i = 0, count - 1 do
+                dest.buf.data[dst_base + i] = _v.buf.data[src_base + i]
+            end
+        end
+    end
+
+    do
+        local null_buf = {_null = true, size = 0}
+
+        null_buf.data = setmetatable({}, {
+            __index = function() error("dereference of NULL pointer", 2) end,
+            __newindex = function() error("write to NULL pointer", 2) end
+        })
+
+        NULL = setmetatable({buf = null_buf, _offset = 0}, _View)
     end
 end
 
-function _View:__tostring()
-    return string.format("View(%p, off=%d/%d)", self.buf, self.off, self.buf.size)
-end
-
-local function CArrayInit(size, init) -- XXX: size == #init!
-    if not size or size <= 0 then error("Bad CArray init size!") end
-
-    local arr = CArray(size)
-    if type(init) == "table" then
-        for i = 0, size - 1 do (arr + i):set_deref(init[i + 1]) end
-    elseif type(init) == "function" then
-        for i = 0, size - 1 do (arr + i):set_deref(init()) end
-    end
-    return arr
-end
 
 
 
 
-
-
+local STBTT_MAX_OVERSAMPLE = 8
 
 
 local STBTT_PLATFORM_ID = {
@@ -154,25 +298,36 @@ local STBTT_MS_EID = {
     UNICODE_FULL = 10
 }
 
-local STBTT_vmove = {
-    vmove  = 1,
-    vline  = 2,
-    vcurve = 3,
-    vcubic = 4
-}
+
+local STBTT_vmove  = 1
+local STBTT_vline  = 2
+local STBTT_vcurve = 3
+local STBTT_vcubic = 4
+
 
 local STBTT_assert = assert
 local STBTT_sqrt = math.sqrt
 local STBTT_fabs = math.abs
+local STBTT_pow = math.pow
+local STBTT_cos = math.cos
 local floor = math.floor
 local STBTT_ifloor = floor
 local STBTT_iceil = math.ceil
-
-local function STBTT_memcpy(dst, src, size)
-    for i = 0, size - 1 do
-        dst[i] = src[i]
+local STBTT_fmod = math.fmod
+local trunc = function(x)
+    if x >= 0 then
+        return floor(x)
+    else
+        return math.ceil(x)
     end
 end
+
+local STBTT_memset = memset
+local STBTT_memcpy = memcpy
+
+
+
+local function STBTT__NOTUSED() return end
 
 local lshift = bit.lshift
 local rshift = bit.rshift
@@ -180,12 +335,34 @@ local bor    = bit.bor
 local band   = bit.band
 local str_byte = string.byte
 
+local function stbtt_int32(value)
+    return band(value, 0xFFFFFFFF) - (band(value, 0x80000000) ~= 0 and 0x100000000 or 0)
+end
+
+local function stbtt_uint32(value)
+    return band(value, 0xFFFFFFFF)
+end
 
 
 local function stbtt_int16(value)
     return band(value, 0xFFFF) - (band(value, 0x8000) ~= 0 and 0x10000 or 0)
 end
 
+local function stbtt_uint16(value)
+    return band(value, 0xFFFF)
+end
+
+local function stbtt_int8(value)
+    return band(value, 0xFF) - (band(value, 0x80) ~= 0 and 0x100 or 0)
+end
+
+local function stbtt_uint8(value)
+    return band(value, 0xFF)
+end
+
+local function unsigned_char(value)
+    return band(value, 0xFF)
+end
 
 local _stbtt__buf = {}
 _stbtt__buf.__index = _stbtt__buf
@@ -211,7 +388,6 @@ _stbtt_fontinfo.__index = _stbtt_fontinfo
 
 local function stbtt_fontinfo()
     return setmetatable({
-        userdata  = nil,
         data      = nil,
         fontstart = nil,
 
@@ -359,19 +535,122 @@ local function stbtt__new_active(e, off_x, start_point)
 end
 
 
+
+local _stbtt__bitmap = {}
+_stbtt__bitmap.__index = _stbtt__bitmap
+
+local function stbtt__bitmap()
+    return setmetatable({
+        w      = nil,
+        h      = nil,
+        stride = nil,
+        pixels = nil
+    }, _stbtt__bitmap)
+end
+
+
+
+local _stbtt__point = {}
+_stbtt__point.__index = _stbtt__point
+
+local function stbtt__point()
+    return setmetatable({
+        x = nil,
+        y = nil
+    }, _stbtt__point)
+end
+
+
+local _stbrp_node = {}
+_stbrp_node.__index = _stbrp_node
+
+local function stbrp_node()
+    return setmetatable({
+        x = nil,
+        y = nil,
+        next = nil
+    }, _stbrp_node)
+end
+
+
+local _stbrp_context = {}
+_stbrp_context.__index = _stbrp_context
+
+local function stbrp_context()
+    return setmetatable({
+        width = nil,
+        height = nil,
+        align = nil,
+        init_mode = nil,
+        heuristic = nil,
+        num_nodes = nil,
+        active_head = nil,
+        free_head = nil,
+        extra = nil, -- = {} (size = 2)
+    }, _stbrp_context)
+end
+
+
+local _stbrp_rect = {}
+_stbrp_rect.__index = _stbrp_rect
+
+local function stbrp_rect()
+    return setmetatable({
+        id = nil,
+        w = nil,
+        h = nil,
+        x = nil,
+        y = nil,
+        was_packed = nil
+    }, _stbrp_rect)
+end
+
+local _stbtt_pack_range = {}
+_stbtt_pack_range.__index = _stbtt_pack_range
+
+local function stbtt_pack_range()
+    return setmetatable({
+        font_size = nil,
+        first_unicode_codepoint_in_range = nil,
+        array_of_unicode_codepoints = nil,
+        num_chars = nil,
+        chardata_for_range = nil,
+        h_oversample = nil,
+        v_oversample = nil
+    }, _stbtt_pack_range)
+end
+
+local _stbtt_packedchar = {}
+_stbtt_packedchar.__index = __stbtt_packedchar
+
+
+local function stbtt_packedchar()
+    return setmetatable({
+        x0 = nil,
+        y0 = nil,
+        x1 = nil,
+        y1 = nil,
+        xoff = nil,
+        yoff = nil,
+        xadvance = nil,
+        xoff2 = nil,
+        yoff2 = nil
+    }, _stbtt_packedchar)
+end
+
 ----------------------------------------------
 --- stbtt__buf helpers to parse data from file
 --
 local function stbtt__buf_get8(b)
     if b.cursor >= b.size then return 0 end
-    local result = b.data[b.cursor + 1]
+    local result = b.data[b.cursor]
     b.cursor = b.cursor + 1
     return result
 end
 
 local function stbtt__buf_peek8(b)
     if b.cursor >= b.size then return 0 end
-    return b.data[b.cursor + 1]
+    return b.data[b.cursor]
 end
 
 local function stbtt__buf_seek(b, o)
@@ -505,14 +784,14 @@ end
 -------------------------------------
 --- accessors to parse data from file
 --
-local function ttUSHORT(p) return p[0] * 256 + p[1] end
-local function ttSHORT(p) return p[0] * 256 + p[1] end
-local function ttULONG(p) return lshift(p[0], 24) + lshift(p[1], 16) + lshift(p[2], 8) + p[3] end
-local function ttLONG(p) return lshift(p[0], 24) + lshift(p[1], 16) + lshift(p[2], 8) + p[3] end
+local function ttUSHORT(p) return stbtt_uint16(p[0] * 256 + p[1]) end
+local function ttSHORT(p) return stbtt_int16(p[0] * 256 + p[1]) end
+local function ttULONG(p) return stbtt_uint32(lshift(p[0], 24) + lshift(p[1], 16) + lshift(p[2], 8) + p[3]) end
+local function ttLONG(p) return stbtt_int32(lshift(p[0], 24) + lshift(p[1], 16) + lshift(p[2], 8) + p[3]) end
 
 local ttFixed = ttLONG
-local function ttBYTE(p) return p:deref() end
-local function ttCHAR(p) return p:deref() end
+local function ttBYTE(p) return stbtt_uint8(p:deref()) end
+local function ttCHAR(p) return stbtt_int8(p:deref()) end
 
 local function stbtt_tag4(p, c0, c1, c2, c3) return p[0] == c0 and p[1] == c1 and p[2] == c2 and p[3] == c3 end
 local function stbtt_tag(p, str) return stbtt_tag4(p, str_byte(str, 1, 4)) end
@@ -545,7 +824,7 @@ local function stbtt_GetFontOffsetForIndex_internal(font_collection, index)
 
     if stbtt_tag(font_collection, "ttcf") then
         if ttULONG(font_collection + 4) == 0x00010000 or ttULONG(font_collection + 4) == 0x00020000 then
-            local n = ttULONG(font_collection + 8)
+            local n = ttLONG(font_collection + 8)
             if index >= n then
                 return -1
             end
@@ -563,7 +842,7 @@ local function stbtt_GetNumberOfFonts_internal(font_collection)
 
     if stbtt_tag(font_collection, "ttcf") then
         if ttULONG(font_collection + 4) == 0x00010000 or ttULONG(font_collection + 4) == 0x00020000 then
-            return ttULONG(font_collection + 8)
+            return ttLONG(font_collection + 8)
         end
     end
 
@@ -571,18 +850,19 @@ local function stbtt_GetNumberOfFonts_internal(font_collection)
 end
 
 local function stbtt__get_subrs(cff, fontdict) -- stbtt__buf cff, stbtt__buf fontdict
-    local subrsoff = CArrayInit(1, {0})
-    local private_loc = CArrayInit(2, {0, 0})
+    local subrsoff    = CValue(0)
+    local private_loc = CArray(2, {0, 0})
+
     stbtt__dict_get_ints(fontdict, 18, 2, private_loc)
     if (private_loc[1] == 0 or private_loc[0] == 0) then
         return stbtt__new_buf(nil, 0)
     end
     local pdict = stbtt__buf_range(cff, private_loc[1], private_loc[0])
     stbtt__dict_get_ints(pdict, 19, 1, subrsoff) -- get a single int into subrsoff!
-    if subrsoff[0] == 0 then
+    if subrsoff:deref() == 0 then
         return stbtt__new_buf(nil, 0)
     end
-    stbtt__buf_seek(cff, private_loc[1] + subrsoff[0])
+    stbtt__buf_seek(cff, private_loc[1] + subrsoff:deref())
     return stbtt__cff_get_index(cff)
 end
 
@@ -633,14 +913,14 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         info.fontdicts = stbtt__new_buf(nil, 0)
         info.fdselect = stbtt__new_buf(nil, 0)
 
-        info.cff = stbtt__new_buf(data + cff, 2 * 1024 * 1024) -- TODO: i didn't solve the og todo, and further decreased it. 2MB
+        info.cff = stbtt__new_buf(data + cff, 8 * 1024 * 1024) -- TODO: i didn't solve the og todo, and further decreased it. 8MB
         local b = info.cff
 
         -- read the header
         stbtt__buf_skip(b, 2)
         stbtt__buf_seek(b, stbtt__buf_get8(b))
 
-        -- @TODO the name INDEX could list multiple fonts,
+        -- TODO: the name INDEX could list multiple fonts,
         -- but we just use the first one.
         stbtt__cff_get_index(b) -- name INDEX
         local topdictidx = stbtt__cff_get_index(b)
@@ -648,10 +928,10 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         stbtt__cff_get_index(b) -- string INDEX
         info.gsubrs = stbtt__cff_get_index(b)
 
-        local charstrings = CArrayInit(1, {0})
-        local cstype      = CArrayInit(1, {2})
-        local fdarrayoff  = CArrayInit(1, {0})
-        local fdselectoff = CArrayInit(1, {0})
+        local charstrings = CValue(0)
+        local cstype      = CValue(2)
+        local fdarrayoff  = CValue(0)
+        local fdselectoff = CValue(0)
         stbtt__dict_get_ints(topdict, 17, 1, charstrings)
         stbtt__dict_get_ints(topdict, bor(0x100, 6), 1, cstype)
         stbtt__dict_get_ints(topdict, bor(0x100, 36), 1, fdarrayoff)
@@ -708,7 +988,7 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         return 0
     end
 
-    info.indexToLocFormat = ttSHORT(data + info.head + 50)
+    info.indexToLocFormat = ttUSHORT(data + info.head + 50)
     return 1
 end
 
@@ -762,7 +1042,7 @@ local function stbtt_FindGlyphIndex(info, unicode_codepoint)
         search = search + 2
 
         do
-            local item = rshift(search - endCount, 1)
+            local item = stbtt_uint16(rshift(search - endCount, 1))
 
             local start = ttUSHORT(data + index_map + 14 + segcount * 2 + 2 + 2 * item)
             local last = ttUSHORT(data + endCount + 2 * item)
@@ -772,7 +1052,7 @@ local function stbtt_FindGlyphIndex(info, unicode_codepoint)
 
             local offset = ttUSHORT(data + index_map + 14 + segcount * 6 + 2 + 2 * item)
             if offset == 0 then
-                return unicode_codepoint + ttSHORT(data + index_map + 14 + segcount * 4 + 2 + 2 * item)
+                return stbtt_uint16(unicode_codepoint + ttSHORT(data + index_map + 14 + segcount * 4 + 2 + 2 * item))
             end
 
             return ttUSHORT(data + offset + (unicode_codepoint - start) * 2 + index_map + 14 + segcount * 6 + 2 + 2 * item)
@@ -808,25 +1088,25 @@ end
 
 local function stbtt_setvertex(v, _type, x, y, cx, cy)
     v.type = _type
-    v.x = x
-    v.y = y
-    v.cx = cx
-    v.cy = cy
+    v.x = stbtt_int16(x)
+    v.y = stbtt_int16(y)
+    v.cx = stbtt_int16(cx)
+    v.cy = stbtt_int16(cy)
 end
 
 local function stbtt__GetGlyfOffset(info, glyph_index)
-    STBTT_assert(info.cff.size ~= 0)
+    STBTT_assert(info.cff.size == 0)
 
     if glyph_index >= info.numGlyphs then return -1 end
     if info.indexToLocFormat >= 2 then return -1 end
 
     local g1, g2
     if info.indexToLocFormat == 0 then
-        g1 = info.glyph + ttUSHORT(info.data + info.loca + glyph_index * 2) * 2
-        g2 = info.glyph + ttUSHORT(info.data + info.loca + glyph_index * 2 + 2) * 2
+        g1 = info.glyf + ttUSHORT(info.data + info.loca + glyph_index * 2) * 2
+        g2 = info.glyf + ttUSHORT(info.data + info.loca + glyph_index * 2 + 2) * 2
     else
-        g1 = info.glyph + ttULONG(info.data + info.loca + glyph_index * 4)
-        g2 = info.glyph + ttULONG(info.data + info.loca + glyph_index * 4 + 4)
+        g1 = info.glyf + ttULONG(info.data + info.loca + glyph_index * 4)
+        g2 = info.glyf + ttULONG(info.data + info.loca + glyph_index * 4 + 4)
     end
 
     if g1 == g2 then return -1 else return g1 end
@@ -868,17 +1148,17 @@ end
 local function stbtt__close_shape(vertices, num_vertices, was_off, start_off, sx, sy, scx, scy, cx, cy)
     if start_off ~= 0 then
         if was_off ~= 0 then
-            stbtt_setvertex(vertices[num_vertices], STBTT_vmove.vcurve, rshift(cx + scx, 1), rshift(cy + scy, 1), cx, cy)
+            stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, rshift(cx + scx, 1), rshift(cy + scy, 1), cx, cy)
             num_vertices = num_vertices + 1
         end
-        stbtt_setvertex(vertices[num_vertices], STBTT_vmove.vcurve, sx, sy, scx, scy)
+        stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, sx, sy, scx, scy)
         num_vertices = num_vertices + 1
     else
         if was_off ~= 0 then
-            stbtt_setvertex(vertices[num_vertices], STBTT_vmove.vcurve, sx, sy, cx, cy)
+            stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, sx, sy, cx, cy)
             num_vertices = num_vertices + 1
         else
-            stbtt_setvertex(vertices[num_vertices], STBTT_vmove.vline, sx, sy, 0, 0)
+            stbtt_setvertex(vertices[num_vertices], STBTT_vline, sx, sy, 0, 0)
             num_vertices = num_vertices + 1
         end
     end
@@ -895,6 +1175,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
     local vertices = nil
 
     local g = stbtt__GetGlyfOffset(info, glyph_index)
+    if g < 0 then return 0 end
 
     pvertices:set_deref(nil)
 
@@ -908,7 +1189,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         local n = 1 + ttUSHORT(endPtsOfContours + numberOfContours * 2 - 2)
         local m = n + 2 * numberOfContours
 
-        vertices = CArrayInit(m, stbtt_vertex)
+        vertices = CArray(m, stbtt_vertex)
 
         local j = 0
         local was_off = 0
@@ -922,11 +1203,11 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         local flags = 0
         for i = 0, n - 1 do
             if flagcount == 0 then
-                flags = (points + 0):deref()
+                flags = points:deref()
                 points:inc()
 
                 if band(flags, 8) ~= 0 then
-                    flagcount = (points + 0):deref()
+                    flagcount = points:deref()
                     points:inc()
                 end
             else
@@ -941,7 +1222,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         for i = 0, n - 1 do
             flags = vertices[off + i].type
             if band(flags, 2) ~= 0 then
-                local dx = (points + 0):deref()
+                local dx = points:deref()
                 points:inc()
                 if band(flags, 16) ~= 0 then
                     x = x + dx
@@ -950,12 +1231,12 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                 end
             else
                 if band(flags, 16) == 0 then
-                    x = x + points[0] * 256 + points[1]
+                    x = x + stbtt_int16(points[0] * 256 + points[1])
                     points = points + 2
                 end
             end
 
-            vertices[off + i].x = x
+            vertices[off + i].x = stbtt_int16(x)
         end
 
         -- now load y coordinates
@@ -963,7 +1244,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         for i = 0, n - 1 do
             flags = vertices[off + i].type
             if band(flags, 4) ~= 0 then
-                local dy = (points + 0):deref()
+                local dy = points:deref()
                 points:inc()
                 if band(flags, 32) ~= 0 then
                     y = y + dy
@@ -972,12 +1253,12 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                 end
             else
                 if band(flags, 32) == 0 then
-                    y = y + points[0] * 256 + points[1]
+                    y = y + stbtt_int16(points[0] * 256 + points[1])
                     points = points + 2
                 end
             end
 
-            vertices[off + i].y = y
+            vertices[off + i].y = stbtt_int16(y)
         end
 
         -- now convert them to our format
@@ -985,8 +1266,8 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         local sx, sy, cx, cy, scx, scy = 0, 0, 0, 0, 0, 0
         for i = 0, n - 1 do
             flags = vertices[off + i].type
-            x = vertices[off + i].x
-            y = vertices[off + i].y
+            x = stbtt_int16(vertices[off + i].x)
+            y = stbtt_int16(vertices[off + i].y)
 
             if next_move == i then
                 if i ~= 0 then
@@ -1010,7 +1291,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                     sx = x
                     sy = y
                 end
-                stbtt_setvertex(vertices[num_vertices], STBTT_vmove.vmove, sx, sy, 0, 0)
+                stbtt_setvertex(vertices[num_vertices], STBTT_vmove, sx, sy, 0, 0)
                 num_vertices = num_vertices + 1
                 was_off = 0
                 next_move = 1 + ttUSHORT(endPtsOfContours + j * 2)
@@ -1018,7 +1299,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
             else
                 if band(flags, 1) == 0 then
                     if was_off ~= 0 then
-                        stbtt_setvertex(vertices[num_vertices], STBTT_vmove.vcurve, rshift(cx + x, 1), rshift(cy + y, 1), cx, cy)
+                        stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, rshift(cx + x, 1), rshift(cy + y, 1), cx, cy)
                         num_vertices = num_vertices + 1
                     end
 
@@ -1027,10 +1308,10 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                     was_off = 1
                 else
                     if was_off ~= 0 then
-                        stbtt_setvertex(vertices[num_vertices], STBTT_vmove.vcurve, x, y, cx, cy)
+                        stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, x, y, cx, cy)
                         num_vertices = num_vertices + 1
                     else
-                        stbtt_setvertex(vertices[num_vertices], STBTT_vmove.vline, x, y, 0, 0)
+                        stbtt_setvertex(vertices[num_vertices], STBTT_vline, x, y, 0, 0)
                         num_vertices = num_vertices + 1
                     end
 
@@ -1052,16 +1333,16 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
             local mtx = {1, 0, 0, 1, 0, 0}
             local m, n
 
-            flags = ttUSHORT(comp) comp = comp + 2
-            gidx = ttUSHORT(comp) comp = comp + 2
+            flags = ttSHORT(comp) comp:inc(2)
+            gidx = ttSHORT(comp) comp:inc(2)
 
             if band(flags, 2) ~= 0 then
                 if band(flags, 1) ~= 0 then
-                    mtx[4] = ttSHORT(comp) comp = comp + 2
-                    mtx[5] = ttSHORT(comp) comp = comp + 2
+                    mtx[4] = ttSHORT(comp) comp:inc(2)
+                    mtx[5] = ttSHORT(comp) comp:inc(2)
                 else
-                    mtx[4] = ttCHAR(comp) comp = comp + 1
-                    mtx[5] = ttCHAR(comp) comp = comp + 1
+                    mtx[4] = ttCHAR(comp) comp:inc(1)
+                    mtx[5] = ttCHAR(comp) comp:inc(1)
                 end
             else
                 -- TODO: handle matching point
@@ -1071,24 +1352,24 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
             if band(flags, lshift(1, 3)) ~= 0 then -- WE_HAVE_A_SCALE
                 mtx[3] = ttSHORT(comp) / 16384.0
                 mtx[0] = mtx[3]
-                comp = comp + 2
+                comp:inc(2)
 
                 mtx[2] = 0
                 mtx[1] = mtx[2]
             elseif band(flags, lshift(1, 6)) ~= 0 then -- WE_HAVE_AN_X_AND_YSCALE
                 mtx[0] = ttSHORT(comp) / 16384.0
-                comp = comp + 2
+                comp:inc(2)
 
                 mtx[2] = 0
                 mtx[1] = mtx[2]
 
                 mtx[3] = ttSHORT(comp) / 16384.0
-                comp = comp + 2
+                comp:inc(2)
             elseif band(flags, lshift(1, 7)) ~= 0 then -- WE_HAVE_A_TWO_BY_TWO
-                mtx[0] = ttSHORT(comp) / 16384.0 comp = comp + 2
-                mtx[1] = ttSHORT(comp) / 16384.0 comp = comp + 2
-                mtx[2] = ttSHORT(comp) / 16384.0 comp = comp + 2
-                mtx[3] = ttSHORT(comp) / 16384.0 comp = comp + 2
+                mtx[0] = ttSHORT(comp) / 16384.0 comp:inc(2)
+                mtx[1] = ttSHORT(comp) / 16384.0 comp:inc(2)
+                mtx[2] = ttSHORT(comp) / 16384.0 comp:inc(2)
+                mtx[3] = ttSHORT(comp) / 16384.0 comp:inc(2)
             end
 
             m = STBTT_sqrt(mtx[0] * mtx[0] + mtx[1] * mtx[1])
@@ -1110,7 +1391,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                 end
 
                 -- append vertices
-                local tmp = CArrayInit(num_vertices + comp_num_vertices, stbtt_vertex)
+                local tmp = CArray(num_vertices + comp_num_vertices, stbtt_vertex)
                 if num_vertices > 0 and vertices then
                     STBTT_memcpy(tmp, vertices, num_vertices)
                 end
@@ -1139,7 +1420,7 @@ end
 local function stbtt__csctx_v(c, _type, x, y, cx, cy, cx1, cy1)
     if c.bounds ~= 0 then
         stbtt__track_vertex(c, x, y)
-        if _type == STBTT_vmove.vcubic then
+        if _type == STBTT_vcubic then
             stbtt__track_vertex(c, cx, cy)
             stbtt__track_vertex(c, cx1, cy1)
         end
@@ -1152,7 +1433,7 @@ end
 
 local function stbtt__csctx_close_shape(ctx)
     if ctx.first_x ~= ctx.x or ctx.first_y ~= ctx.y then
-        stbtt__csctx_v(ctx, STBTT_vmove.vline, floor(ctx.first_x), floor(ctx.first_y), 0, 0, 0, 0)
+        stbtt__csctx_v(ctx, STBTT_vline, trunc(ctx.first_x), trunc(ctx.first_y), 0, 0, 0, 0)
     end
 end
 
@@ -1162,13 +1443,13 @@ local function stbtt__csctx_rmove_to(ctx, dx, dy)
     ctx.first_x = ctx.x
     ctx.y = ctx.y + dy
     ctx.first_y = ctx.y
-    stbtt__csctx_v(ctx, STBTT_vmove.vmove, floor(ctx.x), floor(ctx.y), 0, 0, 0, 0)
+    stbtt__csctx_v(ctx, STBTT_vmove, trunc(ctx.x), trunc(ctx.y), 0, 0, 0, 0)
 end
 
 local function stbtt__csctx_rline_to(ctx, dx, dy)
     ctx.x = ctx.x + dx
     ctx.y = ctx.y + dy
-    stbtt__csctx_v(ctx, STBTT_vmove.vline, floor(ctx.x), floor(ctx.y), 0, 0, 0, 0)
+    stbtt__csctx_v(ctx, STBTT_vline, trunc(ctx.x), trunc(ctx.y), 0, 0, 0, 0)
 end
 
 local function stbtt__csctx_rccurve_to(ctx, dx1, dy1, dx2, dy2, dx3, dy3)
@@ -1178,7 +1459,7 @@ local function stbtt__csctx_rccurve_to(ctx, dx1, dy1, dx2, dy2, dx3, dy3)
     local cy2 = cy1 + dy2
     ctx.x = cx2 + dx3
     ctx.y = cy2 + dy3
-    stbtt__csctx_v(ctx, STBTT_vmove.vcubic, floor(ctx.x), floor(ctx.y), floor(cx1), floor(cy1), floor(cx2), floor(cy2))
+    stbtt__csctx_v(ctx, STBTT_vcubic, trunc(ctx.x), trunc(ctx.y), trunc(cx1), trunc(cy1), trunc(cx2), trunc(cy2))
 end
 
 local function stbtt__get_subr(idx, n)
@@ -1232,9 +1513,9 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
     local has_subrs = 0
     local clear_stack
 
-    local s = CArrayInit(48)
+    local s = CArray(48)
 
-    local subr_stack = CArrayInit(10, stbtt__buf)
+    local subr_stack = CArray(10, stbtt__buf)
 
     local subrs = info.subrs
     local b, f
@@ -1251,12 +1532,12 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
         -- TODO: implement hinting
         if b0 == 0x13 or b0 == 0x14 then -- hintmask or cntrmask
             if in_header ~= 0 then
-                maskbits = maskbits + floor(sp / 2)  -- implicit "vstem"
+                maskbits = maskbits + trunc(sp / 2)  -- implicit "vstem"
             end
             in_header = 0
-            stbtt__buf_skip(b, floor((maskbits + 7) / 8))
+            stbtt__buf_skip(b, trunc((maskbits + 7) / 8))
         elseif b0 == 0x01 or b0 == 0x03 or b0 == 0x12 or b0 == 0x17 then -- hstem, vstem, hstemhm, vstemhm
-            maskbits = maskbits + floor(sp / 2)
+            maskbits = maskbits + trunc(sp / 2)
         elseif b0 == 0x15 then -- rmoveto
             in_header = 0
             if sp < 2 then return STBTT__CSERR("rmoveto stack") end
@@ -1271,7 +1552,6 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
             stbtt__csctx_rmove_to(c, s[sp - 1], 0)
         elseif b0 == 0x05 then -- rlineto
             if sp < 2 then return STBTT__CSERR("rlineto stack") end
-            i = 0
             while i + 1 < sp do
                 stbtt__csctx_rline_to(c, s[i], s[i + 1])
                 i = i + 2
@@ -1297,6 +1577,7 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
                 if i >= sp then break end
                 stbtt__csctx_rline_to(c, s[i], 0)
                 i = i + 1
+            -- vlineto
                 if i >= sp then break end
                 stbtt__csctx_rline_to(c, 0, s[i])
                 i = i + 1
@@ -1305,12 +1586,10 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
             if sp < 4 then return STBTT__CSERR("hvcurveto stack") end
             while true do
                 if i + 3 >= sp then break end
-                local extra = (sp - i == 5) and s[i + 4] or 0.0
-                stbtt__csctx_rccurve_to(c, 0, s[i], s[i + 1], s[i + 2], s[i + 3], extra)
+                stbtt__csctx_rccurve_to(c, s[i], 0, s[i + 1], s[i + 2], ((sp - i) == 5) and s[i + 4] or 0.0, s[i + 3])
                 i = i + 4
                 if i + 3 >= sp then break end
-                extra = (sp - i == 5) and s[i + 4] or 0.0
-                stbtt__csctx_rccurve_to(c, s[i], 0, s[i + 1], s[i + 2], extra, s[i + 3])
+                stbtt__csctx_rccurve_to(c, 0, s[i], s[i + 1], s[i + 2], s[i + 3], ((sp - i) == 5) and s[i + 4] or 0.0)
                 i = i + 4
             end
         elseif b0 == 0x1E then -- vhcurveto
@@ -1318,12 +1597,11 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
 
             while true do
                 if i + 3 >= sp then break end
-                local extra = (sp - i == 5) and s[i + 4] or 0.0
-                stbtt__csctx_rccurve_to(c, s[i], 0, s[i + 1], s[i + 2], extra, s[i + 3])
+                stbtt__csctx_rccurve_to(c, 0, s[i], s[i + 1], s[i + 2], s[i + 3], ((sp - i) == 5) and s[i + 4] or 0.0)
                 i = i + 4
+            -- hvcurveto
                 if i + 3 >= sp then break end
-                extra = (sp - i == 5) and s[i + 4] or 0.0
-                stbtt__csctx_rccurve_to(c, 0, s[i], s[i + 1], s[i + 2], s[i + 3], extra)
+                stbtt__csctx_rccurve_to(c, s[i], 0, s[i + 1], s[i + 2], ((sp - i) == 5) and s[i + 4] or 0.0, s[i + 3])
                 i = i + 4
             end
         elseif b0 == 0x08 then -- rrcurveto
@@ -1381,7 +1659,7 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
             -- callgsubr
             if sp < 1 then return STBTT__CSERR("call(g|)subr stack") end
             sp = sp - 1
-            v = floor(s[sp])
+            v = trunc(s[sp])
             if subr_stack_height >= 10 then return STBTT__CSERR("recursion limit") end
             subr_stack[subr_stack_height] = b
             subr_stack_height = subr_stack_height + 1
@@ -1477,7 +1755,7 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
                 f = stbtt__buf_get32(b) / 0x10000
             else
                 stbtt__buf_skip(b, -1)
-                f = stbtt__cff_int(b)
+                f = stbtt_int16(stbtt__cff_int(b))
             end
             if sp >= 48 then return STBTT__CSERR("push stack overflow") end
             s[sp] = f
@@ -1498,7 +1776,7 @@ function stbtt__GetGlyphShapeT2(info, glyph_index, pvertices)
     local count_ctx = STBTT__CSCTX_INIT(1)
     local output_ctx = STBTT__CSCTX_INIT(0)
     if stbtt__run_charstring(info, glyph_index, count_ctx) ~= 0 then
-        pvertices:set_deref(CArrayInit(count_ctx.num_vertices, stbtt_vertex))
+        pvertices:set_deref(CArray(count_ctx.num_vertices, stbtt_vertex))
         output_ctx.pvertices = pvertices:deref()
         if stbtt__run_charstring(info, glyph_index, output_ctx) ~= 0 then
             STBTT_assert(output_ctx.num_vertices == count_ctx.num_vertices)
@@ -1676,7 +1954,7 @@ local function stbtt__GetGlyphClass(classDefTable, glyph)
         local classDef1ValueArray = classDefTable + 6
 
         if glyph >= startGlyphID and glyph < startGlyphID + glyphCount then
-            return ttUSHORT(classDef1ValueArray + 2 * (glyph - startGlyphID))
+            return stbtt_int32(ttUSHORT(classDef1ValueArray + 2 * (glyph - startGlyphID)))
         end
     elseif classDefFormat == 2 then
         local classRangeCount = ttUSHORT(classDefTable + 2)
@@ -1696,7 +1974,7 @@ local function stbtt__GetGlyphClass(classDefTable, glyph)
             elseif glyph > strawEnd then
                 l = m + 1
             else
-                return ttUSHORT(classRangeRecord + 4)
+                return stbtt_int32(ttUSHORT(classRangeRecord + 4))
             end
         end
     else
@@ -1903,10 +2181,10 @@ end
 --
 
 local function stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, shift_x, shift_y, ix0, iy0, ix1, iy1)
-    local x0 = CArrayInit(1, {0})
-    local y0 = CArrayInit(1, {0})
-    local x1 = CArrayInit(1)
-    local y1 = CArrayInit(1)
+    local x0 = CValue(0)
+    local y0 = CValue(0)
+    local x1 = CValue()
+    local y1 = CValue()
 
     if stbtt_GetGlyphBox(font, glyph, x0, y0, x1, y1) == 0 then
         -- e.g. space character
@@ -1940,3 +2218,1732 @@ end
 --- Rasterizer
 --
 
+local function stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x1, y1)
+    if y0 == y1 then return end
+    STBTT_assert(y0 < y1)
+    STBTT_assert(e.sy <= e.ey)
+
+    if y0 > e.ey then return end
+    if y1 < e.sy then return end
+    if y0 < e.sy then
+        x0 = x0 + (x1 - x0) * (e.sy - y0) / (y1 - y0)
+        y0 = e.sy
+    end
+    if y1 > e.ey then
+        x1 = x1 + (x1 - x0) * (e.ey - y1) / (y1 - y0)
+        y1 = e.ey
+    end
+
+    if x0 == x then
+        STBTT_assert(x1 <= x + 1)
+    elseif x0 == x + 1 then
+        STBTT_assert(x1 >= x)
+    elseif x0 <= x then
+        STBTT_assert(x1 <= x)
+    elseif x0 >= x + 1 then
+        STBTT_assert(x1 >= x + 1)
+    else
+        STBTT_assert(x1 >= x and x1 <= x + 1)
+    end
+
+    if x0 <= x and x1 <= x then
+        scanline[x] = scanline[x] + e.direction * (y1 - y0)
+    elseif x0 >= x + 1 and x1 >= x + 1 then
+        -- do nothing
+    else
+        STBTT_assert(x0 >= x and x0 <= x + 1 and x1 >= x and x1 <= x + 1)
+        scanline[x] = scanline[x] + e.direction * (y1 - y0) * (1 - ((x0 - x) + (x1 - x)) / 2)
+    end
+end
+
+local function stbtt__sized_trapezoid_area(height, top_width, bottom_width)
+    STBTT_assert(top_width >= 0)
+    STBTT_assert(bottom_width >= 0)
+    return (top_width + bottom_width) / 2.0 * height
+end
+
+local function stbtt__position_trapezoid_area(height, tx0, tx1, bx0, bx1)
+    return stbtt__sized_trapezoid_area(height, tx1 - tx0, bx1 - bx0)
+end
+
+local function stbtt__sized_triangle_area(height, width)
+    return height * width / 2
+end
+
+local function stbtt__fill_active_edges_new(scanline, scanline_fill, len, e, y_top)
+    local y_bottom = y_top + 1
+
+    while e do
+        -- brute force every pixel
+        -- compute intersection points with top & bottom
+        STBTT_assert(e.ey >= y_top)
+
+        if e.fdx == 0 then
+            local x0 = e.fx
+            if x0 < len then
+                if x0 >= 0 then
+                    stbtt__handle_clipped_edge(scanline, trunc(x0), e, x0, y_top, x0, y_bottom)
+                    stbtt__handle_clipped_edge(scanline_fill - 1, trunc(x0) + 1, e, x0, y_top, x0, y_bottom)
+                else
+                    stbtt__handle_clipped_edge(scanline_fill - 1, 0, e, x0, y_top, x0, y_bottom)
+                end
+            end
+        else
+            local x0 = e.fx
+            local dx = e.fdx
+            local xb = x0 + dx
+            local x_top, x_bottom
+            local sy0, sy1
+            local dy = e.fdy
+            STBTT_assert(e.sy <= y_bottom and e.ey >= y_top)
+
+            -- compute endpoints of line segment clipped to this scanline (if the
+            -- line segment starts on this scanline. x0 is the intersection of the
+            -- line with y_top, but that may be off the line segment.
+            if e.sy > y_top then
+                x_top = x0 + dx * (e.sy - y_top)
+                sy0 = e.sy
+            else
+                x_top = x0
+                sy0 = y_top
+            end
+            if e.ey < y_bottom then
+                x_bottom = x0 + dx * (e.ey - y_top)
+                sy1 = e.ey
+            else
+                x_bottom = xb
+                sy1 = y_bottom
+            end
+
+            if x_top >= 0 and x_bottom >= 0 and x_top < len and x_bottom < len then
+                -- from here on, we don't have to range check x values
+                if trunc(x_top) == trunc(x_bottom) then
+                    -- simple case, only spans one pixel
+                    local height
+                    local x = trunc(x_top)
+                    height = (sy1 - sy0) * e.direction
+                    STBTT_assert(x >= 0 and x < len)
+                    scanline[x] = scanline[x] + stbtt__position_trapezoid_area(height, x_top, x + 1.0, x_bottom, x + 1.0)
+                    scanline_fill[x] = scanline_fill[x] + height -- everything right of this pixel is filled
+                else
+                    local x, x1, x2
+                    local y_crossing, y_final, step, sign, area
+                    -- covers 2+ pixels
+                    if x_top > x_bottom then
+                        -- flip scanline vertically; signed area is the same
+                        local t
+                        sy0 = y_bottom - (sy0 - y_top)
+                        sy1 = y_bottom - (sy1 - y_top)
+                        t = sy0
+                        sy0 = sy1
+                        sy1 = t
+                        t = x_bottom
+                        x_bottom = x_top
+                        x_top = t
+                        dx = -dx
+                        dy = -dy
+                        t = x0
+                        x0 = xb
+                        xb = t
+                    end
+                    STBTT_assert(dy >= 0)
+                    STBTT_assert(dx >= 0)
+
+                    x1 = trunc(x_top)
+                    x2 = trunc(x_bottom)
+                    -- compute intersection with y axis at x1+1
+                    y_crossing = y_top + dy * (x1 + 1 - x0)
+
+                    -- compute intersection with y axis at x2
+                    y_final = y_top + dy * (x2 - x0)
+
+                    --           x1    x_top                            x2    x_bottom
+                    --     y_top  +------|-----+------------+------------+--------|---+------------+
+                    --            |            |            |            |            |            |
+                    --            |            |            |            |            |            |
+                    --       sy0  |      Txxxxx|............|............|............|............|
+                    -- y_crossing |            *xxxxx.......|............|............|............|
+                    --            |            |     xxxxx..|............|............|............|
+                    --            |            |     /-   xx*xxxx........|............|............|
+                    --            |            | dy <       |    xxxxxx..|............|............|
+                    --   y_final  |            |     \-     |          xx*xxx.........|............|
+                    --       sy1  |            |            |            |   xxxxxB...|............|
+                    --            |            |            |            |            |            |
+                    --            |            |            |            |            |            |
+                    --  y_bottom  +------------+------------+------------+------------+------------+
+                    --
+                    -- goal is to measure the area covered by '.' in each pixel
+
+                    -- if x2 is right at the right edge of x1, y_crossing can blow up, github #1057
+                    -- TODO: maybe test against sy1 rather than y_bottom?
+                    if y_crossing > y_bottom then
+                        y_crossing = y_bottom
+                    end
+
+                    sign = e.direction
+
+                    -- area of the rectangle covered from sy0..y_crossing
+                    area = sign * (y_crossing - sy0)
+
+                    -- area of the triangle (x_top,sy0), (x1+1,sy0), (x1+1,y_crossing)
+                    scanline[x1] = scanline[x1] + stbtt__sized_triangle_area(area, x1 + 1 - x_top)
+
+                    -- check if final y_crossing is blown up; no test case for this
+                    if y_final > y_bottom then
+                        local denom = (x2 - (x1 + 1))
+                        y_final = y_bottom
+                        if denom ~= 0 then -- [DEAR IMGUI] Avoid div by zero (https://github.com/nothings/stb/issues/1316)
+                            dy = (y_final - y_crossing) / denom -- if denom=0, y_final = y_crossing, so y_final <= y_bottom
+                        end
+                    end
+
+                    -- in second pixel, area covered by line segment found in first pixel
+                    -- is always a rectangle 1 wide * the height of that line segment; this
+                    -- is exactly what the variable 'area' stores. it also gets a contribution
+                    -- from the line segment within it. the THIRD pixel will get the first
+                    -- pixel's rectangle contribution, the second pixel's rectangle contribution,
+                    -- and its own contribution. the 'own contribution' is the same in every pixel except
+                    -- the leftmost and rightmost, a trapezoid that slides down in each pixel.
+                    -- the second pixel's contribution to the third pixel will be the
+                    -- rectangle 1 wide times the height change in the second pixel, which is dy.
+
+                    step = sign * dy * 1 -- dy is dy/dx, change in y for every 1 change in x,
+                    -- which multiplied by 1-pixel-width is how much pixel area changes for each step in x
+                    -- so the area advances by 'step' every time
+
+                    for _x = x1 + 1, x2 - 1 do
+                        scanline[_x] = scanline[_x] + area + step / 2 -- area of trapezoid is 1*step/2
+                        area = area + step
+                    end
+                    STBTT_assert(STBTT_fabs(area) <= 1.01) -- accumulated error from area += step unless we round step down
+                    STBTT_assert(sy1 > y_final - 0.01)
+
+                    -- area covered in the last pixel is the rectangle from all the pixels to the left,
+                    -- plus the trapezoid filled by the line segment in this pixel all the way to the right edge
+                    scanline[x2] = scanline[x2] + area + sign * stbtt__position_trapezoid_area(sy1 - y_final, x2, x2 + 1.0, x_bottom, x2 + 1.0)
+
+                    -- the rest of the line is filled based on the total height of the line segment in this pixel
+                    scanline_fill[x2] = scanline_fill[x2] + sign * (sy1 - sy0)
+                end
+            else
+                -- if edge goes outside of box we're drawing, we require
+                -- clipping logic. since this does not match the intended use
+                -- of this library, we use a different, very slow brute
+                -- force implementation
+                -- note though that this does happen some of the time because
+                -- x_top and x_bottom can be extrapolated at the top & bottom of
+                -- the shape and actually lie outside the bounding box
+                for x = 0, len - 1 do
+                    -- cases:
+                    --
+                    -- there can be up to two intersections with the pixel. any intersection
+                    -- with left or right edges can be handled by splitting into two (or three)
+                    -- regions. intersections with top & bottom do not necessitate case-wise logic.
+                    --
+                    -- the old way of doing this found the intersections with the left & right edges,
+                    -- then used some simple logic to produce up to three segments in sorted order
+                    -- from top-to-bottom. however, this had a problem: if an x edge was epsilon
+                    -- across the x border, then the corresponding y position might not be distinct
+                    -- from the other y segment, and it might ignored as an empty segment. to avoid
+                    -- that, we need to explicitly produce segments based on x positions.
+
+                    -- rename variables to clearly-defined pairs
+                    local y0 = y_top
+                    local x1 = x
+                    local x2 = x + 1
+                    local x3 = xb
+                    local y3 = y_bottom
+
+                    -- x = e->x + e->dx * (y-y_top)
+                    -- (y-y_top) = (x - e->x) / e->dx
+                    -- y = (x - e->x) / e->dx + y_top
+                    local y1 = (x - x0) / dx + y_top
+                    local y2 = (x + 1 - x0) / dx + y_top
+
+                    if x0 < x1 and x3 > x2 then -- three segments descending down-right
+                        stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x1, y1)
+                        stbtt__handle_clipped_edge(scanline, x, e, x1, y1, x2, y2)
+                        stbtt__handle_clipped_edge(scanline, x, e, x2, y2, x3, y3)
+                    elseif x3 < x1 and x0 > x2 then -- three segments descending down-left
+                        stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x2, y2)
+                        stbtt__handle_clipped_edge(scanline, x, e, x2, y2, x1, y1)
+                        stbtt__handle_clipped_edge(scanline, x, e, x1, y1, x3, y3)
+                    elseif x0 < x1 and x3 > x1 then -- two segments across x, down-right
+                        stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x1, y1)
+                        stbtt__handle_clipped_edge(scanline, x, e, x1, y1, x3, y3)
+                    elseif x3 < x1 and x0 > x1 then -- two segments across x, down-left
+                        stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x1, y1)
+                        stbtt__handle_clipped_edge(scanline, x, e, x1, y1, x3, y3)
+                    elseif x0 < x2 and x3 > x2 then -- two segments across x+1, down-right
+                        stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x2, y2)
+                        stbtt__handle_clipped_edge(scanline, x, e, x2, y2, x3, y3)
+                    elseif x3 < x2 and x0 > x2 then -- two segments across x+1, down-left
+                        stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x2, y2)
+                        stbtt__handle_clipped_edge(scanline, x, e, x2, y2, x3, y3)
+                    else -- one segment
+                        stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x3, y3)
+                    end
+                end
+            end
+        end
+        e = e.next
+    end
+end
+
+local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, off_y)
+    local active = nil
+    local scanline_data = CArray(129)
+    local scanline, scanline2
+
+    STBTT__NOTUSED(vsubsample)
+
+    if result.w > 64 then
+        scanline = CArray(result.w * 2 + 1)
+    else
+        scanline = scanline_data
+    end
+
+    scanline2 = scanline + result.w
+
+    local y = off_y
+    e[n].y0 = off_y + result.h + 1
+
+    local j = 0
+    while j < result.h do
+        -- find center of pixel for this scanline
+        local scan_y_top = y + 0.0
+        local scan_y_bottom = y + 1.0
+        local step = active
+
+        STBTT_memset(scanline, 0, result.w)
+        STBTT_memset(scanline2, 0, result.w + 1)
+
+        local prev = nil
+        local curr = active
+        while curr do
+            if curr.ey <= scan_y_top then
+                if prev then
+                    prev.next = curr.next
+                else
+                    active = curr.next
+                end
+                STBTT_assert(curr.direction ~= 0)
+                curr.direction = 0
+            else
+                prev = curr
+            end
+            curr = curr.next
+        end
+
+        local edge = e:deref()
+        while edge.y0 <= scan_y_bottom do
+            if edge.y0 ~= edge.y1 then
+                local z = stbtt__new_active(edge, off_x, scan_y_top)
+
+                if j == 0 and off_y ~= 0 then
+                    if z.ey < scan_y_top then
+                        z.ey = scan_y_top
+                    end
+                end
+
+                STBTT_assert(z.ey >= scan_y_top)
+                z.next = active
+                active = z
+            end
+            e:inc()
+
+            edge = e:deref()
+        end
+
+        if active then
+            stbtt__fill_active_edges_new(scanline, scanline2 + 1, result.w, active, scan_y_top)
+        end
+
+        do
+            local sum = 0
+            for i = 0, result.w - 1 do
+                local k
+                local m
+                sum = sum + scanline2[i]
+                k = scanline[i] + sum
+                k = STBTT_fabs(k) * 255 + 0.5
+                m = trunc(k)
+                if m > 255 then m = 255 end
+                result.pixels[j * result.stride + i] = unsigned_char(m)
+            end
+        end
+
+        step = active
+        while step do
+            step.fx = step.fx + step.fdx
+            step = step.next
+        end
+
+        y = y + 1
+        j = j + 1
+    end
+end
+
+local STBTT__COMPARE = function(a, b) return a.y0 < b.y0 end
+
+local function stbtt__sort_edges_ins_sort(p, n)
+    for i = 1, n - 1 do
+        local t = p[i]
+        local a = t
+        local j = i
+        while j > 0 do
+            local b = p[j - 1]
+            local c = STBTT__COMPARE(a, b)
+            if c == false then break end
+            p[j] = p[j - 1]
+            j = j - 1
+        end
+        if i ~= j then
+            p[j] = t
+        end
+    end
+end
+
+local function stbtt__sort_edges_quicksort(p, n)
+    -- threshold for transitioning to insertion sort
+    while n > 12 do
+        local t
+        local c01, c12, c, m, i, j
+
+        -- compute median of three
+        m = rshift(n, 1)
+        c01 = STBTT__COMPARE(p[0], p[m])
+        c12 = STBTT__COMPARE(p[m], p[n - 1])
+        -- if 0 >= mid >= end, or 0 < mid < end, then use mid
+        if c01 ~= c12 then
+            -- otherwise, we'll need to swap something else to middle
+            local z
+            c = STBTT__COMPARE(p[0], p[n - 1])
+            -- 0>mid && mid<n:  0>n => n; 0<n => 0
+            -- 0<mid && mid>n:  0>n => 0; 0<n => n
+            z = (c == c12) and 0 or (n - 1)
+            t = p[z]
+            p[z] = p[m]
+            p[m] = t
+        end
+        -- now p[m] is the median-of-three
+        -- swap it to the beginning so it won't move around
+        t = p[0]
+        p[0] = p[m]
+        p[m] = t
+
+        -- partition loop
+        i = 1
+        j = n - 1
+        while true do
+            -- handling of equality is crucial here
+            -- for sentinels & efficiency with duplicates
+            while true do
+                if not STBTT__COMPARE(p[i], p[0]) then break end
+                i = i + 1
+            end
+            while true do
+                if not STBTT__COMPARE(p[0], p[j]) then break end
+                j = j - 1
+            end
+            -- make sure we haven't crossed
+            if i >= j then break end
+            t = p[i]
+            p[i] = p[j]
+            p[j] = t
+
+            i = i + 1
+            j = j - 1
+        end
+        -- recurse on smaller side, iterate on larger
+        if j < (n - i) then
+            stbtt__sort_edges_quicksort(p, j)
+            p = p + i
+            n = n - i
+        else
+            stbtt__sort_edges_quicksort(p + i, n - i)
+            n = j
+        end
+    end
+end
+
+local function stbtt__sort_edges(p, n)
+    stbtt__sort_edges_quicksort(p, n)
+    stbtt__sort_edges_ins_sort(p, n)
+end
+
+local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y, shift_x, shift_y, off_x, off_y, invert)
+    local y_scale_inv = (invert ~= 0) and -scale_y or scale_y
+    local e
+    local n, m
+
+    local vsubsample = 1 -- STBTT_RASTERIZER_VERSION == 2
+
+    -- now we have to blow out the windings into explicit edge lists
+    n = 0
+    for i = 0, windings - 1 do
+        n = n + wcount[i]
+    end
+
+    e = CArray(n + 1, stbtt__edge) -- add an extra one as a sentinel
+    n = 0
+
+    m = 0
+    local j
+    for i = 0, windings - 1 do
+        local p = pts + m
+        m = m + wcount[i]
+        j = wcount[i] - 1
+        for k = 0, wcount[i] - 1 do
+            local a = k
+            local b = j
+            -- skip the edge if horizontal
+            if p[j].y == p[k].y then
+                j = k
+                continue
+            end
+            -- add edge from j to k to the list
+            e[n].invert = 0
+            if invert ~= 0 then
+                if p[j].y > p[k].y then
+                    e[n].invert = 1
+                    a = j
+                    b = k
+                end
+            else
+                if p[j].y < p[k].y then
+                    e[n].invert = 1
+                    a = j
+                    b = k
+                end
+            end
+            e[n].x0 = p[a].x * scale_x + shift_x
+            e[n].y0 = (p[a].y * y_scale_inv + shift_y) * vsubsample
+            e[n].x1 = p[b].x * scale_x + shift_x
+            e[n].y1 = (p[b].y * y_scale_inv + shift_y) * vsubsample
+
+            n = n + 1
+            j = k
+        end
+    end
+
+    -- now sort the edges by their highest point (should snap to integer, and then by x)
+    stbtt__sort_edges(e, n)
+
+    -- now, traverse the scanlines and find the intersections on each scanline, use xor winding rule
+    stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, off_y)
+end
+
+local function stbtt__add_point(points, n, x, y)
+    if not points then return end -- during first pass, it's unallocated
+    points[n].x = x
+    points[n].y = y
+end
+
+-- tessellate until threshold p is happy... @TODO warped to compensate for non-linear stretching
+local function stbtt__tesselate_curve(points, num_points, x0, y0, x1, y1, x2, y2, objspace_flatness_squared, n)
+    -- midpoint
+    local mx = (x0 + 2 * x1 + x2) / 4
+    local my = (y0 + 2 * y1 + y2) / 4
+    -- versus directly drawn line
+    local dx = (x0 + x2) / 2 - mx
+    local dy = (y0 + y2) / 2 - my
+
+    if n > 16 then -- 65536 segments on one curve better be enough!
+        return 1
+    end
+
+    if dx * dx + dy * dy > objspace_flatness_squared then -- half-pixel error allowed... need to be smaller if AA
+        stbtt__tesselate_curve(points, num_points, x0, y0, (x0 + x1) / 2.0, (y0 + y1) / 2.0, mx, my, objspace_flatness_squared, n + 1)
+        stbtt__tesselate_curve(points, num_points, mx, my, (x1 + x2) / 2.0, (y1 + y2) / 2.0, x2, y2, objspace_flatness_squared, n + 1)
+    else
+        stbtt__add_point(points, num_points:deref(), x2, y2)
+        num_points:set_deref(num_points:deref() + 1)
+    end
+    return 1
+end
+
+local function stbtt__tesselate_cubic(points, num_points, x0, y0, x1, y1, x2, y2, x3, y3, objspace_flatness_squared, n)
+    -- @TODO this "flatness" calculation is just made-up nonsense that seems to work well enough
+    local dx0 = x1 - x0
+    local dy0 = y1 - y0
+    local dx1 = x2 - x1
+    local dy1 = y2 - y1
+    local dx2 = x3 - x2
+    local dy2 = y3 - y2
+    local dx = x3 - x0
+    local dy = y3 - y0
+    local longlen = STBTT_sqrt(dx0 * dx0 + dy0 * dy0) + STBTT_sqrt(dx1 * dx1 + dy1 * dy1) + STBTT_sqrt(dx2 * dx2 + dy2 * dy2)
+    local shortlen = STBTT_sqrt(dx * dx + dy * dy)
+    local flatness_squared = longlen * longlen - shortlen * shortlen
+
+    if n > 16 then -- 65536 segments on one curve better be enough!
+        return
+    end
+
+    if flatness_squared > objspace_flatness_squared then
+        local x01 = (x0 + x1) / 2
+        local y01 = (y0 + y1) / 2
+        local x12 = (x1 + x2) / 2
+        local y12 = (y1 + y2) / 2
+        local x23 = (x2 + x3) / 2
+        local y23 = (y2 + y3) / 2
+
+        local xa = (x01 + x12) / 2
+        local ya = (y01 + y12) / 2
+        local xb = (x12 + x23) / 2
+        local yb = (y12 + y23) / 2
+
+        local mx = (xa + xb) / 2
+        local my = (ya + yb) / 2
+
+        stbtt__tesselate_cubic(points, num_points, x0, y0, x01, y01, xa, ya, mx, my, objspace_flatness_squared, n + 1)
+        stbtt__tesselate_cubic(points, num_points, mx, my, xb, yb, x23, y23, x3, y3, objspace_flatness_squared, n + 1)
+    else
+        stbtt__add_point(points, num_points:deref(), x3, y3)
+        num_points:set_deref(num_points:deref() + 1)
+    end
+end
+
+local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness, contour_lengths, num_contours)
+    local points = nil
+    local num_points = CValue(0)
+
+    local objspace_flatness_squared = objspace_flatness * objspace_flatness
+    local n = 0
+    local start = 0
+
+    -- count how many "moves" there are to get the contour count
+    vertices = vertices:deref()
+    for i = 0, num_verts - 1 do
+        if vertices[i].type == STBTT_vmove then
+            n = n + 1
+        end
+    end
+
+    num_contours:set_deref(n)
+    if n == 0 then return 0 end
+
+    contour_lengths:set_deref(CArray(n))
+
+    -- make two passes through the points so we don't need to realloc
+    for pass = 0, 1 do
+        local x, y = 0, 0
+        if pass == 1 then
+            points = CArray(num_points:deref(), stbtt__point)
+        end
+        num_points:set_deref(0)
+        n = -1
+        for i = 0, num_verts - 1 do
+            if vertices[i].type == STBTT_vmove then
+                -- start the next contour
+                if n >= 0 then
+                    contour_lengths:deref()[n] = num_points:deref() - start
+                end
+                n = n + 1
+                start = num_points:deref()
+
+                x = vertices[i].x
+                y = vertices[i].y
+                stbtt__add_point(points, num_points:deref(), x, y)
+                num_points:set_deref(num_points:deref() + 1)
+            elseif vertices[i].type == STBTT_vline then
+                x = vertices[i].x
+                y = vertices[i].y
+                stbtt__add_point(points, num_points:deref(), x, y)
+                num_points:set_deref(num_points:deref() + 1)
+            elseif vertices[i].type == STBTT_vcurve then
+                stbtt__tesselate_curve(points, num_points, x, y,
+                                    vertices[i].cx, vertices[i].cy,
+                                    vertices[i].x, vertices[i].y,
+                                    objspace_flatness_squared, 0)
+                x = vertices[i].x
+                y = vertices[i].y
+            elseif vertices[i].type == STBTT_vcubic then
+                stbtt__tesselate_cubic(points, num_points, x, y,
+                                    vertices[i].cx, vertices[i].cy,
+                                    vertices[i].cx1, vertices[i].cy1,
+                                    vertices[i].x, vertices[i].y,
+                                    objspace_flatness_squared, 0)
+                x = vertices[i].x
+                y = vertices[i].y
+            end
+        end
+        contour_lengths:deref()[n] = num_points:deref() - start
+    end
+
+    return points
+end
+
+local function stbtt_Rasterize(result, flatness_in_pixels, vertices, num_verts, scale_x, scale_y, shift_x, shift_y, x_off, y_off, invert)
+    local scale = (scale_x > scale_y) and scale_y or scale_x
+    local winding_count = CValue(0)
+    local winding_lengths = CValue()
+
+    local windings = stbtt_FlattenCurves(vertices, num_verts, flatness_in_pixels / scale, winding_lengths, winding_count)
+
+    if windings then
+        stbtt__rasterize(result, windings, winding_lengths:deref(), winding_count:deref(), scale_x, scale_y, shift_x, shift_y, x_off, y_off, invert)
+    end
+end
+
+local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, glyph, width, height, xoff, yoff)
+    local ix0, iy0, ix1, iy1 = CValue(), CValue(), CValue(), CValue()
+    local gbm = stbtt__bitmap()
+    local vertices = CValue()
+
+    local num_verts = stbtt_GetGlyphShape(info, glyph, vertices)
+
+    if scale_x == 0 then scale_x = scale_y end
+    if scale_y == 0 then
+        if scale_x == 0 then
+
+            return nil
+        end
+        scale_y = scale_x
+    end
+
+    stbtt_GetGlyphBitmapBoxSubpixel(info, glyph, scale_x, scale_y, shift_x, shift_y, ix0, iy0, ix1, iy1)
+
+    -- now we get the size
+    gbm.w = ix1:deref() - ix0:deref()
+    gbm.h = iy1:deref() - iy0:deref()
+    gbm.pixels = nil -- in case we error
+
+    if width then width:set_deref(gbm.w) end
+    if height then height:set_deref(gbm.h) end
+    if xoff then xoff:set_deref(ix0:deref()) end
+    if yoff then yoff:set_deref(iy0:deref()) end
+
+    if gbm.w ~= 0 and gbm.h ~= 0 then
+        gbm.pixels = CArray(gbm.w * gbm.h)
+        gbm.stride = gbm.w
+
+        stbtt_Rasterize(gbm, 0.35, vertices, num_verts, scale_x, scale_y, shift_x, shift_y, ix0:deref(), iy0:deref(), 1)
+    end
+
+    return gbm.pixels
+end
+
+local function stbtt_GetGlyphBitmap(info, scale_x, scale_y, glyph, width, height, xoff, yoff)
+    return stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, 0.0, 0.0, glyph, width, height, xoff, yoff)
+end
+
+local function stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, glyph)
+    local ix0, iy0 = CValue(), CValue()
+    local vertices = CValue()
+    local num_verts = stbtt_GetGlyphShape(info, glyph, vertices)
+    local gbm = stbtt__bitmap()
+
+    stbtt_GetGlyphBitmapBoxSubpixel(info, glyph, scale_x, scale_y, shift_x, shift_y, ix0, iy0, nil, nil)
+    gbm.pixels = output
+    gbm.w = out_w
+    gbm.h = out_h
+    gbm.stride = out_stride
+
+    if gbm.w ~= 0 and gbm.h ~= 0 then
+        stbtt_Rasterize(gbm, 0.35, vertices:deref(), num_verts, scale_x, scale_y, shift_x, shift_y, ix0:deref(), iy0:deref(), 1)
+    end
+end
+
+local function stbtt_MakeGlyphBitmap(info, output, out_w, out_h, out_stride, scale_x, scale_y, glyph)
+    stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, 0.0, 0.0, glyph)
+end
+
+local function stbtt_GetCodepointBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, codepoint, width, height, xoff, yoff)
+    return stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, stbtt_FindGlyphIndex(info, codepoint), width, height, xoff, yoff)
+end
+
+local stbtt_MakeGlyphBitmapSubpixelPrefilter
+
+local function stbtt_MakeCodepointBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, sub_x, sub_y, codepoint)
+    stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, sub_x, sub_y, stbtt_FindGlyphIndex(info, codepoint))
+end
+
+local function stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, codepoint)
+    stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, stbtt_FindGlyphIndex(info, codepoint))
+end
+
+local function stbtt_GetCodepointBitmap(info, scale_x, scale_y, codepoint, width, height, xoff, yoff)
+    return stbtt_GetCodepointBitmapSubpixel(info, scale_x, scale_y, 0.0, 0.0, codepoint, width, height, xoff, yoff)
+end
+
+local function stbtt_MakeCodepointBitmap(info, output, out_w, out_h, out_stride, scale_x, scale_y, codepoint)
+    stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, 0.0, 0.0, codepoint)
+end
+
+
+
+------------------------------------------------------------
+--- bitmap baking
+--- "This is SUPER-CRAPPY packing to keep source code small"
+--
+
+local stbtt_InitFont
+
+local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
+    local scale
+    local x, y, bottom_y
+    local f = stbtt_fontinfo()
+
+    if stbtt_InitFont(f, data, offset) == 0 then
+        return -1
+    end
+    STBTT_memset(pixels, 0, pw * ph) -- background of 0 around pixels
+    x = 1
+    y = 1
+    bottom_y = 1
+
+    scale = stbtt_ScaleForPixelHeight(f, pixel_height)
+
+    for i = 0, num_chars - 1 do
+        local advance = CValue()
+        local lsb = CValue()
+        local x0, y0, x1, y1 = CValue(), CValue(), CValue(), CValue()
+        local gw, gh
+        local g = stbtt_FindGlyphIndex(f, first_char + i)
+        stbtt_GetGlyphHMetrics(f, g, advance, lsb)
+        stbtt_GetGlyphBitmapBox(f, g, scale, scale, x0, y0, x1, y1)
+        gw = x1:deref() - x0:deref()
+        gh = y1:deref() - y0:deref()
+        if x + gw + 1 >= pw then
+            y = bottom_y
+            x = 1 -- advance to next row
+        end
+        if y + gh + 1 >= ph then -- check if it fits vertically AFTER potentially moving to next row
+            return -i
+        end
+        STBTT_assert(x + gw < pw)
+        STBTT_assert(y + gh < ph)
+        stbtt_MakeGlyphBitmap(f, pixels + x + y * pw, gw, gh, pw, scale, scale, g)
+        chardata[i].x0 = stbtt_int16(x)
+        chardata[i].y0 = stbtt_int16(y)
+        chardata[i].x1 = stbtt_int16(x + gw)
+        chardata[i].y1 = stbtt_int16(y + gh)
+        chardata[i].xadvance = scale * advance:deref()
+        chardata[i].xoff = x0:deref()
+        chardata[i].yoff = y0:deref()
+        x = x + gw + 1
+        if y + gh + 1 > bottom_y then
+            bottom_y = y + gh + 1
+        end
+    end
+    return bottom_y
+end
+
+local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, opengl_fillrule)
+    local d3d_bias = opengl_fillrule and 0 or -0.5
+    local ipw = 1.0 / pw
+    local iph = 1.0 / ph
+    local b = chardata + char_index
+    local round_x = STBTT_ifloor((xpos:deref() + b.xoff) + 0.5)
+    local round_y = STBTT_ifloor((ypos:deref() + b.yoff) + 0.5)
+
+    q.x0 = round_x + d3d_bias
+    q.y0 = round_y + d3d_bias
+    q.x1 = round_x + b.x1 - b.x0 + d3d_bias
+    q.y1 = round_y + b.y1 - b.y0 + d3d_bias
+
+    q.s0 = b.x0 * ipw
+    q.t0 = b.y0 * iph
+    q.s1 = b.x1 * ipw
+    q.t1 = b.y1 * iph
+
+    xpos:set_deref(xpos:deref() + b.xadvance)
+end
+
+
+
+
+
+-----------------
+--- bitmap baking
+--
+
+
+
+
+local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, alloc_context)
+    local context = stbrp_context()
+    local num_nodes = pw - padding
+    local nodes = CArray(num_nodes, stbrp_node)
+
+    spc.user_allocator_context = alloc_context
+    spc.width = pw
+    spc.height = ph
+    spc.pixels = pixels
+    spc.pack_info = context
+    spc.nodes = nodes
+    spc.padding = padding
+    spc.stride_in_bytes = stride_in_bytes ~= 0 and stride_in_bytes or pw
+    spc.h_oversample = 1
+    spc.v_oversample = 1
+    spc.skip_missing = 0
+
+    stbrp_init_target(context, pw - padding, ph - padding, nodes, num_nodes)
+
+    if pixels then
+        STBTT_memset(pixels, 0, pw * ph) -- background of 0 around pixels
+    end
+
+    return 1
+end
+
+local function stbtt_PackSetOversampling(spc, h_oversample, v_oversample)
+    STBTT_assert(h_oversample <= STBTT_MAX_OVERSAMPLE)
+    STBTT_assert(v_oversample <= STBTT_MAX_OVERSAMPLE)
+    if h_oversample <= STBTT_MAX_OVERSAMPLE then
+        spc.h_oversample = h_oversample
+    end
+    if v_oversample <= STBTT_MAX_OVERSAMPLE then
+        spc.v_oversample = v_oversample
+    end
+end
+
+local function stbtt_PackSetSkipMissingCodepoints(spc, skip)
+    spc.skip_missing = skip
+end
+
+local STBTT__OVER_MASK = STBTT_MAX_OVERSAMPLE - 1
+
+local function stbtt__h_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
+    local buffer = CArray(STBTT_MAX_OVERSAMPLE)
+    local safe_w = w - kernel_width
+
+    STBTT_memset(buffer, 0, STBTT_MAX_OVERSAMPLE)
+
+    for j = 0, h - 1 do
+        local total = 0
+
+        STBTT_memset(buffer, 0, kernel_width)
+
+        -- make kernel_width a constant in common cases so compiler can optimize out the divide
+        if kernel_width == 2 then
+            for i = 0, safe_w do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i]
+                pixels[i] = unsigned_char(total / 2)
+            end
+        elseif kernel_width == 3 then
+            for i = 0, safe_w do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i]
+                pixels[i] = unsigned_char(total / 3)
+            end
+        elseif kernel_width == 4 then
+            for i = 0, safe_w do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i]
+                pixels[i] = unsigned_char(total / 4)
+            end
+        elseif kernel_width == 5 then
+            for i = 0, safe_w do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i]
+                pixels[i] = unsigned_char(total / 5)
+            end
+        else
+            for i = 0, safe_w do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i]
+                pixels[i] = unsigned_char(total / kernel_width)
+            end
+        end
+
+        for i = safe_w + 1, w - 1 do
+            STBTT_assert(pixels[i] == 0)
+            total = total - buffer[band(i, STBTT__OVER_MASK)]
+            pixels[i] = unsigned_char(total / kernel_width)
+        end
+
+        pixels = pixels + stride_in_bytes
+    end
+end
+
+local function stbtt__v_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
+    local buffer = CArray(STBTT_MAX_OVERSAMPLE)
+    local safe_h = h - kernel_width
+
+    STBTT_memset(buffer, 0, STBTT_MAX_OVERSAMPLE)
+
+    for j = 0, w - 1 do
+        local total = 0
+
+        STBTT_memset(buffer, 0, kernel_width)
+
+        if kernel_width == 2 then
+            for i = 0, safe_h do
+                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i * stride_in_bytes]
+                pixels[i * stride_in_bytes] = unsigned_char(total / 2)
+            end
+        elseif kernel_width == 3 then
+            for i = 0, safe_h do
+                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i * stride_in_bytes]
+                pixels[i * stride_in_bytes] = unsigned_char(total / 3)
+            end
+        elseif kernel_width == 4 then
+            for i = 0, safe_h do
+                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i * stride_in_bytes]
+                pixels[i * stride_in_bytes] = unsigned_char(total / 4)
+            end
+        elseif kernel_width == 5 then
+            for i = 0, safe_h do
+                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i * stride_in_bytes]
+                pixels[i * stride_in_bytes] = unsigned_char(total / 5)
+            end
+        else
+            for i = 0, safe_h do
+                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i * stride_in_bytes]
+                pixels[i * stride_in_bytes] = unsigned_char(total / kernel_width)
+            end
+        end
+
+        for i = safe_h + 1, h - 1 do
+            STBTT_assert(pixels[i * stride_in_bytes] == 0)
+            total = total - buffer[band(i, STBTT__OVER_MASK)]
+            pixels[i * stride_in_bytes] = unsigned_char(total / kernel_width)
+        end
+
+        pixels = pixels + 1
+    end
+end
+
+local function stbtt__oversample_shift(oversample)
+    if oversample == 0 then
+        return 0.0
+    end
+    return -(oversample - 1) / (2.0 * oversample)
+end
+
+
+local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, rects)
+    local k = 0
+    local missing_glyph_added = 0
+
+    for i = 0, num_ranges - 1 do
+        local fh = ranges[i].font_size
+        local scale = fh > 0 and stbtt_ScaleForPixelHeight(info, fh) or stbtt_ScaleForMappingEmToPixels(info, -fh)
+        ranges[i].h_oversample = spc.h_oversample
+        ranges[i].v_oversample = spc.v_oversample
+
+        for j = 0, ranges[i].num_chars - 1 do
+            local codepoint = ranges[i].array_of_unicode_codepoints == nil and
+                            (ranges[i].first_unicode_codepoint_in_range + j) or
+                            ranges[i].array_of_unicode_codepoints[j]
+            local glyph = stbtt_FindGlyphIndex(info, codepoint)
+
+            if glyph == 0 and (spc.skip_missing ~= 0 or missing_glyph_added ~= 0) then
+                rects[k].w = 0
+                rects[k].h = 0
+            else
+                local x0, y0, x1, y1 = CValue(), CValue(), CValue(), CValue()
+                stbtt_GetGlyphBitmapBoxSubpixel(info, glyph,
+                                            scale * spc.h_oversample,
+                                            scale * spc.v_oversample,
+                                            0, 0,
+                                            x0, y0, x1, y1)
+                rects[k].w = x1:deref() - x0:deref() + spc.padding + spc.h_oversample - 1
+                rects[k].h = y1:deref() - y0:deref() + spc.padding + spc.v_oversample - 1
+                if glyph == 0 then
+                    missing_glyph_added = 1
+                end
+            end
+            k = k + 1
+        end
+    end
+
+    return k
+end
+
+function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, prefilter_x, prefilter_y, sub_x, sub_y, glyph)
+    stbtt_MakeGlyphBitmapSubpixel(info,
+                                output,
+                                out_w - (prefilter_x - 1),
+                                out_h - (prefilter_y - 1),
+                                out_stride,
+                                scale_x,
+                                scale_y,
+                                shift_x,
+                                shift_y,
+                                glyph)
+
+    if prefilter_x > 1 then
+        stbtt__h_prefilter(output, out_w, out_h, out_stride, prefilter_x)
+    end
+
+    if prefilter_y > 1 then
+        stbtt__v_prefilter(output, out_w, out_h, out_stride, prefilter_y)
+    end
+
+    sub_x:set_deref(stbtt__oversample_shift(prefilter_x))
+    sub_y:set_deref(stbtt__oversample_shift(prefilter_y))
+end
+
+
+function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rects)
+    local k = 0
+    local missing_glyph = -1
+    local return_value = 1
+
+    -- save current values
+    local old_h_over = spc.h_oversample
+    local old_v_over = spc.v_oversample
+
+    for i = 0, num_ranges - 1 do
+        local fh = ranges[i].font_size
+        local scale = fh > 0 and stbtt_ScaleForPixelHeight(info, fh) or stbtt_ScaleForMappingEmToPixels(info, -fh)
+        local recip_h, recip_v, sub_x, sub_y
+        spc.h_oversample = ranges[i].h_oversample
+        spc.v_oversample = ranges[i].v_oversample
+        recip_h = 1.0 / spc.h_oversample
+        recip_v = 1.0 / spc.v_oversample
+        sub_x = stbtt__oversample_shift(spc.h_oversample)
+        sub_y = stbtt__oversample_shift(spc.v_oversample)
+
+        for j = 0, ranges[i].num_chars - 1 do
+            local r = rects[k]
+            if r.was_packed and r.w ~= 0 and r.h ~= 0 then
+                local bc = ranges[i].chardata_for_range[j]
+                local advance = CValue()
+                local lsb = CValue()
+                local x0, y0, x1, y1 = CValue(), CValue(), CValue(), CValue()
+                local codepoint = ranges[i].array_of_unicode_codepoints == nil and
+                                (ranges[i].first_unicode_codepoint_in_range + j) or
+                                ranges[i].array_of_unicode_codepoints[j]
+                local glyph = stbtt_FindGlyphIndex(info, codepoint)
+                local pad = spc.padding
+
+                -- pad on left and top
+                r.x = r.x + pad
+                r.y = r.y + pad
+                r.w = r.w - pad
+                r.h = r.h - pad
+                stbtt_GetGlyphHMetrics(info, glyph, advance, lsb)
+                stbtt_GetGlyphBitmapBox(info, glyph,
+                                    scale * spc.h_oversample,
+                                    scale * spc.v_oversample,
+                                    x0, y0, x1, y1)
+                stbtt_MakeGlyphBitmapSubpixel(info,
+                                            spc.pixels + r.x + r.y * spc.stride_in_bytes,
+                                            r.w - spc.h_oversample + 1,
+                                            r.h - spc.v_oversample + 1,
+                                            spc.stride_in_bytes,
+                                            scale * spc.h_oversample,
+                                            scale * spc.v_oversample,
+                                            0, 0,
+                                            glyph)
+
+                if spc.h_oversample > 1 then
+                    stbtt__h_prefilter(spc.pixels + r.x + r.y * spc.stride_in_bytes,
+                                    r.w, r.h, spc.stride_in_bytes,
+                                    spc.h_oversample)
+                end
+
+                if spc.v_oversample > 1 then
+                    stbtt__v_prefilter(spc.pixels + r.x + r.y * spc.stride_in_bytes,
+                                    r.w, r.h, spc.stride_in_bytes,
+                                    spc.v_oversample)
+                end
+
+                bc.x0 = stbtt_int16(r.x)
+                bc.y0 = stbtt_int16(r.y)
+                bc.x1 = stbtt_int16(r.x + r.w)
+                bc.y1 = stbtt_int16(r.y + r.h)
+                bc.xadvance = scale * advance:deref()
+                bc.xoff = x0:deref() * recip_h + sub_x
+                bc.yoff = y0:deref() * recip_v + sub_y
+                bc.xoff2 = (x0:deref() + r.w) * recip_h + sub_x
+                bc.yoff2 = (y0:deref() + r.h) * recip_v + sub_y
+
+                if glyph == 0 then
+                    missing_glyph = j
+                end
+            elseif spc.skip_missing ~= 0 then
+                return_value = 0
+            elseif r.was_packed and r.w == 0 and r.h == 0 and missing_glyph >= 0 then
+                ranges[i].chardata_for_range[j] = ranges[i].chardata_for_range[missing_glyph]
+            else
+                return_value = 0 -- if any fail, report failure
+            end
+
+            k = k + 1
+        end
+    end
+
+    -- restore original values
+    spc.h_oversample = old_h_over
+    spc.v_oversample = old_v_over
+
+    return return_value
+end
+
+
+function stbtt_PackFontRangesPackRects(spc, rects, num_rects)
+    stbrp_pack_rects(spc.pack_info, rects, num_rects)
+end
+
+
+local stbtt_GetFontOffsetForIndex
+
+function stbtt_PackFontRanges(spc, fontdata, font_index, ranges, num_ranges)
+    local info = stbtt_fontinfo()
+    local n, return_value
+    local rects
+
+    -- flag all characters as NOT packed
+    for i = 0, num_ranges - 1 do
+        for j = 0, ranges[i].num_chars - 1 do
+            local bc = ranges[i].chardata_for_range[j]
+            bc.x0 = 0
+            bc.y0 = 0
+            bc.x1 = 0
+            bc.y1 = 0
+        end
+    end
+
+    n = 0
+    for i = 0, num_ranges - 1 do
+        n = n + ranges[i].num_chars
+    end
+
+    rects = CArray(n, stbrp_rect)
+
+    stbtt_InitFont(info, fontdata, stbtt_GetFontOffsetForIndex(fontdata, font_index))
+
+    n = stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, rects)
+
+    stbtt_PackFontRangesPackRects(spc, rects, n)
+
+    return_value = stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rects)
+
+    return return_value
+end
+
+function stbtt_PackFontRange(spc, fontdata, font_index, font_size, first_unicode_codepoint_in_range, num_chars_in_range, chardata_for_range)
+    local range = stbtt_pack_range()
+    range.first_unicode_codepoint_in_range = first_unicode_codepoint_in_range
+    range.array_of_unicode_codepoints = nil
+    range.num_chars = num_chars_in_range
+    range.chardata_for_range = chardata_for_range
+    range.font_size = font_size
+
+    return stbtt_PackFontRanges(spc, fontdata, font_index, range, 1)
+end
+
+function stbtt_GetScaledFontVMetrics(fontdata, index, size, ascent, descent, lineGap)
+    local i_ascent = CValue()
+    local i_descent = CValue()
+    local i_lineGap = CValue()
+    local scale
+    local info = stbtt_fontinfo()
+
+    stbtt_InitFont(info, fontdata, stbtt_GetFontOffsetForIndex(fontdata, index))
+    scale = size > 0 and stbtt_ScaleForPixelHeight(info, size) or stbtt_ScaleForMappingEmToPixels(info, -size)
+    stbtt_GetFontVMetrics(info, i_ascent, i_descent, i_lineGap)
+
+    ascent:set_deref(i_ascent:deref() * scale)
+    descent:set_deref(i_descent:deref() * scale)
+    lineGap:set_deref(i_lineGap:deref() * scale)
+end
+
+
+function stbtt_GetPackedQuad(chardata, pw, ph, char_index, xpos, ypos, q, align_to_integer)
+    local ipw = 1.0 / pw
+    local iph = 1.0 / ph
+    local b = chardata + char_index
+
+    if align_to_integer ~= 0 then
+        local x = STBTT_ifloor((xpos:deref() + b.xoff) + 0.5)
+        local y = STBTT_ifloor((ypos:deref() + b.yoff) + 0.5)
+        q.x0 = x
+        q.y0 = y
+        q.x1 = x + b.xoff2 - b.xoff
+        q.y1 = y + b.yoff2 - b.yoff
+    else
+        q.x0 = xpos:deref() + b.xoff
+        q.y0 = ypos:deref() + b.yoff
+        q.x1 = xpos:deref() + b.xoff2
+        q.y1 = ypos:deref() + b.yoff2
+    end
+
+    q.s0 = b.x0 * ipw
+    q.t0 = b.y0 * iph
+    q.s1 = b.x1 * ipw
+    q.t1 = b.y1 * iph
+
+    xpos:set_deref(xpos:deref() + b.xadvance)
+end
+
+
+
+
+
+
+
+
+-------------------
+--- sdf computation
+--
+
+local STBTT_min = function(a, b) return a < b and a or b end
+local STBTT_max = function(a, b) return a < b and b or a end
+
+local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
+    local q0perp = q0[1] * ray[0] - q0[0] * ray[1]
+    local q1perp = q1[1] * ray[0] - q1[0] * ray[1]
+    local q2perp = q2[1] * ray[0] - q2[0] * ray[1]
+    local roperp = orig[1] * ray[0] - orig[0] * ray[1]
+
+    local a = q0perp - 2 * q1perp + q2perp
+    local b = q1perp - q0perp
+    local c = q0perp - roperp
+
+    local s0, s1 = 0.0, 0.0
+    local num_s = 0
+
+    if a ~= 0.0 then
+        local discr = b * b - a * c
+        if discr > 0.0 then
+            local rcpna = -1 / a
+            local d = STBTT_sqrt(discr)
+            s0 = (b + d) * rcpna
+            s1 = (b - d) * rcpna
+            if s0 >= 0.0 and s0 <= 1.0 then
+                num_s = 1
+            end
+            if d > 0.0 and s1 >= 0.0 and s1 <= 1.0 then
+                if num_s == 0 then s0 = s1 end
+                num_s = num_s + 1
+            end
+        end
+    else
+        s0 = c / (-2 * b)
+        if s0 >= 0.0 and s0 <= 1.0 then
+            num_s = 1
+        end
+    end
+
+    if num_s == 0 then
+        return 0
+    else
+        local rcp_len2 = 1 / (ray[0] * ray[0] + ray[1] * ray[1])
+        local rayn_x = ray[0] * rcp_len2
+        local rayn_y = ray[1] * rcp_len2
+
+        local q0d = q0[0] * rayn_x + q0[1] * rayn_y
+        local q1d = q1[0] * rayn_x + q1[1] * rayn_y
+        local q2d = q2[0] * rayn_x + q2[1] * rayn_y
+        local rod = orig[0] * rayn_x + orig[1] * rayn_y
+
+        local q10d = q1d - q0d
+        local q20d = q2d - q0d
+        local q0rd = q0d - rod
+
+        hits[0][0] = q0rd + s0 * (2.0 - 2.0 * s0) * q10d + s0 * s0 * q20d
+        hits[0][1] = a * s0 + b
+
+        if num_s > 1 then
+            hits[1][0] = q0rd + s1 * (2.0 - 2.0 * s1) * q10d + s1 * s1 * q20d
+            hits[1][1] = a * s1 + b
+            return 2
+        else
+            return 1
+        end
+    end
+end
+
+
+local function equal(a, b)
+    return a[0] == b[0] and a[1] == b[1]
+end
+
+
+local function stbtt__compute_crossings_x(x, y, nverts, verts)
+    local orig = {[0] = x, [1] = y}
+    local ray = {[0] = 1, [1] = 0}
+    local y_frac
+    local winding = 0
+
+    y_frac = STBTT_fmod(y, 1.0)
+    if y_frac < 0.01 then
+        y = y + 0.01
+    elseif y_frac > 0.99 then
+        y = y - 0.01
+    end
+
+    orig[0] = x
+    orig[1] = y
+
+    for i = 0, nverts - 1 do
+        local vert = verts[i]
+        if vert.type == STBTT_vline then
+            local x0 = trunc(verts[i - 1].x)
+            local y0 = trunc(verts[i - 1].y)
+            local x1 = trunc(vert.x)
+            local y1 = trunc(vert.y)
+            if y > STBTT_min(y0, y1) and y < STBTT_max(y0, y1) and x > STBTT_min(x0, x1) then
+                local x_inter = (y - y0) / (y1 - y0) * (x1 - x0) + x0
+                if x_inter < x then
+                    winding = winding + (y0 < y1 and 1 or -1)
+                end
+            end
+        end
+        if vert.type == STBTT_vcurve then
+            local x0 = trunc(verts[i - 1].x)
+            local y0 = trunc(verts[i - 1].y)
+            local x1 = trunc(vert.cx)
+            local y1 = trunc(vert.cy)
+            local x2 = trunc(vert.x)
+            local y2 = trunc(vert.y)
+            local ax = STBTT_min(x0, STBTT_min(x1, x2))
+            local ay = STBTT_min(y0, STBTT_min(y1, y2))
+            local by = STBTT_max(y0, STBTT_max(y1, y2))
+            if y > ay and y < by and x > ax then
+                local q0 = {x0, y0}
+                local q1 = {x1, y1}
+                local q2 = {x2, y2}
+                local hits = {
+                    [0] = {[0] = 0, [1] = 0},
+                    [1] = {[0] = 0, [1] = 0}
+                }
+                if equal(q0, q1) or equal(q1, q2) then
+                    x0 = trunc(verts[i - 1].x)
+                    y0 = trunc(verts[i - 1].y)
+                    x1 = trunc(vert.x)
+                    y1 = trunc(vert.y)
+                    if y > STBTT_min(y0, y1) and y < STBTT_max(y0, y1) and x > STBTT_min(x0, x1) then
+                        local x_inter = (y - y0) / (y1 - y0) * (x1 - x0) + x0
+                        if x_inter < x then
+                            winding = winding + (y0 < y1 and 1 or -1)
+                        end
+                    end
+                else
+                    local num_hits = stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
+                    if num_hits >= 1 then
+                        if hits[0][0] < 0 then
+                            winding = winding + (hits[0][1] < 0 and -1 or 1)
+                        end
+                    end
+                    if num_hits >= 2 then
+                        if hits[1][0] < 0 then
+                            winding = winding + (hits[1][1] < 0 and -1 or 1)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return winding
+end
+
+
+local function stbtt__cuberoot(x)
+    if x < 0 then
+        return -STBTT_pow(-x, 1.0 / 3.0)
+    else
+        return STBTT_pow(x, 1.0 / 3.0)
+    end
+end
+
+local function stbtt__solve_cubic(a, b, c, r)
+    local s = -a / 3
+    local p = b - a * a / 3
+    local q = a * (2 * a * a - 9 * b) / 27 + c
+    local p3 = p * p * p
+    local d = q * q + 4 * p3 / 27
+    if d >= 0 then
+        local z = STBTT_sqrt(d)
+        local u = (-q + z) / 2
+        local v = (-q - z) / 2
+        u = stbtt__cuberoot(u)
+        v = stbtt__cuberoot(v)
+        r[0] = s + u + v
+        return 1
+    else
+        local u = STBTT_sqrt(-p / 3)
+        local v = STBTT_acos(-STBTT_sqrt(-27 / p3) * q / 2) / 3
+        local m = STBTT_cos(v)
+        local n = STBTT_cos(v - 3.141592 / 2) * 1.732050808
+        r[0] = s + u * 2 * m
+        r[1] = s - u * (m + n)
+        r[2] = s - u * (m - n)
+        return 3
+    end
+end
+
+
+local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixel_dist_scale, width, height, xoff, yoff)
+    local scale_x = scale
+    local scale_y = scale
+    local ix0, iy0, ix1, iy1 = CValue(), CValue(), CValue(), CValue()
+    local w, h
+    local data
+
+    if scale == 0 then return nil end
+
+    stbtt_GetGlyphBitmapBoxSubpixel(info, glyph, scale, scale, 0.0, 0.0, ix0, iy0, ix1, iy1)
+
+    if ix0:deref() == ix1:deref() or iy0:deref() == iy1:deref() then
+        return nil
+    end
+
+    local ix0_val = ix0:deref() - padding
+    local iy0_val = iy0:deref() - padding
+    local ix1_val = ix1:deref() + padding
+    local iy1_val = iy1:deref() + padding
+
+    w = ix1_val - ix0_val
+    h = iy1_val - iy0_val
+
+    if width then width:set_deref(w) end
+    if height then height:set_deref(h) end
+    if xoff then xoff:set_deref(ix0_val) end
+    if yoff then yoff:set_deref(iy0_val) end
+
+    scale_y = -scale_y
+
+    local precompute
+    local verts = CValue()
+    local num_verts = stbtt_GetGlyphShape(info, glyph, verts)
+    verts = verts:deref()
+    data = CArray(w * h)
+    precompute = CArray(num_verts)
+
+    for i = 0, num_verts - 1 do
+        local j = i - 1
+        if i == 0 then j = num_verts - 1 end
+        local vert = verts[i]
+        if vert.type == STBTT_vline then
+            local x0 = vert.x * scale_x
+            local y0 = vert.y * scale_y
+            local x1 = verts[j].x * scale_x
+            local y1 = verts[j].y * scale_y
+            local dist = STBTT_sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
+            precompute[i] = dist == 0 and 0.0 or 1.0 / dist
+        elseif vert.type == STBTT_vcurve then
+            local x2 = verts[j].x * scale_x
+            local y2 = verts[j].y * scale_y
+            local x1 = vert.cx * scale_x
+            local y1 = vert.cy * scale_y
+            local x0 = vert.x * scale_x
+            local y0 = vert.y * scale_y
+            local bx = x0 - 2 * x1 + x2
+            local by = y0 - 2 * y1 + y2
+            local len2 = bx * bx + by * by
+            if len2 ~= 0.0 then
+                precompute[i] = 1.0 / (bx * bx + by * by)
+            else
+                precompute[i] = 0.0
+            end
+        else
+            precompute[i] = 0.0
+        end
+    end
+
+    for y = iy0_val, iy1_val - 1 do
+        for x = ix0_val, ix1_val - 1 do
+            local val
+            local min_dist = 999999.0
+            local sx = x + 0.5
+            local sy = y + 0.5
+            local x_gspace = sx / scale_x
+            local y_gspace = sy / scale_y
+
+            local winding = stbtt__compute_crossings_x(x_gspace, y_gspace, num_verts, verts)
+
+            for i = 0, num_verts - 1 do
+                local x0 = verts[i].x * scale_x
+                local y0 = verts[i].y * scale_y
+
+                if verts[i].type == STBTT_vline and precompute[i] ~= 0.0 then
+                    local x1 = verts[i - 1].x * scale_x
+                    local y1 = verts[i - 1].y * scale_y
+
+                    local dist2 = (x0 - sx) * (x0 - sx) + (y0 - sy) * (y0 - sy)
+                    if dist2 < min_dist * min_dist then
+                        min_dist = STBTT_sqrt(dist2)
+                    end
+
+                    local dist = STBTT_fabs((x1 - x0) * (y0 - sy) - (y1 - y0) * (x0 - sx)) * precompute[i]
+                    STBTT_assert(i ~= 0)
+                    if dist < min_dist then
+                        local dx = x1 - x0
+                        local dy = y1 - y0
+                        local px = x0 - sx
+                        local py = y0 - sy
+                        local t = -(px * dx + py * dy) / (dx * dx + dy * dy)
+                        if t >= 0.0 and t <= 1.0 then
+                            min_dist = dist
+                        end
+                    end
+                elseif verts[i].type == STBTT_vcurve then
+                    local x2 = verts[i - 1].x * scale_x
+                    local y2 = verts[i - 1].y * scale_y
+                    local x1 = verts[i].cx * scale_x
+                    local y1 = verts[i].cy * scale_y
+                    local box_x0 = STBTT_min(STBTT_min(x0, x1), x2)
+                    local box_y0 = STBTT_min(STBTT_min(y0, y1), y2)
+                    local box_x1 = STBTT_max(STBTT_max(x0, x1), x2)
+                    local box_y1 = STBTT_max(STBTT_max(y0, y1), y2)
+                    if sx > box_x0 - min_dist and sx < box_x1 + min_dist and sy > box_y0 - min_dist and sy < box_y1 + min_dist then
+                        local num = 0
+                        local ax = x1 - x0
+                        local ay = y1 - y0
+                        local bx = x0 - 2 * x1 + x2
+                        local by = y0 - 2 * y1 + y2
+                        local mx = x0 - sx
+                        local my = y0 - sy
+                        local res = {[0] = 0.0, [1] = 0.0, [2] = 0.0}
+                        local px, py, t, it, dist2
+                        local a_inv = precompute[i]
+                        if a_inv == 0.0 then
+                            local a = 3 * (ax * bx + ay * by)
+                            local b = 2 * (ax * ax + ay * ay) + (mx * bx + my * by)
+                            local c = mx * ax + my * ay
+                            if a == 0.0 then
+                                if b ~= 0.0 then
+                                    res[num] = -c / b
+                                    num = num + 1
+                                end
+                            else
+                                local discriminant = b * b - 4 * a * c
+                                if discriminant < 0 then
+                                    num = 0
+                                else
+                                    local root = STBTT_sqrt(discriminant)
+                                    res[0] = (-b - root) / (2 * a)
+                                    res[1] = (-b + root) / (2 * a)
+                                    num = 2
+                                end
+                            end
+                        else
+                            local b = 3 * (ax * bx + ay * by) * a_inv
+                            local c = (2 * (ax * ax + ay * ay) + (mx * bx + my * by)) * a_inv
+                            local d = (mx * ax + my * ay) * a_inv
+                            num = stbtt__solve_cubic(b, c, d, res)
+                        end
+                        dist2 = (x0 - sx) * (x0 - sx) + (y0 - sy) * (y0 - sy)
+                        if dist2 < min_dist * min_dist then
+                            min_dist = STBTT_sqrt(dist2)
+                        end
+
+                        if num >= 1 and res[0] >= 0.0 and res[0] <= 1.0 then
+                            t = res[0]
+                            it = 1.0 - t
+                            px = it * it * x0 + 2 * t * it * x1 + t * t * x2
+                            py = it * it * y0 + 2 * t * it * y1 + t * t * y2
+                            dist2 = (px - sx) * (px - sx) + (py - sy) * (py - sy)
+                            if dist2 < min_dist * min_dist then
+                                min_dist = STBTT_sqrt(dist2)
+                            end
+                        end
+                        if num >= 2 and res[1] >= 0.0 and res[1] <= 1.0 then
+                            t = res[1]
+                            it = 1.0 - t
+                            px = it * it * x0 + 2 * t * it * x1 + t * t * x2
+                            py = it * it * y0 + 2 * t * it * y1 + t * t * y2
+                            dist2 = (px - sx) * (px - sx) + (py - sy) * (py - sy)
+                            if dist2 < min_dist * min_dist then
+                                min_dist = STBTT_sqrt(dist2)
+                            end
+                        end
+                        if num >= 3 and res[2] >= 0.0 and res[2] <= 1.0 then
+                            t = res[2]
+                            it = 1.0 - t
+                            px = it * it * x0 + 2 * t * it * x1 + t * t * x2
+                            py = it * it * y0 + 2 * t * it * y1 + t * t * y2
+                            dist2 = (px - sx) * (px - sx) + (py - sy) * (py - sy)
+                            if dist2 < min_dist * min_dist then
+                                min_dist = STBTT_sqrt(dist2)
+                            end
+                        end
+                    end
+                end
+            end
+            if winding == 0 then
+                min_dist = -min_dist
+            end
+            val = onedge_value + pixel_dist_scale * min_dist
+            if val < 0 then
+                val = 0
+            elseif val > 255 then
+                val = 255
+            end
+            data[trunc((y - iy0_val) * w + (x - ix0_val))] = val
+        end
+    end
+
+    return data
+end
+
+local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_value, pixel_dist_scale, width, height, xoff, yoff)
+    return stbtt_GetGlyphSDF(info, scale, stbtt_FindGlyphIndex(info, codepoint), padding, onedge_value, pixel_dist_scale, width, height, xoff, yoff)
+end
+
+
+-----------------------------------------------------
+--- font name matching -- recommended not to use this
+--
+-- THIS IS NOT UNUSED
+
+function stbtt_GetFontOffsetForIndex(data, index)
+    return stbtt_GetFontOffsetForIndex_internal(data, index)
+end
+
+function stbtt_InitFont(info, data, offset)
+    return stbtt_InitFont_internal(info, data, offset)
+end
+
+
+
+--- TEST!
+
+local ttf_buffer = CArray(lshift(1, 25))
+local __f = file.Open("resource/fonts/Roboto-Light.ttf", "rb", "GAME")
+
+local ii = 0
+
+while not __f:EndOfFile() do
+    ttf_buffer[ii] = __f:ReadByte()
+    ii = ii + 1
+end
+
+local function render_character_to_ascii(codepoint, pixel_height)
+    local ascii_chars = " .:ioVM@"
+
+    local font = stbtt_fontinfo()
+    stbtt_InitFont(font, ttf_buffer, stbtt_GetFontOffsetForIndex(ttf_buffer, 0))
+
+    local width  = CValue()
+    local height = CValue()
+    local xoff   = CValue()
+    local yoff   = CValue()
+
+    local scale = stbtt_ScaleForPixelHeight(font, pixel_height)
+    local bitmap = stbtt_GetCodepointBitmap(font, 0, scale, codepoint, width, height, xoff, yoff)
+
+    local w = width:deref()
+    local h = height:deref()
+
+    if w == 0 or h == 0 or bitmap == nil then
+        return ""
+    end
+
+    for j = 0, h - 1 do
+        for i = 0, w - 1 do
+            Msg(ascii_chars[rshift(bitmap[j * w + i], 5) + 1])
+        end
+        Msg("\n")
+    end
+end
+
+-- Example usage:
+-- local font_data = load_font_file("arial.ttf")
+render_character_to_ascii(string.byte('a'), 20)
+
+render_character_to_ascii(string.byte('G'), 50)
