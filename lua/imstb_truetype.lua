@@ -212,7 +212,7 @@ local malloc, calloc, CArray, CValue, memset, memcpy, NULL do
         elseif type(init) == "function" then
             for i = 0, size - 1 do arr[i] = init(i) end
         elseif init == nil then
-            for i = 0, size - 1 do arr[i] = nil end
+            -- for i = 0, size - 1 do arr[i] = nil end
         else
             error("init must be table, function or nil", 2)
         end
@@ -3884,7 +3884,8 @@ end
 -----------------------------------------------------
 --- font name matching -- recommended not to use this
 --
--- THIS IS NOT UNUSED
+-- THIS IS MOSTLY UNUSED
+--
 
 function stbtt_GetFontOffsetForIndex(data, index)
     return stbtt_GetFontOffsetForIndex_internal(data, index)
@@ -3894,59 +3895,48 @@ function stbtt_InitFont(info, data, offset)
     return stbtt_InitFont_internal(info, data, offset)
 end
 
+-------------------------------------------------------------
+--- Complete program: get a single bitmap, print as ASCII art
+--- probably buggy because of the lack of checks
+--
+concommand.Add("stb_truetype_printascii", function(_, _, args, _)
+    local c = str_byte(args[1] or "a")
+    local s = args[2] or 20
+    local file_name = args[3] or "resource/fonts/Roboto-Regular.ttf"
 
-
---- TEST!
-
-
-
-
-
-
-
-local ttf_buffer = CArray(lshift(1, 25))
-local __f = file.Open("resource/fonts/Roboto-Regular.ttf", "rb", "GAME")
-
-local ii = 0
-
-while not __f:EndOfFile() do
-    ttf_buffer[ii] = __f:ReadByte()
-    ii = ii + 1
-end
-
-local function render_character_to_ascii(codepoint, pixel_height)
-    local ascii_chars = " .:ioVM@"
-
-    local font = stbtt_fontinfo()
-    stbtt_InitFont(font, ttf_buffer, stbtt_GetFontOffsetForIndex(ttf_buffer, 0))
-
-    local width  = CValue()
-    local height = CValue()
-    local xoff   = CValue()
-    local yoff   = CValue()
-
-    local scale = stbtt_ScaleForPixelHeight(font, pixel_height)
-    local bitmap = stbtt_GetCodepointBitmap(font, 0, scale, codepoint, width, height, xoff, yoff)
-
-    local w = width:deref()
-    local h = height:deref()
-
-    if w == 0 or h == 0 or bitmap == nil then
-        return ""
+    if not file.Exists(file_name, "GAME") then
+        print(".ttf file not found!")
+        return
     end
 
+    local w, h = CValue(), CValue()
+    local xoff, yoff = CValue(), CValue()
+
+    local font = stbtt_fontinfo()
+    local ttf_buffer = CArray(file.Size(file_name, "GAME"))
+
+    local _f = file.Open(file_name, "rb", "GAME")
+    local _i = 0
+    while not _f:EndOfFile() do
+        ttf_buffer[_i] = _f:ReadByte()
+        _i = _i + 1
+    end
+
+    stbtt_InitFont(font, ttf_buffer, stbtt_GetFontOffsetForIndex(ttf_buffer, 0))
+    local bitmap = stbtt_GetCodepointBitmap(font, 0, stbtt_ScaleForPixelHeight(font, s), c, w, h, xoff, yoff)
+
+    w = w:deref()
+    h = h:deref()
+
+    if w == 0 or h == 0 or bitmap == nil then
+        return
+    end
+
+    Msg("\n")
     for j = 0, h - 1 do
         for i = 0, w - 1 do
-            Msg(ascii_chars[rshift(bitmap[j * w + i], 5) + 1])
+            Msg((" .:ioVM@")[rshift(bitmap[j * w + i], 5) + 1])
         end
         Msg("\n")
     end
-end
-
-render_character_to_ascii(string.byte('O'), 30)
-print()
-render_character_to_ascii(string.byte('P'), 30)
-print()
-render_character_to_ascii(string.byte('E'), 30)
-print()
-render_character_to_ascii(string.byte('N'), 30)
+end)
