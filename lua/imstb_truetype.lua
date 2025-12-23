@@ -2811,7 +2811,6 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness, conto
     local start = 0
 
     -- count how many "moves" there are to get the contour count
-    vertices = vertices:deref()
     for i = 0, num_verts - 1 do
         if vertices[i].type == STBTT_vmove then
             n = n + 1
@@ -3899,7 +3898,7 @@ end
 --- Complete program: get a single bitmap, print as ASCII art
 --- probably buggy because of the lack of checks
 --
-concommand.Add("stb_truetype_printascii", function(_, _, args, _)
+concommand.Add("stb_truetype_print_ascii", function(_, _, args, _)
     local c = str_byte(args[1] or "a")
     local s = args[2] or 20
     local file_name = args[3] or "resource/fonts/Roboto-Regular.ttf"
@@ -3921,6 +3920,7 @@ concommand.Add("stb_truetype_printascii", function(_, _, args, _)
         ttf_buffer[_i] = _f:ReadByte()
         _i = _i + 1
     end
+    _f:Close()
 
     stbtt_InitFont(font, ttf_buffer, stbtt_GetFontOffsetForIndex(ttf_buffer, 0))
     local bitmap = stbtt_GetCodepointBitmap(font, 0, stbtt_ScaleForPixelHeight(font, s), c, w, h, xoff, yoff)
@@ -3936,6 +3936,64 @@ concommand.Add("stb_truetype_printascii", function(_, _, args, _)
     for j = 0, h - 1 do
         for i = 0, w - 1 do
             Msg((" .:ioVM@")[rshift(bitmap[j * w + i], 5) + 1])
+        end
+        Msg("\n")
+    end
+end)
+
+------------------------------------------------------------
+--- Complete program: print "Hello World!" banner, with bugs
+--
+concommand.Add("stb_truetype_print_helloworld", function(_, _, args, _)
+    local font = stbtt_fontinfo()
+
+    local text = "Heljo World!"
+    local screen = CArray(20 * 79, function() return 0 end)
+
+    local file_name = "resource/fonts/Roboto-Regular.ttf"
+    local buffer = CArray(file.Size(file_name, "GAME"))
+    local _f = file.Open(file_name, "rb", "GAME")
+    local _i = 0
+    while not _f:EndOfFile() do
+        buffer[_i] = _f:ReadByte()
+        _i = _i + 1
+    end
+    _f:Close()
+    stbtt_InitFont(font, buffer, 0)
+
+    local scale = stbtt_ScaleForPixelHeight(font, 15)
+    local ascent = CValue()
+    local descent = CValue(0)
+    local line_gap = CValue(0)
+    stbtt_GetFontVMetrics(font, ascent, descent, line_gap)
+    local baseline = trunc(ascent:deref() * scale)
+    local xpos = 2
+
+    local ch = 1
+    while ch <= #text do
+        local xshift = xpos - floor(xpos)
+        local advance = CValue()
+        local lsb = CValue()
+        local x0, y0, x1, y1 = CValue(), CValue(), CValue(), CValue()
+        stbtt_GetCodepointHMetrics(font, str_byte(text[ch]), advance, lsb)
+        stbtt_GetCodepointBitmapBoxSubpixel(font, str_byte(text[ch]), scale, scale, xshift, 0, x0, y0, x1, y1)
+
+        local row_offset = (baseline + y0:deref()) * 79
+        local col_offset = floor(xpos) + x0:deref()
+        local output_ptr = screen + row_offset + col_offset
+
+        stbtt_MakeCodepointBitmapSubpixel(font, output_ptr, x1:deref() - x0:deref(), y1:deref() - y0:deref(), 79, scale, scale, xshift, 0, str_byte(text[ch]))
+        xpos = xpos + advance:deref() * scale
+        if ch < #text then
+            xpos = xpos + scale * stbtt_GetCodepointKernAdvance(font, str_byte(text[ch]), str_byte(text[ch + 1]))
+        end
+        ch = ch + 1
+    end
+
+    Msg("\n")
+    for j = 0, 19 do
+        for i = 0, 77 do
+            Msg((" .:ioVM@")[rshift(screen[j * 79 + i], 5) + 1])
         end
         Msg("\n")
     end
