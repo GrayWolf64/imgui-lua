@@ -5,7 +5,7 @@
 ---------------------------------
 --- To mock C arrays and pointers
 --
-local malloc, calloc, CArray, CValue, memset, memcpy, NULL do
+local malloc, CArray, CValue, memset, memcpy, NULL do
     local _Buf = {}
     _Buf.__index = _Buf
 
@@ -196,12 +196,6 @@ local malloc, calloc, CArray, CValue, memset, memcpy, NULL do
     function malloc(size)
         local buf = _Buf:new(size)
         return setmetatable({buf = buf, _offset = 0}, _View)
-    end
-
-    function calloc(size)
-        local arr = malloc(size)
-        for i = 0, size - 1 do arr[i] = 0 end
-        return arr
     end
 
     function CArray(size, init)
@@ -2915,7 +2909,7 @@ local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shi
         gbm.pixels = CArray(gbm.w * gbm.h)
         gbm.stride = gbm.w
 
-        stbtt_Rasterize(gbm, 0.35, vertices, num_verts, scale_x, scale_y, shift_x, shift_y, ix0:deref(), iy0:deref(), 1)
+        stbtt_Rasterize(gbm, 0.35, vertices:deref(), num_verts, scale_x, scale_y, shift_x, shift_y, ix0:deref(), iy0:deref(), 1)
     end
 
     return gbm.pixels
