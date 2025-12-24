@@ -5,7 +5,7 @@
 ---------------------------------
 --- To mock C arrays and pointers
 --
-local malloc, CArray, CValue, memset, memcpy, NULL do
+local CArray, CValue, memset, memcpy, NULL do
     local _Buf = {}
     _Buf.__index = _Buf
 
@@ -193,7 +193,7 @@ local malloc, CArray, CValue, memset, memcpy, NULL do
         return self:deref()
     end
 
-    function malloc(size)
+    local function malloc(size)
         local buf = _Buf:new(size)
         return setmetatable({buf = buf, _offset = 0}, _View)
     end
