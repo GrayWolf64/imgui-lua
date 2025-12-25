@@ -5,7 +5,15 @@
 ---------------------------------
 --- To mock C arrays and pointers
 --
-local CArray, CValue, memset, memcpy, NULL do
+local _CValue = {}
+_CValue.__index = _CValue
+
+function _CValue:deref() return self[1] end
+function _CValue:set_deref(val) self[1] = val end
+
+local function CValue(val) return setmetatable({[1] = val}, _CValue) end
+
+local CArray, memset, memcpy do
     local _Buf = {}
     _Buf.__index = _Buf
 
@@ -24,20 +32,15 @@ local CArray, CValue, memset, memcpy, NULL do
     _View.__index = _View
 
     function _View:top()
-        if self.buf._null then error("arithmetic on NULL pointer", 3) end
         self._offset = 0
         return self
     end
 
     function _View:size()
-        if self.buf._null then error("sizeof of NULL pointer", 3) end
         return self.buf.size
     end
 
-    function _View:__len() error("# operator is not allowed", 2) end
-
     function _View:inc(n)
-        if self.buf._null then error("arithmetic on NULL pointer", 3) end
         n = n or 1
         if not is_integer(n) then error("integer delta required", 3) end
         local new_off = (self._offset or 0) + n
@@ -49,7 +52,6 @@ local CArray, CValue, memset, memcpy, NULL do
     end
 
     function _View:dec(n)
-        if self.buf._null then error("arithmetic on NULL pointer", 3) end
         n = n or 1
         self:inc(-n)
     end
@@ -61,14 +63,6 @@ local CArray, CValue, memset, memcpy, NULL do
             error("bad operand to + (need View + number or number + View)", 2)
         end
         if not is_integer(d) then error("integer operand required", 2) end
-
-        if v.buf._null then
-            if d == 0 then
-                return v
-            else
-                error("arithmetic on NULL pointer", 2)
-            end
-        end
 
         local new_off = (v._offset or 0) + d
         if new_off < 0 or new_off > v.buf.size then
@@ -82,7 +76,6 @@ local CArray, CValue, memset, memcpy, NULL do
     function _View.__sub(lhs, rhs)
         if getmetatable(lhs) == _View and type(rhs) == "number" then
             if not is_integer(rhs) then error("integer operand required", 2) end
-            if lhs.buf._null then error("arithmetic on NULL pointer", 2) end
             local new_off = (lhs._offset or 0) - rhs
             if new_off < 0 or new_off > lhs.buf.size then
                 error(string.format("pointer arithmetic out of bounds: offset %d - %d not in [0, %d]",
@@ -91,7 +84,6 @@ local CArray, CValue, memset, memcpy, NULL do
             local new_view = setmetatable({buf = lhs.buf, _offset = new_off}, _View)
             return new_view
         elseif getmetatable(lhs) == _View and getmetatable(rhs) == _View then
-            if lhs.buf._null or rhs.buf._null then error("arithmetic on NULL pointer", 2) end
             if lhs.buf ~= rhs.buf then error("cannot subtract pointers to different buffers", 2) end
             return (lhs._offset or 0) - (rhs._offset or 0)
         end
@@ -102,10 +94,6 @@ local CArray, CValue, memset, memcpy, NULL do
         local lhs_meta = getmetatable(lhs)
         local rhs_meta = getmetatable(rhs)
         if lhs_meta ~= _View or rhs_meta ~= _View then return false end
-
-        if lhs.buf._null and not rhs.buf._null then return false end
-        if not lhs.buf._null and rhs.buf._null then return false end
-        if lhs.buf._null and rhs.buf._null then return true end
 
         if lhs.buf ~= rhs.buf then
             error("cannot compare pointers to different buffers", 2)
@@ -127,7 +115,6 @@ local CArray, CValue, memset, memcpy, NULL do
     function _View.__ge(lhs, rhs) return not view_lt(lhs, rhs) end
 
     function _View:deref()
-        if self.buf._null then error("dereference of NULL pointer", 3) end
         local off = self._offset or 0
         if off < 0 or off >= self.buf.size then
             error(string.format("dereference at offset %d out of bounds [0, %d)", off, self.buf.size), 3)
@@ -136,7 +123,6 @@ local CArray, CValue, memset, memcpy, NULL do
     end
 
     function _View:set_deref(v)
-        if self.buf._null then error("dereference of NULL pointer", 3) end
         local off = self._offset or 0
         if off < 0 or off >= self.buf.size then
             error(string.format("dereference at offset %d out of bounds [0, %d)", off, self.buf.size), 3)
@@ -145,8 +131,6 @@ local CArray, CValue, memset, memcpy, NULL do
     end
 
     function _View:__index(key)
-        if self.buf._null then error("dereference of NULL pointer", 3) end
-
         if type(key) == "number" then
             if not is_integer(key) then error("integer index required", 3) end
             if key < 0 then error(string.format("negative index %d forbidden", key), 3) end
@@ -169,8 +153,6 @@ local CArray, CValue, memset, memcpy, NULL do
     end
 
     function _View:__newindex(key, value)
-        if self.buf._null then error("dereference of NULL pointer", 3) end
-
         if type(key) == "number" then
             if not is_integer(key) then error("integer index required", 3) end
             if key < 0 then error(string.format("negative index %d forbidden", key), 3) end
@@ -189,10 +171,6 @@ local CArray, CValue, memset, memcpy, NULL do
         return string.format("View(%p, off=%d/%d)", self.buf, self._offset or 0, self.buf.size)
     end
 
-    function _View:__call()
-        return self:deref()
-    end
-
     local function malloc(size)
         local buf = _Buf:new(size)
         return setmetatable({buf = buf, _offset = 0}, _View)
@@ -206,21 +184,14 @@ local CArray, CValue, memset, memcpy, NULL do
         elseif type(init) == "function" then
             for i = 0, size - 1 do arr[i] = init(i) end
         elseif init == nil then
-            -- for i = 0, size - 1 do arr[i] = nil end
+
         else
             error("init must be table, function or nil", 2)
         end
         return arr
     end
 
-    function CValue(init)
-        local arr = malloc(1)
-        if init ~= nil then arr:set_deref(init) end
-        return arr
-    end
-
     function memset(_v, value, count)
-        if _v.buf._null then error("memset on NULL pointer", 3) end
         count = count or (_v.buf.size - (_v._offset or 0))
         if not is_integer(count) then error("integer count required", 3) end
         if count < 0 or count > _v.buf.size - (_v._offset or 0) then
@@ -233,9 +204,6 @@ local CArray, CValue, memset, memcpy, NULL do
     end
 
     function memcpy(_v, dest, count)
-        if _v.buf._null then error("memcpy on NULL pointer", 3) end
-        if dest.buf._null then error("memcpy to NULL pointer", 3) end
-
         count = count or math.min(_v.buf.size - (_v._offset or 0),
                                 dest.buf.size - (dest._offset or 0))
         if not is_integer(count) then error("integer count required", 3) end
@@ -256,17 +224,6 @@ local CArray, CValue, memset, memcpy, NULL do
                 dest.buf.data[dst_base + i] = _v.buf.data[src_base + i]
             end
         end
-    end
-
-    do
-        local null_buf = {_null = true, size = 0}
-
-        null_buf.data = setmetatable({}, {
-            __index = function() error("dereference of NULL pointer", 2) end,
-            __newindex = function() error("write to NULL pointer", 2) end
-        })
-
-        NULL = setmetatable({buf = null_buf, _offset = 0}, _View)
     end
 end
 

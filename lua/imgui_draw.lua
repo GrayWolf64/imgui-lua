@@ -343,8 +343,8 @@ function _ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local col_trans = {r = col.r, g = col.g, b = col.b, a = 0}
 
         -- Thicknesses <1.0 should behave like thickness 1.0
-        thickness = math.max(thickness, 1.0)
-        local integer_thickness = math.floor(thickness)
+        thickness = ImMax(thickness, 1.0)
+        local integer_thickness = ImFloor(thickness)
         local fractional_thickness = thickness - integer_thickness
 
         -- Do we want to draw this line using a texture?
