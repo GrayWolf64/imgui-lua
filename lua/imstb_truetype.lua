@@ -5,21 +5,23 @@
 ---------------------------------
 --- To mock C arrays and pointers
 --
-local _CValue = {}
-_CValue.__index = _CValue
+local CValue do
+    local _CValue = {}
+    _CValue.__index = _CValue
 
-function _CValue:deref() return self[1] end
-function _CValue:set_deref(val) self[1] = val end
+    function _CValue:deref() return self[1] end
+    function _CValue:set_deref(val) self[1] = val end
 
-local function CValue(val) return setmetatable({[1] = val}, _CValue) end
+    function CValue(val) return setmetatable({[1] = val}, _CValue) end
+end
 
 local CArray, memset, memcpy do
+    local function is_integer(n)
+        return type(n) == "number" and n % 1 == 0
+    end
+
     local _Buf = {}
     _Buf.__index = _Buf
-
-    local function is_integer(n)
-        return type(n) == "number" and n == math.floor(n) and n > -math.huge and n < math.huge
-    end
 
     function _Buf:new(size)
         assert(size > 0, "Buffer size must be positive")
@@ -32,7 +34,7 @@ local CArray, memset, memcpy do
     _View.__index = _View
 
     function _View:top()
-        self._offset = 0
+        self.offset = 0
         return self
     end
 
@@ -42,13 +44,13 @@ local CArray, memset, memcpy do
 
     function _View:inc(n)
         n = n or 1
-        if not is_integer(n) then error("integer delta required", 3) end
-        local new_off = (self._offset or 0) + n
+        assert(is_integer(n), "integer delta required")
+        local new_off = self.offset + n
         if new_off < 0 or new_off > self.buf.size then
             error(string.format("pointer arithmetic out of bounds: offset %d + %d not in [0, %d]",
-                self._offset or 0, n, self.buf.size), 3)
+                self.offset, n, self.buf.size), 3)
         end
-        self._offset = new_off
+        self.offset = new_off
     end
 
     function _View:dec(n)
@@ -64,28 +66,28 @@ local CArray, memset, memcpy do
         end
         if not is_integer(d) then error("integer operand required", 2) end
 
-        local new_off = (v._offset or 0) + d
+        local new_off = v.offset + d
         if new_off < 0 or new_off > v.buf.size then
             error(string.format("pointer arithmetic out of bounds: offset %d + %d not in [0, %d]",
-                v._offset or 0, d, v.buf.size), 2)
+                v.offset, d, v.buf.size), 2)
         end
-        local new_view = setmetatable({buf = v.buf, _offset = new_off}, _View)
+        local new_view = setmetatable({buf = v.buf, offset = new_off}, _View)
         return new_view
     end
 
     function _View.__sub(lhs, rhs)
         if getmetatable(lhs) == _View and type(rhs) == "number" then
             if not is_integer(rhs) then error("integer operand required", 2) end
-            local new_off = (lhs._offset or 0) - rhs
+            local new_off = lhs.offset - rhs
             if new_off < 0 or new_off > lhs.buf.size then
                 error(string.format("pointer arithmetic out of bounds: offset %d - %d not in [0, %d]",
-                    lhs._offset or 0, rhs, lhs.buf.size), 2)
+                    lhs.offset, rhs, lhs.buf.size), 2)
             end
-            local new_view = setmetatable({buf = lhs.buf, _offset = new_off}, _View)
+            local new_view = setmetatable({buf = lhs.buf, offset = new_off}, _View)
             return new_view
         elseif getmetatable(lhs) == _View and getmetatable(rhs) == _View then
             if lhs.buf ~= rhs.buf then error("cannot subtract pointers to different buffers", 2) end
-            return (lhs._offset or 0) - (rhs._offset or 0)
+            return lhs.offset - rhs.offset
         end
         error("bad operand to - (need View - number or View - View)", 2)
     end
@@ -98,7 +100,7 @@ local CArray, memset, memcpy do
         if lhs.buf ~= rhs.buf then
             error("cannot compare pointers to different buffers", 2)
         end
-        return (lhs._offset or 0) == (rhs._offset or 0)
+        return lhs.offset == rhs.offset
     end
 
     local function view_lt(lhs, rhs)
@@ -106,7 +108,7 @@ local CArray, memset, memcpy do
             error("bad operand to comparison", 3)
         end
         if lhs.buf ~= rhs.buf then error("cannot compare pointers to different buffers", 3) end
-        return (lhs._offset or 0) < (rhs._offset or 0)
+        return lhs.offset < rhs.offset
     end
 
     function _View.__lt(lhs, rhs) return view_lt(lhs, rhs) end
@@ -115,7 +117,7 @@ local CArray, memset, memcpy do
     function _View.__ge(lhs, rhs) return not view_lt(lhs, rhs) end
 
     function _View:deref()
-        local off = self._offset or 0
+        local off = self.offset
         if off < 0 or off >= self.buf.size then
             error(string.format("dereference at offset %d out of bounds [0, %d)", off, self.buf.size), 3)
         end
@@ -123,7 +125,7 @@ local CArray, memset, memcpy do
     end
 
     function _View:set_deref(v)
-        local off = self._offset or 0
+        local off = self.offset
         if off < 0 or off >= self.buf.size then
             error(string.format("dereference at offset %d out of bounds [0, %d)", off, self.buf.size), 3)
         end
@@ -134,9 +136,9 @@ local CArray, memset, memcpy do
         if type(key) == "number" then
             if not is_integer(key) then error("integer index required", 3) end
             if key < 0 then error(string.format("negative index %d forbidden", key), 3) end
-            local abs_off = (self._offset or 0) + key
+            local abs_off = self.offset + key
             if abs_off < 0 or abs_off >= self.buf.size then
-                error(string.format("index [%d] at offset %d out of bounds", key, self._offset or 0), 3)
+                error(string.format("index [%d] at offset %d out of bounds", key, self.offset), 3)
             end
 
             return self.buf.data[abs_off + 1]
@@ -156,9 +158,9 @@ local CArray, memset, memcpy do
         if type(key) == "number" then
             if not is_integer(key) then error("integer index required", 3) end
             if key < 0 then error(string.format("negative index %d forbidden", key), 3) end
-            local abs_off = (self._offset or 0) + key
+            local abs_off = self.offset + key
             if abs_off < 0 or abs_off >= self.buf.size then
-                error(string.format("index [%d] at offset %d out of bounds", key, self._offset or 0), 3)
+                error(string.format("index [%d] at offset %d out of bounds", key, self.offset), 3)
             end
 
             self.buf.data[abs_off + 1] = value
@@ -168,21 +170,23 @@ local CArray, memset, memcpy do
     end
 
     function _View:__tostring()
-        return string.format("View(%p, off=%d/%d)", self.buf, self._offset or 0, self.buf.size)
+        return string.format("View(%p, off=%d/%d)", self.buf, self.offset, self.buf.size)
     end
 
     local function malloc(size)
         local buf = _Buf:new(size)
-        return setmetatable({buf = buf, _offset = 0}, _View)
+        return setmetatable({buf = buf, offset = 0}, _View)
     end
 
     function CArray(size, init)
         local arr = malloc(size)
         if type(init) == "table" then
             assert(#init == size, string.format("init size %d != buffer size %d", #init, size))
-            for i = 0, size - 1 do arr[i] = init[i + 1] end
+            local data = arr.buf.data
+            for i = 1, size do data[i] = init[i] end
         elseif type(init) == "function" then
-            for i = 0, size - 1 do arr[i] = init(i) end
+            local data = arr.buf.data
+            for i = 1, size do data[i] = init() end
         elseif init == nil then
 
         else
@@ -191,37 +195,37 @@ local CArray, memset, memcpy do
         return arr
     end
 
-    function memset(_v, value, count)
-        count = count or (_v.buf.size - (_v._offset or 0))
+    function memset(arr, value, count)
+        count = count or (arr.buf.size - arr.offset)
         if not is_integer(count) then error("integer count required", 3) end
-        if count < 0 or count > _v.buf.size - (_v._offset or 0) then
+        if count < 0 or count > arr.buf.size - arr.offset then
             error("memset count exceeds buffer bounds", 3)
         end
-        local base = (_v._offset or 0) + 1
+        local base = arr.offset + 1
         for i = base, base + count - 1 do
-            _v.buf.data[i] = value
+            arr.buf.data[i] = value
         end
     end
 
-    function memcpy(_v, dest, count)
-        count = count or math.min(_v.buf.size - (_v._offset or 0),
-                                dest.buf.size - (dest._offset or 0))
+    function memcpy(arr, dest, count)
+        count = count or math.min(arr.buf.size - arr.offset,
+            dest.buf.size - dest.offset)
         if not is_integer(count) then error("integer count required", 3) end
 
-        if count < 0 or count > _v.buf.size - (_v._offset or 0) or count > dest.buf.size - (dest._offset or 0) then
+        if count < 0 or count > arr.buf.size - arr.offset or count > dest.buf.size - dest.offset then
             error("memcpy count exceeds buffer bounds", 3)
         end
 
-        local src_base = (_v._offset or 0) + 1
-        local dst_base = (dest._offset or 0) + 1
+        local src_base = arr.offset + 1
+        local dst_base = dest.offset + 1
 
-        if _v.buf == dest.buf and src_base < dst_base and src_base + count > dst_base then
+        if arr.buf == dest.buf and src_base < dst_base and src_base + count > dst_base then
             for i = count - 1, 0, -1 do
-                dest.buf.data[dst_base + i] = _v.buf.data[src_base + i]
+                dest.buf.data[dst_base + i] = arr.buf.data[src_base + i]
             end
         else
             for i = 0, count - 1 do
-                dest.buf.data[dst_base + i] = _v.buf.data[src_base + i]
+                dest.buf.data[dst_base + i] = arr.buf.data[src_base + i]
             end
         end
     end
