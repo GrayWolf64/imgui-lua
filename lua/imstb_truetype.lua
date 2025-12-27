@@ -3094,7 +3094,7 @@ function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rect
     local old_h_over = spc.h_oversample
     local old_v_over = spc.v_oversample
 
-    for i = 0, num_ranges - 1 do
+    for i = 1, num_ranges do
         local fh = ranges[i].font_size
         local scale = fh > 0 and stbtt_ScaleForPixelHeight(info, fh) or stbtt_ScaleForMappingEmToPixels(info, -fh)
         local recip_h, recip_v, sub_x, sub_y
