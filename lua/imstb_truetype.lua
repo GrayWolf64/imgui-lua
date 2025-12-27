@@ -646,13 +646,14 @@ local function stbtt__dict_get(b, key)
     return stbtt__buf_range(b, 0, 0)
 end
 
--- TODO: start with this
-local function stbtt__dict_get_ints(b, key, outcount, out)
+local function stbtt__dict_get_ints(b, key, outcount)
     local operands = stbtt__dict_get(b, key)
-    for i = 0, outcount - 1 do
+    local out = {}
+    for i = 1, outcount do
         if operands.cursor >= operands.size then break end
         out[i] = stbtt__cff_int(operands)
     end
+    return out
 end
 
 local function stbtt__cff_index_count(b)
@@ -742,19 +743,16 @@ local function stbtt_GetNumberOfFonts_internal(font_collection)
 end
 
 local function stbtt__get_subrs(cff, fontdict) -- stbtt__buf cff, stbtt__buf fontdict
-    local subrsoff    = CValue(0)
-    local private_loc = CArray(2, {0, 0})
-
-    stbtt__dict_get_ints(fontdict, 18, 2, private_loc)
-    if (private_loc[1] == 0 or private_loc[0] == 0) then
+    local private_loc = stbtt__dict_get_ints(fontdict, 18, 2)
+    if (private_loc[2] == 0 or private_loc[1] == 0) then
         return stbtt__new_buf(nil, 0)
     end
-    local pdict = stbtt__buf_range(cff, private_loc[1], private_loc[0])
-    stbtt__dict_get_ints(pdict, 19, 1, subrsoff) -- get a single int into subrsoff!
-    if subrsoff:deref() == 0 then
+    local pdict = stbtt__buf_range(cff, private_loc[2], private_loc[1])
+    local subrsoff = stbtt__dict_get_ints(pdict, 19, 1)
+    if subrsoff[1] == 0 then
         return stbtt__new_buf(nil, 0)
     end
-    stbtt__buf_seek(cff, private_loc[1] + subrsoff:deref())
+    stbtt__buf_seek(cff, private_loc[2] + subrsoff[1])
     return stbtt__cff_get_index(cff)
 end
 
@@ -820,34 +818,30 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         stbtt__cff_get_index(b) -- string INDEX
         info.gsubrs = stbtt__cff_get_index(b)
 
-        local charstrings = CValue(0)
-        local cstype      = CValue(2)
-        local fdarrayoff  = CValue(0)
-        local fdselectoff = CValue(0)
-        stbtt__dict_get_ints(topdict, 17, 1, charstrings)
-        stbtt__dict_get_ints(topdict, bor(0x100, 6), 1, cstype)
-        stbtt__dict_get_ints(topdict, bor(0x100, 36), 1, fdarrayoff)
-        stbtt__dict_get_ints(topdict, bor(0x100, 37), 1, fdselectoff)
+        local charstrings = stbtt__dict_get_ints(topdict, 17, 1)
+        local cstype      = stbtt__dict_get_ints(topdict, bor(0x100, 6), 1)
+        local fdarrayoff  = stbtt__dict_get_ints(topdict, bor(0x100, 36), 1)
+        local fdselectoff = stbtt__dict_get_ints(topdict, bor(0x100, 37), 1)
         info.subrs = stbtt__get_subrs(b, topdict)
 
-        if cstype[0] ~= 2 then
+        if cstype[1] ~= 2 then
             return 0
         end
-        if charstrings[0] == 0 then
+        if charstrings[1] == 0 then
             return 0
         end
 
-        if fdarrayoff[0] ~= 0 then
-            if fdselectoff[0] == 0 then
+        if fdarrayoff[1] ~= 0 then
+            if fdselectoff[1] == 0 then
                 return 0
             end
 
-            stbtt__buf_seek(b, fdarrayoff[0])
+            stbtt__buf_seek(b, fdarrayoff[1])
             info.fontdicts = stbtt__cff_get_index(b)
-            info.fdselect = stbtt__buf_range(b, fdselectoff[0], b.size - fdselectoff[0])
+            info.fdselect = stbtt__buf_range(b, fdselectoff[1], b.size - fdselectoff[1])
         end
 
-        stbtt__buf_seek(b, charstrings[0])
+        stbtt__buf_seek(b, charstrings[1])
         info.charstrings = stbtt__cff_get_index(b)
     end
 
@@ -1284,6 +1278,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                 end
 
                 -- append vertices
+                -- TODO: start with this
                 local tmp = CArray(num_vertices + comp_num_vertices, stbtt_vertex)
                 if num_vertices > 0 and vertices then
                     STBTT_memcpy(tmp, vertices, num_vertices)
