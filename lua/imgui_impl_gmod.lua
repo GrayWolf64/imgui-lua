@@ -104,7 +104,7 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
                     local col = vtx1.col
                     surface.SetTexture(0) -- draw.NoTexture gives me invisible grips
-                    surface.SetDrawColor(col)
+                    surface.SetDrawColor(col.x * 255 + 0.5, col.y * 255 + 0.5, col.z * 255 + 0.5, col.w * 255 + 0.5) -- TODO: is this correct?
                     surface.DrawPoly({
                         {x = vtx1.pos.x, y = vtx1.pos.y},
                         {x = vtx2.pos.x, y = vtx2.pos.y},

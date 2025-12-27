@@ -4,10 +4,9 @@
 local insert_at    = table.insert
 local remove_at    = table.remove
 local setmetatable = setmetatable
-local next         = next
-local unpack       = unpack
 local isnumber     = isnumber
 local IsValid      = IsValid
+local str_byte     = string.byte
 local str_format   = string.format
 
 local pairs  = pairs
@@ -27,7 +26,7 @@ local render  = render
 local draw    = draw
 local bit     = bit
 
-local INF = math.huge
+local FLT_MAX = math.huge
 local IM_PI = math.pi
 local ImAbs = math.abs
 local ImMin = math.min
@@ -44,6 +43,25 @@ local function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 local function ImTrunc(f) return ImFloor(f + 0.5) end
 local function IM_ROUNDUP_TO_EVEN(n) return ImCeil(n / 2) * 2 end
 local function ImRsqrt(x) return 1 / ImSqrt(x) end
+
+local function ImUpperPowerOfTwo(v)
+    if v <= 0 then return 0 end
+    if v <= 1 then return 1 end
+
+    v = v - 1
+    v = bor(v, rshift(v, 1))
+    v = bor(v, rshift(v, 2))
+    v = bor(v, rshift(v, 4))
+    v = bor(v, rshift(v, 8))
+    v = bor(v, rshift(v, 16))
+    return v + 1
+end
+
+local function ImSaturate(f)
+    if f < 0.0 then return 0.0
+    elseif f > 1.0 then return 1.0
+    else return f end
+end
 
 local function IM_ASSERT(_EXPR) end -- TODO: preprocess
 
@@ -270,16 +288,49 @@ local function ImDrawListSharedData()
     return this
 end
 
+--- struct ImFontAtlasBuilder
+--
+local _ImFontAtlasBuilder = {}
+_ImFontAtlasBuilder.__index = _ImFontAtlasBuilder
+
+local function ImFontAtlasBuilder()
+    return setmetatable({
+        PackContext              = nil,
+        PackNodes                = nil,
+        Rects                    = nil,
+        RectsIndex               = nil,
+        TempBuffer               = nil,
+        RectsIndexFreeListStart  = nil,
+        RectsPackedCount         = nil,
+        RectsPackedSurface       = nil,
+        RectsDiscardedCount      = nil,
+        RectsDiscardedSurface    = nil,
+        FrameCount               = nil,
+        MaxRectSize              = nil,
+        MaxRectBounds            = nil,
+        LockDisableResize        = nil,
+        PreloadedAllGlyphsRanges = nil,
+
+        BakedPool           = nil,
+        BakedMap            = nil,
+        BakedDiscardedCount = nil,
+
+        PackIDMouseCursors = nil,
+        PackIDLinesTexData = nil
+    }, _ImFontAtlasBuilder)
+end
+
 --- struct ImGuiContext
 local function ImGuiContext()
-    return {
-        Style = {
+    local this = {
+        Style = { -- TODO: ImGuiStyle
             FramePadding = ImVec2(4, 3),
 
             WindowRounding = 0,
             WindowBorderSize = 1,
 
-            Colors = nil,
+            Colors = {},
+            Alpha = 1.0,
 
             FontSizeBase = 18,
             FontScaleMain = 1,
@@ -402,6 +453,8 @@ local function ImGuiContext()
         -- WantCaptureKeyboardNextFrame = -1,
         -- WantTextInputNextFrame = -1
     }
+
+    return this
 end
 
 --- struct IMGUI_API ImGuiWindow

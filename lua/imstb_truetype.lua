@@ -320,30 +320,16 @@ local function unsigned_char(value)
     return band(value, 0xFF)
 end
 
-local _stbtt__buf = {}
-_stbtt__buf.__index = _stbtt__buf
-
--- Usage is 0 based, internal is 1 based since Lua arrays start at 1 :(
 local function stbtt__buf()
-    return setmetatable({
-        data = nil, -- byte array
-        cursor = nil, -- >= 0
-        size = nil
-    }, _stbtt__buf)
+    return {
+        data   = nil, -- byte array
+        cursor = nil, -- > = 0
+        size   = nil
+    }
 end
 
-
-
-
-
-
-
-
-local _stbtt_fontinfo = {}
-_stbtt_fontinfo.__index = _stbtt_fontinfo
-
 local function stbtt_fontinfo()
-    return setmetatable({
+    return {
         data      = nil,
         fontstart = nil,
 
@@ -367,17 +353,11 @@ local function stbtt_fontinfo()
         subrs       = nil,
         fontdicts   = nil,
         fdselect    = nil
-    }, _stbtt_fontinfo)
+    }
 end
 
-
-
-
-local _stbtt_vertex = {}
-_stbtt_vertex.__index = _stbtt_vertex
-
 local function stbtt_vertex()
-    return setmetatable({
+    return {
         x = nil,
         y = nil,
         cx = nil,
@@ -386,14 +366,11 @@ local function stbtt_vertex()
         cy1 = nil,
         type = nil,
         padding = nil
-    }, _stbtt_vertex)
+    }
 end
 
-local _stbtt__csctx = {}
-_stbtt__csctx.__index = _stbtt__csctx
-
 local function stbtt__csctx()
-    return setmetatable({
+    return {
         bounds  = nil,
         started = nil,
         first_x = nil,
@@ -407,7 +384,7 @@ local function stbtt__csctx()
 
         pvertices    = nil,
         num_vertices = nil
-    }, _stbtt__csctx)
+    }
 end
 
 local function STBTT__CSCTX_INIT(bounds)
@@ -430,40 +407,27 @@ local function STBTT__CSCTX_INIT(bounds)
     return this
 end
 
-
-local _stbtt_kerningentry = {}
-_stbtt_kerningentry.__index = _stbtt_kerningentry
-
 local function stbtt_kerningentry()
-    return setmetatable({
+    return {
         glyph1 = nil,
         glyph2 = nil,
         advance = nil
-    }, _stbtt_kerningentry)
+    }
 end
 
-
-
-
-local _stbtt__edge = {}
-_stbtt__edge.__index = _stbtt__edge
-
 local function stbtt__edge()
-    return setmetatable({
+    return {
         x0 = nil,
         y0 = nil,
         x1 = nil,
         y1 = nil,
         invert = nil
-    }, _stbtt__edge)
+    }
 end
 
 --- XXX: STBTT_RASTERIZER_VERSION == 2
-local _stbtt__active_edge = {}
-_stbtt__active_edge.__index = _stbtt__active_edge
-
 local function stbtt__active_edge()
-    return setmetatable({
+    return {
         next = nil,
         fx = nil,
         fdx = nil,
@@ -471,7 +435,7 @@ local function stbtt__active_edge()
         direction = nil,
         sy = nil,
         ey = nil
-    }, _stbtt__active_edge)
+    }
 end
 
 local function stbtt__new_active(e, off_x, start_point)
@@ -490,82 +454,57 @@ local function stbtt__new_active(e, off_x, start_point)
     return z
 end
 
-
-
-local _stbtt__bitmap = {}
-_stbtt__bitmap.__index = _stbtt__bitmap
-
 local function stbtt__bitmap()
-    return setmetatable({
+    return {
         w      = nil,
         h      = nil,
         stride = nil,
         pixels = nil
-    }, _stbtt__bitmap)
+    }
 end
-
-
-
-local _stbtt__point = {}
-_stbtt__point.__index = _stbtt__point
 
 local function stbtt__point()
-    return setmetatable({
+    return {
         x = nil,
         y = nil
-    }, _stbtt__point)
+    }
 end
 
-
-local _stbrp_node = {}
-_stbrp_node.__index = _stbrp_node
-
 local function stbrp_node()
-    return setmetatable({
+    return {
         x = nil,
         y = nil,
         next = nil
-    }, _stbrp_node)
+    }
 end
-
-
-local _stbrp_context = {}
-_stbrp_context.__index = _stbrp_context
 
 local function stbrp_context()
-    return setmetatable({
-        width = nil,
-        height = nil,
-        align = nil,
-        init_mode = nil,
-        heuristic = nil,
-        num_nodes = nil,
+    return {
+        width       = nil,
+        height      = nil,
+        align       = nil,
+        init_mode   = nil,
+        heuristic   = nil,
+        num_nodes   = nil,
         active_head = nil,
-        free_head = nil,
-        extra = nil, -- = {} (size = 2)
-    }, _stbrp_context)
+        free_head   = nil,
+        extra       = {nil, nil}
+    }
 end
 
-
-local _stbrp_rect = {}
-_stbrp_rect.__index = _stbrp_rect
-
 local function stbrp_rect()
-    return setmetatable({
+    return {
         id = nil,
         w = nil,
         h = nil,
         x = nil,
         y = nil,
         was_packed = nil
-    }, _stbrp_rect)
+    }
 end
 
-local _stbtt_pack_range = {}
-_stbtt_pack_range.__index = _stbtt_pack_range
-
 local function stbtt_pack_range()
-    return setmetatable({
+    return {
         font_size = nil,
         first_unicode_codepoint_in_range = nil,
         array_of_unicode_codepoints = nil,
@@ -573,15 +512,11 @@ local function stbtt_pack_range()
         chardata_for_range = nil,
         h_oversample = nil,
         v_oversample = nil
-    }, _stbtt_pack_range)
+    }
 end
 
-local _stbtt_packedchar = {}
-_stbtt_packedchar.__index = __stbtt_packedchar
-
-
 local function stbtt_packedchar()
-    return setmetatable({
+    return {
         x0 = nil,
         y0 = nil,
         x1 = nil,
@@ -591,7 +526,7 @@ local function stbtt_packedchar()
         xadvance = nil,
         xoff2 = nil,
         yoff2 = nil
-    }, _stbtt_packedchar)
+    }
 end
 
 ----------------------------------------------
@@ -711,6 +646,7 @@ local function stbtt__dict_get(b, key)
     return stbtt__buf_range(b, 0, 0)
 end
 
+-- TODO: start with this
 local function stbtt__dict_get_ints(b, key, outcount, out)
     local operands = stbtt__dict_get(b, key)
     for i = 0, outcount - 1 do

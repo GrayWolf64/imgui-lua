@@ -2,30 +2,227 @@
 -- TODO: let client decide?
 RunConsoleCommand("mat_antialias", "8")
 
-local function ParseImGuiCol(str)
-    local r, g, b, a = str:match("ImVec4%(([%d%.]+)f?, ([%d%.]+)f?, ([%d%.]+)f?, ([%d%.]+)f?%)")
-    return {r = tonumber(r) * 255, g = tonumber(g) * 255, b = tonumber(b) * 255, a = tonumber(a) * 255}
+local stbrp = include("imstb_rectpack.lua")
+
+function ImGui.StyleColorsDark(dst)
+    local style = dst and dst or ImGui.GetStyle()
+    local colors = style.Colors
+
+    -- i don't use enums to index here
+    colors["Text"]              = ImVec4(1.00, 1.00, 1.00, 1.00)
+    colors["WindowBg"]          = ImVec4(0.06, 0.06, 0.06, 0.94)
+    colors["Border"]            = ImVec4(0.43, 0.43, 0.50, 0.50)
+    colors["BorderShadow"]      = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors["TitleBg"]           = ImVec4(0.04, 0.04, 0.04, 1.00)
+    colors["TitleBgActive"]     = ImVec4(0.16, 0.29, 0.48, 1.00)
+    colors["TitleBgCollapsed"]  = ImVec4(0.00, 0.00, 0.00, 0.51)
+    colors["MenuBarBg"]         = ImVec4(0.14, 0.14, 0.14, 1.00)
+    colors["Button"]            = ImVec4(0.26, 0.59, 0.98, 0.40)
+    colors["ButtonHovered"]     = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors["ButtonActive"]      = ImVec4(0.06, 0.53, 0.98, 1.00)
+    colors["ResizeGrip"]        = ImVec4(0.26, 0.59, 0.98, 0.20)
+    colors["ResizeGripHovered"] = ImVec4(0.26, 0.59, 0.98, 0.67)
+    colors["ResizeGripActive"]  = ImVec4(0.26, 0.59, 0.98, 0.95)
 end
 
---- ImGui::StyleColorsDark
-local StyleColorsDark = {
-    Text              = ParseImGuiCol("ImVec4(1.00f, 1.00f, 1.00f, 1.00f)"),
-    WindowBg          = ParseImGuiCol("ImVec4(0.06f, 0.06f, 0.06f, 0.94f)"),
-    Border            = ParseImGuiCol("ImVec4(0.43f, 0.43f, 0.50f, 0.50f)"),
-    BorderShadow      = ParseImGuiCol("ImVec4(0.00f, 0.00f, 0.00f, 0.00f)"),
-    TitleBg           = ParseImGuiCol("ImVec4(0.04f, 0.04f, 0.04f, 1.00f)"),
-    TitleBgActive     = ParseImGuiCol("ImVec4(0.16f, 0.29f, 0.48f, 1.00f)"),
-    TitleBgCollapsed  = ParseImGuiCol("ImVec4(0.00f, 0.00f, 0.00f, 0.51f)"),
-    MenuBarBg         = ParseImGuiCol("ImVec4(0.14f, 0.14f, 0.14f, 1.00f)"),
-    Button            = ParseImGuiCol("ImVec4(0.26f, 0.59f, 0.98f, 0.40f)"),
-    ButtonHovered     = ParseImGuiCol("ImVec4(0.26f, 0.59f, 0.98f, 1.00f)"),
-    ButtonActive      = ParseImGuiCol("ImVec4(0.06f, 0.53f, 0.98f, 1.00f)"),
-    ResizeGrip        = ParseImGuiCol("ImVec4(0.26f, 0.59f, 0.98f, 0.20f)"),
-    ResizeGripHovered = ParseImGuiCol("ImVec4(0.26f, 0.59f, 0.98f, 0.67f)"),
-    ResizeGripActive  = ParseImGuiCol("ImVec4(0.26f, 0.59f, 0.98f, 0.95f)")
-}
+--- Functions starting with `ImFontAtlas`
+-- Have to group in table otherwise will run out of limit on locals(200)
+--
+local FontAtlas = {}
 
-local ImNoColor = {r = 0, g = 0, b = 0, a = 0}
+function FontAtlas.BakedDiscard(atlas, font, baked)
+    local builder = atlas.Builder
+
+    for _, glyph in baked.Glyphs:iter() do
+        if glyph.PackID ~= ImFontAtlasRectId_Invalid then
+            FontAtlas.PackDiscardRect(atlas, glyph.PackID)
+        end
+    end
+
+    -- char* loader_data_p = (char*)baked->FontLoaderDatas
+    for _, src in font.Sources:iter() do
+        local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
+        if loader.FontBakedDestroy then
+            loader.FontBakedDestroy(atlas, src, baked)
+        end
+    end
+
+    if baked.FontLoaderDatas then
+        baked.FontLoaderDatas = nil
+    end
+
+    builder.BakedDiscardedCount = builder.BakedDiscardedCount + 1
+    builder:ClearOutputData()
+    baked.WantDestroy = true
+    font.LastBaked = nil
+end
+
+function FontAtlas.FontDiscardBakes(atlas, font, unused_frames)
+    local builder = atlas.Builder
+    if builder then
+        for baked_n = 1, builder.BakedPool.Size do
+            local baked = builder.BakedPool:at(baked_n)
+            if baked.LastUsedFrame + unused_frames > atlas.Builder.FrameCount then
+                continue
+            end
+            if (baked.OwnerFont ~= font) or baked.WantDestroy then
+                continue
+            end
+            FontAtlas.BakedDiscard(atlas, font, baked)
+        end
+    end
+end
+
+function FontAtlas.FontDestroyOutput(atlas, font)
+    font:ClearOutputData()
+    for _, src in font.Sources:iter() do
+        local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
+        if loader and loader.FontSrcDestroy ~= nil then
+            loader.FontSrcDestroy(atlas, src)
+        end
+    end
+end
+
+function FontAtlas.BuildSetupFontLoader(atlas, font_loader)
+    if atlas.FontLoader == font_loader then
+        return
+    end
+    IM_ASSERT(not atlas.Locked, "Cannot modify a locked ImFontAtlas!")
+
+    for _, font in atlas.Fonts:iter() do
+        FontAtlas.FontDestroyOutput(atlas, font)
+    end
+    if atlas.Builder and atlas.FontLoader and atlas.FontLoader.LoaderShutdown then
+        atlas.FontLoader.LoaderShutdown(atlas)
+    end
+
+    atlas.FontLoader = font_loader
+    atlas.FontLoaderName = font_loader and font_loader.Name or "NULL"
+    IM_ASSERT(atlas.FontLoaderData == nil)
+
+    if atlas.Builder and atlas.FontLoader and atlas.FontLoader.LoaderInit then
+        atlas.FontLoader.LoaderInit(atlas)
+    end
+    for _, font in atlas.Fonts:iter() do
+        FontAtlas.FontInitOutput(atlas, font)
+    end
+    for _, font in atlas.Fonts:iter() do
+        for _, src in font.Sources:iter() do
+            FontAtlas.FontSourceAddToFont(atlas, font, src)
+        end
+    end
+end
+
+function FontAtlas.BuildUpdateRendererHasTexturesFromContext(atlas)
+    return
+end
+
+function FontAtlas.PackInit(atlas)
+    local tex = atlas.TexData
+    local builder = atlas.Builder
+
+    local pack_node_count = ImFloor(tex.Width / 2)
+    builder.PackNodes:resize(pack_node_count)
+
+    stbrp.init_target(builder.PackContext, tex.Width, tex.Height, builder.PackNodes.Data, builder.PackNodes.Size)
+    builder.RectsPackedCount = 0
+    builder.RectsPackedSurface = 0
+    builder.MaxRectSize = ImVec2(0, 0)
+    builder.MaxRectBounds = ImVec2(0, 0)
+end
+
+function FontAtlas.BuildInit(atlas)
+    if atlas.FontLoader == nil then
+        -- IMGUI_ENABLE_STB_TRUETYPE
+        atlas:SetFontLoader(FontAtlas.GetFontLoaderForStbTruetype())
+    end
+
+    if atlas.TexData == nil or atlas.TexData.Pixels == nil then
+        FontAtlas.TextureAdd(atlas, ImUpperPowerOfTwo(atlas.TexMinWidth), ImUpperPowerOfTwo(atlas.TexMinHeight))
+    end
+    atlas.Builder = ImFontAtlasBuilder()
+    if atlas.FontLoader.LoaderInit then
+        atlas.FontLoader.LoaderInit(atlas)
+    end
+
+    FontAtlas.BuildUpdateRendererHasTexturesFromContext(atlas)
+
+    FontAtlas.PackInit(atlas)
+
+    FontAtlas.BuildUpdateLinesTexData(atlas)
+    FontAtlas.BuildUpdateBasicTexData(atlas)
+
+    FontAtlas.BuildUpdatePointers(atlas)
+
+    FontAtlas.UpdateDrawListsSharedData(atlas)
+
+    ImTextInitClassifiers()
+end
+
+function _ImFontBaked:ClearOutputData()
+    self.FallbackAdvanceX = 0.0
+    self.Glyphs:clear()
+    self.IndexAdvanceX:clear()
+    self.IndexLookup:clear()
+    self.FallbackGlyphIndex = -1
+    self.Ascent = 0.0
+    self.Descent = 0.0
+    self.MetricsTotalSurface = 0
+end
+
+function _ImFont:ClearOutputData()
+    local atlas = self.OwnerAtlas
+    if atlas ~= nil then
+        ImFontAtlasFontDiscardBakes(atlas, self, 0)
+    end
+
+    self.LastBaked = nil
+end
+
+function _ImFontAtlas:SetFontLoader(font_loader)
+    ImFontAtlasBuildSetupFontLoader(self, font_loader)
+end
+
+-- TODO:
+function _ImFontAtlas:AddFont(font_cfg_in)
+    IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
+    IM_ASSERT((font_cfg_in.FontData ~= nil and font_cfg_in.FontDataSize > 0) or (font_cfg_in.FontLoader ~= nil))
+    --IM_ASSERT(font_cfg_in.SizePixels > 0.0, "Is ImFontConfig struct correctly initialized?")
+    IM_ASSERT(font_cfg_in.RasterizerDensity > 0.0, "Is ImFontConfig struct correctly initialized?")
+
+    if font_cfg_in.GlyphOffset.x ~= 0.0 or font_cfg_in.GlyphOffset.y ~= 0.0 or
+        font_cfg_in.GlyphMinAdvanceX ~= 0.0 or font_cfg_in.GlyphMaxAdvanceX ~= FLT_MAX then
+        IM_ASSERT(font_cfg_in.SizePixels ~= 0.0,
+            "Specifying glyph offset/advances requires a reference size to base it on.")
+    end
+
+    if self.Builder == nil then
+        ImFontAtlasBuildInit(self)
+    end
+end
+
+function _ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template,glyph_ranges)
+    IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
+    local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
+    IM_ASSERT(font_cfg.FontData == nil)
+    IM_ASSERT(font_data_size > 100, "Incorrect value for font_data_size!")
+    font_cfg.FontData = font_data
+    font_cfg.FontDataSize = font_data_size
+    font_cfg.SizePixels = (size_pixels > 0.0) and size_pixels or font_cfg.SizePixels
+    if glyph_ranges then
+        font_cfg.GlyphRanges = glyph_ranges
+    end
+    return self:AddFont(font_cfg)
+end
+
+function _ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
+    IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
+
+    local data, data_size = ImFileLoadToMemory(filename, "rb")
+
+    local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
+    return AddFontFromMemoryTTF()
+end
 
 local function IM_NORMALIZE2F_OVER_ZERO(VX, VY)
     local d2 = VX * VX + VY * VY
@@ -159,7 +356,7 @@ function _ImDrawList:AddConvexPolyFilled(points, points_count, col)
 
     local uv = self._Data.TexUvWhitePixel
 
-    if bit.band(self.Flags, ImDrawListFlags_.AntiAliasedFill) ~= 0 then
+    if bit.band(self.Flags, Flags.ImDrawList.AntiAliasedFill) ~= 0 then
         local AA_SIZE = self._FringeScale
         local col_trans = {r = col.r, g = col.g, b = col.b, a = 0}
         local idx_count = (points_count - 2) * 3 + points_count * 6
@@ -332,12 +529,12 @@ function _ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         return
     end
 
-    local closed = bit.band(flags, ImDrawFlags_.Closed) ~= 0
+    local closed = bit.band(flags, Flags.ImDraw.Closed) ~= 0
     local opaque_uv = self._Data.TexUvWhitePixel
     local count = closed and points_count or points_count - 1  -- Number of line segments
     local thick_line = thickness > self._FringeScale
 
-    if bit.band(self.Flags, ImDrawListFlags_.AntiAliasedLines) ~= 0 then
+    if bit.band(self.Flags, Flags.ImDrawList.AntiAliasedLines) ~= 0 then
         -- Anti-aliased stroke
         local AA_SIZE = self._FringeScale
         local col_trans = {r = col.r, g = col.g, b = col.b, a = 0}
@@ -348,7 +545,7 @@ function _ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local fractional_thickness = thickness - integer_thickness
 
         -- Do we want to draw this line using a texture?
-        local use_texture = bit.band(self.Flags, ImDrawListFlags_.AntiAliasedLinesUseTex) ~= 0
+        local use_texture = bit.band(self.Flags, Flags.ImDrawList.AntiAliasedLinesUseTex) ~= 0
                         and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX
                         and fractional_thickness <= 0.00001
                         and AA_SIZE == 1.0
@@ -642,8 +839,8 @@ end
 local function FixRectCornerFlags(flags)
     -- IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
 
-    if (bit.band(flags, ImDrawFlags_.RoundCornersMask_) == 0) then
-        flags = bit.bor(flags, ImDrawFlags_.RoundCornersAll)
+    if (bit.band(flags, Flags.ImDraw.RoundCornersMask) == 0) then
+        flags = bit.bor(flags, Flags.ImDraw.RoundCornersAll)
     end
 
     return flags
@@ -652,19 +849,19 @@ end
 function _ImDrawList:PathRect(a, b, rounding, flags)
     if rounding >= 0.5 then
         flags = FixRectCornerFlags(flags)
-        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags_.RoundCornersTop) == ImDrawFlags_.RoundCornersTop) or (bit.band(flags, ImDrawFlags_.RoundCornersBottom) == ImDrawFlags_.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
-        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags_.RoundCornersLeft) == ImDrawFlags_.RoundCornersLeft) or (bit.band(flags, ImDrawFlags_.RoundCornersRight) == ImDrawFlags_.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, Flags.ImDraw.RoundCornersTop) == Flags.ImDraw.RoundCornersTop) or (bit.band(flags, Flags.ImDraw.RoundCornersBottom) == Flags.ImDraw.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, Flags.ImDraw.RoundCornersLeft) == Flags.ImDraw.RoundCornersLeft) or (bit.band(flags, Flags.ImDraw.RoundCornersRight) == Flags.ImDraw.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
     end
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_.RoundCornersMask_) == ImDrawFlags_.RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, Flags.ImDraw.RoundCornersMask) == Flags.ImDraw.RoundCornersNone) then
         self:PathLineTo(a)
         self:PathLineTo(ImVec2(b.x, a.y))
         self:PathLineTo(b)
         self:PathLineTo(ImVec2(a.x, b.y))
     else
-        local rounding_tl = (bit.band(flags, ImDrawFlags_.RoundCornersTopLeft) ~= 0) and rounding or 0.0
-        local rounding_tr = (bit.band(flags, ImDrawFlags_.RoundCornersTopRight) ~= 0) and rounding or 0.0
-        local rounding_br = (bit.band(flags, ImDrawFlags_.RoundCornersBottomRight) ~= 0) and rounding or 0.0
-        local rounding_bl = (bit.band(flags, ImDrawFlags_.RoundCornersBottomLeft) ~= 0) and rounding or 0.0
+        local rounding_tl = (bit.band(flags, Flags.ImDraw.RoundCornersTopLeft) ~= 0) and rounding or 0.0
+        local rounding_tr = (bit.band(flags, Flags.ImDraw.RoundCornersTopRight) ~= 0) and rounding or 0.0
+        local rounding_br = (bit.band(flags, Flags.ImDraw.RoundCornersBottomRight) ~= 0) and rounding or 0.0
+        local rounding_bl = (bit.band(flags, Flags.ImDraw.RoundCornersBottomLeft) ~= 0) and rounding or 0.0
         self:PathArcToFast(ImVec2(a.x + rounding_tl, a.y + rounding_tl), rounding_tl, 6, 9)
         self:PathArcToFast(ImVec2(b.x - rounding_tr, a.y + rounding_tr), rounding_tr, 9, 12)
         self:PathArcToFast(ImVec2(b.x - rounding_br, b.y - rounding_br), rounding_br, 0, 3)
@@ -675,7 +872,7 @@ end
 function _ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
     if col.a == 0 then return end -- TODO: pack color?
 
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_.RoundCornersMask_) == ImDrawFlags_.RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, Flags.ImDraw.RoundCornersMask) == Flags.ImDraw.RoundCornersNone) then
         self:PrimReserve(6, 4)
         self:PrimRect(p_min, p_max, col)
     else
@@ -686,13 +883,13 @@ end
 
 function _ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
     if col.a == 0 then return end
-    if bit.band(self.Flags, ImDrawListFlags_.AntiAliasedLines) ~= 0 then
+    if bit.band(self.Flags, Flags.ImDrawList.AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
     else
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
     end
 
-    self:PathStroke(col, ImDrawFlags_.Closed, thickness)
+    self:PathStroke(col, Flags.ImDraw.Closed, thickness)
 end
 
 function _ImDrawList:AddLine(p1, p2, col, thickness)
@@ -739,7 +936,7 @@ function _ImDrawList:_CalcCircleAutoSegmentCount(radius)
     local radius_idx = ImFloor(radius + 0.999999)
 
     if radius_idx >= 0 and radius_idx < 64 then -- IM_ARRAYSIZE(_Data->CircleSegmentCounts))
-        return self._Data.CircleSegmentCounts[radius_idx] -- Use cached value 
+        return self._Data.CircleSegmentCounts[radius_idx] -- Use cached value
     else
         return IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self._Data.CircleSegmentMaxError)
     end
@@ -933,13 +1130,13 @@ local function RenderArrow(draw_list, pos, color, dir, scale)
 
     local a, b, c
 
-    if dir == ImDir_Up or dir == ImDir_Down then
-        if dir == ImDir_Up then r = -r end
+    if dir == ImDir.Up or dir == ImDir.Down then
+        if dir == ImDir.Up then r = -r end
         a = ImVec2( 0.000,  0.750) * r
         b = ImVec2(-0.866, -0.750) * r
         c = ImVec2( 0.866, -0.750) * r
-    elseif dir == ImDir_Left or dir == ImDir_Right then
-        if dir == ImDir_Left then r = -r end
+    elseif dir == ImDir.Left or dir == ImDir.Right then
+        if dir == ImDir.Left then r = -r end
         a = ImVec2( 0.750,  0.000) * r
         b = ImVec2(-0.750,  0.866) * r
         c = ImVec2(-0.750, -0.866) * r

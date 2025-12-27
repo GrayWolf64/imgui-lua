@@ -4,14 +4,47 @@ ImGui = ImGui or {}
 
 local GImGui = nil
 
-local ImDir_Left  = 0
-local ImDir_Right = 1
-local ImDir_Up    = 2
-local ImDir_Down  = 3
-
 --- font_data size range: 4~255
 local IM_FONT_SIZE_MIN = 4
 local IM_FONT_SIZE_MAX = 255
+
+----------------------------------------------------
+-- [SECTION] MISC HELPERS/UTILITIES (File functions)
+----------------------------------------------------
+local _file = {
+    open  = file.Open,
+    close = FindMetaTable("File").Close,
+    size  = FindMetaTable("File").Size,
+    read  = FindMetaTable("File").Read,
+    write = FindMetaTable("File").Write
+}
+
+local ImFile = {
+    Open    = function(filename, mode) return _file.open(filename, mode, "GAME") end,
+    Close   = function(f) _file.close(f) end,
+    GetSize = function(f) return _file.size(f) end,
+    Read    = function(f, num_chars) return _file.read(f, num_chars) end,
+    LoadToMemory = function(filename, mode)
+        local f = ImFile.Open(filename, mode)
+        if not f then return end
+
+        local file_size = ImFile.GetSize(f)
+        if file_size <= 0 then
+            ImFile.Close(f)
+            return
+        end
+
+        local file_data = ImFile.Read(f)
+        if not file_data or file_data == "" then
+            ImFile.Close(f)
+            return
+        end
+
+        ImFile.Close(f)
+
+        return file_data, file_size
+    end
+}
 
 IMGUI_INCLUDE("imgui_h.lua")
 
@@ -25,7 +58,6 @@ local ImResizeGripDef = {
 IMGUI_INCLUDE("imgui_impl_gmod.lua")
 
 --- Use FNV1a, as one ImGui FIXME suggested
-local str_byte, bit_bxor, bit_band = string.byte, bit.bxor, bit.band
 local function ImHashStr(str)
     local FNV_OFFSET_BASIS = 0x811C9DC5
     local FNV_PRIME = 0x01000193
@@ -35,8 +67,8 @@ local function ImHashStr(str)
     local byte
     for i = 1, #str do
         byte = str_byte(str, i)
-        hash = bit_bxor(hash, byte)
-        hash = bit_band(hash * FNV_PRIME, 0xFFFFFFFF)
+        hash = bit.bxor(hash, byte)
+        hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
     end
 
     assert(hash ~= 0, "ImHash = 0!")
@@ -47,23 +79,7 @@ end
 IMGUI_INCLUDE("imgui_draw.lua")
 
 local function ImHashFontData(font_data)
-    return "ImFont" .. ImHashStr(FontDataToString(font_data))
-end
-
---- Fonts created have a very long lifecycle, since can't be deleted
--- ImFont {name = , data = }
-local ImFontAtlas = ImFontAtlas or {Fonts = {}}
-
---- Add or get a font, always take its return val as fontname to be used with surface.SetFont
--- ImFont* ImFontAtlas::AddFont
-function ImFontAtlas:AddFont(font_data)
-    local hash = ImHashFontData(font_data)
-    if self.Fonts[hash] then return hash end
-
-    self.Fonts[hash] = font_data
-    surface.CreateFont(hash, font_data)
-
-    return hash
+    return "ImFont" .. ImHashStr("FontDataToString(font_data)")
 end
 
 --- void ImGui::UpdateCurrentFontSize
@@ -89,11 +105,11 @@ local function UpdateCurrentFontSize(restore_font_size_after_scaling)
 
     g.FontSize = final_size
 
-    local font_data_new = FontCopy(ImFontAtlas.Fonts[g.Font])
+    --local font_data_new = FontCopy(ImFontAtlas.Fonts[g.Font])
 
-    font_data_new.size = final_size
+    --font_data_new.size = final_size
 
-    local font_new = ImFontAtlas:AddFont(font_data_new)
+    --local font_new = ImFontAtlas:AddFont(font_data_new)
     g.Font = font_new
 end
 
@@ -140,10 +156,7 @@ local function PopFont()
 end
 
 local function GetDefaultFont() -- FIXME: fix impl
-    return ImFontAtlas:AddFont({
-        font = "ProggyCleanTT",
-        size = 18
-    })
+    -- FIXME:
 end
 
 --- void ImGui::UpdateFontsNewFrame
@@ -188,11 +201,10 @@ local function Initialize()
     g.Viewports:push_back(viewport)
 end
 
--- ImGuiContext::ImGuiContext(ImFontAtlas* shared_font_atlas)
-local function CreateContext()
+function ImGui.CreateContext()
     GImGui = ImGuiContext()
 
-    GImGui.Style.Colors = StyleColorsDark
+    ImGui.StyleColorsDark(GImGui.Style)
     GImGui.Config = DefaultConfig
 
     for i = 0, 59 do GImGui.FramerateSecPerFrame[i] = 0 end
@@ -267,14 +279,14 @@ local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
     end
 
     -- g.LastItemData.ItemFlags = g.CurrentItemFlags | g.NextItemData.ItemFlags | extra_flags;
-    -- g.LastItemData.StatusFlags = ImGuiItemStatusFlags_None;
+    -- g.LastItemData.StatusFlags = ImGuiItemStatusFlagsNone;
 
     if id ~= 0 then
         KeepAliveID(id)
     end
 
-    -- g.NextItemData.HasFlags = ImGuiNextItemDataFlags_None;
-    -- g.NextItemData.ItemFlags = ImGuiItemFlags_None;
+    -- g.NextItemData.HasFlags = ImGuiNextItemDataFlagsNone;
+    -- g.NextItemData.ItemFlags = ImGuiItemFlagsNone;
 
     -- local is_rect_visible = Overlaps(bb, window.ClipRect)
 end
@@ -558,7 +570,7 @@ local function CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
 end
 
 --- static int ImGui::UpdateWindowManualResize
-local function UpdateWindowManualResize(window, resize_grip_colors)
+local function UpdateWindowManualResize(window, resize_grip_col)
     local g = GImGui
 
     if window.WasActive == false then return end
@@ -569,11 +581,11 @@ local function UpdateWindowManualResize(window, resize_grip_colors)
 
     PushID("#RESIZE")
 
-    local pos_target = ImVec2(INF, INF)
-    local size_target = ImVec2(INF, INF)
+    local pos_target = ImVec2(FLT_MAX, FLT_MAX)
+    local size_target = ImVec2(FLT_MAX, FLT_MAX)
 
     local min_size = g.Style.WindowMinSize
-    local max_size = {x = INF, y = INF}
+    local max_size = {x = FLT_MAX, y = FLT_MAX}
 
     local clamp_rect = ImRect(window.Pos + min_size, window.Pos + max_size) -- visibility rect?
 
@@ -603,8 +615,8 @@ local function UpdateWindowManualResize(window, resize_grip_colors)
         end
 
         if held then
-            local clamp_min = ImVec2((corner_pos.x == 1.0) and clamp_rect.Min.x or -INF, (corner_pos.y == 1.0) and clamp_rect.Min.y or -INF)
-            local clamp_max = ImVec2((corner_pos.x == 0.0) and clamp_rect.Max.x or INF, (corner_pos.y == 0.0) and clamp_rect.Max.y or INF)
+            local clamp_min = ImVec2((corner_pos.x == 1.0) and clamp_rect.Min.x or -FLT_MAX, (corner_pos.y == 1.0) and clamp_rect.Min.y or -FLT_MAX)
+            local clamp_max = ImVec2((corner_pos.x == 0.0) and clamp_rect.Max.x or FLT_MAX, (corner_pos.y == 0.0) and clamp_rect.Max.y or FLT_MAX)
 
             local corner_target = ImVec2(
                 g.IO.MousePos.x - g.ActiveIDClickOffset.x + ImLerp(inner_dir.x * grip_hover_outer_size, inner_dir.x * -grip_hover_inner_size, corner_pos.x),
@@ -617,33 +629,35 @@ local function UpdateWindowManualResize(window, resize_grip_colors)
             pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
         end
 
-        local grip_color = g.Style.Colors.ResizeGrip
-        if i == 2 then
-            grip_color = ImNoColor
+        local resize_grip_visible = held or hovered or (i == 1 and bit.band(window.Flags, Flags.ImGuiWindow.ChildWindow) == 0)
+        if resize_grip_visible then
+            if held then
+                resize_grip_col[i] = g.Style.Colors.ResizeGripActive
+            else
+                if hovered then
+                    resize_grip_col[i] = g.Style.Colors.ResizeGripHovered
+                else
+                    resize_grip_col[i] = g.Style.Colors.ResizeGrip
+                end
+            end
         end
-        if pressed or held then
-            grip_color = g.Style.Colors.ResizeGripActive
-        elseif hovered then
-            grip_color = g.Style.Colors.ResizeGripHovered
-        end
-        resize_grip_colors[i] = grip_color
     end
 
-    if size_target.x ~= INF and (window.Size.x ~= size_target.x or window.SizeFull.x ~= size_target.x) then
+    if size_target.x ~= FLT_MAX and (window.Size.x ~= size_target.x or window.SizeFull.x ~= size_target.x) then
         window.Size.x = size_target.x
         window.SizeFull.x = size_target.x
     end
 
-    if size_target.y ~= INF and (window.Size.y ~= size_target.y or window.SizeFull.y ~= size_target.y) then
+    if size_target.y ~= FLT_MAX and (window.Size.y ~= size_target.y or window.SizeFull.y ~= size_target.y) then
         window.Size.y = size_target.y
         window.SizeFull.y = size_target.y
     end
 
-    if pos_target.x ~= INF and window.Pos.x ~= ImFloor(pos_target.x) then
+    if pos_target.x ~= FLT_MAX and window.Pos.x ~= ImFloor(pos_target.x) then
         window.Pos.x = ImFloor(pos_target.x)
     end
 
-    if pos_target.y ~= INF and window.Pos.y ~= ImFloor(pos_target.y) then
+    if pos_target.y ~= FLT_MAX and window.Pos.y ~= ImFloor(pos_target.y) then
         window.Pos.y = ImFloor(pos_target.y)
     end
 
@@ -721,17 +735,16 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- Resize grip(s)
         for i = 1, #ImResizeGripDef do
-            local corner_pos = ImResizeGripDef[i].CornerPos
-            local inner_dir = ImResizeGripDef[i].InnerDir
-            local angle_min_12 = ImResizeGripDef[i].AngleMin12
-            local angle_max_12 = ImResizeGripDef[i].AngleMax12
+            local col = resize_grip_col[i]
+            if not col then continue end -- TODO: use IM_COL32_A_MASK
 
-            local corner = window.Pos + corner_pos * window.Size
+            local inner_dir = ImResizeGripDef[i].InnerDir
+            local corner = window.Pos + ImResizeGripDef[i].CornerPos * window.Size
             local border_inner = ImRound(window_border_size * 0.5)
             window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 1) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
             window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 1) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
-            window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, angle_min_12, angle_max_12)
-            window.DrawList:PathFillConvex(resize_grip_col[i])
+            window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImResizeGripDef[i].AngleMin12, ImResizeGripDef[i].AngleMax12)
+            window.DrawList:PathFillConvex(col)
         end
 
         -- RenderWindowOuterBorders?
@@ -762,14 +775,15 @@ local function RenderWindowTitleBarContents(window, p_open)
         window.Hidden = true -- TODO: temporary hidden set
     end
 
+    -- FIXME:
     -- Title text
-    surface.SetFont(g.Font) -- TODO: layouting
-    local _, text_h = surface.GetTextSize(window.Name)
-    local text_clip_width = window.Size.x - window.TitleBarHeight - close_button_size - collapse_button_size
-    window.DrawList:RenderTextClipped(window.Name, g.Font,
-        ImVec2(window.Pos.x + window.TitleBarHeight, window.Pos.y + (window.TitleBarHeight - text_h) / 1.3),
-        g.Style.Colors.Text,
-        text_clip_width, window.Size.y)
+    -- surface.SetFont(g.Font) -- TODO: layouting
+    -- local _, text_h = surface.GetTextSize(window.Name)
+    -- local text_clip_width = window.Size.x - window.TitleBarHeight - close_button_size - collapse_button_size
+    -- window.DrawList:RenderTextClipped(window.Name, g.Font,
+    --     ImVec2(window.Pos.x + window.TitleBarHeight, window.Pos.y + (window.TitleBarHeight - text_h) / 1.3),
+    --     g.Style.Colors.Text,
+    --     text_clip_width, window.Size.y)
 end
 
 --- static void SetCurrentWindow
@@ -881,7 +895,7 @@ local function FindWindowByName(name)
     return FindWindowByID(id)
 end
 
-local function GetMainViewport()
+function ImGui.GetMainViewport()
     local g = GImGui
 
     return g.Viewports:at(1)
@@ -893,7 +907,7 @@ local function SetWindowViewport(window, viewport)
 end
 
 -- `p_open` will be set to false when the close button is pressed.
-local function Begin(name, p_open, flags)
+function ImGui.Begin(name, p_open, flags)
     local g = GImGui
 
     if name == nil or name == "" then return false end
@@ -920,18 +934,18 @@ local function Begin(name, p_open, flags)
     if first_begin_of_the_frame and not window.SkipRefresh then
         window.Active = true
         window.HasCloseButton = (p_open[1] ~= nil)
-        window.ClipRect = ImVec4(-INF, -INF, INF, INF)
+        window.ClipRect = ImVec4(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX)
 
         window.DrawList:_ResetForNewFrame()
 
-        local viewport = GetMainViewport()
+        local viewport = ImGui.GetMainViewport()
         SetWindowViewport(window, viewport)
         SetCurrentWindow(window)
 
-        -- TODO: if (flags & ImGuiWindowFlags_ChildWindow)
+        -- TODO: if (flags & ImGuiWindowFlagsChildWindow)
         --     window->WindowBorderSize = style.ChildBorderSize;
         -- else
-        --     window->WindowBorderSize = ((flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip)) && !(flags & ImGuiWindowFlags_Modal)) ? style.PopupBorderSize : style.WindowBorderSize;
+        --     window->WindowBorderSize = ((flags & (ImGuiWindowFlagsPopup | ImGuiWindowFlagsTooltip)) && !(flags & ImGuiWindowFlagsModal)) ? style.PopupBorderSize : style.WindowBorderSize;
     end
 
     local window_id = window.ID
@@ -951,9 +965,9 @@ local function Begin(name, p_open, flags)
         window.Size.y = window.SizeFull.y
     end
 
-    local resize_grip_colors = {ImNoColor, ImNoColor, ImNoColor} -- TODO: change this
+    local resize_grip_col = {} -- TODO: change this
     if not window.Collapsed then
-        UpdateWindowManualResize(window, resize_grip_colors)
+        UpdateWindowManualResize(window, resize_grip_col)
     end
     local resize_grip_draw_size = ImTrunc(ImMax(g.FontSize * 1.10, g.Style.WindowRounding + 1.0 + g.FontSize * 0.2));
 
@@ -961,14 +975,14 @@ local function Begin(name, p_open, flags)
 
     local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
 
-    RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, resize_grip_colors, resize_grip_draw_size)
+    RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, resize_grip_col, resize_grip_draw_size)
 
     RenderWindowTitleBarContents(window, p_open)
 
     return not window.Collapsed
 end
 
-local function End()
+function ImGui.End()
     local g = GImGui
 
     local window = g.CurrentWindow
@@ -1155,7 +1169,7 @@ end
 
 --- static inline int GetWindowDisplayLayer(ImGuiWindow* window)
 local function GetWindowDisplayLayer(window)
-    return (bit.band(window.Flags, ImGuiWindowFlags_.Tooltip) ~= 0) and 2 or 1
+    return (bit.band(window.Flags, Flags.ImGuiWindow.Tooltip) ~= 0) and 2 or 1
 end
 
 --- static inline void AddRootWindowToDrawData(ImGuiWindow* window)
@@ -1207,7 +1221,7 @@ local function UpdateViewportsNewFrame()
     end
 end
 
-local function NewFrame()
+function ImGui.NewFrame()
     local g = GImGui
 
     g.Time = g.Time + g.IO.DeltaTime
@@ -1224,7 +1238,7 @@ local function NewFrame()
     if g.FramerateSecPerFrameAccum > 0 then
         g.IO.Framerate = (1.0 / (g.FramerateSecPerFrameAccum / g.FramerateSecPerFrameCount))
     else
-        g.IO.Framerate = INF
+        g.IO.Framerate = FLT_MAX
     end
 
     g.CurrentWindowStack:clear_delete()
@@ -1333,18 +1347,14 @@ end
 
 --- void ImGui::Shutdown()
 
---- Exposure, have to be careful with this
+--- Exposure
 --
 function ImGui.GetIO() return GImGui.IO end
 
--- function ImGui:Begin(name, p_open) return Begin(name, p_open) end
--- function ImGui:End() End() end
-
--- function ImGui:NewFrame() NewFrame() end
--- function ImGui:EndFrame() EndFrame() end
-
---- ImGuiViewport* ImGui::GetMainViewport()
-ImGui.GetMainViewport = GetMainViewport
+function ImGui.GetStyle()
+    IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?")
+    return GImGui.Style
+end
 
 --- static void ScaleWindow(ImGuiWindow* window, float scale)
 local function ScaleWindow(window, scale)
@@ -1371,7 +1381,7 @@ local function ScaleWindowsInViewport(viewport, scale)
 end
 
 --- TEST HERE:
-CreateContext()
+ImGui.CreateContext()
 
 ImGui_ImplGMOD_Init()
 
@@ -1381,20 +1391,20 @@ hook.Add("PostRender", "ImGuiTest", function()
 
     ImGui_ImplGMOD_NewFrame()
 
-    NewFrame()
+    ImGui.NewFrame()
 
     -- Temporary, cool timed scaling
     PushFont(nil, ImMax(15, math.abs(90 * math.sin(SysTime()))))
 
     local window1_open = {true}
-    Begin("Hello World!", window1_open)
-    End()
+    ImGui.Begin("Hello World!", window1_open)
+    ImGui.End()
 
     PopFont()
 
     -- local window2_open = {true}
-    -- Begin("ImGui Demo", window2_open)
-    -- End()
+    -- ImGui.Begin("ImGui Demo", window2_open)
+    -- ImGui.End()
 
     -- local drawlist = ImDrawList()
     -- drawlist:AddRectFilled(ImVec2(60, 60), ImVec2(120, 120), color_white, 0.01)

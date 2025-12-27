@@ -1,176 +1,226 @@
 --- Flag defs, misc small functions and some constants
 --
-local FontDataDefault = {
-    font      = "Arial",
-    size      = 13,
-    weight    = 500,
-    blursize  = 0,
-    scanlines = 0,
-    extended  = false,
-    antialias = true,
-    underline = false,
-    italic    = false,
-    strikeout = false,
-    symbol    = false,
-    rotary    = false,
-    shadow    = false,
-    additive  = false,
-    outline   = false
+local ImDir = {
+    Left  = 0,
+    Right = 1,
+    Up    = 2,
+    Down  = 3
 }
 
-local function FontCopy(font_data)
-    local copy = {}
-    for k, v in pairs(font_data) do
-        copy[k] = v
-    end
-    return copy
+local ImFontAtlasRectId_Invalid = -1
+
+local _ImFontBaked = {}
+_ImFontBaked.__index = _ImFontBaked
+
+local function ImFontBaked()
+    return setmetatable({
+        IndexAdvanceX     = nil,
+        FallbackAdvanceX  = nil,
+        Size              = nil,
+        RasterizerDensity = nil,
+
+        IndexLookup        = nil,
+        Glyphs             = nil,
+        FallbackGlyphIndex = -1,
+
+        Ascent               = nil,
+        Descent              = nil,
+        MetricsTotalSurface  = nil,
+        WantDestroy          = nil,
+        LoadNoFallback       = nil,
+        LoadNoRenderOnLayout = nil,
+        LastUsedFrame        = nil,
+        BakedId              = nil,
+        OwnerFont            = nil,
+        FontLoaderDatas      = nil
+    }, _ImFontBaked)
 end
 
-local str_format = string.format
-local function FontDataToString(font_data)
-    return str_format("%s%03d%04d%02d%02d%1d%1d%1d%1d%1d%1d%1d%1d%1d%1d",
-        font_data.font       or FontDataDefault.font,
-        font_data.size       or FontDataDefault.size,
-        font_data.weight     or FontDataDefault.weight,
-        font_data.blursize   or FontDataDefault.blursize,
-        font_data.scanlines  or FontDataDefault.scanlines,
-        (font_data.extended  or FontDataDefault.extended)  and 1 or 0,
-        (font_data.antialias or FontDataDefault.antialias) and 1 or 0,
-        (font_data.underline or FontDataDefault.underline) and 1 or 0,
-        (font_data.italic    or FontDataDefault.italic)    and 1 or 0,
-        (font_data.strikeout or FontDataDefault.strikeout) and 1 or 0,
-        (font_data.symbol    or FontDataDefault.symbol)    and 1 or 0,
-        (font_data.rotary    or FontDataDefault.rotary)    and 1 or 0,
-        (font_data.shadow    or FontDataDefault.shadow)    and 1 or 0,
-        (font_data.additive  or FontDataDefault.additive)  and 1 or 0,
-        (font_data.outline   or FontDataDefault.outline)   and 1 or 0
-    )
+local _ImFont = {}
+_ImFont.__index = _ImFont
+
+local function ImFont()
+    return setmetatable({
+        LastBaked                = nil,
+        OwnerAtlas               = nil,
+        Flags                    = nil,
+        CurrentRasterizerDensity = nil,
+
+        FontId           = nil,
+        LegacySize       = nil,
+        Sources          = nil,
+        EllipsisChar     = nil,
+        FallbackChar     = nil,
+        Used8kPagesMap   = nil,
+        EllipsisAutoBake = nil,
+        RemapPairs       = nil,
+        Scale            = nil
+    }, _ImFont)
+end
+
+--- struct ImFontConfig
+--
+local _ImFontConfig = {}
+_ImFontConfig.__index = _ImFontConfig
+
+local function ImFontConfig()
+    return setmetatable({
+        Name                 = nil,
+        FontData             = nil,
+        FontDataSize         = nil,
+        FontDataOwnedByAtlas = nil,
+
+        MergeMode          = nil,
+        PixelSnapH         = nil,
+        OversampleH        = nil,
+        OversampleV        = nil,
+        EllipsisChar       = nil,
+        SizePixels         = nil,
+        GlyphRanges        = nil,
+        GlyphExcludeRanges = nil,
+        GlyphExtraSpacing  = nil,
+        GlyphOffset        = nil,
+        GlyphMinAdvanceX   = nil,
+        GlyphMaxAdvanceX   = nil,
+        GlyphExtraAdvanceX = nil,
+        FontNo             = nil,
+        FontLoaderFlags    = nil,
+        FontBuilderFlags   = nil,
+        RasterizerMultiply = nil,
+        RasterizerDensity  = nil,
+        ExtraSizeScale     = nil,
+
+        Flags          = nil,
+        DstFont        = nil,
+        FontLoader     = nil,
+        FontLoaderData = nil
+    }, _ImFontConfig)
+end
+
+local _ImFontAtlas = {}
+_ImFontAtlas.__index = _ImFontAtlas
+
+local function ImFontAtlas()
+    return setmetatable({
+        Flags            = nil,
+        TexDesiredFormat = nil,
+        TexGlyphPadding  = nil,
+        TexMinWidth      = nil,
+        TexMinHeight     = nil,
+        TexMaxWidth      = nil,
+
+        TexData = nil,
+
+        TexList = nil,
+        Locked  = nil,
+
+        Fonts               = nil,
+        Sources             = nil,
+        TexUvLines          = nil, -- size = IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1
+        TexNextUniqueID     = nil,
+        FontNextUniqueID    = nil,
+        DrawListSharedDatas = nil,
+        Builder             = nil,
+        FontLoader          = nil,
+        FontLoaderName      = nil,
+        FontLoaderData      = nil,
+        FontLoaderFlags     = nil,
+        RefCount            = nil,
+        OwnerContext        = nil
+    }, _ImFontAtlas)
 end
 
 local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
 
---- enum ImGuiWindowFlags_
-local ImGuiWindowFlags_ = {
-    None                      = 0,
-    NoTitleBar                = bit.lshift(1, 0),
-    NoResize                  = bit.lshift(1, 1),
-    NoMove                    = bit.lshift(1, 2),
-    NoScrollbar               = bit.lshift(1, 3),
-    NoScrollWithMouse         = bit.lshift(1, 4),
-    NoCollapse                = bit.lshift(1, 5),
-    AlwaysAutoResize          = bit.lshift(1, 6),
-    NoBackground              = bit.lshift(1, 7),
-    NoSavedSettings           = bit.lshift(1, 8),
-    NoMouseInputs             = bit.lshift(1, 9),
-    MenuBar                   = bit.lshift(1, 10),
-    HorizontalScrollbar       = bit.lshift(1, 11),
-    NoFocusOnAppearing        = bit.lshift(1, 12),
-    NoBringToFrontOnFocus     = bit.lshift(1, 13),
-    AlwaysVerticalScrollbar   = bit.lshift(1, 14),
-    AlwaysHorizontalScrollbar = bit.lshift(1, 15),
-    NoNavInputs               = bit.lshift(1, 16),
-    NoNavFocus                = bit.lshift(1, 17),
-    UnsavedDocument           = bit.lshift(1, 18),
 
-    ChildWindow = bit.lshift(1, 24),
-    Tooltip     = bit.lshift(1, 25),
-    Popup       = bit.lshift(1, 26),
-    Modal       = bit.lshift(1, 27),
-    ChildMenu   = bit.lshift(1, 28)
+
+
+local Flags = {
+    --- enum ImGuiWindowFlags_
+    ImGuiWindow = {
+        None                      = 0,
+        NoTitleBar                = bit.lshift(1, 0),
+        NoResize                  = bit.lshift(1, 1),
+        NoMove                    = bit.lshift(1, 2),
+        NoScrollbar               = bit.lshift(1, 3),
+        NoScrollWithMouse         = bit.lshift(1, 4),
+        NoCollapse                = bit.lshift(1, 5),
+        AlwaysAutoResize          = bit.lshift(1, 6),
+        NoBackground              = bit.lshift(1, 7),
+        NoSavedSettings           = bit.lshift(1, 8),
+        NoMouseInputs             = bit.lshift(1, 9),
+        MenuBar                   = bit.lshift(1, 10),
+        HorizontalScrollbar       = bit.lshift(1, 11),
+        NoFocusOnAppearing        = bit.lshift(1, 12),
+        NoBringToFrontOnFocus     = bit.lshift(1, 13),
+        AlwaysVerticalScrollbar   = bit.lshift(1, 14),
+        AlwaysHorizontalScrollbar = bit.lshift(1, 15),
+        NoNavInputs               = bit.lshift(1, 16),
+        NoNavFocus                = bit.lshift(1, 17),
+        UnsavedDocument           = bit.lshift(1, 18),
+
+        ChildWindow = bit.lshift(1, 24),
+        Tooltip     = bit.lshift(1, 25),
+        Popup       = bit.lshift(1, 26),
+        Modal       = bit.lshift(1, 27),
+        ChildMenu   = bit.lshift(1, 28)
+    },
+
+    --- enum ImGuiItemFlags_
+    ImGuiItem = {
+        None              = 0,
+        NoTabStop         = bit.lshift(1, 0),
+        NoNav             = bit.lshift(1, 1),
+        NoNavDefaultFocus = bit.lshift(1, 2),
+        ButtonRepeat      = bit.lshift(1, 3),
+        AutoClosePopups   = bit.lshift(1, 4),
+        AllowDuplicateID  = bit.lshift(1, 5)
+    },
+
+    ImGuiItemStatus = {
+        None             = 0,
+        HoveredRect      = bit.lshift(1, 0),
+        HasDisplayRect   = bit.lshift(1, 1),
+        Edited           = bit.lshift(1, 2),
+        ToggledSelection = bit.lshift(1, 3),
+        ToggledOpen      = bit.lshift(1, 4),
+        HasDeactivated   = bit.lshift(1, 5),
+        Deactivated      = bit.lshift(1, 6),
+        HoveredWindow    = bit.lshift(1, 7),
+        Visible          = bit.lshift(1, 8),
+        HasClipRect      = bit.lshift(1, 9),
+        HasShortcut      = bit.lshift(1, 10)
+    },
+
+    --- enum ImDrawFlags_
+    ImDraw = {
+        None                    = 0,
+        Closed                  = bit.lshift(1, 0),
+        RoundCornersTopLeft     = bit.lshift(1, 4),
+        RoundCornersTopRight    = bit.lshift(1, 5),
+        RoundCornersBottomLeft  = bit.lshift(1, 6),
+        RoundCornersBottomRight = bit.lshift(1, 7),
+        RoundCornersNone        = bit.lshift(1, 8)
+    },
+
+    --- enum ImDrawListFlags_
+    ImDrawList = {
+        None                   = 0,
+        AntiAliasedLines       = bit.lshift(1, 0),
+        AntiAliasedLinesUseTex = bit.lshift(1, 1),
+        AntiAliasedFill        = bit.lshift(1, 2),
+        AllowVtxOffset         = bit.lshift(1, 3),
+    }
 }
 
-ImGuiWindowFlags_.NoNav = bit.bor(
-    ImGuiWindowFlags_.NoNavInputs,
-    ImGuiWindowFlags_.NoNavFocus
-)
-ImGuiWindowFlags_.NoDecoration = bit.bor(
-    ImGuiWindowFlags_.NoTitleBar,
-    ImGuiWindowFlags_.NoResize,
-    ImGuiWindowFlags_.NoScrollbar,
-    ImGuiWindowFlags_.NoCollapse
-)
-ImGuiWindowFlags_.NoInputs = bit.bor(
-    ImGuiWindowFlags_.NoMouseInputs,
-    ImGuiWindowFlags_.NoNavInputs,
-    ImGuiWindowFlags_.NoNavFocus
-)
+Flags.ImGuiWindow.NoNav        = bit.bor(Flags.ImGuiWindow.NoNavInputs, Flags.ImGuiWindow.NoNavFocus)
+Flags.ImGuiWindow.NoDecoration = bit.bor(Flags.ImGuiWindow.NoTitleBar, Flags.ImGuiWindow.NoResize, Flags.ImGuiWindow.NoScrollbar, Flags.ImGuiWindow.NoCollapse)
+Flags.ImGuiWindow.NoInputs     = bit.bor(Flags.ImGuiWindow.NoMouseInputs, Flags.ImGuiWindow.NoNavInputs, Flags.ImGuiWindow.NoNavFocus)
 
---- enum ImGuiItemFlags_
-local ImGuiItemFlags_ = {
-    None              = 0,
-    NoTabStop         = bit.lshift(1, 0),
-    NoNav             = bit.lshift(1, 1),
-    NoNavDefaultFocus = bit.lshift(1, 2),
-    ButtonRepeat      = bit.lshift(1, 3),
-    AutoClosePopups   = bit.lshift(1, 4),
-    AllowDuplicateID  = bit.lshift(1, 5)
-}
-
-local ImGuiItemStatusFlags_ = {
-    None             = 0,
-    HoveredRect      = bit.lshift(1, 0),
-    HasDisplayRect   = bit.lshift(1, 1),
-    Edited           = bit.lshift(1, 2),
-    ToggledSelection = bit.lshift(1, 3),
-    ToggledOpen      = bit.lshift(1, 4),
-    HasDeactivated   = bit.lshift(1, 5),
-    Deactivated      = bit.lshift(1, 6),
-    HoveredWindow    = bit.lshift(1, 7),
-    Visible          = bit.lshift(1, 8),
-    HasClipRect      = bit.lshift(1, 9),
-    HasShortcut      = bit.lshift(1, 10)
-}
-
--- ImGuiItemStatusFlags_.Openable  = bit.lshift(1, 20)
--- ImGuiItemStatusFlags_.Opened    = bit.lshift(1, 21)
--- ImGuiItemStatusFlags_.Checkable = bit.lshift(1, 22)
--- ImGuiItemStatusFlags_.Checked   = bit.lshift(1, 23)
--- ImGuiItemStatusFlags_.Inputable = bit.lshift(1, 24)
-
---- enum ImDrawFlags_
-local ImDrawFlags_ = {
-    None                    = 0,
-    Closed                  = bit.lshift(1, 0),
-    RoundCornersTopLeft     = bit.lshift(1, 4),
-    RoundCornersTopRight    = bit.lshift(1, 5),
-    RoundCornersBottomLeft  = bit.lshift(1, 6),
-    RoundCornersBottomRight = bit.lshift(1, 7),
-    RoundCornersNone        = bit.lshift(1, 8)
-}
-
-ImDrawFlags_.RoundCornersTop = bit.bor(
-    ImDrawFlags_.RoundCornersTopLeft,
-    ImDrawFlags_.RoundCornersTopRight
-)
-ImDrawFlags_.RoundCornersBottom = bit.bor(
-    ImDrawFlags_.RoundCornersBottomLeft,
-    ImDrawFlags_.RoundCornersBottomRight
-)
-ImDrawFlags_.RoundCornersLeft = bit.bor(
-    ImDrawFlags_.RoundCornersBottomLeft,
-    ImDrawFlags_.RoundCornersTopLeft
-)
-ImDrawFlags_.RoundCornersRight = bit.bor(
-    ImDrawFlags_.RoundCornersBottomRight,
-    ImDrawFlags_.RoundCornersTopRight
-)
-ImDrawFlags_.RoundCornersAll = bit.bor(
-    ImDrawFlags_.RoundCornersTopLeft,
-    ImDrawFlags_.RoundCornersTopRight,
-    ImDrawFlags_.RoundCornersBottomLeft,
-    ImDrawFlags_.RoundCornersBottomRight
-)
-ImDrawFlags_.RoundCornersDefault_ = ImDrawFlags_.RoundCornersAll
-ImDrawFlags_.RoundCornersMask_ = bit.bor(
-    ImDrawFlags_.RoundCornersAll,
-    ImDrawFlags_.RoundCornersNone
-)
-
---- enum ImDrawListFlags_
-local ImDrawListFlags_ = {
-    None                   = 0,
-    AntiAliasedLines       = bit.lshift(1, 0),
-    AntiAliasedLinesUseTex = bit.lshift(1, 1),
-    AntiAliasedFill        = bit.lshift(1, 2),
-    AllowVtxOffset         = bit.lshift(1, 3),
-}
+Flags.ImDraw.RoundCornersTop     = bit.bor(Flags.ImDraw.RoundCornersTopLeft, Flags.ImDraw.RoundCornersTopRight)
+Flags.ImDraw.RoundCornersBottom  = bit.bor(Flags.ImDraw.RoundCornersBottomLeft, Flags.ImDraw.RoundCornersBottomRight)
+Flags.ImDraw.RoundCornersLeft    = bit.bor(Flags.ImDraw.RoundCornersBottomLeft, Flags.ImDraw.RoundCornersTopLeft)
+Flags.ImDraw.RoundCornersRight   = bit.bor(Flags.ImDraw.RoundCornersBottomRight, Flags.ImDraw.RoundCornersTopRight)
+Flags.ImDraw.RoundCornersAll     = bit.bor(Flags.ImDraw.RoundCornersTopLeft, Flags.ImDraw.RoundCornersTopRight, Flags.ImDraw.RoundCornersBottomLeft, Flags.ImDraw.RoundCornersBottomRight)
+Flags.ImDraw.RoundCornersMask    = bit.bor(Flags.ImDraw.RoundCornersAll, Flags.ImDraw.RoundCornersNone)
+Flags.ImDraw.RoundCornersDefault = Flags.ImDraw.RoundCornersAll
