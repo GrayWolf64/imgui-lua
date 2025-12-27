@@ -2865,21 +2865,14 @@ local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, o
     return xpos
 end
 
-
-
-
-
 -----------------
 --- bitmap baking
 --
 
-
-
-
 local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, alloc_context)
     local context = stbrp_context()
     local num_nodes = pw - padding
-    local nodes = CArray(num_nodes, stbrp_node)
+    local nodes = {} for i = 1, num_nodes do nodes[i] = stbrp_node() end
 
     spc.user_allocator_context = alloc_context
     spc.width = pw
@@ -2930,41 +2923,41 @@ local function stbtt__h_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
 
         -- make kernel_width a constant in common cases so compiler can optimize out the divide
         if kernel_width == 2 then
-            for i = 0, safe_w do
-                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i]
-                pixels[i] = unsigned_char(total / 2)
+            for i = 1, safe_w + 1 do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i - 1]
+                pixels[i - 1] = unsigned_char(total / 2)
             end
         elseif kernel_width == 3 then
-            for i = 0, safe_w do
-                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i]
-                pixels[i] = unsigned_char(total / 3)
+            for i = 1, safe_w + 1 do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i - 1]
+                pixels[i - 1] = unsigned_char(total / 3)
             end
         elseif kernel_width == 4 then
-            for i = 0, safe_w do
-                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i]
-                pixels[i] = unsigned_char(total / 4)
+            for i = 1, safe_w + 1 do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i - 1]
+                pixels[i - 1] = unsigned_char(total / 4)
             end
         elseif kernel_width == 5 then
-            for i = 0, safe_w do
-                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i]
-                pixels[i] = unsigned_char(total / 5)
+            for i = 1, safe_w + 1 do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i - 1]
+                pixels[i - 1] = unsigned_char(total / 5)
             end
         else
-            for i = 0, safe_w do
-                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i]
-                pixels[i] = unsigned_char(total / kernel_width)
+            for i = 1, safe_w + 1 do
+                total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i - 1]
+                pixels[i - 1] = unsigned_char(total / kernel_width)
             end
         end
 
-        for i = safe_w + 1, w - 1 do
-            STBTT_assert(pixels[i] == 0)
-            total = total - buffer[band(i, STBTT__OVER_MASK) + 1]
-            pixels[i] = unsigned_char(total / kernel_width)
+        for i = safe_w + 2, w do
+            STBTT_assert(pixels[i - 1] == 0)
+            total = total - buffer[band(i, STBTT__OVER_MASK)]
+            pixels[i - 1] = unsigned_char(total / kernel_width)
         end
 
         pixels = pixels + stride_in_bytes
@@ -2981,41 +2974,41 @@ local function stbtt__v_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
         for i = 1, kernel_width do buffer[i] = 0 end
 
         if kernel_width == 2 then
-            for i = 0, safe_h do
-                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i * stride_in_bytes]
-                pixels[i * stride_in_bytes] = unsigned_char(total / 2)
+            for i = 1, safe_h + 1 do
+                total = total + pixels[(i - 1) * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[(i - 1) * stride_in_bytes]
+                pixels[(i - 1) * stride_in_bytes] = unsigned_char(total / 2)
             end
         elseif kernel_width == 3 then
-            for i = 0, safe_h do
-                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i * stride_in_bytes]
-                pixels[i * stride_in_bytes] = unsigned_char(total / 3)
+            for i = 1, safe_h + 1 do
+                total = total + pixels[(i - 1) * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[(i - 1) * stride_in_bytes]
+                pixels[(i - 1) * stride_in_bytes] = unsigned_char(total / 3)
             end
         elseif kernel_width == 4 then
-            for i = 0, safe_h do
-                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i * stride_in_bytes]
-                pixels[i * stride_in_bytes] = unsigned_char(total / 4)
+            for i = 1, safe_h + 1 do
+                total = total + pixels[(i - 1) * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[(i - 1) * stride_in_bytes]
+                pixels[(i - 1) * stride_in_bytes] = unsigned_char(total / 4)
             end
         elseif kernel_width == 5 then
-            for i = 0, safe_h do
-                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i * stride_in_bytes]
-                pixels[i * stride_in_bytes] = unsigned_char(total / 5)
+            for i = 1, safe_h + 1 do
+                total = total + pixels[(i - 1) * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[(i - 1) * stride_in_bytes]
+                pixels[(i - 1) * stride_in_bytes] = unsigned_char(total / 5)
             end
         else
-            for i = 0, safe_h do
-                total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK) + 1]
-                buffer[band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[i * stride_in_bytes]
-                pixels[i * stride_in_bytes] = unsigned_char(total / kernel_width)
+            for i = 1, safe_h + 1 do
+                total = total + pixels[(i - 1) * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+                buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[(i - 1) * stride_in_bytes]
+                pixels[(i - 1) * stride_in_bytes] = unsigned_char(total / kernel_width)
             end
         end
 
-        for i = safe_h + 1, h - 1 do
-            STBTT_assert(pixels[i * stride_in_bytes] == 0)
-            total = total - buffer[band(i, STBTT__OVER_MASK) + 1]
-            pixels[i * stride_in_bytes] = unsigned_char(total / kernel_width)
+        for i = safe_h + 2, h do
+            STBTT_assert(pixels[(i - 1) * stride_in_bytes] == 0)
+            total = total - buffer[band(i, STBTT__OVER_MASK)]
+            pixels[(i - 1) * stride_in_bytes] = unsigned_char(total / kernel_width)
         end
 
         pixels = pixels + 1
@@ -3046,6 +3039,7 @@ local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, re
                             ranges[i].array_of_unicode_codepoints[j]
             local glyph = stbtt_FindGlyphIndex(info, codepoint)
 
+            k = k + 1
             if glyph == 0 and (spc.skip_missing ~= 0 or missing_glyph_added ~= 0) then
                 rects[k].w = 0
                 rects[k].h = 0
@@ -3060,7 +3054,6 @@ local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, re
                     missing_glyph_added = 1
                 end
             end
-            k = k + 1
         end
     end
 
@@ -3113,6 +3106,7 @@ function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rect
         sub_y = stbtt__oversample_shift(spc.v_oversample)
 
         for j = 0, ranges[i].num_chars - 1 do
+            k = k + 1
             local r = rects[k]
             if r.was_packed and r.w ~= 0 and r.h ~= 0 then
                 local bc = ranges[i].chardata_for_range[j]
@@ -3173,8 +3167,6 @@ function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rect
             else
                 return_value = 0 -- if any fail, report failure
             end
-
-            k = k + 1
         end
     end
 
@@ -3196,7 +3188,6 @@ local stbtt_GetFontOffsetForIndex
 function stbtt_PackFontRanges(spc, fontdata, font_index, ranges, num_ranges)
     local info = stbtt_fontinfo()
     local n, return_value
-    local rects
 
     -- flag all characters as NOT packed
     for i = 0, num_ranges - 1 do
@@ -3214,7 +3205,7 @@ function stbtt_PackFontRanges(spc, fontdata, font_index, ranges, num_ranges)
         n = n + ranges[i].num_chars
     end
 
-    rects = CArray(n, stbrp_rect)
+    local rects = {} for i = 1, n do rects[i] = stbrp_rect() end
 
     stbtt_InitFont(info, fontdata, stbtt_GetFontOffsetForIndex(fontdata, font_index))
 
@@ -3229,13 +3220,14 @@ end
 
 function stbtt_PackFontRange(spc, fontdata, font_index, font_size, first_unicode_codepoint_in_range, num_chars_in_range, chardata_for_range)
     local range = stbtt_pack_range()
-    range.first_unicode_codepoint_in_range = first_unicode_codepoint_in_range
-    range.array_of_unicode_codepoints = nil
-    range.num_chars = num_chars_in_range
-    range.chardata_for_range = chardata_for_range
-    range.font_size = font_size
 
-    return stbtt_PackFontRanges(spc, fontdata, font_index, range, 1)
+    range.first_unicode_codepoint_in_range = first_unicode_codepoint_in_range
+    range.array_of_unicode_codepoints      = nil
+    range.num_chars                        = num_chars_in_range
+    range.chardata_for_range               = chardata_for_range
+    range.font_size                        = font_size
+
+    return stbtt_PackFontRanges(spc, fontdata, font_index, {range}, 1)
 end
 
 function stbtt_GetScaledFontVMetrics(fontdata, index, size)
