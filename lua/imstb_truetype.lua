@@ -2570,7 +2570,7 @@ local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y,
 
     -- now we have to blow out the windings into explicit edge lists
     n = 0
-    for i = 0, windings - 1 do
+    for i = 1, windings do
         n = n + wcount[i]
     end
 
@@ -2579,36 +2579,36 @@ local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y,
 
     m = 0
     local j
-    for i = 0, windings - 1 do
-        local p = pts + m
+    for i = 1, windings do
+        local p = m
         m = m + wcount[i]
-        j = wcount[i] - 1
-        for k = 0, wcount[i] - 1 do
+        j = wcount[i]
+        for k = 1, wcount[i] do
             local a = k
             local b = j
             -- skip the edge if horizontal
-            if p[j].y == p[k].y then
+            if pts[p + j].y == pts[p + k].y then
                 goto inner_continue
             end
             -- add edge from j to k to the list
             e[n].invert = 0
             if invert ~= 0 then
-                if p[j].y > p[k].y then
+                if pts[p + j].y > pts[p + k].y then
                     e[n].invert = 1
                     a = j
                     b = k
                 end
             else
-                if p[j].y < p[k].y then
+                if pts[p + j].y < pts[p + k].y then
                     e[n].invert = 1
                     a = j
                     b = k
                 end
             end
-            e[n].x0 = p[a].x * scale_x + shift_x
-            e[n].y0 = (p[a].y * y_scale_inv + shift_y) * vsubsample
-            e[n].x1 = p[b].x * scale_x + shift_x
-            e[n].y1 = (p[b].y * y_scale_inv + shift_y) * vsubsample
+            e[n].x0 = pts[p + a].x * scale_x + shift_x
+            e[n].y0 = (pts[p + a].y * y_scale_inv + shift_y) * vsubsample
+            e[n].x1 = pts[p + b].x * scale_x + shift_x
+            e[n].y1 = (pts[p + b].y * y_scale_inv + shift_y) * vsubsample
 
             n = n + 1
             :: inner_continue ::
@@ -2625,8 +2625,8 @@ end
 
 local function stbtt__add_point(points, n, x, y)
     if not points then return end -- during first pass, it's unallocated
-    points[n].x = x
-    points[n].y = y
+    points[n + 1].x = x
+    points[n + 1].y = y
 end
 
 -- tessellate until threshold p is happy... @TODO warped to compensate for non-linear stretching
@@ -2715,13 +2715,13 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
     local num_contours = n
     if n == 0 then return 0 end
 
-    local contour_lengths = CArray(n)
+    local contour_lengths = {} -- size = n
 
     -- make two passes through the points so we don't need to realloc
     for pass = 0, 1 do
         local x, y = 0, 0
         if pass == 1 then
-            points = CArray(num_points, stbtt__point)
+            points = {} for i = 1, num_points do points[i] = stbtt__point() end
         end
         num_points = 0
         n = -1
@@ -2729,7 +2729,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
             if vertices[i].type == STBTT_vmove then
                 -- start the next contour
                 if n >= 0 then
-                    contour_lengths[n] = num_points - start
+                    contour_lengths[n + 1] = num_points - start
                 end
                 n = n + 1
                 start = num_points
@@ -2760,7 +2760,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
                 y = vertices[i].y
             end
         end
-        contour_lengths[n] = num_points - start
+        contour_lengths[n + 1] = num_points - start
     end
 
     return points, num_contours, contour_lengths
