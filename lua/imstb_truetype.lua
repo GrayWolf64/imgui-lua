@@ -1034,17 +1034,17 @@ end
 local function stbtt__close_shape(vertices, num_vertices, was_off, start_off, sx, sy, scx, scy, cx, cy)
     if start_off ~= 0 then
         if was_off ~= 0 then
-            stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, rshift(cx + scx, 1), rshift(cy + scy, 1), cx, cy)
+            stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, rshift(cx + scx, 1), rshift(cy + scy, 1), cx, cy)
             num_vertices = num_vertices + 1
         end
-        stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, sx, sy, scx, scy)
+        stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, sx, sy, scx, scy)
         num_vertices = num_vertices + 1
     else
         if was_off ~= 0 then
-            stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, sx, sy, cx, cy)
+            stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, sx, sy, cx, cy)
             num_vertices = num_vertices + 1
         else
-            stbtt_setvertex(vertices[num_vertices], STBTT_vline, sx, sy, 0, 0)
+            stbtt_setvertex(vertices[num_vertices + 1], STBTT_vline, sx, sy, 0, 0)
             num_vertices = num_vertices + 1
         end
     end
@@ -1054,15 +1054,13 @@ end
 local stbtt_GetGlyphShape
 local stbtt__GetGlyphShapeT2
 
-local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stbtt_fontinfo *info, int glyph_index, stbtt_vertex **pvertices
+local function stbtt__GetGlyphShapeTT(info, glyph_index)
     local data = info.data
     local num_vertices
 
     local vertices = nil
 
     local g = stbtt__GetGlyfOffset(info, glyph_index)
-
-    pvertices:set_deref(nil)
 
     if g < 0 then return 0 end
 
@@ -1076,7 +1074,8 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         local n = 1 + ttUSHORT(endPtsOfContours + numberOfContours * 2 - 2)
         local m = n + 2 * numberOfContours
 
-        vertices = CArray(m, stbtt_vertex)
+        vertices = {}
+        for i = 1, m do vertices[i] = stbtt_vertex() end
 
         local j = 0
         local was_off = 0
@@ -1088,7 +1087,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
 
         -- first load flags
         local flags = 0
-        for i = 0, n - 1 do
+        for i = 1, n do
             if flagcount == 0 then
                 flags = points:deref()
                 points:inc()
@@ -1106,7 +1105,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
 
         -- now load x coordinates
         local x = 0
-        for i = 0, n - 1 do
+        for i = 1, n do
             flags = vertices[off + i].type
             if band(flags, 2) ~= 0 then
                 local dx = points:deref()
@@ -1128,7 +1127,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
 
         -- now load y coordinates
         local y = 0
-        for i = 0, n - 1 do
+        for i = 1, n do
             flags = vertices[off + i].type
             if band(flags, 4) ~= 0 then
                 local dy = points:deref()
@@ -1151,13 +1150,13 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         -- now convert them to our format
         num_vertices = 0
         local sx, sy, cx, cy, scx, scy = 0, 0, 0, 0, 0, 0
-        for i = 0, n - 1 do
+        for i = 1, n do
             flags = vertices[off + i].type
             x = stbtt_int16(vertices[off + i].x)
             y = stbtt_int16(vertices[off + i].y)
 
-            if next_move == i then
-                if i ~= 0 then
+            if next_move == i - 1 then
+                if i ~= 1 then
                     num_vertices = stbtt__close_shape(vertices, num_vertices, was_off, start_off, sx, sy, scx, scy, cx, cy)
                 end
 
@@ -1178,7 +1177,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                     sx = x
                     sy = y
                 end
-                stbtt_setvertex(vertices[num_vertices], STBTT_vmove, sx, sy, 0, 0)
+                stbtt_setvertex(vertices[num_vertices + 1], STBTT_vmove, sx, sy, 0, 0)
                 num_vertices = num_vertices + 1
                 was_off = 0
                 next_move = 1 + ttUSHORT(endPtsOfContours + j * 2)
@@ -1186,7 +1185,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
             else
                 if band(flags, 1) == 0 then
                     if was_off ~= 0 then
-                        stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, rshift(cx + x, 1), rshift(cy + y, 1), cx, cy)
+                        stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, rshift(cx + x, 1), rshift(cy + y, 1), cx, cy)
                         num_vertices = num_vertices + 1
                     end
 
@@ -1195,10 +1194,10 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
                     was_off = 1
                 else
                     if was_off ~= 0 then
-                        stbtt_setvertex(vertices[num_vertices], STBTT_vcurve, x, y, cx, cy)
+                        stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, x, y, cx, cy)
                         num_vertices = num_vertices + 1
                     else
-                        stbtt_setvertex(vertices[num_vertices], STBTT_vline, x, y, 0, 0)
+                        stbtt_setvertex(vertices[num_vertices + 1], STBTT_vline, x, y, 0, 0)
                         num_vertices = num_vertices + 1
                     end
 
@@ -1216,6 +1215,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         while more ~= 0 do
             local flags, gidx
             local comp_num_vertices = 0
+            local comp_verts
 
             local mtx = {1, 0, 0, 1, 0, 0}
             local m, n
@@ -1225,11 +1225,11 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
 
             if band(flags, 2) ~= 0 then
                 if band(flags, 1) ~= 0 then
-                    mtx[4] = ttSHORT(comp) comp:inc(2)
                     mtx[5] = ttSHORT(comp) comp:inc(2)
+                    mtx[6] = ttSHORT(comp) comp:inc(2)
                 else
-                    mtx[4] = ttCHAR(comp) comp:inc(1)
                     mtx[5] = ttCHAR(comp) comp:inc(1)
+                    mtx[6] = ttCHAR(comp) comp:inc(1)
                 end
             else
                 -- TODO: handle matching point
@@ -1237,53 +1237,55 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
             end
 
             if band(flags, lshift(1, 3)) ~= 0 then -- WE_HAVE_A_SCALE
-                mtx[3] = ttSHORT(comp) / 16384.0
-                mtx[0] = mtx[3]
+                mtx[4] = ttSHORT(comp) / 16384.0
+                mtx[1] = mtx[4]
                 comp:inc(2)
 
-                mtx[2] = 0
-                mtx[1] = mtx[2]
+                mtx[3] = 0
+                mtx[2] = mtx[3]
             elseif band(flags, lshift(1, 6)) ~= 0 then -- WE_HAVE_AN_X_AND_YSCALE
-                mtx[0] = ttSHORT(comp) / 16384.0
+                mtx[1] = ttSHORT(comp) / 16384.0
                 comp:inc(2)
 
-                mtx[2] = 0
-                mtx[1] = mtx[2]
+                mtx[3] = 0
+                mtx[2] = mtx[3]
 
-                mtx[3] = ttSHORT(comp) / 16384.0
+                mtx[4] = ttSHORT(comp) / 16384.0
                 comp:inc(2)
             elseif band(flags, lshift(1, 7)) ~= 0 then -- WE_HAVE_A_TWO_BY_TWO
-                mtx[0] = ttSHORT(comp) / 16384.0 comp:inc(2)
                 mtx[1] = ttSHORT(comp) / 16384.0 comp:inc(2)
                 mtx[2] = ttSHORT(comp) / 16384.0 comp:inc(2)
                 mtx[3] = ttSHORT(comp) / 16384.0 comp:inc(2)
+                mtx[4] = ttSHORT(comp) / 16384.0 comp:inc(2)
             end
 
-            m = STBTT_sqrt(mtx[0] * mtx[0] + mtx[1] * mtx[1])
-            n = STBTT_sqrt(mtx[2] * mtx[2] + mtx[3] * mtx[3])
+            m = STBTT_sqrt(mtx[1] * mtx[1] + mtx[2] * mtx[2])
+            n = STBTT_sqrt(mtx[3] * mtx[3] + mtx[4] * mtx[4])
 
-            local comp_verts = {}
-            comp_num_vertices = stbtt_GetGlyphShape(info, gidx, comp_verts)
+            comp_num_vertices, comp_verts = stbtt_GetGlyphShape(info, gidx)
             if comp_num_vertices > 0 then
-                for i = 0, comp_num_vertices - 1 do
+                for i = 1, comp_num_vertices do
                     local v = comp_verts[i]
                     local x = v.x
                     local y = v.y
-                    v.x = m * (mtx[0] * x + mtx[2] * y + mtx[4])
-                    v.y = n * (mtx[1] * x + mtx[3] * y + mtx[5])
+                    v.x = m * (mtx[1] * x + mtx[3] * y + mtx[5])
+                    v.y = n * (mtx[2] * x + mtx[4] * y + mtx[6])
                     x = v.cx
                     y = v.cy
-                    v.cx = m * (mtx[0] * x + mtx[2] * y + mtx[4])
-                    v.cy = n * (mtx[1] * x + mtx[3] * y + mtx[5])
+                    v.cx = m * (mtx[1] * x + mtx[3] * y + mtx[5])
+                    v.cy = n * (mtx[2] * x + mtx[4] * y + mtx[6])
                 end
 
                 -- append vertices
-                -- TODO: start with this
-                local tmp = CArray(num_vertices + comp_num_vertices, stbtt_vertex)
+                local tmp = {}
                 if num_vertices > 0 and vertices then
-                    STBTT_memcpy(tmp, vertices, num_vertices)
+                    for i = 1, num_vertices do
+                        tmp[i] = vertices[i]
+                    end
                 end
-                STBTT_memcpy(tmp + num_vertices, comp_verts, comp_num_vertices)
+                for i = 1, comp_num_vertices do
+                    tmp[num_vertices + i] = comp_verts[i]
+                end
                 vertices = tmp
 
                 num_vertices = num_vertices + comp_num_vertices
@@ -1293,8 +1295,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index, pvertices) -- const stb
         end
     end
 
-    pvertices:set_deref(vertices)
-    return num_vertices
+    return num_vertices, vertices
 end
 
 local function stbtt__track_vertex(c, x, y)
@@ -1313,9 +1314,9 @@ local function stbtt__csctx_v(c, _type, x, y, cx, cy, cx1, cy1)
             stbtt__track_vertex(c, cx1, cy1)
         end
     else
-        stbtt_setvertex(c.pvertices[c.num_vertices], _type, x, y, cx, cy)
-        c.pvertices[c.num_vertices].cx1 = stbtt_int16(cx1)
-        c.pvertices[c.num_vertices].cy1 = stbtt_int16(cy1)
+        stbtt_setvertex(c.pvertices[c.num_vertices + 1], _type, x, y, cx, cy)
+        c.pvertices[c.num_vertices + 1].cx1 = stbtt_int16(cx1)
+        c.pvertices[c.num_vertices + 1].cy1 = stbtt_int16(cy1)
     end
 end
 
@@ -1659,20 +1660,22 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
     return STBTT__CSERR("no endchar")
 end
 
-function stbtt__GetGlyphShapeT2(info, glyph_index, pvertices)
+function stbtt__GetGlyphShapeT2(info, glyph_index)
     -- runs the charstring twice, once to count and once to output (to avoid realloc)
+    local vertices = nil
     local count_ctx = STBTT__CSCTX_INIT(1)
     local output_ctx = STBTT__CSCTX_INIT(0)
     if stbtt__run_charstring(info, glyph_index, count_ctx) ~= 0 then
-        pvertices:set_deref(CArray(count_ctx.num_vertices, stbtt_vertex))
-        output_ctx.pvertices = pvertices:deref()
+        vertices = {} for i = 1, count_ctx.num_vertices do vertices[i] = stbtt_vertex() end
+
+        output_ctx.pvertices = vertices
         if stbtt__run_charstring(info, glyph_index, output_ctx) ~= 0 then
             STBTT_assert(output_ctx.num_vertices == count_ctx.num_vertices)
-            return output_ctx.num_vertices
+            return output_ctx.num_vertices, vertices
         end
     end
-    pvertices:set_deref(nil)
-    return 0
+
+    return 0, vertices
 end
 
 function stbtt__GetGlyphInfoT2(info, glyph_index, x0, y0, x1, y1) -- const stbtt_fontinfo *info, int glyph_index, int *x0, int *y0, int *x1, int *y1
@@ -1685,11 +1688,11 @@ function stbtt__GetGlyphInfoT2(info, glyph_index, x0, y0, x1, y1) -- const stbtt
     return ((r ~= 0) and c.num_vertices or 0)
 end
 
-function stbtt_GetGlyphShape(info, glyph_index, pvertices)
+function stbtt_GetGlyphShape(info, glyph_index)
     if info.cff.size == 0 then
-        return stbtt__GetGlyphShapeTT(info, glyph_index, pvertices)
+        return stbtt__GetGlyphShapeTT(info, glyph_index)
     else
-        return stbtt__GetGlyphShapeT2(info, glyph_index, pvertices)
+        return stbtt__GetGlyphShapeT2(info, glyph_index)
     end
 end
 
@@ -2697,7 +2700,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness, conto
     local start = 0
 
     -- count how many "moves" there are to get the contour count
-    for i = 0, num_verts - 1 do
+    for i = 1, num_verts do
         if vertices[i].type == STBTT_vmove then
             n = n + 1
         end
@@ -2716,7 +2719,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness, conto
         end
         num_points:set_deref(0)
         n = -1
-        for i = 0, num_verts - 1 do
+        for i = 1, num_verts do
             if vertices[i].type == STBTT_vmove then
                 -- start the next contour
                 if n >= 0 then
@@ -2772,9 +2775,8 @@ end
 local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, glyph, width, height, xoff, yoff)
     local ix0, iy0, ix1, iy1 = CValue(), CValue(), CValue(), CValue()
     local gbm = stbtt__bitmap()
-    local vertices = CValue()
 
-    local num_verts = stbtt_GetGlyphShape(info, glyph, vertices)
+    local num_verts, vertices = stbtt_GetGlyphShape(info, glyph)
 
     if scale_x == 0 then scale_x = scale_y end
     if scale_y == 0 then
@@ -2801,7 +2803,7 @@ local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shi
         gbm.pixels = CArray(gbm.w * gbm.h)
         gbm.stride = gbm.w
 
-        stbtt_Rasterize(gbm, 0.35, vertices:deref(), num_verts, scale_x, scale_y, shift_x, shift_y, ix0:deref(), iy0:deref(), 1)
+        stbtt_Rasterize(gbm, 0.35, vertices, num_verts, scale_x, scale_y, shift_x, shift_y, ix0:deref(), iy0:deref(), 1)
     end
 
     return gbm.pixels
@@ -2813,8 +2815,7 @@ end
 
 local function stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, glyph)
     local ix0, iy0 = CValue(), CValue()
-    local vertices = CValue()
-    local num_verts = stbtt_GetGlyphShape(info, glyph, vertices)
+    local num_verts, vertices = stbtt_GetGlyphShape(info, glyph)
     local gbm = stbtt__bitmap()
 
     stbtt_GetGlyphBitmapBoxSubpixel(info, glyph, scale_x, scale_y, shift_x, shift_y, ix0, iy0, nil, nil)
@@ -2824,7 +2825,7 @@ local function stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_str
     gbm.stride = out_stride
 
     if gbm.w ~= 0 and gbm.h ~= 0 then
-        stbtt_Rasterize(gbm, 0.35, vertices:deref(), num_verts, scale_x, scale_y, shift_x, shift_y, ix0:deref(), iy0:deref(), 1)
+        stbtt_Rasterize(gbm, 0.35, vertices, num_verts, scale_x, scale_y, shift_x, shift_y, ix0:deref(), iy0:deref(), 1)
     end
 end
 
@@ -3333,7 +3334,6 @@ function stbtt_GetScaledFontVMetrics(fontdata, index, size, ascent, descent, lin
     lineGap:set_deref(i_lineGap:deref() * scale)
 end
 
-
 function stbtt_GetPackedQuad(chardata, pw, ph, char_index, xpos, ypos, q, align_to_integer)
     local ipw = 1.0 / pw
     local iph = 1.0 / ph
@@ -3362,24 +3362,18 @@ function stbtt_GetPackedQuad(chardata, pw, ph, char_index, xpos, ypos, q, align_
 end
 
 
-
-
-
-
-
-
 -------------------
 --- sdf computation
 --
 
-local STBTT_min = function(a, b) return (a < b) and a or b end
-local STBTT_max = function(a, b) return (a < b) and b or a end
+local STBTT_min = math.min
+local STBTT_max = math.max
 
 local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
-    local q0perp = q0[1] * ray[0] - q0[0] * ray[1]
-    local q1perp = q1[1] * ray[0] - q1[0] * ray[1]
-    local q2perp = q2[1] * ray[0] - q2[0] * ray[1]
-    local roperp = orig[1] * ray[0] - orig[0] * ray[1]
+    local q0perp = q0[2] * ray[1] - q0[1] * ray[2]
+    local q1perp = q1[2] * ray[1] - q1[1] * ray[2]
+    local q2perp = q2[2] * ray[1] - q2[1] * ray[2]
+    local roperp = orig[2] * ray[1] - orig[1] * ray[2]
 
     local a = q0perp - 2 * q1perp + q2perp
     local b = q1perp - q0perp
@@ -3413,25 +3407,25 @@ local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
     if num_s == 0 then
         return 0
     else
-        local rcp_len2 = 1 / (ray[0] * ray[0] + ray[1] * ray[1])
-        local rayn_x = ray[0] * rcp_len2
-        local rayn_y = ray[1] * rcp_len2
+        local rcp_len2 = 1 / (ray[1] * ray[1] + ray[2] * ray[2])
+        local rayn_x = ray[1] * rcp_len2
+        local rayn_y = ray[2] * rcp_len2
 
-        local q0d = q0[0] * rayn_x + q0[1] * rayn_y
-        local q1d = q1[0] * rayn_x + q1[1] * rayn_y
-        local q2d = q2[0] * rayn_x + q2[1] * rayn_y
-        local rod = orig[0] * rayn_x + orig[1] * rayn_y
+        local q0d = q0[1] * rayn_x + q0[2] * rayn_y
+        local q1d = q1[1] * rayn_x + q1[2] * rayn_y
+        local q2d = q2[1] * rayn_x + q2[2] * rayn_y
+        local rod = orig[1] * rayn_x + orig[2] * rayn_y
 
         local q10d = q1d - q0d
         local q20d = q2d - q0d
         local q0rd = q0d - rod
 
-        hits[0][0] = q0rd + s0 * (2.0 - 2.0 * s0) * q10d + s0 * s0 * q20d
-        hits[0][1] = a * s0 + b
+        hits[1][1] = q0rd + s0 * (2.0 - 2.0 * s0) * q10d + s0 * s0 * q20d
+        hits[1][2] = a * s0 + b
 
         if num_s > 1 then
-            hits[1][0] = q0rd + s1 * (2.0 - 2.0 * s1) * q10d + s1 * s1 * q20d
-            hits[1][1] = a * s1 + b
+            hits[2][1] = q0rd + s1 * (2.0 - 2.0 * s1) * q10d + s1 * s1 * q20d
+            hits[2][2] = a * s1 + b
             return 2
         else
             return 1
@@ -3439,15 +3433,13 @@ local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
     end
 end
 
-
 local function equal(a, b)
-    return a[0] == b[0] and a[1] == b[1]
+    return a[1] == b[1] and a[2] == b[2]
 end
 
-
 local function stbtt__compute_crossings_x(x, y, nverts, verts)
-    local orig = CArray(2)
-    local ray = CArray(2, {1, 0})
+    local orig = {}
+    local ray = {1, 0}
     local y_frac
     local winding = 0
 
@@ -3458,10 +3450,10 @@ local function stbtt__compute_crossings_x(x, y, nverts, verts)
         y = y - 0.01
     end
 
-    orig[0] = x
-    orig[1] = y
+    orig[1] = x
+    orig[2] = y
 
-    for i = 0, nverts - 1 do
+    for i = 1, nverts do
         if verts[i].type == STBTT_vline then
             local x0 = trunc(verts[i - 1].x)
             local y0 = trunc(verts[i - 1].y)
@@ -3488,10 +3480,8 @@ local function stbtt__compute_crossings_x(x, y, nverts, verts)
                 local q0 = {x0, y0}
                 local q1 = {x1, y1}
                 local q2 = {x2, y2}
-                local hits = {
-                    [0] = {[0] = 0, [1] = 0},
-                    [1] = {[0] = 0, [1] = 0}
-                }
+                local hits = {{0, 0}, {0, 0}}
+
                 if equal(q0, q1) or equal(q1, q2) then
                     x0 = trunc(verts[i - 1].x)
                     y0 = trunc(verts[i - 1].y)
@@ -3506,13 +3496,13 @@ local function stbtt__compute_crossings_x(x, y, nverts, verts)
                 else
                     local num_hits = stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
                     if num_hits >= 1 then
-                        if hits[0][0] < 0 then
-                            winding = winding + ((hits[0][1] < 0) and -1 or 1)
+                        if hits[1][1] < 0 then
+                            winding = winding + ((hits[1][2] < 0) and -1 or 1)
                         end
                     end
                     if num_hits >= 2 then
-                        if hits[1][0] < 0 then
-                            winding = winding + ((hits[1][1] < 0) and -1 or 1)
+                        if hits[2][1] < 0 then
+                            winding = winding + ((hits[2][2] < 0) and -1 or 1)
                         end
                     end
                 end
@@ -3543,16 +3533,16 @@ local function stbtt__solve_cubic(a, b, c, r)
         local v = (-q - z) / 2
         u = stbtt__cuberoot(u)
         v = stbtt__cuberoot(v)
-        r[0] = s + u + v
+        r[1] = s + u + v
         return 1
     else
         local u = STBTT_sqrt(-p / 3)
         local v = STBTT_acos(-STBTT_sqrt(-27 / p3) * q / 2) / 3
         local m = STBTT_cos(v)
         local n = STBTT_cos(v - 3.141592 / 2) * 1.732050808
-        r[0] = s + u * 2 * m
-        r[1] = s - u * (m + n)
-        r[2] = s - u * (m - n)
+        r[1] = s + u * 2 * m
+        r[2] = s - u * (m + n)
+        r[3] = s - u * (m - n)
         return 3
     end
 end
@@ -3563,7 +3553,6 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
     local scale_y = scale
     local ix0, iy0, ix1, iy1 = CValue(), CValue(), CValue(), CValue()
     local w, h
-    local data
 
     if scale == 0 then return nil end
 
@@ -3588,16 +3577,13 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
 
     scale_y = -scale_y
 
-    local precompute
-    local verts = CValue()
-    local num_verts = stbtt_GetGlyphShape(info, glyph, verts)
-    verts = verts:deref()
-    data = CArray(w * h)
-    precompute = CArray(num_verts)
+    local num_verts, verts = stbtt_GetGlyphShape(info, glyph)
+    local data = {} -- size = w * h
+    local precompute = {} -- size = num_verts
 
-    for i = 0, num_verts - 1 do
+    for i = 1, num_verts do
         local j = i - 1
-        if i == 0 then j = num_verts - 1 end
+        if i == 1 then j = num_verts end
         if verts[i].type == STBTT_vline then
             local x0 = verts[i].x * scale_x
             local y0 = verts[i].y * scale_y
@@ -3636,7 +3622,7 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
 
             local winding = stbtt__compute_crossings_x(x_gspace, y_gspace, num_verts, verts)
 
-            for i = 0, num_verts - 1 do
+            for i = 1, num_verts do
                 local x0 = verts[i].x * scale_x
                 local y0 = verts[i].y * scale_y
 
@@ -3650,7 +3636,7 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
                     end
 
                     local dist = STBTT_fabs((x1 - x0) * (y0 - sy) - (y1 - y0) * (x0 - sx)) * precompute[i]
-                    STBTT_assert(i ~= 0)
+                    STBTT_assert(i ~= 1)
                     if dist < min_dist then
                         local dx = x1 - x0
                         local dy = y1 - y0
@@ -3678,7 +3664,7 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
                         local by = y0 - 2 * y1 + y2
                         local mx = x0 - sx
                         local my = y0 - sy
-                        local res = {[0] = 0.0, [1] = 0.0, [2] = 0.0}
+                        local res = {0.0, 0.0, 0.0}
                         local px, py, t, it, dist2
                         local a_inv = precompute[i]
                         if a_inv == 0.0 then
@@ -3687,7 +3673,7 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
                             local c = mx * ax + my * ay
                             if a == 0.0 then
                                 if b ~= 0.0 then
-                                    res[num] = -c / b
+                                    res[num + 1] = -c / b
                                     num = num + 1
                                 end
                             else
@@ -3696,8 +3682,8 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
                                     num = 0
                                 else
                                     local root = STBTT_sqrt(discriminant)
-                                    res[0] = (-b - root) / (2 * a)
-                                    res[1] = (-b + root) / (2 * a)
+                                    res[1] = (-b - root) / (2 * a)
+                                    res[2] = (-b + root) / (2 * a)
                                     num = 2
                                 end
                             end
@@ -3712,17 +3698,7 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
                             min_dist = STBTT_sqrt(dist2)
                         end
 
-                        if num >= 1 and res[0] >= 0.0 and res[0] <= 1.0 then
-                            t = res[0]
-                            it = 1.0 - t
-                            px = it * it * x0 + 2 * t * it * x1 + t * t * x2
-                            py = it * it * y0 + 2 * t * it * y1 + t * t * y2
-                            dist2 = (px - sx) * (px - sx) + (py - sy) * (py - sy)
-                            if dist2 < min_dist * min_dist then
-                                min_dist = STBTT_sqrt(dist2)
-                            end
-                        end
-                        if num >= 2 and res[1] >= 0.0 and res[1] <= 1.0 then
+                        if num >= 1 and res[1] >= 0.0 and res[1] <= 1.0 then
                             t = res[1]
                             it = 1.0 - t
                             px = it * it * x0 + 2 * t * it * x1 + t * t * x2
@@ -3732,8 +3708,18 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
                                 min_dist = STBTT_sqrt(dist2)
                             end
                         end
-                        if num >= 3 and res[2] >= 0.0 and res[2] <= 1.0 then
+                        if num >= 2 and res[2] >= 0.0 and res[2] <= 1.0 then
                             t = res[2]
+                            it = 1.0 - t
+                            px = it * it * x0 + 2 * t * it * x1 + t * t * x2
+                            py = it * it * y0 + 2 * t * it * y1 + t * t * y2
+                            dist2 = (px - sx) * (px - sx) + (py - sy) * (py - sy)
+                            if dist2 < min_dist * min_dist then
+                                min_dist = STBTT_sqrt(dist2)
+                            end
+                        end
+                        if num >= 3 and res[3] >= 0.0 and res[3] <= 1.0 then
+                            t = res[3]
                             it = 1.0 - t
                             px = it * it * x0 + 2 * t * it * x1 + t * t * x2
                             py = it * it * y0 + 2 * t * it * y1 + t * t * y2
@@ -3754,7 +3740,7 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
             elseif val > 255 then
                 val = 255
             end
-            data[trunc((y - iy0_val) * w + (x - ix0_val))] = val
+            data[trunc((y - iy0_val) * w + (x - ix0_val)) + 1] = val
         end
     end
 
