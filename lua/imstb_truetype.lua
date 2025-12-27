@@ -268,6 +268,8 @@ local trunc = function(x)
     end
 end
 
+local STBTT_sort = table.sort
+
 local STBTT_memset = memset
 local STBTT_memcpy = memcpy
 
@@ -2404,9 +2406,10 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
     scanline2 = scanline + result.w
 
     local y = off_y
-    e[n].y0 = off_y + result.h + 1
+    e[n + 1].y0 = off_y + result.h + 1
 
     local j = 0
+    local p = 1
     while j < result.h do
         -- find center of pixel for this scanline
         local scan_y_top = y + 0.0
@@ -2429,7 +2432,7 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
             curr = next
         end
 
-        local edge = e:deref()
+        local edge = e[p]
         while edge.y0 <= scan_y_bottom do
             if edge.y0 ~= edge.y1 then
                 local z = stbtt__new_active(edge, off_x, scan_y_top)
@@ -2440,8 +2443,8 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
                 z.next = active
                 active = z
             end
-            e:inc()
-            edge = e:deref()
+            p = p + 1
+            edge = e[p]
         end
 
         if active then
@@ -2473,92 +2476,14 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
     end
 end
 
-local STBTT__COMPARE = function(a, b) return a.y0 < b.y0 end
-
-local function stbtt__sort_edges_ins_sort(p, n)
-    for i = 1, n - 1 do
-        local t = p[i]
-        local a = t
-        local j = i
-        while j > 0 do
-            local b = p[j - 1]
-            local c = STBTT__COMPARE(a, b)
-            if c == false then break end
-            p[j] = p[j - 1]
-            j = j - 1
-        end
-        if i ~= j then
-            p[j] = t
-        end
-    end
+local STBTT__COMPARE = function(a, b)
+    if a.y0 == nil then return false end -- sentinels on the back
+    if b.y0 == nil then return true  end
+    return a.y0 < b.y0
 end
 
-local function stbtt__sort_edges_quicksort(p, n)
-    -- threshold for transitioning to insertion sort
-    while n > 12 do
-        local t
-        local c01, c12, c, m, i, j
-
-        -- compute median of three
-        m = rshift(n, 1)
-        c01 = STBTT__COMPARE(p[0], p[m])
-        c12 = STBTT__COMPARE(p[m], p[n - 1])
-        -- if 0 >= mid >= end, or 0 < mid < end, then use mid
-        if c01 ~= c12 then
-            -- otherwise, we'll need to swap something else to middle
-            local z
-            c = STBTT__COMPARE(p[0], p[n - 1])
-            -- 0>mid && mid<n:  0>n => n; 0<n => 0
-            -- 0<mid && mid>n:  0>n => 0; 0<n => n
-            z = (c == c12) and 0 or (n - 1)
-            t = p[z]
-            p[z] = p[m]
-            p[m] = t
-        end
-        -- now p[m] is the median-of-three
-        -- swap it to the beginning so it won't move around
-        t = p[0]
-        p[0] = p[m]
-        p[m] = t
-
-        -- partition loop
-        i = 1
-        j = n - 1
-        while true do
-            -- handling of equality is crucial here
-            -- for sentinels & efficiency with duplicates
-            while true do
-                if not STBTT__COMPARE(p[i], p[0]) then break end
-                i = i + 1
-            end
-            while true do
-                if not STBTT__COMPARE(p[0], p[j]) then break end
-                j = j - 1
-            end
-            -- make sure we haven't crossed
-            if i >= j then break end
-            t = p[i]
-            p[i] = p[j]
-            p[j] = t
-
-            i = i + 1
-            j = j - 1
-        end
-        -- recurse on smaller side, iterate on larger
-        if j < (n - i) then
-            stbtt__sort_edges_quicksort(p, j)
-            p = p + i
-            n = n - i
-        else
-            stbtt__sort_edges_quicksort(p + i, n - i)
-            n = j
-        end
-    end
-end
-
-local function stbtt__sort_edges(p, n)
-    stbtt__sort_edges_quicksort(p, n)
-    stbtt__sort_edges_ins_sort(p, n)
+local function stbtt__sort_edges(p)
+    STBTT_sort(p, STBTT__COMPARE)
 end
 
 local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y, shift_x, shift_y, off_x, off_y, invert)
@@ -2574,7 +2499,7 @@ local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y,
         n = n + wcount[i]
     end
 
-    e = CArray(n + 1, stbtt__edge) -- add an extra one as a sentinel
+    e = {} for i = 1, n + 1 do e[i] = stbtt__edge() end -- add an extra one as a sentinel
     n = 0
 
     m = 0
@@ -2591,6 +2516,7 @@ local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y,
                 goto inner_continue
             end
             -- add edge from j to k to the list
+            n = n + 1
             e[n].invert = 0
             if invert ~= 0 then
                 if pts[p + j].y > pts[p + k].y then
@@ -2610,14 +2536,13 @@ local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y,
             e[n].x1 = pts[p + b].x * scale_x + shift_x
             e[n].y1 = (pts[p + b].y * y_scale_inv + shift_y) * vsubsample
 
-            n = n + 1
             :: inner_continue ::
             j = k
         end
     end
 
     -- now sort the edges by their highest point (should snap to integer, and then by x)
-    stbtt__sort_edges(e, n)
+    stbtt__sort_edges(e)
 
     -- now, traverse the scanlines and find the intersections on each scanline, use xor winding rule
     stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, off_y)
