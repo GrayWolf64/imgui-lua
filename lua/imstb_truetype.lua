@@ -5,7 +5,7 @@
 ---------------------------------
 --- To mock C arrays and pointers
 --
-local CArray, memset, memcpy do
+local CArray do
     local function is_integer(n)
         return type(n) == "number" and n % 1 == 0
     end
@@ -184,44 +184,7 @@ local CArray, memset, memcpy do
         end
         return arr
     end
-
-    function memset(arr, value, count)
-        count = count or (arr.buf.size - arr.offset)
-        if not is_integer(count) then error("integer count required", 3) end
-        if count < 0 or count > arr.buf.size - arr.offset then
-            error("memset count exceeds buffer bounds", 3)
-        end
-        local base = arr.offset + 1
-        for i = base, base + count - 1 do
-            arr.buf.data[i] = value
-        end
-    end
-
-    function memcpy(arr, dest, count)
-        count = count or math.min(arr.buf.size - arr.offset,
-            dest.buf.size - dest.offset)
-        if not is_integer(count) then error("integer count required", 3) end
-
-        if count < 0 or count > arr.buf.size - arr.offset or count > dest.buf.size - dest.offset then
-            error("memcpy count exceeds buffer bounds", 3)
-        end
-
-        local src_base = arr.offset + 1
-        local dst_base = dest.offset + 1
-
-        if arr.buf == dest.buf and src_base < dst_base and src_base + count > dst_base then
-            for i = count - 1, 0, -1 do
-                dest.buf.data[dst_base + i] = arr.buf.data[src_base + i]
-            end
-        else
-            for i = 0, count - 1 do
-                dest.buf.data[dst_base + i] = arr.buf.data[src_base + i]
-            end
-        end
-    end
 end
-
-
 
 
 
@@ -249,7 +212,6 @@ local STBTT_vline  = 2
 local STBTT_vcurve = 3
 local STBTT_vcubic = 4
 
-
 local STBTT_assert = assert
 local STBTT_sqrt = math.sqrt
 local STBTT_fabs = math.abs
@@ -270,10 +232,8 @@ end
 
 local STBTT_sort = table.sort
 
-local STBTT_memset = memset
-local STBTT_memcpy = memcpy
-
-
+local STBTT_memset = function() error("memset() not allowed!", 2) end
+local STBTT_memcpy = function() error("memcpy() not allowed!", 2) end
 
 local function STBTT__NOTUSED() return end
 
@@ -290,7 +250,6 @@ end
 local function stbtt_uint32(value)
     return band(value, 0xFFFFFFFF)
 end
-
 
 local function stbtt_int16(value)
     return band(value, 0xFFFF) - (band(value, 0x8000) ~= 0 and 0x10000 or 0)
@@ -2415,8 +2374,8 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
         local scan_y_top = y + 0.0
         local scan_y_bottom = y + 1.0
 
-        STBTT_memset(scanline, 0, result.w)
-        STBTT_memset(scanline2, 0, result.w + 1)
+        for i = 0, result.w - 1 do scanline[i] = 0 end
+        for i = 0, result.w do scanline2[i] = 0 end
 
         local prev = nil
         local curr = active
@@ -2803,7 +2762,9 @@ local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels,
     if stbtt_InitFont(f, data, offset) == 0 then
         return -1
     end
-    STBTT_memset(pixels, 0, pw * ph) -- background of 0 around pixels
+
+    for i = 0, pw * ph - 1 do pixels[i] = 0 end -- background of 0 around pixels
+
     x = 1
     y = 1
     bottom_y = 1
@@ -2889,7 +2850,7 @@ local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, al
     stbrp_init_target(context, pw - padding, ph - padding, nodes, num_nodes)
 
     if pixels then
-        STBTT_memset(pixels, 0, pw * ph) -- background of 0 around pixels
+        for i = 0, pw * ph - 1 do pixels[i] = 0 end -- background of 0 around pixels
     end
 
     return 1
