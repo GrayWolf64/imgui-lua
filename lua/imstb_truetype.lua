@@ -2770,8 +2770,8 @@ end
 
 local stbtt_MakeGlyphBitmapSubpixelPrefilter
 
-local function stbtt_MakeCodepointBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, sub_x, sub_y, codepoint)
-    stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, sub_x, sub_y, stbtt_FindGlyphIndex(info, codepoint))
+local function stbtt_MakeCodepointBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, codepoint)
+    return stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, stbtt_FindGlyphIndex(info, codepoint))
 end
 
 local function stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, codepoint)
@@ -3060,7 +3060,7 @@ local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, re
     return k
 end
 
-function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, prefilter_x, prefilter_y, sub_x, sub_y, glyph)
+function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, prefilter_x, prefilter_y, glyph)
     stbtt_MakeGlyphBitmapSubpixel(info,
                                 output,
                                 out_w - (prefilter_x - 1),
@@ -3080,8 +3080,10 @@ function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_
         stbtt__v_prefilter(output, out_w, out_h, out_stride, prefilter_y)
     end
 
-    sub_x:set_deref(stbtt__oversample_shift(prefilter_x))
-    sub_y:set_deref(stbtt__oversample_shift(prefilter_y))
+    local sub_x, sub_y
+    sub_x = stbtt__oversample_shift(prefilter_x)
+    sub_y = stbtt__oversample_shift(prefilter_y)
+    return sub_x, sub_y
 end
 
 
