@@ -197,8 +197,24 @@ function _ImFontAtlas:AddFont(font_cfg_in)
     end
 
     if self.Builder == nil then
-        ImFontAtlasBuildInit(self)
+        FontAtlas.BuildInit(self)
     end
+
+    local font
+    if not font_cfg_in.MergeMode then
+        font = ImFont()
+        font.FontId = self.FontNextUniqueID
+        self.FontNextUniqueID = self.FontNextUniqueID + 1
+        font.Flags = font_cfg_in.Flags
+        font.LegacySize = font_cfg_in.SizePixels
+        font.CurrentRasterizerDensity = font_cfg_in.RasterizerDensity
+        self.Fonts:push_back(font)
+    else
+        IM_ASSERT(self.Fonts.Size > 0, "Cannot use MergeMode for the first font")
+        font = (font_cfg_in.DstFont ~= nil) and font_cfg_in.DstFont or self.Fonts:back()
+    end
+
+    self.Sources:push_back(font_cfg_in)
 end
 
 function _ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template,glyph_ranges)

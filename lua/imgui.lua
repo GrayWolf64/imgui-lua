@@ -149,7 +149,7 @@ local function PopFont()
 
     if g.FontStack:empty() then return end
 
-    local font_stack_data = g.FontStack:peek()
+    local font_stack_data = g.FontStack:back()
     SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, font_stack_data.FontSizeAfterScaling)
 
     g.FontStack:pop_back()
@@ -352,7 +352,7 @@ end
 local function BringWindowToDisplayFront(window)
     local g = GImGui
 
-    local current_front_window = g.Windows:peek()
+    local current_front_window = g.Windows:back()
 
     if current_front_window == window then return end
 
@@ -991,7 +991,7 @@ function ImGui.End()
     PopID()
     g.CurrentWindowStack:pop_back()
 
-    SetCurrentWindow(g.CurrentWindowStack:peek())
+    SetCurrentWindow(g.CurrentWindowStack:back())
 end
 
 local function FindHoveredWindowEx()
