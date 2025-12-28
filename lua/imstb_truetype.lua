@@ -3251,17 +3251,17 @@ function stbtt_GetPackedQuad(chardata, pw, ph, char_index, xpos, ypos, q, align_
     local b = chardata + char_index
 
     if align_to_integer ~= 0 then
-        local x = STBTT_ifloor((xpos:deref() + b.xoff) + 0.5)
-        local y = STBTT_ifloor((ypos:deref() + b.yoff) + 0.5)
+        local x = STBTT_ifloor((xpos + b.xoff) + 0.5)
+        local y = STBTT_ifloor((ypos + b.yoff) + 0.5)
         q.x0 = x
         q.y0 = y
         q.x1 = x + b.xoff2 - b.xoff
         q.y1 = y + b.yoff2 - b.yoff
     else
-        q.x0 = xpos:deref() + b.xoff
-        q.y0 = ypos:deref() + b.yoff
-        q.x1 = xpos:deref() + b.xoff2
-        q.y1 = ypos:deref() + b.yoff2
+        q.x0 = xpos + b.xoff
+        q.y0 = ypos + b.yoff
+        q.x1 = xpos + b.xoff2
+        q.y1 = ypos + b.yoff2
     end
 
     q.s0 = b.x0 * ipw
@@ -3269,7 +3269,9 @@ function stbtt_GetPackedQuad(chardata, pw, ph, char_index, xpos, ypos, q, align_
     q.s1 = b.x1 * ipw
     q.t1 = b.y1 * iph
 
-    xpos:set_deref(xpos:deref() + b.xadvance)
+    xpos = xpos + b.xadvance
+
+    return xpos
 end
 
 
