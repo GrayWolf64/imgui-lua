@@ -2,6 +2,9 @@
 --- stb_truetype in GMod Lua5.1!
 -- VER 1.26
 
+local stbtt_InitFont
+local stbtt_MakeGlyphBitmapSubpixelPrefilter
+
 ---------------------------------
 --- To mock C arrays and pointers
 --
@@ -2038,9 +2041,9 @@ local function stbtt_GetGlyphBitmapBox(font, glyph, scale_x, scale_y)
     return stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, 0.0, 0.0)
 end
 
-local function stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, shift_x, shift_y)
-    return stbtt_GetGlyphBitmapBoxSubpixel(font, stbtt_FindGlyphIndex(font, codepoint), scale_x, scale_y, shift_x, shift_y)
-end
+-- local function stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, shift_x, shift_y)
+--     return stbtt_GetGlyphBitmapBoxSubpixel(font, stbtt_FindGlyphIndex(font, codepoint), scale_x, scale_y, shift_x, shift_y)
+-- end
 
 local function stbtt_GetCodepointBitmapBox(font, codepoint, scale_x, scale_y)
     return stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, 0.0, 0.0)
@@ -2637,46 +2640,15 @@ local function stbtt_Rasterize(result, flatness_in_pixels, vertices, num_verts, 
     end
 end
 
-local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, glyph)
-    local gbm = stbtt__bitmap()
+--- Unused in ImGui
+-- TODO: rewrite if needed
+--
+-- local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, glyph)
+-- end
 
-    local num_verts, vertices = stbtt_GetGlyphShape(info, glyph)
-
-    if scale_x == 0 then scale_x = scale_y end
-    if scale_y == 0 then
-        if scale_x == 0 then
-
-            return nil
-        end
-        scale_y = scale_x
-    end
-
-    local ix0, iy0, ix1, iy1 = stbtt_GetGlyphBitmapBoxSubpixel(info, glyph, scale_x, scale_y, shift_x, shift_y)
-
-    -- now we get the size
-    gbm.w = ix1 - ix0
-    gbm.h = iy1 - iy0
-    gbm.pixels = nil -- in case we error
-
-    local width, height, xoff, yoff
-    width  = gbm.w
-    height = gbm.h
-    xoff   = ix0
-    yoff   = iy0
-
-    if gbm.w ~= 0 and gbm.h ~= 0 then
-        gbm.pixels = CArray(gbm.w * gbm.h)
-        gbm.stride = gbm.w
-
-        stbtt_Rasterize(gbm, 0.35, vertices, num_verts, scale_x, scale_y, shift_x, shift_y, ix0, iy0, 1)
-    end
-
-    return gbm.pixels, width, height, xoff, yoff
-end
-
-local function stbtt_GetGlyphBitmap(info, scale_x, scale_y, glyph)
-    return stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, 0.0, 0.0, glyph)
-end
+-- local function stbtt_GetGlyphBitmap(info, scale_x, scale_y, glyph)
+--     return stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, 0.0, 0.0, glyph)
+-- end
 
 local function stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, glyph)
     local num_verts, vertices = stbtt_GetGlyphShape(info, glyph)
@@ -2697,36 +2669,30 @@ local function stbtt_MakeGlyphBitmap(info, output, out_w, out_h, out_stride, sca
     stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, 0.0, 0.0, glyph)
 end
 
-local function stbtt_GetCodepointBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, codepoint)
-    return stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, stbtt_FindGlyphIndex(info, codepoint))
-end
-
-local stbtt_MakeGlyphBitmapSubpixelPrefilter
+-- local function stbtt_GetCodepointBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, codepoint)
+--     return stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, stbtt_FindGlyphIndex(info, codepoint))
+-- end
 
 -- local function stbtt_MakeCodepointBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, codepoint)
 --     return stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, stbtt_FindGlyphIndex(info, codepoint))
 -- end
 
-local function stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, codepoint)
-    stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, stbtt_FindGlyphIndex(info, codepoint))
-end
+-- local function stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, codepoint)
+--     stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, stbtt_FindGlyphIndex(info, codepoint))
+-- end
 
-local function stbtt_GetCodepointBitmap(info, scale_x, scale_y, codepoint)
-    return stbtt_GetCodepointBitmapSubpixel(info, scale_x, scale_y, 0.0, 0.0, codepoint)
-end
+-- local function stbtt_GetCodepointBitmap(info, scale_x, scale_y, codepoint)
+--     return stbtt_GetCodepointBitmapSubpixel(info, scale_x, scale_y, 0.0, 0.0, codepoint)
+-- end
 
-local function stbtt_MakeCodepointBitmap(info, output, out_w, out_h, out_stride, scale_x, scale_y, codepoint)
-    stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, 0.0, 0.0, codepoint)
-end
-
-
+-- local function stbtt_MakeCodepointBitmap(info, output, out_w, out_h, out_stride, scale_x, scale_y, codepoint)
+--     stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, 0.0, 0.0, codepoint)
+-- end
 
 ------------------------------------------------------------
 --- bitmap baking
 --- "This is SUPER-CRAPPY packing to keep source code small"
 --
-
-local stbtt_InitFont
 
 --- Unused in ImGui, and involves pointer arithmetics
 -- TODO: rewrite if needed
@@ -2737,28 +2703,11 @@ local stbtt_InitFont
 -- local function stbtt_BakeFontBitmap(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
 -- end
 
-local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, opengl_fillrule)
-    local d3d_bias = opengl_fillrule and 0 or -0.5
-    local ipw = 1.0 / pw
-    local iph = 1.0 / ph
-    local b = chardata + char_index
-    local round_x = STBTT_ifloor((xpos + b.xoff) + 0.5)
-    local round_y = STBTT_ifloor((ypos + b.yoff) + 0.5)
-
-    q.x0 = round_x + d3d_bias
-    q.y0 = round_y + d3d_bias
-    q.x1 = round_x + b.x1 - b.x0 + d3d_bias
-    q.y1 = round_y + b.y1 - b.y0 + d3d_bias
-
-    q.s0 = b.x0 * ipw
-    q.t0 = b.y0 * iph
-    q.s1 = b.x1 * ipw
-    q.t1 = b.y1 * iph
-
-    xpos = xpos + b.xadvance
-
-    return xpos
-end
+--- Unused in ImGui, and involves pointer arithmetics
+-- TODO: rewrite if needed
+--
+-- local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, opengl_fillrule)
+-- end
 
 -----------------
 --- bitmap baking
@@ -3367,96 +3316,3 @@ end
 function stbtt_InitFont(info, data, offset)
     return stbtt_InitFont_internal(info, data, offset)
 end
-
--------------------------------------------------------------
---- Complete program: get a single bitmap, print as ASCII art
---- probably buggy because of the lack of checks
---
-concommand.Add("stb_truetype_print_ascii", function(_, _, args, _)
-    local c = str_byte(args[1] or "a")
-    local s = args[2] or 20
-    local file_name = args[3] or "resource/fonts/Roboto-Regular.ttf"
-
-    if not file.Exists(file_name, "GAME") then
-        print(".ttf file not found!")
-        return
-    end
-
-    local font = stbtt_fontinfo()
-    local ttf_buffer = CArray(file.Size(file_name, "GAME"))
-
-    local _f = file.Open(file_name, "rb", "GAME")
-    local _i = 0
-    while not _f:EndOfFile() do
-        ttf_buffer[_i] = _f:ReadByte()
-        _i = _i + 1
-    end
-    _f:Close()
-
-    stbtt_InitFont(font, ttf_buffer, stbtt_GetFontOffsetForIndex(ttf_buffer, 0))
-    local bitmap, w, h, xoff, yoff = stbtt_GetCodepointBitmap(font, 0, stbtt_ScaleForPixelHeight(font, s), c)
-
-    if w == 0 or h == 0 or bitmap == nil then
-        return
-    end
-
-    Msg("\n")
-    for j = 0, h - 1 do
-        for i = 0, w - 1 do
-            Msg((" .:ioVM@")[rshift(bitmap[j * w + i], 5) + 1])
-        end
-        Msg("\n")
-    end
-end)
-
-------------------------------------------------------------
---- Complete program: print "Hello World!" banner, with bugs
---
-concommand.Add("stb_truetype_print_helloworld", function(_, _, args, _)
-    local font = stbtt_fontinfo()
-
-    local text = "Heljo World!"
-    local screen = CArray(20 * 79, function() return 0 end)
-
-    local file_name = "resource/fonts/Roboto-Regular.ttf"
-    local buffer = CArray(file.Size(file_name, "GAME"))
-    local _f = file.Open(file_name, "rb", "GAME")
-    local _i = 0
-    while not _f:EndOfFile() do
-        buffer[_i] = _f:ReadByte()
-        _i = _i + 1
-    end
-    _f:Close()
-    stbtt_InitFont(font, buffer, 0)
-
-    local scale = stbtt_ScaleForPixelHeight(font, 15)
-    local ascent, descent, line_gap = stbtt_GetFontVMetrics(font)
-    local baseline = trunc(ascent * scale)
-    local xpos = 2
-
-    local ch = 1
-    while ch <= #text do
-        local xshift = xpos - floor(xpos)
-        local advance, lsb = stbtt_GetCodepointHMetrics(font, str_byte(text[ch]))
-        local x0, y0, x1, y1 = stbtt_GetCodepointBitmapBoxSubpixel(font, str_byte(text[ch]), scale, scale, xshift, 0)
-
-        local row_offset = (baseline + y0) * 79
-        local col_offset = floor(xpos) + x0
-        local output_ptr = screen + row_offset + col_offset
-
-        stbtt_MakeCodepointBitmapSubpixel(font, output_ptr, x1 - x0, y1 - y0, 79, scale, scale, xshift, 0, str_byte(text[ch]))
-        xpos = xpos + advance * scale
-        if ch < #text then
-            xpos = xpos + scale * stbtt_GetCodepointKernAdvance(font, str_byte(text[ch]), str_byte(text[ch + 1]))
-        end
-        ch = ch + 1
-    end
-
-    Msg("\n")
-    for j = 0, 19 do
-        for i = 0, 77 do
-            Msg((" .:ioVM@")[rshift(screen[j * 79 + i], 5) + 1])
-        end
-        Msg("\n")
-    end
-end)
