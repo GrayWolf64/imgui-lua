@@ -221,7 +221,6 @@ function _ImFontAtlas:AddFont(font_cfg_in)
     end
     font.Sources:push_back(font_cfg)
     FontAtlas.BuildUpdatePointers(self)
-    
 end
 
 function _ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template,glyph_ranges)

@@ -2041,9 +2041,9 @@ local function stbtt_GetGlyphBitmapBox(font, glyph, scale_x, scale_y)
     return stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, 0.0, 0.0)
 end
 
--- local function stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, shift_x, shift_y)
---     return stbtt_GetGlyphBitmapBoxSubpixel(font, stbtt_FindGlyphIndex(font, codepoint), scale_x, scale_y, shift_x, shift_y)
--- end
+local function stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, shift_x, shift_y)
+    return stbtt_GetGlyphBitmapBoxSubpixel(font, stbtt_FindGlyphIndex(font, codepoint), scale_x, scale_y, shift_x, shift_y)
+end
 
 local function stbtt_GetCodepointBitmapBox(font, codepoint, scale_x, scale_y)
     return stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, 0.0, 0.0)
@@ -2119,9 +2119,9 @@ local function stbtt__fill_active_edges_new(scanline, scanline_fill, len, e, y_t
             if x0 < len then
                 if x0 >= 0 then
                     stbtt__handle_clipped_edge(scanline, trunc(x0), e, x0, y_top, x0, y_bottom)
-                    stbtt__handle_clipped_edge(scanline_fill - 1, trunc(x0) + 1, e, x0, y_top, x0, y_bottom)
+                    stbtt__handle_clipped_edge(scanline_fill, trunc(x0) + 1, e, x0, y_top, x0, y_bottom)
                 else
-                    stbtt__handle_clipped_edge(scanline_fill - 1, 0, e, x0, y_top, x0, y_bottom)
+                    stbtt__handle_clipped_edge(scanline_fill, 0, e, x0, y_top, x0, y_bottom)
                 end
             end
         else
@@ -2160,7 +2160,7 @@ local function stbtt__fill_active_edges_new(scanline, scanline_fill, len, e, y_t
                     height = (sy1 - sy0) * e.direction
                     STBTT_assert(x >= 0 and x < len)
                     scanline[x] = scanline[x] + stbtt__position_trapezoid_area(height, x_top, x + 1.0, x_bottom, x + 1.0)
-                    scanline_fill[x] = scanline_fill[x] + height -- everything right of this pixel is filled
+                    scanline_fill[x + 1] = scanline_fill[x + 1] + height -- everything right of this pixel is filled
                 else
                     local x, x1, x2
                     local y_crossing, y_final, step, sign, area
@@ -2259,7 +2259,7 @@ local function stbtt__fill_active_edges_new(scanline, scanline_fill, len, e, y_t
                     scanline[x2] = scanline[x2] + area + sign * stbtt__position_trapezoid_area(sy1 - y_final, x2, x2 + 1.0, x_bottom, x2 + 1.0)
 
                     -- the rest of the line is filled based on the total height of the line segment in this pixel
-                    scanline_fill[x2] = scanline_fill[x2] + sign * (sy1 - sy0)
+                    scanline_fill[x2 + 1] = scanline_fill[x2 + 1] + sign * (sy1 - sy0)
                 end
             else
                 -- if edge goes outside of box we're drawing, we require
@@ -2328,18 +2328,11 @@ end
 
 local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, off_y)
     local active = nil
-    local scanline_data = CArray(129)
-    local scanline, scanline2
+
+    local scanline = {} -- size = result.w, 0-based
+    local scanline2 = {} -- size = result.w + 1, 0-based
 
     STBTT__NOTUSED(vsubsample)
-
-    if result.w > 64 then
-        scanline = CArray(result.w * 2 + 1)
-    else
-        scanline = scanline_data
-    end
-
-    scanline2 = scanline + result.w
 
     local y = off_y
     e[n + 1].y0 = off_y + result.h + 1
@@ -2384,7 +2377,7 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
         end
 
         if active then
-            stbtt__fill_active_edges_new(scanline, scanline2 + 1, result.w, active, scan_y_top)
+            stbtt__fill_active_edges_new(scanline, scanline2, result.w, active, scan_y_top)
         end
 
         do
@@ -2669,20 +2662,8 @@ local function stbtt_MakeGlyphBitmap(info, output, out_w, out_h, out_stride, sca
     stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, 0.0, 0.0, glyph)
 end
 
--- local function stbtt_GetCodepointBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, codepoint)
---     return stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, stbtt_FindGlyphIndex(info, codepoint))
--- end
-
 -- local function stbtt_MakeCodepointBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, codepoint)
 --     return stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, stbtt_FindGlyphIndex(info, codepoint))
--- end
-
--- local function stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, codepoint)
---     stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, stbtt_FindGlyphIndex(info, codepoint))
--- end
-
--- local function stbtt_GetCodepointBitmap(info, scale_x, scale_y, codepoint)
---     return stbtt_GetCodepointBitmapSubpixel(info, scale_x, scale_y, 0.0, 0.0, codepoint)
 -- end
 
 -- local function stbtt_MakeCodepointBitmap(info, output, out_w, out_h, out_stride, scale_x, scale_y, codepoint)
