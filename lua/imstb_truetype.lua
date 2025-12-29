@@ -2957,43 +2957,11 @@ local function stbtt__oversample_shift(oversample)
     return -(oversample - 1) / (2.0 * oversample)
 end
 
-
-local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, rects)
-    local k = 0
-    local missing_glyph_added = 0
-
-    for i = 0, num_ranges - 1 do
-        local fh = ranges[i].font_size
-        local scale = fh > 0 and stbtt_ScaleForPixelHeight(info, fh) or stbtt_ScaleForMappingEmToPixels(info, -fh)
-        ranges[i].h_oversample = spc.h_oversample
-        ranges[i].v_oversample = spc.v_oversample
-
-        for j = 0, ranges[i].num_chars - 1 do
-            local codepoint = ranges[i].array_of_unicode_codepoints == nil and
-                            (ranges[i].first_unicode_codepoint_in_range + j) or
-                            ranges[i].array_of_unicode_codepoints[j]
-            local glyph = stbtt_FindGlyphIndex(info, codepoint)
-
-            k = k + 1
-            if glyph == 0 and (spc.skip_missing ~= 0 or missing_glyph_added ~= 0) then
-                rects[k].w = 0
-                rects[k].h = 0
-            else
-                local x0, y0, x1, y1 = stbtt_GetGlyphBitmapBoxSubpixel(info, glyph,
-                                            scale * spc.h_oversample,
-                                            scale * spc.v_oversample,
-                                            0, 0)
-                rects[k].w = x1 - x0 + spc.padding + spc.h_oversample - 1
-                rects[k].h = y1 - y0 + spc.padding + spc.v_oversample - 1
-                if glyph == 0 then
-                    missing_glyph_added = 1
-                end
-            end
-        end
-    end
-
-    return k
-end
+--- Unused in ImGui, and involves pointer arithmetics
+-- TODO: rewrite if needed
+--
+-- local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, rects)
+-- end
 
 function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, prefilter_x, prefilter_y, glyph)
     stbtt_MakeGlyphBitmapSubpixel(info,
@@ -3021,151 +2989,31 @@ function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_
     return sub_x, sub_y
 end
 
+--- Unused in ImGui, and involves pointer arithmetics
+-- TODO: rewrite if needed
+--
+-- function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rects)
+-- end
 
-function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rects)
-    local k = 0
-    local missing_glyph = -1
-    local return_value = 1
-
-    -- save current values
-    local old_h_over = spc.h_oversample
-    local old_v_over = spc.v_oversample
-
-    for i = 1, num_ranges do
-        local fh = ranges[i].font_size
-        local scale = fh > 0 and stbtt_ScaleForPixelHeight(info, fh) or stbtt_ScaleForMappingEmToPixels(info, -fh)
-        local recip_h, recip_v, sub_x, sub_y
-        spc.h_oversample = ranges[i].h_oversample
-        spc.v_oversample = ranges[i].v_oversample
-        recip_h = 1.0 / spc.h_oversample
-        recip_v = 1.0 / spc.v_oversample
-        sub_x = stbtt__oversample_shift(spc.h_oversample)
-        sub_y = stbtt__oversample_shift(spc.v_oversample)
-
-        for j = 0, ranges[i].num_chars - 1 do
-            k = k + 1
-            local r = rects[k]
-            if r.was_packed and r.w ~= 0 and r.h ~= 0 then
-                local bc = ranges[i].chardata_for_range[j]
-                local codepoint = ranges[i].array_of_unicode_codepoints == nil and
-                                (ranges[i].first_unicode_codepoint_in_range + j) or
-                                ranges[i].array_of_unicode_codepoints[j]
-                local glyph = stbtt_FindGlyphIndex(info, codepoint)
-                local pad = spc.padding
-
-                -- pad on left and top
-                r.x = r.x + pad
-                r.y = r.y + pad
-                r.w = r.w - pad
-                r.h = r.h - pad
-                local advance, lsb = stbtt_GetGlyphHMetrics(info, glyph)
-                local x0, y0, x1, y1 = stbtt_GetGlyphBitmapBox(info, glyph,
-                                    scale * spc.h_oversample,
-                                    scale * spc.v_oversample)
-                stbtt_MakeGlyphBitmapSubpixel(info,
-                                            spc.pixels + r.x + r.y * spc.stride_in_bytes,
-                                            r.w - spc.h_oversample + 1,
-                                            r.h - spc.v_oversample + 1,
-                                            spc.stride_in_bytes,
-                                            scale * spc.h_oversample,
-                                            scale * spc.v_oversample,
-                                            0, 0,
-                                            glyph)
-
-                if spc.h_oversample > 1 then
-                    stbtt__h_prefilter(spc.pixels + r.x + r.y * spc.stride_in_bytes,
-                                    r.w, r.h, spc.stride_in_bytes,
-                                    spc.h_oversample)
-                end
-
-                if spc.v_oversample > 1 then
-                    stbtt__v_prefilter(spc.pixels + r.x + r.y * spc.stride_in_bytes,
-                                    r.w, r.h, spc.stride_in_bytes,
-                                    spc.v_oversample)
-                end
-
-                bc.x0 = stbtt_int16(r.x)
-                bc.y0 = stbtt_int16(r.y)
-                bc.x1 = stbtt_int16(r.x + r.w)
-                bc.y1 = stbtt_int16(r.y + r.h)
-                bc.xadvance = scale * advance
-                bc.xoff = x0 * recip_h + sub_x
-                bc.yoff = y0 * recip_v + sub_y
-                bc.xoff2 = (x0 + r.w) * recip_h + sub_x
-                bc.yoff2 = (y0 + r.h) * recip_v + sub_y
-
-                if glyph == 0 then
-                    missing_glyph = j
-                end
-            elseif spc.skip_missing ~= 0 then
-                return_value = 0
-            elseif r.was_packed and r.w == 0 and r.h == 0 and missing_glyph >= 0 then
-                ranges[i].chardata_for_range[j] = ranges[i].chardata_for_range[missing_glyph]
-            else
-                return_value = 0 -- if any fail, report failure
-            end
-        end
-    end
-
-    -- restore original values
-    spc.h_oversample = old_h_over
-    spc.v_oversample = old_v_over
-
-    return return_value
-end
-
-
-function stbtt_PackFontRangesPackRects(spc, rects, num_rects)
-    stbrp_pack_rects(spc.pack_info, rects, num_rects)
-end
-
+--- Unused in ImGui, and involves pointer arithmetics
+-- TODO: rewrite if needed
+--
+-- function stbtt_PackFontRangesPackRects(spc, rects, num_rects)
+-- end
 
 local stbtt_GetFontOffsetForIndex
 
-function stbtt_PackFontRanges(spc, fontdata, font_index, ranges, num_ranges)
-    local info = stbtt_fontinfo()
-    local n, return_value
+--- Unused in ImGui
+-- TODO: rewrite if needed
+--
+-- function stbtt_PackFontRanges(spc, fontdata, font_index, ranges, num_ranges)
+-- end
 
-    -- flag all characters as NOT packed
-    for i = 0, num_ranges - 1 do
-        for j = 0, ranges[i].num_chars - 1 do
-            local bc = ranges[i].chardata_for_range[j]
-            bc.x0 = 0
-            bc.y0 = 0
-            bc.x1 = 0
-            bc.y1 = 0
-        end
-    end
-
-    n = 0
-    for i = 0, num_ranges - 1 do
-        n = n + ranges[i].num_chars
-    end
-
-    local rects = {} for i = 1, n do rects[i] = stbrp_rect() end
-
-    stbtt_InitFont(info, fontdata, stbtt_GetFontOffsetForIndex(fontdata, font_index))
-
-    n = stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, rects)
-
-    stbtt_PackFontRangesPackRects(spc, rects, n)
-
-    return_value = stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rects)
-
-    return return_value
-end
-
-function stbtt_PackFontRange(spc, fontdata, font_index, font_size, first_unicode_codepoint_in_range, num_chars_in_range, chardata_for_range)
-    local range = stbtt_pack_range()
-
-    range.first_unicode_codepoint_in_range = first_unicode_codepoint_in_range
-    range.array_of_unicode_codepoints      = nil
-    range.num_chars                        = num_chars_in_range
-    range.chardata_for_range               = chardata_for_range
-    range.font_size                        = font_size
-
-    return stbtt_PackFontRanges(spc, fontdata, font_index, {range}, 1)
-end
+--- Unused in ImGui
+-- TODO: rewrite if needed
+--
+-- function stbtt_PackFontRange(spc, fontdata, font_index, font_size, first_unicode_codepoint_in_range, num_chars_in_range, chardata_for_range)
+-- end
 
 function stbtt_GetScaledFontVMetrics(fontdata, index, size)
     local scale
