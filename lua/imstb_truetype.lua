@@ -23,29 +23,14 @@ local CArray do
     local _View = {}
     _View.__index = _View
 
-    function _View:top()
-        self.offset = 0
-        return self
-    end
-
-    function _View:size()
-        return self.buf.size
-    end
-
     function _View:inc(n)
         n = n or 1
-        assert(is_integer(n), "integer delta required")
         local new_off = self.offset + n
         if new_off < 0 or new_off > self.buf.size then
             error(string.format("pointer arithmetic out of bounds: offset %d + %d not in [0, %d]",
                 self.offset, n, self.buf.size), 3)
         end
         self.offset = new_off
-    end
-
-    function _View:dec(n)
-        n = n or 1
-        self:inc(-n)
     end
 
     function _View.__add(lhs, rhs)
@@ -159,17 +144,9 @@ local CArray do
         end
     end
 
-    function _View:__tostring()
-        return string.format("View(%p, off=%d/%d)", self.buf, self.offset, self.buf.size)
-    end
-
-    local function malloc(size)
-        local buf = _Buf:new(size)
-        return setmetatable({buf = buf, offset = 0}, _View)
-    end
-
     function CArray(size, init)
-        local arr = malloc(size)
+        local arr = setmetatable({buf = _Buf:new(size), offset = 0}, _View)
+
         if type(init) == "table" then
             assert(#init == size, string.format("init size %d != buffer size %d", #init, size))
             local data = arr.buf.data
@@ -177,11 +154,8 @@ local CArray do
         elseif type(init) == "function" then
             local data = arr.buf.data
             for i = 1, size do data[i] = init() end
-        elseif init == nil then
-
-        else
-            error("init must be table, function or nil", 2)
         end
+
         return arr
     end
 end
@@ -1355,7 +1329,7 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
     local has_subrs = 0
     local clear_stack
 
-    local s = CArray(48)
+    local s = {} -- size = 48, 0-based
 
     local subr_stack = {} for i = 1, 10 do subr_stack[i] = stbtt__buf() end
 
