@@ -2811,25 +2811,23 @@ local function stbtt__h_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
     local buffer = {} for i = 0, STBTT_MAX_OVERSAMPLE - 1 do buffer[i] = 0 end
     local safe_w = w - kernel_width
 
-    for j = 1, h do
+    for j = 0, h - 1 do
         local total = 0
+        local row_offset = j * stride_in_bytes
 
         for i = 0, kernel_width - 1 do buffer[i] = 0 end
 
-        -- make kernel_width a constant in common cases so compiler can optimize out the divide
         for i = 0, safe_w do
-            total = total + pixels[i] - buffer[band(i, STBTT__OVER_MASK)]
-            buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i]
-            pixels[i] = unsigned_char(total / kernel_width)
+            total = total + pixels[row_offset + i] - buffer[band(i, STBTT__OVER_MASK)]
+            buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[row_offset + i]
+            pixels[row_offset + i] = unsigned_char(total / kernel_width)
         end
 
         for i = safe_w + 1, w - 1 do
-            STBTT_assert(pixels[i] == 0)
+            STBTT_assert(pixels[row_offset + i] == 0)
             total = total - buffer[band(i, STBTT__OVER_MASK)]
-            pixels[i] = unsigned_char(total / kernel_width)
+            pixels[row_offset + i] = unsigned_char(total / kernel_width)
         end
-
-        pixels = pixels + stride_in_bytes
     end
 end
 
@@ -2837,24 +2835,23 @@ local function stbtt__v_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
     local buffer = {} for i = 0, STBTT_MAX_OVERSAMPLE - 1 do buffer[i] = 0 end
     local safe_h = h - kernel_width
 
-    for j = 1, w do
+    for j = 0, w - 1 do
         local total = 0
+        local col_offset = j
 
         for i = 0, kernel_width - 1 do buffer[i] = 0 end
 
         for i = 0, safe_h do
-            total = total + pixels[i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
-            buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[i * stride_in_bytes]
-            pixels[i * stride_in_bytes] = unsigned_char(total / kernel_width)
+            total = total + pixels[col_offset + i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
+            buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[col_offset + i * stride_in_bytes]
+            pixels[col_offset + i * stride_in_bytes] = unsigned_char(total / kernel_width)
         end
 
         for i = safe_h + 1, h - 1 do
-            STBTT_assert(pixels[i * stride_in_bytes] == 0)
+            STBTT_assert(pixels[col_offset + i * stride_in_bytes] == 0)
             total = total - buffer[band(i, STBTT__OVER_MASK)]
-            pixels[i * stride_in_bytes] = unsigned_char(total / kernel_width)
+            pixels[col_offset + i * stride_in_bytes] = unsigned_char(total / kernel_width)
         end
-
-        pixels = pixels + 1
     end
 end
 
