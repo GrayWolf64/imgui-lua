@@ -215,6 +215,13 @@ function _ImFontAtlas:AddFont(font_cfg_in)
     end
 
     self.Sources:push_back(font_cfg_in)
+    local font_cfg = self.Sources:back()
+    if (font_cfg.DstFont == nil) then
+        font_cfg.DstFont = font
+    end
+    font.Sources:push_back(font_cfg)
+    FontAtlas.BuildUpdatePointers(self)
+    
 end
 
 function _ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template,glyph_ranges)
