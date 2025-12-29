@@ -2728,54 +2728,14 @@ end
 
 local stbtt_InitFont
 
-local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
-    local scale
-    local x, y, bottom_y
-    local f = stbtt_fontinfo()
+--- Unused in ImGui, and involves pointer arithmetics
+-- TODO: rewrite if needed
+--
+-- local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
+-- end
 
-    if stbtt_InitFont(f, data, offset) == 0 then
-        return -1
-    end
-
-    for i = 0, pw * ph - 1 do pixels[i] = 0 end -- background of 0 around pixels
-
-    x = 1
-    y = 1
-    bottom_y = 1
-
-    scale = stbtt_ScaleForPixelHeight(f, pixel_height)
-
-    for i = 0, num_chars - 1 do
-        local gw, gh
-        local g = stbtt_FindGlyphIndex(f, first_char + i)
-        local advance, lsb = stbtt_GetGlyphHMetrics(f, g)
-        local x0, y0, x1, y1 = stbtt_GetGlyphBitmapBox(f, g, scale, scale)
-        gw = x1 - x0
-        gh = y1 - y0
-        if x + gw + 1 >= pw then
-            y = bottom_y
-            x = 1 -- advance to next row
-        end
-        if y + gh + 1 >= ph then -- check if it fits vertically AFTER potentially moving to next row
-            return -i
-        end
-        STBTT_assert(x + gw < pw)
-        STBTT_assert(y + gh < ph)
-        stbtt_MakeGlyphBitmap(f, pixels + x + y * pw, gw, gh, pw, scale, scale, g)
-        chardata[i].x0 = stbtt_int16(x)
-        chardata[i].y0 = stbtt_int16(y)
-        chardata[i].x1 = stbtt_int16(x + gw)
-        chardata[i].y1 = stbtt_int16(y + gh)
-        chardata[i].xadvance = scale * advance
-        chardata[i].xoff = x0
-        chardata[i].yoff = y0
-        x = x + gw + 1
-        if y + gh + 1 > bottom_y then
-            bottom_y = y + gh + 1
-        end
-    end
-    return bottom_y
-end
+-- local function stbtt_BakeFontBitmap(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
+-- end
 
 local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, opengl_fillrule)
     local d3d_bias = opengl_fillrule and 0 or -0.5
