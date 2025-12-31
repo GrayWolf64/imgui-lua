@@ -408,7 +408,7 @@ function _ImDrawList:AddConvexPolyFilled(points, points_count, col)
 
     local uv = self._Data.TexUvWhitePixel
 
-    if bit.band(self.Flags, Flags.ImDrawList.AntiAliasedFill) ~= 0 then
+    if bit.band(self.Flags, Enums.ImDrawListFlags.AntiAliasedFill) ~= 0 then
         local AA_SIZE = self._FringeScale
         local col_trans = {r = col.r, g = col.g, b = col.b, a = 0}
         local idx_count = (points_count - 2) * 3 + points_count * 6
@@ -581,15 +581,15 @@ function _ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         return
     end
 
-    local closed = bit.band(flags, Flags.ImDraw.Closed) ~= 0
+    local closed = bit.band(flags, Enums.ImDrawFlags.Closed) ~= 0
     local opaque_uv = self._Data.TexUvWhitePixel
     local count = closed and points_count or points_count - 1  -- Number of line segments
     local thick_line = thickness > self._FringeScale
 
-    if bit.band(self.Flags, Flags.ImDrawList.AntiAliasedLines) ~= 0 then
+    if bit.band(self.Flags, Enums.ImDrawListFlags.AntiAliasedLines) ~= 0 then
         -- Anti-aliased stroke
         local AA_SIZE = self._FringeScale
-        local col_trans = {r = col.r, g = col.g, b = col.b, a = 0}
+        local col_trans = {x = col.x, y = col.y, z = col.z, w = 0}
 
         -- Thicknesses <1.0 should behave like thickness 1.0
         thickness = ImMax(thickness, 1.0)
@@ -597,7 +597,7 @@ function _ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local fractional_thickness = thickness - integer_thickness
 
         -- Do we want to draw this line using a texture?
-        local use_texture = bit.band(self.Flags, Flags.ImDrawList.AntiAliasedLinesUseTex) ~= 0
+        local use_texture = bit.band(self.Flags, Enums.ImDrawListFlags.AntiAliasedLinesUseTex) ~= 0
                         and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX
                         and fractional_thickness <= 0.00001
                         and AA_SIZE == 1.0
@@ -891,8 +891,8 @@ end
 local function FixRectCornerFlags(flags)
     -- IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
 
-    if (bit.band(flags, Flags.ImDraw.RoundCornersMask) == 0) then
-        flags = bit.bor(flags, Flags.ImDraw.RoundCornersAll)
+    if (bit.band(flags, Enums.ImDrawFlags.RoundCornersMask) == 0) then
+        flags = bit.bor(flags, Enums.ImDrawFlags.RoundCornersAll)
     end
 
     return flags
@@ -901,19 +901,19 @@ end
 function _ImDrawList:PathRect(a, b, rounding, flags)
     if rounding >= 0.5 then
         flags = FixRectCornerFlags(flags)
-        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, Flags.ImDraw.RoundCornersTop) == Flags.ImDraw.RoundCornersTop) or (bit.band(flags, Flags.ImDraw.RoundCornersBottom) == Flags.ImDraw.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
-        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, Flags.ImDraw.RoundCornersLeft) == Flags.ImDraw.RoundCornersLeft) or (bit.band(flags, Flags.ImDraw.RoundCornersRight) == Flags.ImDraw.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, Enums.ImDrawFlags.RoundCornersTop) == Enums.ImDrawFlags.RoundCornersTop) or (bit.band(flags, Enums.ImDrawFlags.RoundCornersBottom) == Enums.ImDrawFlags.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, Enums.ImDrawFlags.RoundCornersLeft) == Enums.ImDrawFlags.RoundCornersLeft) or (bit.band(flags, Enums.ImDrawFlags.RoundCornersRight) == Enums.ImDrawFlags.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
     end
-    if rounding < 0.5 or (bit.band(flags, Flags.ImDraw.RoundCornersMask) == Flags.ImDraw.RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, Enums.ImDrawFlags.RoundCornersMask) == Enums.ImDrawFlags.RoundCornersNone) then
         self:PathLineTo(a)
         self:PathLineTo(ImVec2(b.x, a.y))
         self:PathLineTo(b)
         self:PathLineTo(ImVec2(a.x, b.y))
     else
-        local rounding_tl = (bit.band(flags, Flags.ImDraw.RoundCornersTopLeft) ~= 0) and rounding or 0.0
-        local rounding_tr = (bit.band(flags, Flags.ImDraw.RoundCornersTopRight) ~= 0) and rounding or 0.0
-        local rounding_br = (bit.band(flags, Flags.ImDraw.RoundCornersBottomRight) ~= 0) and rounding or 0.0
-        local rounding_bl = (bit.band(flags, Flags.ImDraw.RoundCornersBottomLeft) ~= 0) and rounding or 0.0
+        local rounding_tl = (bit.band(flags, Enums.ImDrawFlags.RoundCornersTopLeft) ~= 0) and rounding or 0.0
+        local rounding_tr = (bit.band(flags, Enums.ImDrawFlags.RoundCornersTopRight) ~= 0) and rounding or 0.0
+        local rounding_br = (bit.band(flags, Enums.ImDrawFlags.RoundCornersBottomRight) ~= 0) and rounding or 0.0
+        local rounding_bl = (bit.band(flags, Enums.ImDrawFlags.RoundCornersBottomLeft) ~= 0) and rounding or 0.0
         self:PathArcToFast(ImVec2(a.x + rounding_tl, a.y + rounding_tl), rounding_tl, 6, 9)
         self:PathArcToFast(ImVec2(b.x - rounding_tr, a.y + rounding_tr), rounding_tr, 9, 12)
         self:PathArcToFast(ImVec2(b.x - rounding_br, b.y - rounding_br), rounding_br, 0, 3)
@@ -924,7 +924,7 @@ end
 function _ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
     if col.a == 0 then return end -- TODO: pack color?
 
-    if rounding < 0.5 or (bit.band(flags, Flags.ImDraw.RoundCornersMask) == Flags.ImDraw.RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, Enums.ImDrawFlags.RoundCornersMask) == Enums.ImDrawFlags.RoundCornersNone) then
         self:PrimReserve(6, 4)
         self:PrimRect(p_min, p_max, col)
     else
@@ -935,13 +935,13 @@ end
 
 function _ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
     if col.a == 0 then return end
-    if bit.band(self.Flags, Flags.ImDrawList.AntiAliasedLines) ~= 0 then
+    if bit.band(self.Flags, Enums.ImDrawListFlags.AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
     else
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
     end
 
-    self:PathStroke(col, Flags.ImDraw.Closed, thickness)
+    self:PathStroke(col, Enums.ImDrawFlags.Closed, thickness)
 end
 
 function _ImDrawList:AddLine(p1, p2, col, thickness)
@@ -973,15 +973,8 @@ function _ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     local text_width, text_height = surface.GetTextSize(text)
     local need_clipping = text_width > w or text_height > h
 
-    -- if need_clipping then
-    --self:AddDrawCmd(render.SetScissorRect, pos.x, pos.y, pos.x + w, pos.y + h, true)
-    -- end
-
+    -- TODO: clipping
     self:AddText(text, font, pos, color)
-
-    -- if need_clipping then
-    --self:AddDrawCmd(render.SetScissorRect, 0, 0, 0, 0, false)
-    -- end
 end
 
 function _ImDrawList:_CalcCircleAutoSegmentCount(radius)

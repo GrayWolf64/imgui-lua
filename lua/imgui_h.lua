@@ -9,6 +9,8 @@ local ImDir = {
 
 local ImFontAtlasRectId_Invalid = -1
 
+local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
+
 local _ImFontBaked = {}
 _ImFontBaked.__index = _ImFontBaked
 
@@ -130,14 +132,9 @@ local function ImFontAtlas()
     }, _ImFontAtlas)
 end
 
-local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
-
-
-
-
-local Flags = {
+local Enums = {
     --- enum ImGuiWindowFlags_
-    ImGuiWindow = {
+    ImGuiWindowFlags = {
         None                      = 0,
         NoTitleBar                = bit.lshift(1, 0),
         NoResize                  = bit.lshift(1, 1),
@@ -167,7 +164,7 @@ local Flags = {
     },
 
     --- enum ImGuiItemFlags_
-    ImGuiItem = {
+    ImGuiItemFlags = {
         None              = 0,
         NoTabStop         = bit.lshift(1, 0),
         NoNav             = bit.lshift(1, 1),
@@ -177,7 +174,7 @@ local Flags = {
         AllowDuplicateID  = bit.lshift(1, 5)
     },
 
-    ImGuiItemStatus = {
+    ImGuiItemStatusFlags = {
         None             = 0,
         HoveredRect      = bit.lshift(1, 0),
         HasDisplayRect   = bit.lshift(1, 1),
@@ -193,7 +190,7 @@ local Flags = {
     },
 
     --- enum ImDrawFlags_
-    ImDraw = {
+    ImDrawFlags = {
         None                    = 0,
         Closed                  = bit.lshift(1, 0),
         RoundCornersTopLeft     = bit.lshift(1, 4),
@@ -204,7 +201,7 @@ local Flags = {
     },
 
     --- enum ImDrawListFlags_
-    ImDrawList = {
+    ImDrawListFlags = {
         None                   = 0,
         AntiAliasedLines       = bit.lshift(1, 0),
         AntiAliasedLinesUseTex = bit.lshift(1, 1),
@@ -213,14 +210,14 @@ local Flags = {
     }
 }
 
-Flags.ImGuiWindow.NoNav        = bit.bor(Flags.ImGuiWindow.NoNavInputs, Flags.ImGuiWindow.NoNavFocus)
-Flags.ImGuiWindow.NoDecoration = bit.bor(Flags.ImGuiWindow.NoTitleBar, Flags.ImGuiWindow.NoResize, Flags.ImGuiWindow.NoScrollbar, Flags.ImGuiWindow.NoCollapse)
-Flags.ImGuiWindow.NoInputs     = bit.bor(Flags.ImGuiWindow.NoMouseInputs, Flags.ImGuiWindow.NoNavInputs, Flags.ImGuiWindow.NoNavFocus)
+Enums.ImGuiWindowFlags.NoNav        = bit.bor(Enums.ImGuiWindowFlags.NoNavInputs, Enums.ImGuiWindowFlags.NoNavFocus)
+Enums.ImGuiWindowFlags.NoDecoration = bit.bor(Enums.ImGuiWindowFlags.NoTitleBar, Enums.ImGuiWindowFlags.NoResize, Enums.ImGuiWindowFlags.NoScrollbar, Enums.ImGuiWindowFlags.NoCollapse)
+Enums.ImGuiWindowFlags.NoInputs     = bit.bor(Enums.ImGuiWindowFlags.NoMouseInputs, Enums.ImGuiWindowFlags.NoNavInputs, Enums.ImGuiWindowFlags.NoNavFocus)
 
-Flags.ImDraw.RoundCornersTop     = bit.bor(Flags.ImDraw.RoundCornersTopLeft, Flags.ImDraw.RoundCornersTopRight)
-Flags.ImDraw.RoundCornersBottom  = bit.bor(Flags.ImDraw.RoundCornersBottomLeft, Flags.ImDraw.RoundCornersBottomRight)
-Flags.ImDraw.RoundCornersLeft    = bit.bor(Flags.ImDraw.RoundCornersBottomLeft, Flags.ImDraw.RoundCornersTopLeft)
-Flags.ImDraw.RoundCornersRight   = bit.bor(Flags.ImDraw.RoundCornersBottomRight, Flags.ImDraw.RoundCornersTopRight)
-Flags.ImDraw.RoundCornersAll     = bit.bor(Flags.ImDraw.RoundCornersTopLeft, Flags.ImDraw.RoundCornersTopRight, Flags.ImDraw.RoundCornersBottomLeft, Flags.ImDraw.RoundCornersBottomRight)
-Flags.ImDraw.RoundCornersMask    = bit.bor(Flags.ImDraw.RoundCornersAll, Flags.ImDraw.RoundCornersNone)
-Flags.ImDraw.RoundCornersDefault = Flags.ImDraw.RoundCornersAll
+Enums.ImDrawFlags.RoundCornersTop     = bit.bor(Enums.ImDrawFlags.RoundCornersTopLeft, Enums.ImDrawFlags.RoundCornersTopRight)
+Enums.ImDrawFlags.RoundCornersBottom  = bit.bor(Enums.ImDrawFlags.RoundCornersBottomLeft, Enums.ImDrawFlags.RoundCornersBottomRight)
+Enums.ImDrawFlags.RoundCornersLeft    = bit.bor(Enums.ImDrawFlags.RoundCornersBottomLeft, Enums.ImDrawFlags.RoundCornersTopLeft)
+Enums.ImDrawFlags.RoundCornersRight   = bit.bor(Enums.ImDrawFlags.RoundCornersBottomRight, Enums.ImDrawFlags.RoundCornersTopRight)
+Enums.ImDrawFlags.RoundCornersAll     = bit.bor(Enums.ImDrawFlags.RoundCornersTopLeft, Enums.ImDrawFlags.RoundCornersTopRight, Enums.ImDrawFlags.RoundCornersBottomLeft, Enums.ImDrawFlags.RoundCornersBottomRight)
+Enums.ImDrawFlags.RoundCornersMask    = bit.bor(Enums.ImDrawFlags.RoundCornersAll, Enums.ImDrawFlags.RoundCornersNone)
+Enums.ImDrawFlags.RoundCornersDefault = Enums.ImDrawFlags.RoundCornersAll

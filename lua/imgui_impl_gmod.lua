@@ -66,6 +66,10 @@ end
 local function ImGui_ImplGMOD_Shutdown()
 end
 
+local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
+    SetMouseCursor(imgui_cursor)
+end
+
 local function ImGui_ImplGMOD_NewFrame()
     local io = ImGui.GetIO()
     local bd = ImGui_ImplGMOD_Data
@@ -75,6 +79,8 @@ local function ImGui_ImplGMOD_NewFrame()
     local current_time = SysTime()
     io.DeltaTime = current_time - bd.Time
     bd.Time = current_time
+
+    ImGui_ImplGMOD_UpdateMouseCursor(io, ImGui.GetMouseCursor())
 end
 
 --- TEMPORARY

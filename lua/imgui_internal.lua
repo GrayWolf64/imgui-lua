@@ -452,6 +452,8 @@ local function ImGuiContext()
         WantCaptureMouseNextFrame = -1,
         -- WantCaptureKeyboardNextFrame = -1,
         -- WantTextInputNextFrame = -1
+
+        MouseCursor = "arrow"
     }
 
     return this

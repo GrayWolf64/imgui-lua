@@ -160,7 +160,7 @@ local function GetDefaultFont() -- FIXME: fix impl
 end
 
 --- void ImGui::UpdateFontsNewFrame
-local function UpdateFontsNewFrame() -- TODO: investigate
+function ImGui.UpdateFontsNewFrame() -- TODO: investigate
     local g = GImGui
 
     g.Font = GetDefaultFont()
@@ -606,11 +606,10 @@ local function UpdateWindowManualResize(window, resize_grip_col)
         local pressed, hovered, held = ButtonBehavior(resize_grip_id, resize_rect)
 
         if hovered or held then
-            g.MovingWindow = nil
             if i == 1 then
-                SetMouseCursor("sizenwse")
+                ImGui.SetMouseCursor("sizenwse")
             elseif i == 2 then
-                SetMouseCursor("sizenesw")
+                ImGui.SetMouseCursor("sizenesw")
             end
         end
 
@@ -629,7 +628,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
             pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
         end
 
-        local resize_grip_visible = held or hovered or (i == 1 and bit.band(window.Flags, Flags.ImGuiWindow.ChildWindow) == 0)
+        local resize_grip_visible = held or hovered or (i == 1 and bit.band(window.Flags, Enums.ImGuiWindowFlags.ChildWindow) == 0)
         if resize_grip_visible then
             if held then
                 resize_grip_col[i] = g.Style.Colors.ResizeGripActive
@@ -812,10 +811,10 @@ local function SetWindowPos(window, pos)
 
     if offset.x == 0 and offset.y == 0 then return end
 
-    -- window->DC.CursorPos += offset;
-    -- window->DC.CursorMaxPos += offset;
-    -- window->DC.IdealMaxPos += offset;
-    -- window->DC.CursorStartPos += offset;
+    window.DC.CursorPos = window.DC.CursorPos + offset
+    window.DC.CursorMaxPos = window.DC.CursorMaxPos + offset
+    window.DC.IdealMaxPos = window.DC.IdealMaxPos + offset
+    window.DC.CursorStartPos = window.DC.CursorStartPos + offset
 end
 
 --- void ImGui::StartMouseMovingWindow
@@ -831,7 +830,7 @@ local function StartMouseMovingWindow(window)
 end
 
 --- void ImGui::UpdateMouseMovingWindowNewFrame
-local function UpdateMouseMovingWindowNewFrame()
+function ImGui.UpdateMouseMovingWindowNewFrame()
     local g = GImGui
     local window = g.MovingWindow
 
@@ -1015,7 +1014,7 @@ local function FindHoveredWindowEx()
 end
 
 --- void ImGui::UpdateHoveredWindowAndCaptureFlags
-local function UpdateHoveredWindowAndCaptureFlags()
+function ImGui.UpdateHoveredWindowAndCaptureFlags()
     local g = GImGui
     local io = g.IO
 
@@ -1055,7 +1054,7 @@ local function UpdateHoveredWindowAndCaptureFlags()
 end
 
 --- ImGui::UpdateMouseInputs()
-local function UpdateMouseInputs()
+function ImGui.UpdateMouseInputs()
     local g = GImGui
     local io = g.IO
 
@@ -1169,7 +1168,7 @@ end
 
 --- static inline int GetWindowDisplayLayer(ImGuiWindow* window)
 local function GetWindowDisplayLayer(window)
-    return (bit.band(window.Flags, Flags.ImGuiWindow.Tooltip) ~= 0) and 2 or 1
+    return (bit.band(window.Flags, Enums.ImGuiWindowFlags.Tooltip) ~= 0) and 2 or 1
 end
 
 --- static inline void AddRootWindowToDrawData(ImGuiWindow* window)
@@ -1204,7 +1203,7 @@ local function FlattenDrawDataIntoSingleLayer(builder)
 end
 
 --- static void ImGui::UpdateViewportsNewFrame()
-local function UpdateViewportsNewFrame()
+function ImGui.UpdateViewportsNewFrame()
     local g = GImGui
     IM_ASSERT(g.Viewports.Size == 1)
 
@@ -1245,10 +1244,10 @@ function ImGui.NewFrame()
 
     g.CurrentWindow = nil
 
-    UpdateViewportsNewFrame()
+    ImGui.UpdateViewportsNewFrame()
 
     SetupDrawListSharedData()
-    UpdateFontsNewFrame()
+    ImGui.UpdateFontsNewFrame()
 
     for _, viewport in g.Viewports:iter() do
         viewport.DrawDataP.Valid = false
@@ -1267,16 +1266,18 @@ function ImGui.NewFrame()
     g.ActiveIDIsAlive = 0
     g.ActiveIDIsJustActivated = false
 
-    UpdateMouseInputs()
+    ImGui.UpdateMouseInputs()
 
     for _, window in g.Windows:iter() do
         window.WasActive = window.Active
         window.Active = false
     end
 
-    UpdateHoveredWindowAndCaptureFlags()
+    ImGui.UpdateHoveredWindowAndCaptureFlags()
 
-    UpdateMouseMovingWindowNewFrame()
+    ImGui.UpdateMouseMovingWindowNewFrame()
+
+    g.MouseCursor = "arrow"
 
     g.CurrentWindowStack:resize(0)
 end
@@ -1354,6 +1355,16 @@ function ImGui.GetIO() return GImGui.IO end
 function ImGui.GetStyle()
     IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?")
     return GImGui.Style
+end
+
+function ImGui.GetMouseCursor()
+    local g = GImGui
+    return g.MouseCursor
+end
+
+function ImGui.SetMouseCursor(cursor_type)
+    local g = GImGui
+    g.MouseCursor = cursor_type
 end
 
 --- static void ScaleWindow(ImGuiWindow* window, float scale)
