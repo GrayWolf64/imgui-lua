@@ -28,43 +28,6 @@ local CArray do
     _View = {}
     _View.__index = _View
 
-    function _View:__index(key)
-        if type(key) == "number" then
-            if not is_integer(key) then error("integer index required", 3) end
-
-            local abs_off = self.offset + key
-            if abs_off < 0 or abs_off >= self.buf.size then
-                error(string.format("index [%d] at offset %d out of bounds", key, self.offset), 3)
-            end
-
-            return self.buf.data[abs_off + 1]
-        elseif type(key) == "string" then
-            local method = _View[key]
-            if type(method) == "function" then
-                return method
-            else
-                error("invalid key: " .. key, 2)
-            end
-        else
-            error("invalid index type: " .. type(key), 2)
-        end
-    end
-
-    function _View:__newindex(key, value)
-        if type(key) == "number" then
-            if not is_integer(key) then error("integer index required", 3) end
-
-            local abs_off = self.offset + key
-            if abs_off < 0 or abs_off >= self.buf.size then
-                error(string.format("index [%d] at offset %d out of bounds", key, self.offset), 3)
-            end
-
-            self.buf.data[abs_off + 1] = value
-        else
-            error("invalid key type: " .. type(key), 2)
-        end
-    end
-
     function CArray(size, init)
         local arr = setmetatable({buf = _Buf:new(size), offset = 0}, _View)
 
@@ -86,6 +49,9 @@ local function ptr_deref(p) return p.buf.data[p.offset + 1] end
 local function ptr_set_deref(p, v) p.buf.data[p.offset + 1] = v end
 
 local function ptr_add(p, n) return setmetatable({buf = p.buf, offset = p.offset + n}, _View) end
+
+local function ptr_index_at(p, i) return p.buf.data[p.offset + i + 1] end
+local function ptr_newindex(p, i, v) p.buf.data[p.offset + i + 1] = v end
 
 local STBTT_MAX_OVERSAMPLE = 8
 
@@ -527,15 +493,15 @@ end
 -------------------------------------
 --- accessors to parse data from file
 --
-local function ttUSHORT(p) return stbtt_uint16(p[0] * 256 + p[1]) end
-local function ttSHORT(p) return stbtt_int16(p[0] * 256 + p[1]) end
-local function ttULONG(p) return stbtt_uint32(lshift(p[0], 24) + lshift(p[1], 16) + lshift(p[2], 8) + p[3]) end
-local function ttLONG(p) return stbtt_int32(lshift(p[0], 24) + lshift(p[1], 16) + lshift(p[2], 8) + p[3]) end
+local function ttUSHORT(p) return stbtt_uint16(p.buf.data[p.offset + 1] * 256 + p.buf.data[p.offset + 2]) end
+local function ttSHORT(p) return stbtt_int16(p.buf.data[p.offset + 1] * 256 + p.buf.data[p.offset + 2]) end
+local function ttULONG(p) return stbtt_uint32(lshift(p.buf.data[p.offset + 1], 24) + lshift(p.buf.data[p.offset + 2], 16) + lshift(p.buf.data[p.offset + 3], 8) + p.buf.data[p.offset + 4]) end
+local function ttLONG(p) return stbtt_int32(lshift(p.buf.data[p.offset + 1], 24) + lshift(p.buf.data[p.offset + 2], 16) + lshift(p.buf.data[p.offset + 3], 8) + p.buf.data[p.offset + 4]) end
 
 local function ttBYTE(p) return stbtt_uint8(ptr_deref(p)) end
 local function ttCHAR(p) return stbtt_int8(ptr_deref(p)) end
 
-local function stbtt_tag4(p, c0, c1, c2, c3) return p[0] == c0 and p[1] == c1 and p[2] == c2 and p[3] == c3 end
+local function stbtt_tag4(p, c0, c1, c2, c3) return p.buf.data[p.offset + 1] == c0 and p.buf.data[p.offset + 2] == c1 and p.buf.data[p.offset + 3] == c2 and p.buf.data[p.offset + 4] == c3 end
 local function stbtt_tag(p, str) return stbtt_tag4(p, str_byte(str, 1, 4)) end
 
 local function stbtt__isfont(font)
@@ -969,7 +935,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 end
             else
                 if band(flags, 16) == 0 then
-                    x = x + stbtt_int16(points[0] * 256 + points[1])
+                    x = x + stbtt_int16(ptr_index_at(points, 0) * 256 + ptr_index_at(points, 1))
                     ptr_inc(points, 2)
                 end
             end
@@ -991,7 +957,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 end
             else
                 if band(flags, 32) == 0 then
-                    y = y + stbtt_int16(points[0] * 256 + points[1])
+                    y = y + stbtt_int16(ptr_index_at(points, 0) * 256 + ptr_index_at(points, 1))
                     ptr_inc(points, 2)
                 end
             end
@@ -2298,7 +2264,7 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
                 k = STBTT_fabs(k) * 255 + 0.5
                 m = trunc(k)
                 if m > 255 then m = 255 end
-                result.pixels[j * result.stride + i] = unsigned_char(m)
+                ptr_newindex(result.pixels, j * result.stride + i, unsigned_char(m))
             end
         end
 
