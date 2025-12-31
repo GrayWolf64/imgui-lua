@@ -26,16 +26,6 @@ local CArray do
     local _View = {}
     _View.__index = _View
 
-    function _View:inc(n)
-        n = n or 1
-        local new_off = self.offset + n
-        if new_off < 0 or new_off > self.buf.size then
-            error(string.format("pointer arithmetic out of bounds: offset %d + %d not in [0, %d]",
-                self.offset, n, self.buf.size), 3)
-        end
-        self.offset = new_off
-    end
-
     function _View.__add(lhs, rhs)
         local v, d = (type(lhs) == "number" and rhs or lhs),
                     (type(lhs) == "number" and lhs or rhs)
@@ -68,46 +58,6 @@ local CArray do
             return lhs.offset - rhs.offset
         end
         error("bad operand to - (need View - number or View - View)", 2)
-    end
-
-    function _View.__eq(lhs, rhs)
-        local lhs_meta = getmetatable(lhs)
-        local rhs_meta = getmetatable(rhs)
-        if lhs_meta ~= _View or rhs_meta ~= _View then return false end
-
-        if lhs.buf ~= rhs.buf then
-            error("cannot compare pointers to different buffers", 2)
-        end
-        return lhs.offset == rhs.offset
-    end
-
-    local function view_lt(lhs, rhs)
-        if getmetatable(lhs) ~= _View or getmetatable(rhs) ~= _View then
-            error("bad operand to comparison", 3)
-        end
-        if lhs.buf ~= rhs.buf then error("cannot compare pointers to different buffers", 3) end
-        return lhs.offset < rhs.offset
-    end
-
-    function _View.__lt(lhs, rhs) return view_lt(lhs, rhs) end
-    function _View.__le(lhs, rhs) return not view_lt(rhs, lhs) end
-    function _View.__gt(lhs, rhs) return view_lt(rhs, lhs) end
-    function _View.__ge(lhs, rhs) return not view_lt(lhs, rhs) end
-
-    function _View:deref()
-        local off = self.offset
-        if off < 0 or off >= self.buf.size then
-            error(string.format("dereference at offset %d out of bounds [0, %d)", off, self.buf.size), 3)
-        end
-        return self.buf.data[off + 1]
-    end
-
-    function _View:set_deref(v)
-        local off = self.offset
-        if off < 0 or off >= self.buf.size then
-            error(string.format("dereference at offset %d out of bounds [0, %d)", off, self.buf.size), 3)
-        end
-        self.buf.data[off + 1] = v
     end
 
     function _View:__index(key)
@@ -163,7 +113,9 @@ local CArray do
     end
 end
 
-
+local function ptr_inc(p, n) p.offset = p.offset + n end
+local function ptr_deref(p) return p.buf.data[p.offset + 1] end
+local function ptr_set_deref(p, v) p.buf.data[p.offset + 1] = v end
 
 local STBTT_MAX_OVERSAMPLE = 8
 
@@ -610,9 +562,8 @@ local function ttSHORT(p) return stbtt_int16(p[0] * 256 + p[1]) end
 local function ttULONG(p) return stbtt_uint32(lshift(p[0], 24) + lshift(p[1], 16) + lshift(p[2], 8) + p[3]) end
 local function ttLONG(p) return stbtt_int32(lshift(p[0], 24) + lshift(p[1], 16) + lshift(p[2], 8) + p[3]) end
 
-local ttFixed = ttLONG
-local function ttBYTE(p) return stbtt_uint8(p:deref()) end
-local function ttCHAR(p) return stbtt_int8(p:deref()) end
+local function ttBYTE(p) return stbtt_uint8(ptr_deref(p)) end
+local function ttCHAR(p) return stbtt_int8(ptr_deref(p)) end
 
 local function stbtt_tag4(p, c0, c1, c2, c3) return p[0] == c0 and p[1] == c1 and p[2] == c2 and p[3] == c3 end
 local function stbtt_tag(p, str) return stbtt_tag4(p, str_byte(str, 1, 4)) end
@@ -1020,12 +971,12 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
         local flags = 0
         for i = 1, n do
             if flagcount == 0 then
-                flags = points:deref()
-                points:inc()
+                flags = ptr_deref(points)
+                ptr_inc(points, 1)
 
                 if band(flags, 8) ~= 0 then
-                    flagcount = points:deref()
-                    points:inc()
+                    flagcount = ptr_deref(points)
+                    ptr_inc(points, 1)
                 end
             else
                 flagcount = flagcount - 1
@@ -1039,8 +990,8 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
         for i = 1, n do
             flags = vertices[off + i].type
             if band(flags, 2) ~= 0 then
-                local dx = points:deref()
-                points:inc()
+                local dx = ptr_deref(points)
+                ptr_inc(points, 1)
                 if band(flags, 16) ~= 0 then
                     x = x + dx
                 else
@@ -1049,7 +1000,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
             else
                 if band(flags, 16) == 0 then
                     x = x + stbtt_int16(points[0] * 256 + points[1])
-                    points = points + 2
+                    ptr_inc(points, 2)
                 end
             end
 
@@ -1061,8 +1012,8 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
         for i = 1, n do
             flags = vertices[off + i].type
             if band(flags, 4) ~= 0 then
-                local dy = points:deref()
-                points:inc()
+                local dy = ptr_deref(points)
+                ptr_inc(points, 1)
                 if band(flags, 32) ~= 0 then
                     y = y + dy
                 else
@@ -1071,7 +1022,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
             else
                 if band(flags, 32) == 0 then
                     y = y + stbtt_int16(points[0] * 256 + points[1])
-                    points = points + 2
+                    ptr_inc(points, 2)
                 end
             end
 
@@ -1151,16 +1102,16 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
             local mtx = {1, 0, 0, 1, 0, 0}
             local m, n
 
-            flags = ttSHORT(comp) comp:inc(2)
-            gidx = ttSHORT(comp) comp:inc(2)
+            flags = ttSHORT(comp) ptr_inc(comp, 2)
+            gidx = ttSHORT(comp) ptr_inc(comp, 2)
 
             if band(flags, 2) ~= 0 then
                 if band(flags, 1) ~= 0 then
-                    mtx[5] = ttSHORT(comp) comp:inc(2)
-                    mtx[6] = ttSHORT(comp) comp:inc(2)
+                    mtx[5] = ttSHORT(comp) ptr_inc(comp, 2)
+                    mtx[6] = ttSHORT(comp) ptr_inc(comp, 2)
                 else
-                    mtx[5] = ttCHAR(comp) comp:inc(1)
-                    mtx[6] = ttCHAR(comp) comp:inc(1)
+                    mtx[5] = ttCHAR(comp) ptr_inc(comp, 1)
+                    mtx[6] = ttCHAR(comp) ptr_inc(comp, 1)
                 end
             else
                 -- TODO: handle matching point
@@ -1170,24 +1121,24 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
             if band(flags, lshift(1, 3)) ~= 0 then -- WE_HAVE_A_SCALE
                 mtx[4] = ttSHORT(comp) / 16384.0
                 mtx[1] = mtx[4]
-                comp:inc(2)
+                ptr_inc(comp, 2)
 
                 mtx[3] = 0
                 mtx[2] = mtx[3]
             elseif band(flags, lshift(1, 6)) ~= 0 then -- WE_HAVE_AN_X_AND_YSCALE
                 mtx[1] = ttSHORT(comp) / 16384.0
-                comp:inc(2)
+                ptr_inc(comp, 2)
 
                 mtx[3] = 0
                 mtx[2] = mtx[3]
 
                 mtx[4] = ttSHORT(comp) / 16384.0
-                comp:inc(2)
+                ptr_inc(comp, 2)
             elseif band(flags, lshift(1, 7)) ~= 0 then -- WE_HAVE_A_TWO_BY_TWO
-                mtx[1] = ttSHORT(comp) / 16384.0 comp:inc(2)
-                mtx[2] = ttSHORT(comp) / 16384.0 comp:inc(2)
-                mtx[3] = ttSHORT(comp) / 16384.0 comp:inc(2)
-                mtx[4] = ttSHORT(comp) / 16384.0 comp:inc(2)
+                mtx[1] = ttSHORT(comp) / 16384.0 ptr_inc(comp, 2)
+                mtx[2] = ttSHORT(comp) / 16384.0 ptr_inc(comp, 2)
+                mtx[3] = ttSHORT(comp) / 16384.0 ptr_inc(comp, 2)
+                mtx[4] = ttSHORT(comp) / 16384.0 ptr_inc(comp, 2)
             end
 
             m = STBTT_sqrt(mtx[1] * mtx[1] + mtx[2] * mtx[2])
@@ -1945,16 +1896,11 @@ local function stbtt_GetFontVMetrics(info) -- const stbtt_fontinfo *info, int *a
     return ascent, descent, lineGap
 end
 
-function stbtt_GetFontVMetricsOS2(info, typoAscent, typoDescent, typoLineGap)
-    local tab = stbtt__find_table(info.data, info.fontstart, "OS/2")
-    if tab == 0 then
-        return 0
-    end
-    if typoAscent then typoAscent:set_deref(ttSHORT(info.data + tab + 68)) end
-    if typoDescent then typoDescent:set_deref(ttSHORT(info.data + tab + 70)) end
-    if typoLineGap then typoLineGap:set_deref(ttSHORT(info.data + tab + 72)) end
-    return 1
-end
+--- Unused in ImGui
+-- TODO: rewrite if needed
+--
+-- function stbtt_GetFontVMetricsOS2(info)
+-- end
 
 local function stbtt_GetFontBoundingBox(info)
     local x0 = ttSHORT(info.data + info.head + 36)
@@ -1991,25 +1937,17 @@ local function stbtt_FindSVGDoc(info, gl)
     return 0
 end
 
-local function stbtt_GetGlyphSVG(info, gl, svg)
-    local data = info.data
+--- Unused in ImGui
+-- TODO: rewrite if needed
+--
+-- local function stbtt_GetGlyphSVG(info, gl)
+-- end
 
-    if info.svg == 0 then
-        return 0
-    end
-
-    local svg_doc = stbtt_FindSVGDoc(info, gl)
-    if svg_doc ~= 0 then
-        svg:set_deref(data + info.svg + ttULONG(svg_doc + 4))
-        return ttULONG(svg_doc + 8)
-    else
-        return 0
-    end
-end
-
-local function stbtt_GetCodepointSVG(info, unicode_codepoint, svg)
-    return stbtt_GetGlyphSVG(info, stbtt_FindGlyphIndex(info, unicode_codepoint), svg)
-end
+--- Unused in ImGui
+-- TODO: rewrite if needed
+--
+-- local function stbtt_GetCodepointSVG(info, unicode_codepoint)
+-- end
 
 ------------------------------------
 --- antialiasing software rasterizer
@@ -3081,7 +3019,7 @@ local function stbtt__solve_cubic(a, b, c, r)
 end
 
 
-local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixel_dist_scale, width, height, xoff, yoff)
+local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixel_dist_scale)
     local scale_x = scale
     local scale_y = scale
     local w, h
@@ -3101,11 +3039,6 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
 
     w = ix1_val - ix0_val
     h = iy1_val - iy0_val
-
-    if width then width:set_deref(w) end
-    if height then height:set_deref(h) end
-    if xoff then xoff:set_deref(ix0_val) end
-    if yoff then yoff:set_deref(iy0_val) end
 
     scale_y = -scale_y
 
@@ -3276,13 +3209,12 @@ local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixe
         end
     end
 
-    return data
+    return data, w, h, ix0_val, iy0_val
 end
 
-local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_value, pixel_dist_scale, width, height, xoff, yoff)
-    return stbtt_GetGlyphSDF(info, scale, stbtt_FindGlyphIndex(info, codepoint), padding, onedge_value, pixel_dist_scale, width, height, xoff, yoff)
+local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_value, pixel_dist_scale)
+    return stbtt_GetGlyphSDF(info, scale, stbtt_FindGlyphIndex(info, codepoint), padding, onedge_value, pixel_dist_scale)
 end
-
 
 -----------------------------------------------------
 --- font name matching -- recommended not to use this
