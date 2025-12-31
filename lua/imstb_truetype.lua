@@ -8,6 +8,8 @@ local stbtt_MakeGlyphBitmapSubpixelPrefilter
 ---------------------------------
 --- To mock C arrays and pointers
 --
+local setmetatable = setmetatable
+local _View
 local CArray do
     local function is_integer(n)
         return type(n) == "number" and n % 1 == 0
@@ -23,47 +25,13 @@ local CArray do
         return setmetatable({data = data, size = size}, _Buf)
     end
 
-    local _View = {}
+    _View = {}
     _View.__index = _View
-
-    function _View.__add(lhs, rhs)
-        local v, d = (type(lhs) == "number" and rhs or lhs),
-                    (type(lhs) == "number" and lhs or rhs)
-        if getmetatable(v) ~= _View or type(d) ~= "number" then
-            error("bad operand to + (need View + number or number + View)", 2)
-        end
-        if not is_integer(d) then error("integer operand required", 2) end
-
-        local new_off = v.offset + d
-        if new_off < 0 or new_off > v.buf.size then
-            error(string.format("pointer arithmetic out of bounds: offset %d + %d not in [0, %d]",
-                v.offset, d, v.buf.size), 2)
-        end
-        local new_view = setmetatable({buf = v.buf, offset = new_off}, _View)
-        return new_view
-    end
-
-    function _View.__sub(lhs, rhs)
-        if getmetatable(lhs) == _View and type(rhs) == "number" then
-            if not is_integer(rhs) then error("integer operand required", 2) end
-            local new_off = lhs.offset - rhs
-            if new_off < 0 or new_off > lhs.buf.size then
-                error(string.format("pointer arithmetic out of bounds: offset %d - %d not in [0, %d]",
-                    lhs.offset, rhs, lhs.buf.size), 2)
-            end
-            local new_view = setmetatable({buf = lhs.buf, offset = new_off}, _View)
-            return new_view
-        elseif getmetatable(lhs) == _View and getmetatable(rhs) == _View then
-            if lhs.buf ~= rhs.buf then error("cannot subtract pointers to different buffers", 2) end
-            return lhs.offset - rhs.offset
-        end
-        error("bad operand to - (need View - number or View - View)", 2)
-    end
 
     function _View:__index(key)
         if type(key) == "number" then
             if not is_integer(key) then error("integer index required", 3) end
-            if key < 0 then error(string.format("negative index %d forbidden", key), 3) end
+
             local abs_off = self.offset + key
             if abs_off < 0 or abs_off >= self.buf.size then
                 error(string.format("index [%d] at offset %d out of bounds", key, self.offset), 3)
@@ -85,7 +53,7 @@ local CArray do
     function _View:__newindex(key, value)
         if type(key) == "number" then
             if not is_integer(key) then error("integer index required", 3) end
-            if key < 0 then error(string.format("negative index %d forbidden", key), 3) end
+
             local abs_off = self.offset + key
             if abs_off < 0 or abs_off >= self.buf.size then
                 error(string.format("index [%d] at offset %d out of bounds", key, self.offset), 3)
@@ -116,6 +84,8 @@ end
 local function ptr_inc(p, n) p.offset = p.offset + n end
 local function ptr_deref(p) return p.buf.data[p.offset + 1] end
 local function ptr_set_deref(p, v) p.buf.data[p.offset + 1] = v end
+
+local function ptr_add(p, n) return setmetatable({buf = p.buf, offset = p.offset + n}, _View) end
 
 local STBTT_MAX_OVERSAMPLE = 8
 
@@ -578,12 +548,12 @@ local function stbtt__isfont(font)
 end
 
 local function stbtt__find_table(data, font_start, tag)
-    local num_tables = ttUSHORT(data + font_start + 4)
+    local num_tables = ttUSHORT(ptr_add(data, font_start + 4))
     local tabledir = font_start + 12
     for i = 0, num_tables - 1 do
         local loc = tabledir + i * 16
-        if stbtt_tag(data + loc + 0, tag) then
-            return ttULONG(data + loc + 8)
+        if stbtt_tag(ptr_add(data, loc + 0), tag) then
+            return ttULONG(ptr_add(data, loc + 8))
         end
     end
     return 0
@@ -595,12 +565,12 @@ local function stbtt_GetFontOffsetForIndex_internal(font_collection, index)
     end
 
     if stbtt_tag(font_collection, "ttcf") then
-        if ttULONG(font_collection + 4) == 0x00010000 or ttULONG(font_collection + 4) == 0x00020000 then
-            local n = ttLONG(font_collection + 8)
+        if ttULONG(ptr_add(font_collection, 4)) == 0x00010000 or ttULONG(ptr_add(font_collection, 4)) == 0x00020000 then
+            local n = ttLONG(ptr_add(font_collection, 8))
             if index >= n then
                 return -1
             end
-            return ttULONG(font_collection + 12 + index * 4)
+            return ttULONG(ptr_add(font_collection, 12 + index * 4))
         end
     end
 
@@ -613,8 +583,8 @@ local function stbtt_GetNumberOfFonts_internal(font_collection)
     end
 
     if stbtt_tag(font_collection, "ttcf") then
-        if ttULONG(font_collection + 4) == 0x00010000 or ttULONG(font_collection + 4) == 0x00020000 then
-            return ttLONG(font_collection + 8)
+        if ttULONG(ptr_add(font_collection, 4)) == 0x00010000 or ttULONG(ptr_add(font_collection, 4)) == 0x00020000 then
+            return ttLONG(ptr_add(font_collection, 8))
         end
     end
 
@@ -640,7 +610,7 @@ local function stbtt__get_svg(info) -- stbtt_fontinfo *info
     if info.svg < 0 then
         t = stbtt__find_table(info.data, info.fontstart, "SVG ")
         if t ~= 0 then
-            local offset = ttULONG(info.data + t + 2)
+            local offset = ttULONG(ptr_add(info.data, t + 2))
             info.svg = t + offset
         else
             info.svg = 0
@@ -682,7 +652,7 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         info.fontdicts = stbtt__new_buf(nil, 0)
         info.fdselect = stbtt__new_buf(nil, 0)
 
-        info.cff = stbtt__new_buf(data + cff, 8 * 1024 * 1024) -- TODO: i didn't solve the og todo, and further decreased it. 8MB
+        info.cff = stbtt__new_buf(ptr_add(data, cff), 8 * 1024 * 1024) -- TODO: i didn't solve the og todo, and further decreased it. 8MB
         local b = info.cff
 
         -- read the header
@@ -726,34 +696,34 @@ local function stbtt_InitFont_internal(info, data, fontstart)
 
     local t = stbtt__find_table(data, fontstart, "maxp")
     if t ~= 0 then
-        info.numGlyphs = ttUSHORT(data + t + 4)
+        info.numGlyphs = ttUSHORT(ptr_add(data, t + 4))
     else
         info.numGlyphs = 0xffff
     end
 
     info.svg = -1
 
-    numTables = ttUSHORT(data + cmap + 2)
+    numTables = ttUSHORT(ptr_add(data, cmap + 2))
     info.index_map = 0
     for i = 0, numTables - 1 do
         local encoding_record = cmap + 4 + 8 * i
-        local platform_id = ttUSHORT(data + encoding_record)
+        local platform_id = ttUSHORT(ptr_add(data, encoding_record))
 
         if platform_id == STBTT_PLATFORM_ID.MICROSOFT then
-            local ms_eid = ttUSHORT(data + encoding_record + 2)
+            local ms_eid = ttUSHORT(ptr_add(data, encoding_record + 2))
 
             if ms_eid == STBTT_MS_EID.UNICODE_BMP or ms_eid == STBTT_MS_EID.UNICODE_FULL then
-                info.index_map = cmap + ttULONG(data + encoding_record + 4)
+                info.index_map = cmap + ttULONG(ptr_add(data, encoding_record + 4))
             end
         elseif platform_id == STBTT_PLATFORM_ID.UNICODE then
-            info.index_map = cmap + ttULONG(data + encoding_record + 4)
+            info.index_map = cmap + ttULONG(ptr_add(data, encoding_record + 4))
         end
     end
     if info.index_map == 0 then
         return 0
     end
 
-    info.indexToLocFormat = ttUSHORT(data + info.head + 50)
+    info.indexToLocFormat = ttUSHORT(ptr_add(data, info.head + 50))
     return 1
 end
 
@@ -761,28 +731,28 @@ local function stbtt_FindGlyphIndex(info, unicode_codepoint)
     local data = info.data
     local index_map = info.index_map
 
-    local format = ttUSHORT(data + index_map + 0)
+    local format = ttUSHORT(ptr_add(data, index_map + 0))
     if format == 0 then
-        local bytes = ttUSHORT(data + index_map + 2)
+        local bytes = ttUSHORT(ptr_add(data, index_map + 2))
         if unicode_codepoint < bytes - 6 then
-            return ttBYTE(data + index_map + 6 + unicode_codepoint)
+            return ttBYTE(ptr_add(data, index_map + 6 + unicode_codepoint))
         end
         return 0
     elseif format == 6 then
-        local first = ttUSHORT(data + index_map + 6)
-        local count = ttUSHORT(data + index_map + 8)
+        local first = ttUSHORT(ptr_add(data, index_map + 6))
+        local count = ttUSHORT(ptr_add(data, index_map + 8))
         if unicode_codepoint >= first and unicode_codepoint < first + count then
-            return ttUSHORT(data + index_map + 10 + (unicode_codepoint - first) * 2)
+            return ttUSHORT(ptr_add(data, index_map + 10 + (unicode_codepoint - first) * 2))
         end
         return 0
     elseif format == 2 then
         STBTT_assert(false) -- TODO: high-byte mapping for japanese/chinese/korean
         return 0
     elseif format == 4 then
-        local segcount = rshift(ttUSHORT(data + index_map + 6), 1)
-        local searchRange = rshift(ttUSHORT(data + index_map + 8), 1)
-        local entrySelector = ttUSHORT(data + index_map + 10)
-        local rangeShift = rshift(ttUSHORT(data + index_map + 12), 1)
+        local segcount = rshift(ttUSHORT(ptr_add(data, index_map + 6)), 1)
+        local searchRange = rshift(ttUSHORT(ptr_add(data, index_map + 8)), 1)
+        local entrySelector = ttUSHORT(ptr_add(data, index_map + 10))
+        local rangeShift = rshift(ttUSHORT(ptr_add(data, index_map + 12)), 1)
 
         local endCount = index_map + 14
         local search = endCount
@@ -791,14 +761,14 @@ local function stbtt_FindGlyphIndex(info, unicode_codepoint)
             return 0
         end
 
-        if unicode_codepoint >= ttUSHORT(data + search + searchRange * 2) then
+        if unicode_codepoint >= ttUSHORT(ptr_add(data, search + searchRange * 2)) then
             search = search + searchRange * 2
         end
 
         search = search - 2
         while entrySelector ~= 0 do
             searchRange = rshift(searchRange, 1)
-            local _end = ttUSHORT(data + search + searchRange * 2)
+            local _end = ttUSHORT(ptr_add(data, search + searchRange * 2))
             if unicode_codepoint > _end then
                 search = search + searchRange * 2
             end
@@ -809,33 +779,33 @@ local function stbtt_FindGlyphIndex(info, unicode_codepoint)
         do
             local item = stbtt_uint16(rshift(search - endCount, 1))
 
-            local start = ttUSHORT(data + index_map + 14 + segcount * 2 + 2 + 2 * item)
-            local last = ttUSHORT(data + endCount + 2 * item)
+            local start = ttUSHORT(ptr_add(data, index_map + 14 + segcount * 2 + 2 + 2 * item))
+            local last = ttUSHORT(ptr_add(data, endCount + 2 * item))
             if unicode_codepoint < start or unicode_codepoint > last then
                 return 0
             end
 
-            local offset = ttUSHORT(data + index_map + 14 + segcount * 6 + 2 + 2 * item)
+            local offset = ttUSHORT(ptr_add(data, index_map + 14 + segcount * 6 + 2 + 2 * item))
             if offset == 0 then
-                return stbtt_uint16(unicode_codepoint + ttSHORT(data + index_map + 14 + segcount * 4 + 2 + 2 * item))
+                return stbtt_uint16(unicode_codepoint + ttSHORT(ptr_add(data, index_map + 14 + segcount * 4 + 2 + 2 * item)))
             end
 
-            return ttUSHORT(data + offset + (unicode_codepoint - start) * 2 + index_map + 14 + segcount * 6 + 2 + 2 * item)
+            return ttUSHORT(ptr_add(data, offset + (unicode_codepoint - start) * 2 + index_map + 14 + segcount * 6 + 2 + 2 * item))
         end
     elseif format == 12 or format == 13 then
-        local ngroups = ttULONG(data + index_map + 12)
+        local ngroups = ttULONG(ptr_add(data, index_map + 12))
         local low = 0
         local high = ngroups
         while low < high do
             local mid = low + rshift(high - low, 1)
-            local start_char = ttULONG(data + index_map + 16 + mid * 12)
-            local end_char = ttULONG(data + index_map + 16 + mid * 12 + 4)
+            local start_char = ttULONG(ptr_add(data, index_map + 16 + mid * 12))
+            local end_char = ttULONG(ptr_add(data, index_map + 16 + mid * 12 + 4))
             if unicode_codepoint < start_char then
                 high = mid
             elseif unicode_codepoint > end_char then
                 low = mid + 1
             else
-                local start_glyph = ttULONG(data + index_map + 16 + mid * 12 + 8)
+                local start_glyph = ttULONG(ptr_add(data, index_map + 16 + mid * 12 + 8))
                 if format == 12 then
                     return start_glyph + unicode_codepoint - start_char
                 else -- format == 13
@@ -867,11 +837,11 @@ local function stbtt__GetGlyfOffset(info, glyph_index)
 
     local g1, g2
     if info.indexToLocFormat == 0 then
-        g1 = info.glyf + ttUSHORT(info.data + info.loca + glyph_index * 2) * 2
-        g2 = info.glyf + ttUSHORT(info.data + info.loca + glyph_index * 2 + 2) * 2
+        g1 = info.glyf + ttUSHORT(ptr_add(info.data, info.loca + glyph_index * 2)) * 2
+        g2 = info.glyf + ttUSHORT(ptr_add(info.data, info.loca + glyph_index * 2 + 2)) * 2
     else
-        g1 = info.glyf + ttULONG(info.data + info.loca + glyph_index * 4)
-        g2 = info.glyf + ttULONG(info.data + info.loca + glyph_index * 4 + 4)
+        g1 = info.glyf + ttULONG(ptr_add(info.data, info.loca + glyph_index * 4))
+        g2 = info.glyf + ttULONG(ptr_add(info.data, info.loca + glyph_index * 4 + 4))
     end
 
     if g1 == g2 then return -1 else return g1 end
@@ -888,10 +858,10 @@ local function stbtt_GetGlyphBox(info, glyph_index)
         local g = stbtt__GetGlyfOffset(info, glyph_index)
         if g < 0 then return 0 end
 
-        x0 = ttSHORT(info.data + g + 2)
-        y0 = ttSHORT(info.data + g + 4)
-        x1 = ttSHORT(info.data + g + 6)
-        y1 = ttSHORT(info.data + g + 8)
+        x0 = ttSHORT(ptr_add(info.data, g + 2))
+        y0 = ttSHORT(ptr_add(info.data, g + 4))
+        x1 = ttSHORT(ptr_add(info.data, g + 6))
+        y1 = ttSHORT(ptr_add(info.data, g + 8))
     end
 
     return 1, x0, y0, x1, y1
@@ -946,14 +916,14 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
 
     if g < 0 then return 0 end
 
-    local numberOfContours = ttSHORT(data + g)
+    local numberOfContours = ttSHORT(ptr_add(data, g))
 
     if numberOfContours > 0 then
-        local endPtsOfContours = data + g + 10
-        local ins = ttUSHORT(data + g + 10 + numberOfContours * 2)
-        local points = data + g + 10 + numberOfContours * 2 + 2 + ins
+        local endPtsOfContours = ptr_add(data, g + 10)
+        local ins = ttUSHORT(ptr_add(data, g + 10 + numberOfContours * 2))
+        local points = ptr_add(data, g + 10 + numberOfContours * 2 + 2 + ins)
 
-        local n = 1 + ttUSHORT(endPtsOfContours + numberOfContours * 2 - 2)
+        local n = 1 + ttUSHORT(ptr_add(endPtsOfContours, numberOfContours * 2 - 2))
         local m = n + 2 * numberOfContours
 
         vertices = {}
@@ -1062,7 +1032,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 stbtt_setvertex(vertices[num_vertices + 1], STBTT_vmove, sx, sy, 0, 0)
                 num_vertices = num_vertices + 1
                 was_off = 0
-                next_move = 1 + ttUSHORT(endPtsOfContours + j * 2)
+                next_move = 1 + ttUSHORT(ptr_add(endPtsOfContours, j * 2))
                 j = j + 1
             else
                 if band(flags, 1) == 0 then
@@ -1580,93 +1550,93 @@ function stbtt_GetGlyphShape(info, glyph_index)
 end
 
 local function stbtt_GetGlyphHMetrics(info, glyph_index) -- const stbtt_fontinfo *info, int glyph_index, int *advanceWidth, int *leftSideBearing
-    local numOfLongHorMetrics = ttUSHORT(info.data + info.hhea + 34)
+    local numOfLongHorMetrics = ttUSHORT(ptr_add(info.data, info.hhea + 34))
 
     local advanceWidth, leftSideBearing
     if glyph_index < numOfLongHorMetrics then
-        advanceWidth = ttSHORT(info.data + info.hmtx + 4 * glyph_index)
-        leftSideBearing = ttSHORT(info.data + info.hmtx + 4 * glyph_index + 2)
+        advanceWidth = ttSHORT(ptr_add(info.data, info.hmtx + 4 * glyph_index))
+        leftSideBearing = ttSHORT(ptr_add(info.data, info.hmtx + 4 * glyph_index + 2))
     else
-        advanceWidth = ttSHORT(info.data + info.hmtx + 4 * (numOfLongHorMetrics - 1))
-        leftSideBearing = ttSHORT(info.data + info.hmtx + 4 * numOfLongHorMetrics + 2 * (glyph_index - numOfLongHorMetrics))
+        advanceWidth = ttSHORT(ptr_add(info.data, info.hmtx + 4 * (numOfLongHorMetrics - 1)))
+        leftSideBearing = ttSHORT(ptr_add(info.data, info.hmtx + 4 * numOfLongHorMetrics + 2 * (glyph_index - numOfLongHorMetrics)))
     end
 
     return advanceWidth, leftSideBearing
 end
 
 local function stbtt_GetKerningTableLength(info)
-    local data = info.data + info.kern
+    local data = ptr_add(info.data, info.kern)
 
     -- we only look at the first table. it must be 'horizontal' and format 0
     if info.kern == 0 then
         return 0
     end
-    if ttUSHORT(data + 2) < 1 then -- number of tables, need at least 1
+    if ttUSHORT(ptr_add(data, 2)) < 1 then -- number of tables, need at least 1
         return 0
     end
-    if ttUSHORT(data + 8) ~= 1 then -- horizontal flag must be set in format
+    if ttUSHORT(ptr_add(data, 8)) ~= 1 then -- horizontal flag must be set in format
         return 0
     end
 
-    return ttUSHORT(data + 10)
+    return ttUSHORT(ptr_add(data, 10))
 end
 
 local function stbtt_GetKerningTable(info, _table, table_length)
-    local data = info.data + info.kern
+    local data = ptr_add(info.data, info.kern)
 
     -- we only look at the first table. it must be 'horizontal' and format 0
     if info.kern == 0 then
         return 0
     end
-    if ttUSHORT(data + 2) < 1 then -- number of tables, need at least 1
+    if ttUSHORT(ptr_add(data, 2)) < 1 then -- number of tables, need at least 1
         return 0
     end
-    if ttUSHORT(data + 8) ~= 1 then -- horizontal flag must be set in format
+    if ttUSHORT(ptr_add(data, 8)) ~= 1 then -- horizontal flag must be set in format
         return 0
     end
 
-    local length = ttUSHORT(data + 10)
+    local length = ttUSHORT(ptr_add(data, 10))
     if table_length < length then
         length = table_length
     end
 
     for k = 0, length - 1 do
-        _table[k].glyph1 = ttUSHORT(data + 18 + (k * 6))
-        _table[k].glyph2 = ttUSHORT(data + 20 + (k * 6))
-        _table[k].advance = ttSHORT(data + 22 + (k * 6))
+        _table[k].glyph1 = ttUSHORT(ptr_add(data, 18 + (k * 6)))
+        _table[k].glyph2 = ttUSHORT(ptr_add(data, 20 + (k * 6)))
+        _table[k].advance = ttSHORT(ptr_add(data, 22 + (k * 6)))
     end
 
     return length
 end
 
 local function stbtt__GetGlyphKernInfoAdvance(info, glyph1, glyph2)
-    local data = info.data + info.kern
+    local data = ptr_add(info.data, info.kern)
 
     -- we only look at the first table. it must be 'horizontal' and format 0
     if info.kern == 0 then
         return 0
     end
-    if ttUSHORT(data + 2) < 1 then -- number of tables, need at least 1
+    if ttUSHORT(ptr_add(data, 2)) < 1 then -- number of tables, need at least 1
         return 0
     end
-    if ttUSHORT(data + 8) ~= 1 then -- horizontal flag must be set in format
+    if ttUSHORT(ptr_add(data, 8)) ~= 1 then -- horizontal flag must be set in format
         return 0
     end
 
     local m
     local l = 0
-    local r = ttUSHORT(data + 10) - 1
+    local r = ttUSHORT(ptr_add(data, 10)) - 1
     local needle = bor(lshift(glyph1, 16), glyph2)
     local straw
     while l <= r do
         m = rshift(l + r, 1)
-        straw = ttULONG(data + 18 + (m * 6))
+        straw = ttULONG(ptr_add(data, 18 + (m * 6)))
         if needle < straw then
             r = m - 1
         elseif needle > straw then
             l = m + 1
         else
-            return ttSHORT(data + 22 + (m * 6))
+            return ttSHORT(ptr_add(data, 22 + (m * 6)))
         end
     end
     return 0
@@ -1676,16 +1646,16 @@ local function stbtt__GetCoverageIndex(coverageTable, glyph)
     local coverageFormat = ttUSHORT(coverageTable)
 
     if coverageFormat == 1 then
-        local glyphCount = ttUSHORT(coverageTable + 2)
+        local glyphCount = ttUSHORT(ptr_add(coverageTable, 2))
 
         -- Binary search
         local l = 0
         local r = glyphCount - 1
 
         while l <= r do
-            local glyphArray = coverageTable + 4
+            local glyphArray = ptr_add(coverageTable, 4)
             local m = rshift(l + r, 1)
-            local glyphID = ttUSHORT(glyphArray + 2 * m)
+            local glyphID = ttUSHORT(ptr_add(glyphArray, 2 * m))
 
             if glyph < glyphID then
                 r = m - 1
@@ -1696,8 +1666,8 @@ local function stbtt__GetCoverageIndex(coverageTable, glyph)
             end
         end
     elseif coverageFormat == 2 then
-        local rangeCount = ttUSHORT(coverageTable + 2)
-        local rangeArray = coverageTable + 4
+        local rangeCount = ttUSHORT(ptr_add(coverageTable, 2))
+        local rangeArray = ptr_add(coverageTable, 4)
 
         -- Binary search
         local l = 0
@@ -1705,16 +1675,16 @@ local function stbtt__GetCoverageIndex(coverageTable, glyph)
 
         while l <= r do
             local m = rshift(l + r, 1)
-            local rangeRecord = rangeArray + 6 * m
+            local rangeRecord = ptr_add(rangeArray, 6 * m)
             local strawStart = ttUSHORT(rangeRecord)
-            local strawEnd = ttUSHORT(rangeRecord + 2)
+            local strawEnd = ttUSHORT(ptr_add(rangeRecord, 2))
 
             if glyph < strawStart then
                 r = m - 1
             elseif glyph > strawEnd then
                 l = m + 1
             else
-                local startCoverageIndex = ttUSHORT(rangeRecord + 4)
+                local startCoverageIndex = ttUSHORT(ptr_add(rangeRecord, 4))
                 return startCoverageIndex + glyph - strawStart
             end
         end
@@ -1727,32 +1697,32 @@ local function stbtt__GetGlyphClass(classDefTable, glyph)
     local classDefFormat = ttUSHORT(classDefTable)
 
     if classDefFormat == 1 then
-        local startGlyphID = ttUSHORT(classDefTable + 2)
-        local glyphCount = ttUSHORT(classDefTable + 4)
-        local classDef1ValueArray = classDefTable + 6
+        local startGlyphID = ttUSHORT(ptr_add(classDefTable, 2))
+        local glyphCount = ttUSHORT(ptr_add(classDefTable, 4))
+        local classDef1ValueArray = ptr_add(classDefTable, 6)
 
         if glyph >= startGlyphID and glyph < startGlyphID + glyphCount then
-            return stbtt_int32(ttUSHORT(classDef1ValueArray + 2 * (glyph - startGlyphID)))
+            return stbtt_int32(ttUSHORT(ptr_add(classDef1ValueArray, 2 * (glyph - startGlyphID))))
         end
     elseif classDefFormat == 2 then
-        local classRangeCount = ttUSHORT(classDefTable + 2)
-        local classRangeRecords = classDefTable + 4
+        local classRangeCount = ttUSHORT(ptr_add(classDefTable, 2))
+        local classRangeRecords = ptr_add(classDefTable, 4)
 
         -- Binary search
         local l = 0
         local r = classRangeCount - 1
         while l <= r do
             local m = rshift(l + r, 1)
-            local classRangeRecord = classRangeRecords + 6 * m
+            local classRangeRecord = ptr_add(classRangeRecords, 6 * m)
             local strawStart = ttUSHORT(classRangeRecord)
-            local strawEnd = ttUSHORT(classRangeRecord + 2)
+            local strawEnd = ttUSHORT(ptr_add(classRangeRecord, 2))
 
             if glyph < strawStart then
                 r = m - 1
             elseif glyph > strawEnd then
                 l = m + 1
             else
-                return stbtt_int32(ttUSHORT(classRangeRecord + 4))
+                return stbtt_int32(ttUSHORT(ptr_add(classRangeRecord, 4)))
             end
         end
     else
@@ -1766,46 +1736,46 @@ end
 local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
     if info.gpos == 0 then return 0 end
 
-    local data = info.data + info.gpos
+    local data = ptr_add(info.data, info.gpos)
 
-    if ttUSHORT(data + 0) ~= 1 then return 0 end -- Major version 1
-    if ttUSHORT(data + 2) ~= 0 then return 0 end -- Minor version 0
+    if ttUSHORT(ptr_add(data, 0)) ~= 1 then return 0 end -- Major version 1
+    if ttUSHORT(ptr_add(data, 2)) ~= 0 then return 0 end -- Minor version 0
 
-    local lookupListOffset = ttUSHORT(data + 8)
-    local lookupList = data + lookupListOffset
+    local lookupListOffset = ttUSHORT(ptr_add(data, 8))
+    local lookupList = ptr_add(data, lookupListOffset)
     local lookupCount = ttUSHORT(lookupList)
 
     for i = 0, lookupCount - 1 do
-        local lookupOffset = ttUSHORT(lookupList + 2 + 2 * i)
-        local lookupTable = lookupList + lookupOffset
+        local lookupOffset = ttUSHORT(ptr_add(lookupList, 2 + 2 * i))
+        local lookupTable = ptr_add(lookupList, lookupOffset)
 
         local lookupType = ttUSHORT(lookupTable)
-        local subTableCount = ttUSHORT(lookupTable + 4)
-        local subTableOffsets = lookupTable + 6
+        local subTableCount = ttUSHORT(ptr_add(lookupTable, 4))
+        local subTableOffsets = ptr_add(lookupTable, 6)
         if lookupType ~= 2 then -- Pair Adjustment Positioning Subtable
             goto outer_continue
         end
 
         for sti = 0, subTableCount - 1 do
-            local subtableOffset = ttUSHORT(subTableOffsets + 2 * sti)
-            local _table = lookupTable + subtableOffset
+            local subtableOffset = ttUSHORT(ptr_add(subTableOffsets, 2 * sti))
+            local _table = ptr_add(lookupTable, subtableOffset)
             local posFormat = ttUSHORT(_table)
-            local coverageOffset = ttUSHORT(_table + 2)
-            local coverageIndex = stbtt__GetCoverageIndex(_table + coverageOffset, glyph1)
+            local coverageOffset = ttUSHORT(ptr_add(_table, 2))
+            local coverageIndex = stbtt__GetCoverageIndex(ptr_add(_table, coverageOffset), glyph1)
             if coverageIndex == -1 then
                 goto inner_continue
             end
 
             if posFormat == 1 then
-                local valueFormat1 = ttUSHORT(_table + 4)
-                local valueFormat2 = ttUSHORT(_table + 6)
+                local valueFormat1 = ttUSHORT(ptr_add(_table, 4))
+                local valueFormat2 = ttUSHORT(ptr_add(_table, 6))
                 if valueFormat1 == 4 and valueFormat2 == 0 then -- Support more formats?
                     local valueRecordPairSizeInBytes = 2
-                    local pairSetCount = ttUSHORT(_table + 8)
-                    local pairPosOffset = ttUSHORT(_table + 10 + 2 * coverageIndex)
-                    local pairValueTable = _table + pairPosOffset
+                    local pairSetCount = ttUSHORT(ptr_add(_table, 8))
+                    local pairPosOffset = ttUSHORT(ptr_add(_table, 10 + 2 * coverageIndex))
+                    local pairValueTable = ptr_add(_table, pairPosOffset)
                     local pairValueCount = ttUSHORT(pairValueTable)
-                    local pairValueArray = pairValueTable + 2
+                    local pairValueArray = ptr_add(pairValueTable, 2)
 
                     if coverageIndex >= pairSetCount then return 0 end
 
@@ -1816,7 +1786,7 @@ local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
                     -- Binary search
                     while l <= r do
                         local m = rshift(l + r, 1)
-                        local pairValue = pairValueArray + (2 + valueRecordPairSizeInBytes) * m
+                        local pairValue = ptr_add(pairValueArray, (2 + valueRecordPairSizeInBytes) * m)
                         local secondGlyph = ttUSHORT(pairValue)
                         local straw = secondGlyph
                         if needle < straw then
@@ -1824,7 +1794,7 @@ local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
                         elseif needle > straw then
                             l = m + 1
                         else
-                            local xAdvance = ttSHORT(pairValue + 2)
+                            local xAdvance = ttSHORT(ptr_add(pairValue, 2))
                             return xAdvance
                         end
                     end
@@ -1833,23 +1803,23 @@ local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
                 end
 
             elseif posFormat == 2 then
-                local valueFormat1 = ttUSHORT(_table + 4)
-                local valueFormat2 = ttUSHORT(_table + 6)
+                local valueFormat1 = ttUSHORT(ptr_add(_table, 4))
+                local valueFormat2 = ttUSHORT(ptr_add(_table, 6))
                 if valueFormat1 == 4 and valueFormat2 == 0 then -- Support more formats?
-                    local classDef1Offset = ttUSHORT(_table + 8)
-                    local classDef2Offset = ttUSHORT(_table + 10)
-                    local glyph1class = stbtt__GetGlyphClass(_table + classDef1Offset, glyph1)
-                    local glyph2class = stbtt__GetGlyphClass(_table + classDef2Offset, glyph2)
+                    local classDef1Offset = ttUSHORT(ptr_add(_table, 8))
+                    local classDef2Offset = ttUSHORT(ptr_add(_table, 10))
+                    local glyph1class = stbtt__GetGlyphClass(ptr_add(_table, classDef1Offset), glyph1)
+                    local glyph2class = stbtt__GetGlyphClass(ptr_add(_table, classDef2Offset), glyph2)
 
-                    local class1Count = ttUSHORT(_table + 12)
-                    local class2Count = ttUSHORT(_table + 14)
-                    local class1Records = _table + 16
+                    local class1Count = ttUSHORT(ptr_add(_table, 12))
+                    local class2Count = ttUSHORT(ptr_add(_table, 14))
+                    local class1Records = ptr_add(_table, 16)
 
                     if glyph1class < 0 or glyph1class >= class1Count then return 0 end -- malformed
                     if glyph2class < 0 or glyph2class >= class2Count then return 0 end -- malformed
 
-                    local class2Records = class1Records + 2 * (glyph1class * class2Count)
-                    local xAdvance = ttSHORT(class2Records + 2 * glyph2class)
+                    local class2Records = ptr_add(class1Records, 2 * (glyph1class * class2Count))
+                    local xAdvance = ttSHORT(ptr_add(class2Records, 2 * glyph2class))
                     return xAdvance
                 else
                     return 0
@@ -1889,9 +1859,9 @@ local function stbtt_GetCodepointHMetrics(info, codepoint) -- const stbtt_fontin
 end
 
 local function stbtt_GetFontVMetrics(info) -- const stbtt_fontinfo *info, int *ascent, int *descent, int *lineGap
-    local ascent = ttSHORT(info.data + info.hhea + 4)
-    local descent = ttSHORT(info.data + info.hhea + 6)
-    local lineGap = ttSHORT(info.data + info.hhea + 8)
+    local ascent = ttSHORT(ptr_add(info.data, info.hhea + 4))
+    local descent = ttSHORT(ptr_add(info.data, info.hhea + 6))
+    local lineGap = ttSHORT(ptr_add(info.data, info.hhea + 8))
 
     return ascent, descent, lineGap
 end
@@ -1903,21 +1873,21 @@ end
 -- end
 
 local function stbtt_GetFontBoundingBox(info)
-    local x0 = ttSHORT(info.data + info.head + 36)
-    local y0 = ttSHORT(info.data + info.head + 38)
-    local x1 = ttSHORT(info.data + info.head + 40)
-    local y1 = ttSHORT(info.data + info.head + 42)
+    local x0 = ttSHORT(ptr_add(info.data, info.head + 36))
+    local y0 = ttSHORT(ptr_add(info.data, info.head + 38))
+    local x1 = ttSHORT(ptr_add(info.data, info.head + 40))
+    local y1 = ttSHORT(ptr_add(info.data, info.head + 42))
 
     return x0, y0, x1, y1
 end
 
 local function stbtt_ScaleForPixelHeight(info, height)
-    local fheight = ttSHORT(info.data + info.hhea + 4) - ttSHORT(info.data + info.hhea + 6)
+    local fheight = ttSHORT(ptr_add(info.data, info.hhea + 4)) - ttSHORT(ptr_add(info.data, info.hhea + 6))
     return height / fheight
 end
 
 local function stbtt_ScaleForMappingEmToPixels(info, pixels)
-    local unitsPerEm = ttUSHORT(info.data + info.head + 18)
+    local unitsPerEm = ttUSHORT(ptr_add(info.data, info.head + 18))
     return pixels / unitsPerEm
 end
 
@@ -1930,7 +1900,7 @@ local function stbtt_FindSVGDoc(info, gl)
 
     for i = 0, numEntries - 1 do
         local svg_doc = svg_docs + (12 * i)
-        if gl >= ttUSHORT(svg_doc) and gl <= ttUSHORT(svg_doc + 2) then
+        if gl >= ttUSHORT(svg_doc) and gl <= ttUSHORT(ptr_add(svg_doc, 2)) then
             return svg_doc
         end
     end
