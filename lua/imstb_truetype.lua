@@ -8,53 +8,33 @@ local stbtt_MakeGlyphBitmapSubpixelPrefilter
 ---------------------------------
 --- To mock C arrays and pointers
 --
-local setmetatable = setmetatable
-local _View
-local CArray do
-    local function is_integer(n)
-        return type(n) == "number" and n % 1 == 0
+local function CArray(size, init)
+    assert(type(size) == "number" and size > 0 and size % 1 == 0, "array size must be a positive integer!")
+
+    local arr = {data = {}, offset = 0, size = size}
+
+    if type(init) == "table" then
+        assert(#init == size, "init size ~= buffer size!")
+        local data = arr.data
+        for i = 1, size do data[i] = init[i] end
+    elseif type(init) == "function" then
+        local data = arr.data
+        for i = 1, size do data[i] = init() end
     end
 
-    local _Buf = {}
-    _Buf.__index = _Buf
-
-    function _Buf:new(size)
-        assert(size > 0, "Buffer size must be positive")
-        assert(is_integer(size), "Buffer size must be integer")
-        local data = {}
-        return setmetatable({data = data, size = size}, _Buf)
-    end
-
-    _View = {}
-    _View.__index = _View
-
-    function CArray(size, init)
-        local arr = setmetatable({buf = _Buf:new(size), offset = 0}, _View)
-
-        if type(init) == "table" then
-            assert(#init == size, string.format("init size %d != buffer size %d", #init, size))
-            local data = arr.buf.data
-            for i = 1, size do data[i] = init[i] end
-        elseif type(init) == "function" then
-            local data = arr.buf.data
-            for i = 1, size do data[i] = init() end
-        end
-
-        return arr
-    end
+    return arr
 end
 
 local function ptr_inc(p, n) p.offset = p.offset + n end
-local function ptr_deref(p) return p.buf.data[p.offset + 1] end
-local function ptr_set_deref(p, v) p.buf.data[p.offset + 1] = v end
+local function ptr_deref(p) return p.data[p.offset + 1] end
+local function ptr_set_deref(p, v) p.data[p.offset + 1] = v end
 
-local function ptr_add(p, n) return setmetatable({buf = p.buf, offset = p.offset + n}, _View) end
+local function ptr_add(p, n) return {data = p.data, offset = p.offset + n, size = p.size} end
 
-local function ptr_index_at(p, i) return p.buf.data[p.offset + i + 1] end
-local function ptr_newindex(p, i, v) p.buf.data[p.offset + i + 1] = v end
+local function ptr_index_at(p, i) return p.data[p.offset + i + 1] end
+local function ptr_newindex(p, i, v) p.data[p.offset + i + 1] = v end
 
 local STBTT_MAX_OVERSAMPLE = 8
-
 
 local STBTT_PLATFORM_ID = {
     UNICODE   = 0,
@@ -493,15 +473,15 @@ end
 -------------------------------------
 --- accessors to parse data from file
 --
-local function ttUSHORT(p) return stbtt_uint16(p.buf.data[p.offset + 1] * 256 + p.buf.data[p.offset + 2]) end
-local function ttSHORT(p) return stbtt_int16(p.buf.data[p.offset + 1] * 256 + p.buf.data[p.offset + 2]) end
-local function ttULONG(p) return stbtt_uint32(lshift(p.buf.data[p.offset + 1], 24) + lshift(p.buf.data[p.offset + 2], 16) + lshift(p.buf.data[p.offset + 3], 8) + p.buf.data[p.offset + 4]) end
-local function ttLONG(p) return stbtt_int32(lshift(p.buf.data[p.offset + 1], 24) + lshift(p.buf.data[p.offset + 2], 16) + lshift(p.buf.data[p.offset + 3], 8) + p.buf.data[p.offset + 4]) end
+local function ttUSHORT(p) return stbtt_uint16(p.data[p.offset + 1] * 256 + p.data[p.offset + 2]) end
+local function ttSHORT(p) return stbtt_int16(p.data[p.offset + 1] * 256 + p.data[p.offset + 2]) end
+local function ttULONG(p) return stbtt_uint32(lshift(p.data[p.offset + 1], 24) + lshift(p.data[p.offset + 2], 16) + lshift(p.data[p.offset + 3], 8) + p.data[p.offset + 4]) end
+local function ttLONG(p) return stbtt_int32(lshift(p.data[p.offset + 1], 24) + lshift(p.data[p.offset + 2], 16) + lshift(p.data[p.offset + 3], 8) + p.data[p.offset + 4]) end
 
 local function ttBYTE(p) return stbtt_uint8(ptr_deref(p)) end
 local function ttCHAR(p) return stbtt_int8(ptr_deref(p)) end
 
-local function stbtt_tag4(p, c0, c1, c2, c3) return p.buf.data[p.offset + 1] == c0 and p.buf.data[p.offset + 2] == c1 and p.buf.data[p.offset + 3] == c2 and p.buf.data[p.offset + 4] == c3 end
+local function stbtt_tag4(p, c0, c1, c2, c3) return p.data[p.offset + 1] == c0 and p.data[p.offset + 2] == c1 and p.data[p.offset + 3] == c2 and p.data[p.offset + 4] == c3 end
 local function stbtt_tag(p, str) return stbtt_tag4(p, str_byte(str, 1, 4)) end
 
 local function stbtt__isfont(font)
