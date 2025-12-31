@@ -117,6 +117,10 @@ function FontAtlas.BuildUpdateRendererHasTexturesFromContext(atlas)
     return
 end
 
+function FontAtlas.BuildUpdatePointers(atlas)
+    return
+end
+
 function FontAtlas.PackInit(atlas)
     local tex = atlas.TexData
     local builder = atlas.Builder
@@ -221,6 +225,32 @@ function _ImFontAtlas:AddFont(font_cfg_in)
     end
     font.Sources:push_back(font_cfg)
     FontAtlas.BuildUpdatePointers(self)
+
+    if font_cfg.GlyphExcludeRanges ~= nil then
+        local size = #font_cfg.GlyphExcludeRanges
+        IM_ASSERT(bit.band(size, 1) == 0, "GlyphExcludeRanges[] size must be multiple of two!")
+        IM_ASSERT(size <= 64, "GlyphExcludeRanges[] size must be small!")
+    end
+
+    if font_cfg.FontLoader ~= nil then
+        IM_ASSERT(font_cfg.FontLoader.FontBakedLoadGlyph ~= nil)
+        IM_ASSERT(font_cfg.FontLoader.LoaderInit == nil and font_cfg.FontLoader.LoaderShutdown == nil)
+    end
+    IM_ASSERT(font_cfg.FontLoaderData == nil)
+
+    if not FontAtlas.FontSourceInit(self, font_cfg) then
+        FontAtlas.FontDestroySourceData(self, font_cfg)
+        self.Sources:pop_back()
+        font.Sources:pop_back()
+        if not font_cfg.MergeMode then
+            font = nil
+            self.Fonts:pop_back()
+        end
+        return nil
+    end
+    FontAtlas.FontSourceAddToFont(self, font, font_cfg)
+
+    return font
 end
 
 function _ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template,glyph_ranges)

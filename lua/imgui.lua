@@ -144,7 +144,7 @@ local function PushFont(font, font_size_base) -- FIXME: checks not implemented?
     SetCurrentFont(font, font_size_base, 0)
 end
 
-local function PopFont()
+function ImGui.PopFont()
     local g = GImGui
 
     if g.FontStack:empty() then return end
@@ -177,8 +177,8 @@ local function UpdateFontsNewFrame() -- TODO: investigate
 end
 
 --- void ImGui::UpdateFontsEndFrame
-local function UpdateFontsEndFrame()
-    PopFont()
+function ImGui.UpdateFontsEndFrame()
+    ImGui.PopFont()
 end
 
 local DefaultConfig = {
@@ -858,12 +858,12 @@ local function UpdateMouseMovingWindowNewFrame()
 end
 
 --- ImDrawListSharedData* ImGui::GetDrawListSharedData()
-local function GetDrawListSharedData()
+function ImGui.GetDrawListSharedData()
     return GImGui.DrawListSharedData
 end
 
 --- void ImGui::UpdateMouseMovingWindowEndFrame()
-local function UpdateMouseMovingWindowEndFrame()
+function ImGui.UpdateMouseMovingWindowEndFrame()
     local g = GImGui
 
     if g.ActiveID ~= 0 or g.HoveredID ~= 0 then return end
@@ -1281,18 +1281,18 @@ function ImGui.NewFrame()
     g.CurrentWindowStack:resize(0)
 end
 
-local function EndFrame()
+function ImGui.EndFrame()
     local g = GImGui
 
     if g.FrameCountEnded == g.FrameCount then return end
 
     g.FrameCountEnded = g.FrameCount
-    UpdateFontsEndFrame()
+    ImGui.UpdateFontsEndFrame()
 
-    UpdateMouseMovingWindowEndFrame()
+    ImGui.UpdateMouseMovingWindowEndFrame()
 end
 
-local function Render()
+function ImGui.Render()
     local g = GImGui
     IM_ASSERT(g.Initialized)
 
@@ -1400,7 +1400,7 @@ hook.Add("PostRender", "ImGuiTest", function()
     ImGui.Begin("Hello World!", window1_open)
     ImGui.End()
 
-    PopFont()
+    ImGui.PopFont()
 
     -- local window2_open = {true}
     -- ImGui.Begin("ImGui Demo", window2_open)
@@ -1410,27 +1410,11 @@ hook.Add("PostRender", "ImGuiTest", function()
     -- drawlist:AddRectFilled(ImVec2(60, 60), ImVec2(120, 120), color_white, 0.01)
     -- TODO: Finish this rendering!
 
-    EndFrame()
+    ImGui.EndFrame()
 
-    Render()
+    ImGui.Render()
 
     ImGui_ImplGMOD_RenderDrawData(GetDrawData())
-
-    -- Temporary
-    local g = GImGui
-    draw.DrawText(
-        str_format(
-            "ActiveID: %s\nActiveIDWindow: %s\nHoveredWindow: %s\nActiveIDIsAlive: %s\nActiveIDPreviousFrame: %s\n\nMem: %dkb\nFramerate: %d\n\n io.WantCaptureMouse: %s",
-            g.ActiveID,
-            g.ActiveIDWindow and g.ActiveIDWindow.ID or nil,
-            g.HoveredWindow and g.HoveredWindow.ID or nil,
-            g.ActiveIDIsAlive,
-            g.ActiveIDPreviousFrame,
-            ImRound(collectgarbage("count")),
-            g.IO.Framerate,
-            g.IO.WantCaptureMouse
-        ), "CloseCaption_Bold", 0, 0, color_white
-    )
 
     cam.End2D()
 end)
