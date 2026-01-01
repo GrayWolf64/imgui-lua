@@ -1,30 +1,34 @@
---------------------------------
---- stb_truetype in GMod Lua5.1!
--- VER 1.26
+---------------------------
+--- stb_truetype in Lua5.1!
+-- with imgui patches
+
+-- stb_truetype.h - v1.26 - public domain
+-- authored from 2009-2021 by Sean Barrett / RAD Game Tools
+
+--- Note: When calling these functions, you must ensure
+-- the `data` related param is correctly structured:
+--   1. It's a table
+--   2. Contains fields named `data`, `offset` and optionally `size`
+--   3. the `data` is a generic 1-based table, and `offset` is initially 0
+--   4. `size` is a constant since the creation of `data`, and size == #data
+-- It's so painful to port og pointer arithmetics into Lua, so I just
+-- use this instead
+
+local stbtt_fontinfo
 
 local stbtt_InitFont
 local stbtt_MakeGlyphBitmapSubpixelPrefilter
+local stbtt_GetFontVMetrics
+local stbtt_GetGlyphBitmapBox
+local stbtt_GetGlyphBitmapBoxSubpixel
+local stbtt_GetGlyphHMetrics
+local stbtt_GetFontOffsetForIndex
+local stbtt_ScaleForPixelHeight
+local stbtt_FindGlyphIndex
 
 ---------------------------------
 --- To mock C arrays and pointers
 --
-local function CArray(size, init)
-    assert(type(size) == "number" and size > 0 and size % 1 == 0, "array size must be a positive integer!")
-
-    local arr = {data = {}, offset = 0, size = size}
-
-    if type(init) == "table" then
-        assert(#init == size, "init size ~= buffer size!")
-        local data = arr.data
-        for i = 1, size do data[i] = init[i] end
-    elseif type(init) == "function" then
-        local data = arr.data
-        for i = 1, size do data[i] = init() end
-    end
-
-    return arr
-end
-
 local function ptr_inc(p, n) p.offset = p.offset + n end
 local function ptr_deref(p) return p.data[p.offset + 1] end
 local function ptr_set_deref(p, v) p.data[p.offset + 1] = v end
@@ -124,7 +128,7 @@ local function stbtt__buf()
     }
 end
 
-local function stbtt_fontinfo()
+function stbtt_fontinfo()
     return {
         data      = nil,
         fontstart = nil,
@@ -266,50 +270,17 @@ local function stbtt__point()
     }
 end
 
-local function stbrp_node()
-    return {
-        x = nil,
-        y = nil,
-        next = nil
-    }
-end
+-- local function stbrp_node()
+-- end
 
-local function stbrp_context()
-    return {
-        width       = nil,
-        height      = nil,
-        align       = nil,
-        init_mode   = nil,
-        heuristic   = nil,
-        num_nodes   = nil,
-        active_head = nil,
-        free_head   = nil,
-        extra       = {nil, nil}
-    }
-end
+-- local function stbrp_context()
+-- end
 
-local function stbrp_rect()
-    return {
-        id = nil,
-        w = nil,
-        h = nil,
-        x = nil,
-        y = nil,
-        was_packed = nil
-    }
-end
+-- local function stbrp_rect()
+-- end
 
-local function stbtt_pack_range()
-    return {
-        font_size = nil,
-        first_unicode_codepoint_in_range = nil,
-        array_of_unicode_codepoints = nil,
-        num_chars = nil,
-        chardata_for_range = nil,
-        h_oversample = nil,
-        v_oversample = nil
-    }
-end
+-- local function stbtt_pack_range()
+-- end
 
 local function stbtt_packedchar()
     return {
@@ -673,7 +644,7 @@ local function stbtt_InitFont_internal(info, data, fontstart)
     return 1
 end
 
-local function stbtt_FindGlyphIndex(info, unicode_codepoint)
+function stbtt_FindGlyphIndex(info, unicode_codepoint)
     local data = info.data
     local index_map = info.index_map
 
@@ -1495,7 +1466,7 @@ function stbtt_GetGlyphShape(info, glyph_index)
     end
 end
 
-local function stbtt_GetGlyphHMetrics(info, glyph_index) -- const stbtt_fontinfo *info, int glyph_index, int *advanceWidth, int *leftSideBearing
+function stbtt_GetGlyphHMetrics(info, glyph_index) -- const stbtt_fontinfo *info, int glyph_index, int *advanceWidth, int *leftSideBearing
     local numOfLongHorMetrics = ttUSHORT(ptr_add(info.data, info.hhea + 34))
 
     local advanceWidth, leftSideBearing
@@ -1804,7 +1775,7 @@ local function stbtt_GetCodepointHMetrics(info, codepoint) -- const stbtt_fontin
     return stbtt_GetGlyphHMetrics(info, stbtt_FindGlyphIndex(info, codepoint))
 end
 
-local function stbtt_GetFontVMetrics(info) -- const stbtt_fontinfo *info, int *ascent, int *descent, int *lineGap
+function stbtt_GetFontVMetrics(info) -- const stbtt_fontinfo *info, int *ascent, int *descent, int *lineGap
     local ascent = ttSHORT(ptr_add(info.data, info.hhea + 4))
     local descent = ttSHORT(ptr_add(info.data, info.hhea + 6))
     local lineGap = ttSHORT(ptr_add(info.data, info.hhea + 8))
@@ -1813,7 +1784,6 @@ local function stbtt_GetFontVMetrics(info) -- const stbtt_fontinfo *info, int *a
 end
 
 --- Unused in ImGui
--- TODO: rewrite if needed
 --
 -- function stbtt_GetFontVMetricsOS2(info)
 -- end
@@ -1827,7 +1797,7 @@ local function stbtt_GetFontBoundingBox(info)
     return x0, y0, x1, y1
 end
 
-local function stbtt_ScaleForPixelHeight(info, height)
+function stbtt_ScaleForPixelHeight(info, height)
     local fheight = ttSHORT(ptr_add(info.data, info.hhea + 4)) - ttSHORT(ptr_add(info.data, info.hhea + 6))
     return height / fheight
 end
@@ -1854,13 +1824,11 @@ local function stbtt_FindSVGDoc(info, gl)
 end
 
 --- Unused in ImGui
--- TODO: rewrite if needed
 --
 -- local function stbtt_GetGlyphSVG(info, gl)
 -- end
 
 --- Unused in ImGui
--- TODO: rewrite if needed
 --
 -- local function stbtt_GetCodepointSVG(info, unicode_codepoint)
 -- end
@@ -1869,7 +1837,7 @@ end
 --- antialiasing software rasterizer
 --
 
-local function stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, shift_x, shift_y)
+function stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, shift_x, shift_y)
     local n, x0, y0, x1, y1 = 0, 0, 0
     n, x0, y0, x1, y1 = stbtt_GetGlyphBox(font, glyph)
 
@@ -1891,7 +1859,7 @@ local function stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, sh
     return ix0, iy0, ix1, iy1
 end
 
-local function stbtt_GetGlyphBitmapBox(font, glyph, scale_x, scale_y)
+function stbtt_GetGlyphBitmapBox(font, glyph, scale_x, scale_y)
     return stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, 0.0, 0.0)
 end
 
@@ -1902,7 +1870,6 @@ end
 local function stbtt_GetCodepointBitmapBox(font, codepoint, scale_x, scale_y)
     return stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, 0.0, 0.0)
 end
-
 
 --------------
 --- Rasterizer
@@ -2488,7 +2455,6 @@ local function stbtt_Rasterize(result, flatness_in_pixels, vertices, num_verts, 
 end
 
 --- Unused in ImGui
--- TODO: rewrite if needed
 --
 -- local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, glyph)
 -- end
@@ -2530,7 +2496,6 @@ end
 --
 
 --- Unused in ImGui, and involves pointer arithmetics
--- TODO: rewrite if needed
 --
 -- local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
 -- end
@@ -2539,7 +2504,6 @@ end
 -- end
 
 --- Unused in ImGui, and involves pointer arithmetics
--- TODO: rewrite if needed
 --
 -- local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, opengl_fillrule)
 -- end
@@ -2548,46 +2512,20 @@ end
 --- bitmap baking
 --
 
-local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, alloc_context)
-    local context = stbrp_context()
-    local num_nodes = pw - padding
-    local nodes = {} for i = 1, num_nodes do nodes[i] = stbrp_node() end
+--- Unused in ImGui
+--
+-- local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, alloc_context)
+-- end
 
-    spc.user_allocator_context = alloc_context
-    spc.width = pw
-    spc.height = ph
-    spc.pixels = pixels
-    spc.pack_info = context
-    spc.nodes = nodes
-    spc.padding = padding
-    spc.stride_in_bytes = stride_in_bytes ~= 0 and stride_in_bytes or pw
-    spc.h_oversample = 1
-    spc.v_oversample = 1
-    spc.skip_missing = 0
+--- Unused in ImGui
+--
+-- local function stbtt_PackSetOversampling(spc, h_oversample, v_oversample)
+-- end
 
-    stbrp_init_target(context, pw - padding, ph - padding, nodes, num_nodes)
-
-    if pixels then
-        for i = 0, pw * ph - 1 do pixels[i] = 0 end -- background of 0 around pixels
-    end
-
-    return 1
-end
-
-local function stbtt_PackSetOversampling(spc, h_oversample, v_oversample)
-    STBTT_assert(h_oversample <= STBTT_MAX_OVERSAMPLE)
-    STBTT_assert(v_oversample <= STBTT_MAX_OVERSAMPLE)
-    if h_oversample <= STBTT_MAX_OVERSAMPLE then
-        spc.h_oversample = h_oversample
-    end
-    if v_oversample <= STBTT_MAX_OVERSAMPLE then
-        spc.v_oversample = v_oversample
-    end
-end
-
-local function stbtt_PackSetSkipMissingCodepoints(spc, skip)
-    spc.skip_missing = skip
-end
+--- Unused in ImGui
+--
+-- local function stbtt_PackSetSkipMissingCodepoints(spc, skip)
+-- end
 
 local STBTT__OVER_MASK = STBTT_MAX_OVERSAMPLE - 1
 
@@ -2647,7 +2585,6 @@ local function stbtt__oversample_shift(oversample)
 end
 
 --- Unused in ImGui, and involves pointer arithmetics
--- TODO: rewrite if needed
 --
 -- local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, rects)
 -- end
@@ -2679,27 +2616,21 @@ function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_
 end
 
 --- Unused in ImGui, and involves pointer arithmetics
--- TODO: rewrite if needed
 --
 -- function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rects)
 -- end
 
 --- Unused in ImGui, and involves pointer arithmetics
--- TODO: rewrite if needed
 --
 -- function stbtt_PackFontRangesPackRects(spc, rects, num_rects)
 -- end
 
-local stbtt_GetFontOffsetForIndex
-
 --- Unused in ImGui
--- TODO: rewrite if needed
 --
 -- function stbtt_PackFontRanges(spc, fontdata, font_index, ranges, num_ranges)
 -- end
 
 --- Unused in ImGui
--- TODO: rewrite if needed
 --
 -- function stbtt_PackFontRange(spc, fontdata, font_index, font_size, first_unicode_codepoint_in_range, num_chars_in_range, chardata_for_range)
 -- end
@@ -3145,3 +3076,17 @@ end
 function stbtt_InitFont(info, data, offset)
     return stbtt_InitFont_internal(info, data, offset)
 end
+
+return {
+    fontinfo = stbtt_fontinfo,
+
+    InitFont                         = stbtt_InitFont,
+    FindGlyphIndex                   = stbtt_FindGlyphIndex,
+    MakeGlyphBitmapSubpixelPrefilter = stbtt_MakeGlyphBitmapSubpixelPrefilter,
+    GetFontVMetrics                  = stbtt_GetFontVMetrics,
+    GetGlyphBitmapBox                = stbtt_GetGlyphBitmapBox,
+    GetGlyphBitmapBoxSubpixel        = stbtt_GetGlyphBitmapBoxSubpixel,
+    GetGlyphHMetrics                 = stbtt_GetGlyphHMetrics,
+    GetFontOffsetForIndex            = stbtt_GetFontOffsetForIndex,
+    ScaleForPixelHeight              = stbtt_ScaleForPixelHeight
+}
