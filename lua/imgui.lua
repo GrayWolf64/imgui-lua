@@ -4,10 +4,6 @@ ImGui = ImGui or {}
 
 local GImGui = nil
 
---- font_data size range: 4~255
-local IM_FONT_SIZE_MIN = 4
-local IM_FONT_SIZE_MAX = 255
-
 ----------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ----------------------------------------------------
@@ -78,12 +74,8 @@ end
 
 IMGUI_INCLUDE("imgui_draw.lua")
 
-local function ImHashFontData(font_data)
-    return "ImFont" .. ImHashStr("FontDataToString(font_data)")
-end
-
 --- void ImGui::UpdateCurrentFontSize
-local function UpdateCurrentFontSize(restore_font_size_after_scaling)
+function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     local g = GImGui
 
     local final_size
@@ -101,7 +93,7 @@ local function UpdateCurrentFontSize(restore_font_size_after_scaling)
 
     -- Again, due to gmod font system limitation
     final_size = ImRound(final_size)
-    final_size = ImClamp(final_size, IM_FONT_SIZE_MIN, IM_FONT_SIZE_MAX)
+    final_size = ImClamp(final_size, 4, IMGUI_FONT_SIZE_MAX)
 
     g.FontSize = final_size
 
@@ -119,7 +111,7 @@ local function SetCurrentFont(font_name, font_size_before_scaling, font_size_aft
 
     g.Font = font_name
     g.FontSizeBase = font_size_before_scaling
-    UpdateCurrentFontSize(font_size_after_scaling) -- TODO: investigate
+    ImGui.UpdateCurrentFontSize(font_size_after_scaling) -- TODO: investigate
 end
 
 local function PushFont(font, font_size_base) -- FIXME: checks not implemented?
@@ -156,19 +148,19 @@ function ImGui.PopFont()
 end
 
 function ImGui.GetDefaultFont() -- FIXME: fix impl
-    local g = GImGui
-    local atlas = g.IO.Fonts
-    if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
-        FontAtlas.BuildMain(atlas)
-    end
-    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
+    -- local g = GImGui
+    -- local atlas = g.IO.Fonts
+    -- if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
+    --     FontAtlas.BuildMain(atlas)
+    -- end
+    -- return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
 end
 
 --- void ImGui::UpdateFontsNewFrame
 function ImGui.UpdateFontsNewFrame() -- TODO: investigate
     local g = GImGui
 
-    g.Font = GetDefaultFont()
+    g.Font = ImGui.GetDefaultFont()
 
     local font_stack_data  = {
         Font = g.Font,
@@ -799,7 +791,7 @@ local function SetCurrentWindow(window)
         local backup_skip_items = window.SkipItems
         window.SkipItems = false
 
-        UpdateCurrentFontSize(0)
+        ImGui.UpdateCurrentFontSize(0)
 
         window.SkipItems = backup_skip_items
     end

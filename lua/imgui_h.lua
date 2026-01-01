@@ -1,5 +1,8 @@
 --- Flag defs, misc small functions and some constants
 --
+
+local Metatables = {}
+
 local ImDir = {
     Left  = 0,
     Right = 1,
@@ -11,8 +14,8 @@ local ImFontAtlasRectId_Invalid = -1
 
 local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
 
-local _ImFontBaked = {}
-_ImFontBaked.__index = _ImFontBaked
+Metatables.ImFontBaked = {}
+Metatables.ImFontBaked.__index = Metatables.ImFontBaked
 
 local function ImFontBaked()
     return setmetatable({
@@ -35,11 +38,11 @@ local function ImFontBaked()
         BakedId              = nil,
         OwnerFont            = nil,
         FontLoaderDatas      = nil
-    }, _ImFontBaked)
+    }, Metatables.ImFontBaked)
 end
 
-local _ImFont = {}
-_ImFont.__index = _ImFont
+Metatables.ImFont = {}
+Metatables.ImFont.__index = Metatables.ImFont
 
 local function ImFont()
     return setmetatable({
@@ -57,13 +60,13 @@ local function ImFont()
         EllipsisAutoBake = nil,
         RemapPairs       = nil,
         Scale            = nil
-    }, _ImFont)
+    }, Metatables.ImFont)
 end
 
 --- struct ImFontConfig
 --
-local _ImFontConfig = {}
-_ImFontConfig.__index = _ImFontConfig
+Metatables.ImFontConfig = {}
+Metatables.ImFontConfig.__index = Metatables.ImFontConfig
 
 local function ImFontConfig()
     return setmetatable({
@@ -96,11 +99,11 @@ local function ImFontConfig()
         DstFont        = nil,
         FontLoader     = nil,
         FontLoaderData = nil
-    }, _ImFontConfig)
+    }, Metatables.ImFontConfig)
 end
 
-local _ImFontAtlas = {}
-_ImFontAtlas.__index = _ImFontAtlas
+Metatables.ImFontAtlas = {}
+Metatables.ImFontAtlas.__index = Metatables.ImFontAtlas
 
 local function ImFontAtlas()
     return setmetatable({
@@ -129,7 +132,7 @@ local function ImFontAtlas()
         FontLoaderFlags     = nil,
         RefCount            = nil,
         OwnerContext        = nil
-    }, _ImFontAtlas)
+    }, Metatables.ImFontAtlas)
 end
 
 local Enums = {

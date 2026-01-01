@@ -49,11 +49,11 @@ local function ImUpperPowerOfTwo(v)
     if v <= 1 then return 1 end
 
     v = v - 1
-    v = bor(v, rshift(v, 1))
-    v = bor(v, rshift(v, 2))
-    v = bor(v, rshift(v, 4))
-    v = bor(v, rshift(v, 8))
-    v = bor(v, rshift(v, 16))
+    v = bit.bor(v, bit.rshift(v, 1))
+    v = bit.bor(v, bit.rshift(v, 2))
+    v = bit.bor(v, bit.rshift(v, 4))
+    v = bit.bor(v, bit.rshift(v, 8))
+    v = bit.bor(v, bit.rshift(v, 16))
     return v + 1
 end
 
@@ -64,6 +64,8 @@ local function ImSaturate(f)
 end
 
 local function IM_ASSERT(_EXPR) end -- TODO: preprocess
+
+local IMGUI_FONT_SIZE_MAX = 512
 
 local IMGUI_WINDOW_HARD_MIN_SIZE = 16 -- 4
 
@@ -81,80 +83,80 @@ local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD) return (1 - Im
 
 --- A compact ImVector clone, maybe
 -- ImVector<>
-local _ImVector = {}
-_ImVector.__index = _ImVector
+Metatables.ImVector = {}
+Metatables.ImVector.__index = Metatables.ImVector
 
-function _ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
-function _ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
-function _ImVector:clear() self.Size = 0 end
-function _ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
-function _ImVector:empty() return self.Size == 0 end
-function _ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
-function _ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = remove_at(self.Data, i) self.Size = self.Size - 1 return removed end
-function _ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
-function _ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
-function _ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
-function _ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
-function _ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
-function _ImVector:reserve() return end
-function _ImVector:reserve_discard() return end
-function _ImVector:shrink() return end
-function _ImVector:resize(new_size) self.Size = new_size end
+function Metatables.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
+function Metatables.ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
+function Metatables.ImVector:clear() self.Size = 0 end
+function Metatables.ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
+function Metatables.ImVector:empty() return self.Size == 0 end
+function Metatables.ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
+function Metatables.ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = remove_at(self.Data, i) self.Size = self.Size - 1 return removed end
+function Metatables.ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
+function Metatables.ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
+function Metatables.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
+function Metatables.ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
+function Metatables.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
+function Metatables.ImVector:reserve() return end
+function Metatables.ImVector:reserve_discard() return end
+function Metatables.ImVector:shrink() return end
+function Metatables.ImVector:resize(new_size) self.Size = new_size end
 
-local function ImVector() return setmetatable({Data = {}, Size = 0}, _ImVector) end
+local function ImVector() return setmetatable({Data = {}, Size = 0}, Metatables.ImVector) end
 
 --- ImVec2
 --
-local _ImVec2 = {}
-_ImVec2.__index = _ImVec2
+Metatables.ImVec2 = {}
+Metatables.ImVec2.__index = Metatables.ImVec2
 
-local function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, _ImVec2) end
+local function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, Metatables.ImVec2) end
 
-function _ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
-function _ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
-function _ImVec2:__mul(other) if isnumber(self) then return ImVec2(self * other.x, self * other.y) elseif isnumber(other) then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
-function _ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
-function _ImVec2:__tostring() return str_format("ImVec2(%g, %g)", self.x, self.y) end
-function _ImVec2:copy() return ImVec2(self.x, self.y) end
+function Metatables.ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
+function Metatables.ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
+function Metatables.ImVec2:__mul(other) if isnumber(self) then return ImVec2(self * other.x, self * other.y) elseif isnumber(other) then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
+function Metatables.ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
+function Metatables.ImVec2:__tostring() return str_format("ImVec2(%g, %g)", self.x, self.y) end
+function Metatables.ImVec2:copy() return ImVec2(self.x, self.y) end
 
 --- struct ImVec4
 --
-local _ImVec4 = {}
-_ImVec4.__index = _ImVec4
+Metatables.ImVec4 = {}
+Metatables.ImVec4.__index = Metatables.ImVec4
 
-local function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, _ImVec4) end
+local function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, Metatables.ImVec4) end
 
-function _ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
-function _ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
-function _ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif isnumber(other) then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
-function _ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
+function Metatables.ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
+function Metatables.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
+function Metatables.ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif isnumber(other) then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
+function Metatables.ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
 
 --- ImVec1
 --
-local _ImVec1 = {}
-_ImVec1.__index = _ImVec1
+Metatables.ImVec1 = {}
+Metatables.ImVec1.__index = Metatables.ImVec1
 
-local function ImVec1(x) return setmetatable({x = x or 0}, _ImVec1) end
+local function ImVec1(x) return setmetatable({x = x or 0}, Metatables.ImVec1) end
 
-function _ImVec1:__tostring() return str_format("ImVec1(%g)", self.x) end
-function _ImVec1:copy() return ImVec1.new(self.x) end
+function Metatables.ImVec1:__tostring() return str_format("ImVec1(%g)", self.x) end
+function Metatables.ImVec1:copy() return ImVec1(self.x) end
 
 --- struct IMGUI_API ImRect
-local _ImRect = {}
-_ImRect.__index = _ImRect
+Metatables.ImRect = {}
+Metatables.ImRect.__index = Metatables.ImRect
 
-function _ImRect:__tostring() return str_format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
-function _ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
-function _ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
-function _ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
-function _ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
+function Metatables.ImRect:__tostring() return str_format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+function Metatables.ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
+function Metatables.ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
+function Metatables.ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
+function Metatables.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
 
-local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, _ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, _ImRect) end
+local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, Metatables.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, Metatables.ImRect) end
 
 --- struct ImDrawCmd
 --
-local _ImDrawCmd = {}
-_ImDrawCmd.__index = _ImDrawCmd
+Metatables.ImDrawCmd = {}
+Metatables.ImDrawCmd.__index = Metatables.ImDrawCmd
 
 local function ImDrawCmd()
     return setmetatable({
@@ -162,60 +164,60 @@ local function ImDrawCmd()
         VtxOffset = 0,
         IdxOffset = 0,
         ElemCount = 0
-    }, _ImDrawCmd) -- TODO: callback
+    }, Metatables.ImDrawCmd) -- TODO: callback
 end
 
 --- struct ImDrawVert
 -- imgui.h
-local _ImDrawVert = {}
-_ImDrawVert.__index = _ImDrawVert
+Metatables.ImDrawVert = {}
+Metatables.ImDrawVert.__index = Metatables.ImDrawVert
 
 local function ImDrawVert()
     return setmetatable({
         pos = ImVec2(),
         uv  = nil,
         col = nil
-    }, _ImDrawVert)
+    }, Metatables.ImDrawVert)
 end
 
 --- struct ImDrawCmdHeader
 --
-local _ImDrawCmdHeader = {}
-_ImDrawCmdHeader.__index = _ImDrawCmdHeader
+Metatables.ImDrawCmdHeader = {}
+Metatables.ImDrawCmdHeader.__index = Metatables.ImDrawCmdHeader
 
 local function ImDrawCmdHeader()
     return setmetatable({
         ClipRect = ImVec4(),
         VtxOffset = 0
-    }, _ImDrawCmdHeader)
+    }, Metatables.ImDrawCmdHeader)
 end
 
 --- struct ImDrawList
 -- imgui.h
-local _ImDrawList = {}
-_ImDrawList.__index = _ImDrawList
+Metatables.ImDrawList = {}
+Metatables.ImDrawList.__index = Metatables.ImDrawList
 
-function _ImDrawList:PathClear()
+function Metatables.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
 end
 
-function _ImDrawList:PathLineTo(pos)
+function Metatables.ImDrawList:PathLineTo(pos)
     self._Path:push_back(pos)
 end
 
-function _ImDrawList:PathLineToMergeDuplicate(pos)
+function Metatables.ImDrawList:PathLineToMergeDuplicate(pos)
     local path_size = self._Path.Size
     if path_size == 0 or self._Path.Data[path_size].x ~= pos.x or self._Path.Data[path_size].y ~= pos.y then
         self._Path:push_back(pos)
     end
 end
 
-function _ImDrawList:PathFillConvex(col)
+function Metatables.ImDrawList:PathFillConvex(col)
     self:AddConvexPolyFilled(self._Path.Data, self._Path.Size, col)
     self._Path.Size = 0
 end
 
-function _ImDrawList:PathStroke(col, flags, thickness)
+function Metatables.ImDrawList:PathStroke(col, flags, thickness)
     self:AddPolyline(self._Path.Data, self._Path.Size, col, flags, thickness)
     self._Path.Size = 0
 end
@@ -236,13 +238,13 @@ local function ImDrawList(data)
         _ClipRectStack = ImVector(),
 
         _FringeScale = 0
-    }, _ImDrawList)
+    }, Metatables.ImDrawList)
 end
 
 --- struct ImDrawData
 -- imgui.h
-local _ImDrawData = {}
-_ImDrawData.__index = _ImDrawData
+Metatables.ImDrawData = {}
+Metatables.ImDrawData.__index = Metatables.ImDrawData
 
 local function ImDrawData()
     return setmetatable({
@@ -253,13 +255,13 @@ local function ImDrawData()
         CmdLists = ImVector(),
         DisplayPos = ImVec2(),
         DisplaySize = ImVec2()
-    }, _ImDrawData)
+    }, Metatables.ImDrawData)
 end
 
 --- struct IMGUI_API ImDrawListSharedData
 -- imgui_internal.h
-local _ImDrawListSharedData = {}
-_ImDrawListSharedData.__index = _ImDrawListSharedData
+Metatables.ImDrawListSharedData = {}
+Metatables.ImDrawListSharedData.__index = Metatables.ImDrawListSharedData
 
 local function ImDrawListSharedData()
     local this = setmetatable({
@@ -275,7 +277,7 @@ local function ImDrawListSharedData()
         ArcFastVtx = {}, -- size = IM_DRAWLIST_ARCFAST_TABLE_SIZE
         ArcFastRadiusCutoff = nil,
         CircleSegmentCounts = {} -- size = 64
-    }, _ImDrawListSharedData)
+    }, Metatables.ImDrawListSharedData)
 
     for i = 0, IM_DRAWLIST_ARCFAST_TABLE_SIZE - 1 do
         local a = (i * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
@@ -290,8 +292,8 @@ end
 
 --- struct ImFontAtlasBuilder
 --
-local _ImFontAtlasBuilder = {}
-_ImFontAtlasBuilder.__index = _ImFontAtlasBuilder
+Metatables.ImFontAtlasBuilder = {}
+Metatables.ImFontAtlasBuilder.__index = Metatables.ImFontAtlasBuilder
 
 local function ImFontAtlasBuilder()
     return setmetatable({
@@ -317,7 +319,7 @@ local function ImFontAtlasBuilder()
 
         PackIDMouseCursors = nil,
         PackIDLinesTexData = nil
-    }, _ImFontAtlasBuilder)
+    }, Metatables.ImFontAtlasBuilder)
 end
 
 --- struct ImGuiContext
@@ -545,14 +547,14 @@ end
 
 --- struct ImGuiViewport
 -- imgui.h
-local _ImGuiViewport = {}
-_ImGuiViewport.__index = _ImGuiViewport
+Metatables.ImGuiViewport = {}
+Metatables.ImGuiViewport.__index = Metatables.ImGuiViewport
 
-function _ImGuiViewport:GetCenter()
+function Metatables.ImGuiViewport:GetCenter()
     return ImVec2(self.Pos.x + self.Size.x * 0.5, self.Pos.y + self.Size.y * 0.5)
 end
 
-function _ImGuiViewport:GetWorkCenter()
+function Metatables.ImGuiViewport:GetWorkCenter()
     return ImVec2(self.WorkPos.x + self.WorkSize.x * 0.5, self.WorkPos.y + self.WorkSize.y * 0.5)
 end
 
@@ -567,60 +569,60 @@ local function ImGuiViewport()
 
         PlatformHandle = nil,
         PlatformHandleRaw = nil
-    }, _ImGuiViewport)
+    }, Metatables.ImGuiViewport)
 end
 
 --- struct ImDrawDataBuilder
 --
-local _ImDrawDataBuilder = {}
-_ImDrawDataBuilder.__index = _ImDrawDataBuilder
+Metatables.ImDrawDataBuilder = {}
+Metatables.ImDrawDataBuilder.__index = Metatables.ImDrawDataBuilder
 
 local function ImDrawDataBuilder()
     return setmetatable({
         Layers = {nil, nil},
         LayerData1 = ImVector()
-    }, _ImDrawDataBuilder)
+    }, Metatables.ImDrawDataBuilder)
 end
 
 --- struct ImGuiViewportP : public ImGuiViewport
 -- imgui_internal.h
-local _ImGuiViewportP = {}
-_ImGuiViewportP.__index = _ImGuiViewportP
-setmetatable(_ImGuiViewportP, {__index = _ImGuiViewport})
+Metatables.ImGuiViewportP = {}
+Metatables.ImGuiViewportP.__index = Metatables.ImGuiViewportP
+setmetatable(Metatables.ImGuiViewportP, {__index = Metatables.ImGuiViewport})
 
-function _ImGuiViewportP:CalcWorkRectPos(inset_min)
+function Metatables.ImGuiViewportP:CalcWorkRectPos(inset_min)
     return ImVec2(self.Pos.x + inset_min.x, self.Pos.y + inset_min.y)
 end
 
-function _ImGuiViewportP:CalcWorkRectSize(inset_min, inset_max)
+function Metatables.ImGuiViewportP:CalcWorkRectSize(inset_min, inset_max)
     return ImVec2(ImMax(0.0, self.Size.x - inset_min.x - inset_max.x), ImMax(0.0, self.Size.y - inset_min.y - inset_max.y))
 end
 
-function _ImGuiViewportP:UpdateWorkRect()
+function Metatables.ImGuiViewportP:UpdateWorkRect()
     self.WorkPos = self:CalcWorkRectPos(self.WorkInsetMin)
     self.WorkSize = self:CalcWorkRectSize(self.WorkInsetMin, self.WorkInsetMax)
 end
 
-function _ImGuiViewportP:GetMainRect()
+function Metatables.ImGuiViewportP:GetMainRect()
     return ImRect(self.Pos.x, self.Pos.y,
         self.Pos.x + self.Size.x,
         self.Pos.y + self.Size.y)
 end
 
-function _ImGuiViewportP:GetWorkRect()
+function Metatables.ImGuiViewportP:GetWorkRect()
     return ImRect(self.WorkPos.x, self.WorkPos.y,
         self.WorkPos.x + self.WorkSize.x,
         self.WorkPos.y + self.WorkSize.y)
 end
 
-function _ImGuiViewportP:GetBuildWorkRect()
+function Metatables.ImGuiViewportP:GetBuildWorkRect()
     local pos = self:CalcWorkRectPos(self.BuildWorkInsetMin)
     local size = self:CalcWorkRectSize(self.BuildWorkInsetMin, self.BuildWorkInsetMax)
     return ImRect(pos.x, pos.y, pos.x + size.x, pos.y + size.y)
 end
 
 local function ImGuiViewportP()
-    local this = setmetatable(ImGuiViewport(), _ImGuiViewportP)
+    local this = setmetatable(ImGuiViewport(), Metatables.ImGuiViewportP)
 
     this.BgFgDrawListsLastFrame = {-1, -1}
     this.BgFgDrawLists = {nil, nil}
