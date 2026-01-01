@@ -81,30 +81,6 @@ local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) return ImCl
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR) return MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI))) end
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD) return (1 - ImCos(IM_PI / ImMax(N, IM_PI))) / RAD end
 
---- A compact ImVector clone, maybe
--- ImVector<>
-Metatables.ImVector = {}
-Metatables.ImVector.__index = Metatables.ImVector
-
-function Metatables.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
-function Metatables.ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
-function Metatables.ImVector:clear() self.Size = 0 end
-function Metatables.ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
-function Metatables.ImVector:empty() return self.Size == 0 end
-function Metatables.ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
-function Metatables.ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = remove_at(self.Data, i) self.Size = self.Size - 1 return removed end
-function Metatables.ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
-function Metatables.ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
-function Metatables.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
-function Metatables.ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
-function Metatables.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
-function Metatables.ImVector:reserve() return end
-function Metatables.ImVector:reserve_discard() return end
-function Metatables.ImVector:shrink() return end
-function Metatables.ImVector:resize(new_size) self.Size = new_size end
-
-local function ImVector() return setmetatable({Data = {}, Size = 0}, Metatables.ImVector) end
-
 --- ImVec2
 --
 Metatables.ImVec2 = {}
@@ -383,7 +359,7 @@ local function ImGuiContext()
 
             MetricsRenderWindows = 0,
 
-            Fonts = nil
+            Fonts = ImFontAtlas()
         },
 
         MovingWindow = nil,
@@ -635,4 +611,23 @@ local function ImGuiViewportP()
     this.BuildWorkInsetMax = ImVec2(0, 0)
 
     return this
+end
+
+Metatables.ImFontLoader = {}
+Metatables.ImFontLoader.__index = Metatables.ImFontLoader
+
+local function ImFontLoader()
+    return setmetatable({
+        Name                 = nil,
+        LoaderInit           = nil,
+        LoaderShutdown       = nil,
+        FontSrcInit          = nil,
+        FontSrcDestroy       = nil,
+        FontSrcContainsGlyph = nil,
+        FontBakedInit        = nil,
+        FontBakedDestroy     = nil,
+        FontBakedLoadGlyph   = nil,
+
+        FontBakedSrcLoaderDataSize = nil
+    }, Metatables.ImFontLoader)
 end

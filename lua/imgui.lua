@@ -1,48 +1,44 @@
 --- ImGui for Garry's Mod written in pure Lua
 --
-ImGui = ImGui or {}
-
 local GImGui = nil
+
+IMGUI_INCLUDE("imgui_h.lua")
 
 ----------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ----------------------------------------------------
-local _file = {
-    open  = file.Open,
+local FILE = {
     close = FindMetaTable("File").Close,
     size  = FindMetaTable("File").Size,
     read  = FindMetaTable("File").Read,
     write = FindMetaTable("File").Write
 }
 
-local ImFile = {
-    Open    = function(filename, mode) return _file.open(filename, mode, "GAME") end,
-    Close   = function(f) _file.close(f) end,
-    GetSize = function(f) return _file.size(f) end,
-    Read    = function(f, num_chars) return _file.read(f, num_chars) end,
-    LoadToMemory = function(filename, mode)
-        local f = ImFile.Open(filename, mode)
-        if not f then return end
+function ImFile.Open(filename, mode) return file.Open(filename, mode, "GAME") end
+function ImFile.Close(f) FILE.close(f) end
+function ImFile.GetSize(f) return FILE.size(f) end
+function ImFile.Read(f, num_chars) return FILE.read(f, num_chars) end
 
-        local file_size = ImFile.GetSize(f)
-        if file_size <= 0 then
-            ImFile.Close(f)
-            return
-        end
+function ImFile.LoadToMemory(filename, mode)
+    local f = ImFile.Open(filename, mode)
+    if not f then return end
 
-        local file_data = ImFile.Read(f)
-        if not file_data or file_data == "" then
-            ImFile.Close(f)
-            return
-        end
-
+    local file_size = ImFile.GetSize(f)
+    if file_size <= 0 then
         ImFile.Close(f)
-
-        return file_data, file_size
+        return
     end
-}
 
-IMGUI_INCLUDE("imgui_h.lua")
+    local file_data = ImFile.Read(f)
+    if not file_data or file_data == "" then
+        ImFile.Close(f)
+        return
+    end
+
+    ImFile.Close(f)
+
+    return file_data, file_size
+end
 
 IMGUI_INCLUDE("imgui_internal.lua")
 
@@ -148,12 +144,12 @@ function ImGui.PopFont()
 end
 
 function ImGui.GetDefaultFont() -- FIXME: fix impl
-    -- local g = GImGui
-    -- local atlas = g.IO.Fonts
-    -- if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
-    --     FontAtlas.BuildMain(atlas)
-    -- end
-    -- return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
+    local g = GImGui
+    local atlas = g.IO.Fonts
+    if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
+        FontAtlas.BuildMain(atlas)
+    end
+    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
 end
 
 --- void ImGui::UpdateFontsNewFrame
@@ -184,7 +180,7 @@ local DefaultConfig = {
 }
 
 --- Index starts from 1
-local MouseButtonMap = {
+local MouseButtonMap = { -- TODO: enums instead
     [1] = MOUSE_LEFT,
     [2] = MOUSE_RIGHT
 }

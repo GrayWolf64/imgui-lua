@@ -25,10 +25,36 @@ function ImGui.StyleColorsDark(dst)
     colors["ResizeGripActive"]  = ImVec4(0.26, 0.59, 0.98, 0.95)
 end
 
---- Functions starting with `ImFontAtlas`
--- Have to group in table otherwise will run out of limit on locals(200)
---
-local FontAtlas = {}
+function ImGui_ImplStbTrueType_FontSrcInit(atlas, src)
+    -- IM_UNUSED(atlas)
+
+end
+
+function ImGui_ImplStbTrueType_FontSrcDestroy()
+end
+
+function ImGui_ImplStbTrueType_FontSrcContainsGlyph()
+end
+
+function ImGui_ImplStbTrueType_FontBakedInit()
+end
+
+function ImGui_ImplStbTrueType_FontBakedLoadGlyph()
+end
+
+function FontAtlas.GetFontLoaderForStbTruetype()
+    local loader = ImFontLoader()
+
+    loader.Name                 = "stb_truetype"
+    loader.FontSrcInit          = ImGui_ImplStbTrueType_FontSrcInit
+    loader.FontSrcDestroy       = ImGui_ImplStbTrueType_FontSrcDestroy
+    loader.FontSrcContainsGlyph = ImGui_ImplStbTrueType_FontSrcContainsGlyph
+    loader.FontBakedInit        = ImGui_ImplStbTrueType_FontBakedInit
+    loader.FontBakedDestroy     = nil
+    loader.FontBakedLoadGlyph   = ImGui_ImplStbTrueType_FontBakedLoadGlyph
+
+    return loader
+end
 
 function FontAtlas.BakedDiscard(atlas, font, baked)
     local builder = atlas.Builder
@@ -165,7 +191,23 @@ end
 
 function FontAtlas.BuildMain(atlas)
     IM_ASSERT(not atlas.Locked, "Cannot modify a locked ImFontAtlas!")
-    -- TODO:
+    if (atlas.TexData and atlas.TexData.Format ~= atlas.TexDesiredFormat) then
+        FontAtlas.BuildClear(atlas)
+    end
+
+    if atlas.Builder == nil then
+        FontAtlas.BuildInit(atlas)
+    end
+
+    -- Default font is none are specified
+    if atlas.Sources.Size == 0 then
+        atlas:AddFontDefault()
+    end
+
+    -- [LEGACY] For backends not supporting RendererHasTextures: preload all glyphs
+    -- ImFontAtlasBuildUpdateRendererHasTexturesFromContext(atlas);
+
+    atlas.TexIsBuilt = true
 end
 
 function Metatables.ImFontBaked:ClearOutputData()
@@ -258,7 +300,15 @@ function Metatables.ImFontAtlas:AddFont(font_cfg_in)
     return font
 end
 
-function Metatables.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template,glyph_ranges)
+function Metatables.ImFontAtlas:AddFontDefault(font_cfg)
+    if self.OwnerContext == nil or GetExpectedContextFontSize(self.OwnerContext) >= 16.0 then
+        return self:AddFontDefaultVector(font_cfg)
+    else
+        return self:AddFontDefaultBitmap(font_cfg)
+    end
+end
+
+function Metatables.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template, glyph_ranges)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
     IM_ASSERT(font_cfg.FontData == nil)
@@ -278,7 +328,15 @@ function Metatables.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_c
     local data, data_size = ImFileLoadToMemory(filename, "rb")
 
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
-    return AddFontFromMemoryTTF()
+    return self:AddFontFromMemoryTTF()
+end
+
+function Metatables.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
+
+end
+
+function Metatables.ImFontAtlas:AddFontDefaultVector(font_cfg_template)
+
 end
 
 local function IM_NORMALIZE2F_OVER_ZERO(VX, VY)
