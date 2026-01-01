@@ -1238,13 +1238,13 @@ local function RenderArrow(draw_list, pos, color, dir, scale)
 
     local a, b, c
 
-    if dir == ImDir.Up or dir == ImDir.Down then
-        if dir == ImDir.Up then r = -r end
+    if dir == ImGuiDir.Up or dir == ImGuiDir.Down then
+        if dir == ImGuiDir.Up then r = -r end
         a = ImVec2( 0.000,  0.750) * r
         b = ImVec2(-0.866, -0.750) * r
         c = ImVec2( 0.866, -0.750) * r
-    elseif dir == ImDir.Left or dir == ImDir.Right then
-        if dir == ImDir.Left then r = -r end
+    elseif dir == ImGuiDir.Left or dir == ImGuiDir.Right then
+        if dir == ImGuiDir.Left then r = -r end
         a = ImVec2( 0.750,  0.000) * r
         b = ImVec2(-0.750,  0.866) * r
         c = ImVec2(-0.750, -0.866) * r

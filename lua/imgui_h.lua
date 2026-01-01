@@ -1,7 +1,7 @@
 --- Flag defs, misc small functions and some constants
 --
 
-local ImDir = {
+local ImGuiDir = {
     Left  = 0,
     Right = 1,
     Up    = 2,
@@ -26,7 +26,7 @@ local Metatables = {}
 -- ImVector<>
 Metatables.ImVector = {}
 Metatables.ImVector.__index = Metatables.ImVector
-
+-- FIXME: this looks ugly. And this file should be includeable!
 function Metatables.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
 function Metatables.ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
 function Metatables.ImVector:clear() self.Size = 0 end
