@@ -155,8 +155,13 @@ function ImGui.PopFont()
     g.FontStack:pop_back()
 end
 
-local function GetDefaultFont() -- FIXME: fix impl
-    -- FIXME:
+function ImGui.GetDefaultFont() -- FIXME: fix impl
+    local g = GImGui
+    local atlas = g.IO.Fonts
+    if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
+        FontAtlas.BuildMain(atlas)
+    end
+    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
 end
 
 --- void ImGui::UpdateFontsNewFrame

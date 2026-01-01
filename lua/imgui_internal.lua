@@ -380,6 +380,8 @@ local function ImGuiContext()
             Framerate = 0,
 
             MetricsRenderWindows = 0,
+
+            Fonts = nil
         },
 
         MovingWindow = nil,

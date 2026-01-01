@@ -163,6 +163,11 @@ function FontAtlas.BuildInit(atlas)
     ImTextInitClassifiers()
 end
 
+function FontAtlas.BuildMain(atlas)
+    IM_ASSERT(not atlas.Locked, "Cannot modify a locked ImFontAtlas!")
+    -- TODO:
+end
+
 function _ImFontBaked:ClearOutputData()
     self.FallbackAdvanceX = 0.0
     self.Glyphs:clear()
@@ -177,14 +182,14 @@ end
 function _ImFont:ClearOutputData()
     local atlas = self.OwnerAtlas
     if atlas ~= nil then
-        ImFontAtlasFontDiscardBakes(atlas, self, 0)
+        FontAtlas.FontDiscardBakes(atlas, self, 0)
     end
 
     self.LastBaked = nil
 end
 
 function _ImFontAtlas:SetFontLoader(font_loader)
-    ImFontAtlasBuildSetupFontLoader(self, font_loader)
+    FontAtlas.BuildSetupFontLoader(self, font_loader)
 end
 
 -- TODO:
