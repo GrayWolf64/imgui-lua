@@ -20,6 +20,7 @@ local Metatables = {}
 local imgui_h = include("imgui_h.lua")
 
 local ImVec2        = imgui_h.ImVec2
+local ImVec4        = imgui_h.ImVec4
 local ImVector      = imgui_h.ImVector
 local _ImFontAtlas  = imgui_h._ImFontAtlas
 local ImFontAtlas   = imgui_h.ImFontAtlas

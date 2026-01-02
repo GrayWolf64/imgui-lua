@@ -81,18 +81,6 @@ local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) return ImCl
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR) return MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI))) end
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD) return (1 - ImCos(IM_PI / ImMax(N, IM_PI))) / RAD end
 
---- struct ImVec4
---
-Metatables.ImVec4 = {}
-Metatables.ImVec4.__index = Metatables.ImVec4
-
-local function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, Metatables.ImVec4) end
-
-function Metatables.ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
-function Metatables.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
-function Metatables.ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif isnumber(other) then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
-function Metatables.ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
-
 --- ImVec1
 --
 Metatables.ImVec1 = {}
