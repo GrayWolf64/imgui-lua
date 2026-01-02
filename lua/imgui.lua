@@ -268,10 +268,6 @@ local function CreateNewWindow(name)
     return window
 end
 
-local function TitleBarRect(window) -- TODO: as a method?
-    return ImRect(window.Pos, ImVec2(window.Pos.x + window.SizeFull.x, window.Pos.y + window.TitleBarHeight))
-end
-
 --- TODO: fix drawlist
 --- void ImGui::PushClipRect
 
@@ -996,7 +992,7 @@ function ImGui.Begin(name, p_open, flags)
     end
     local resize_grip_draw_size = ImTrunc(ImMax(g.FontSize * 1.10, g.Style.WindowRounding + 1.0 + g.FontSize * 0.2));
 
-    local title_bar_rect = TitleBarRect(window)
+    local title_bar_rect = window:TitleBarRect()
 
     local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
 

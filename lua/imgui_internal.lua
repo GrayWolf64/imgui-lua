@@ -333,6 +333,13 @@ local function ImGuiContext()
     return this
 end
 
+Metatables.ImGuiWindow = {}
+Metatables.ImGuiWindow.__index = Metatables.ImGuiWindow
+
+function Metatables.ImGuiWindow:TitleBarRect()
+    return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
+end
+
 --- struct IMGUI_API ImGuiWindow
 -- TODO: make this a struct
 local function ImGuiWindow(ctx, name)
@@ -412,7 +419,7 @@ local function ImGuiWindow(ctx, name)
 
     this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)
 
-    return this
+    return setmetatable(this, Metatables.ImGuiWindow)
 end
 
 --- struct ImGuiViewport
