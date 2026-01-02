@@ -1173,7 +1173,7 @@ local function AddWindowToDrawData(window, layer)
     local viewport = g.Viewports:at(1)
     g.IO.MetricsRenderWindows = g.IO.MetricsRenderWindows + 1
     -- splitter
-    AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[layer], window.DrawList)
+    ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[layer], window.DrawList)
     -- child windows
 end
 
@@ -1319,7 +1319,7 @@ function ImGui.Render()
     for _, viewport in g.Viewports:iter() do
         InitViewportDrawData(viewport)
         if viewport.BgFgDrawLists[1] ~= nil then
-            AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], GetBackgroundDrawList(viewport))
+            ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], GetBackgroundDrawList(viewport))
         end
     end
 
@@ -1337,7 +1337,7 @@ function ImGui.Render()
         FlattenDrawDataIntoSingleLayer(viewport.DrawDataBuilder)
 
         if viewport.BgFgDrawLists[2] ~= nil then
-            AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], GetForegroundDrawList(viewport))
+            ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], GetForegroundDrawList(viewport))
         end
 
         local draw_data = viewport.DrawDataP

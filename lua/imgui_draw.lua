@@ -25,21 +25,21 @@ function ImGui.StyleColorsDark(dst)
     colors["ResizeGripActive"]  = ImVec4(0.26, 0.59, 0.98, 0.95)
 end
 
-function ImGui_ImplStbTrueType_FontSrcInit(atlas, src)
+local function ImGui_ImplStbTrueType_FontSrcInit(atlas, src)
     -- IM_UNUSED(atlas)
 
 end
 
-function ImGui_ImplStbTrueType_FontSrcDestroy()
+local function ImGui_ImplStbTrueType_FontSrcDestroy()
 end
 
-function ImGui_ImplStbTrueType_FontSrcContainsGlyph()
+local function ImGui_ImplStbTrueType_FontSrcContainsGlyph()
 end
 
-function ImGui_ImplStbTrueType_FontBakedInit()
+local function ImGui_ImplStbTrueType_FontBakedInit()
 end
 
-function ImGui_ImplStbTrueType_FontBakedLoadGlyph()
+local function ImGui_ImplStbTrueType_FontBakedLoadGlyph()
 end
 
 function FontAtlas.GetFontLoaderForStbTruetype()
@@ -388,7 +388,7 @@ function Metatables.ImDrawData:Clear()
     self.DisplaySize = ImVec2()
 end
 
-local function AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
+function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
     if draw_list.CmdBuffer.Size == 0 then return end
     if draw_list.CmdBuffer.Size == 1 and draw_list.CmdBuffer.Data[1].ElemCount == 0 then return end
 
@@ -406,7 +406,7 @@ end
 function Metatables.ImDrawData:AddDrawList(draw_list)
     IM_ASSERT(self.CmdLists.Size == self.CmdListsCount)
     draw_list:_PopUnusedDrawCmd()
-    AddDrawListToDrawDataEx(self, self.CmdLists, draw_list)
+    ImGui.AddDrawListToDrawDataEx(self, self.CmdLists, draw_list)
 end
 
 function Metatables.ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
