@@ -147,6 +147,14 @@ function FontAtlas.BuildUpdatePointers(atlas)
     return
 end
 
+function FontAtlas.TextureAdd(atlas, w, h)
+    return
+end
+
+function FontAtlas.BuildClear(atlas)
+    return
+end
+
 function FontAtlas.PackInit(atlas)
     local tex = atlas.TexData
     local builder = atlas.Builder

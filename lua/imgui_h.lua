@@ -1,3 +1,5 @@
+local Enums
+
 --- ImVec2
 --
 local _ImVec2 = {}
@@ -35,6 +37,30 @@ function _ImVector:shrink() return end
 function _ImVector:resize(new_size) self.Size = new_size end
 
 local function ImVector() return setmetatable({Data = {}, Size = 0}, _ImVector) end
+
+local _ImTextureData = {}
+_ImTextureData.__index = _ImTextureData
+
+local function ImTextureData()
+    return setmetatable({
+        UniqueID             = nil,
+        Status               = nil,
+        BackendUserData      = nil,
+        TexID                = 0, -- ImTextureID_Invalid
+        Format               = nil,
+        Width                = nil,
+        Height               = nil,
+        BytesPerPixel        = nil,
+        Pixels               = nil,
+        UsedRect             = nil,
+        UpdateRect           = nil,
+        Updates              = nil,
+        UnusedFrames         = nil,
+        RefCount             = nil,
+        UseColors            = nil,
+        WantDestroyNextFrame = nil
+    }, _ImTextureData)
+end
 
 local _ImFontBaked = {}
 _ImFontBaked.__index = _ImFontBaked
@@ -130,22 +156,24 @@ _ImFontAtlas.__index = _ImFontAtlas
 local function ImFontAtlas()
     return setmetatable({
         Flags            = nil,
-        TexDesiredFormat = nil,
-        TexGlyphPadding  = nil,
-        TexMinWidth      = nil,
-        TexMinHeight     = nil,
-        TexMaxWidth      = nil,
+        TexDesiredFormat = Enums.ImTextureFormat.RGBA32,
+        TexGlyphPadding  = 1,
+        TexMinWidth      = 512,
+        TexMinHeight     = 128,
+        TexMaxWidth      = 8192,
+        TexMaxHeight     = 8192,
 
-        TexData = nil,
+        TexData = ImTextureData(),
 
-        TexList = nil,
-        Locked  = nil,
+        TexList             = nil,
+        Locked              = nil,
+        RendererHasTextures = false,
 
         Fonts               = ImVector(),
-        Sources             = nil,
+        Sources             = ImVector(),
         TexUvLines          = nil, -- size = IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1
-        TexNextUniqueID     = nil,
-        FontNextUniqueID    = nil,
+        TexNextUniqueID     = 1,
+        FontNextUniqueID    = 1,
         DrawListSharedDatas = nil,
         Builder             = nil,
         FontLoader          = nil,
@@ -157,12 +185,17 @@ local function ImFontAtlas()
     }, _ImFontAtlas)
 end
 
-local Enums = {
+Enums = {
     ImGuiDir = {
         Left  = 0,
         Right = 1,
         Up    = 2,
         Down  = 3
+    },
+
+    ImTextureFormat = {
+        RGBA32 = 0,
+        Alpha8 = 1
     },
 
     --- enum ImGuiWindowFlags_

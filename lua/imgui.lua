@@ -135,7 +135,7 @@ local function SetCurrentFont(font_name, font_size_before_scaling, font_size_aft
     ImGui.UpdateCurrentFontSize(font_size_after_scaling) -- TODO: investigate
 end
 
-local function PushFont(font, font_size_base) -- FIXME: checks not implemented?
+function ImGui.PushFont(font, font_size_base) -- FIXME: checks not implemented?
     local g = GImGui
 
     if not font or font == "" then
@@ -1060,14 +1060,6 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags()
         io.WantCaptureMouse = (g.WantCaptureMouseNextFrame ~= 0)
     else
         io.WantCaptureMouse = (mouse_avail and (g.HoveredWindow ~= nil or mouse_any_down)) -- or has_open_popup
-    end
-
-    --- Our window isn't actually a window. It doesn't "exist"
-    -- need to block input to other game ui like Derma panels
-    if io.WantCaptureMouse then
-        AttachDummyPanel({x = 0, y = 0}, io.DisplaySize)
-    else
-        DetachDummyPanel()
     end
 end
 

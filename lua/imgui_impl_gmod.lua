@@ -83,6 +83,14 @@ local function ImGui_ImplGMOD_NewFrame()
     bd.Time = current_time
 
     ImGui_ImplGMOD_UpdateMouseCursor(io, ImGui.GetMouseCursor())
+
+    --- Our window isn't actually a window. It doesn't "exist"
+    -- need to block input to other game ui like Derma panels
+    if io.WantCaptureMouse then
+        AttachDummyPanel({x = 0, y = 0}, io.DisplaySize)
+    else
+        DetachDummyPanel()
+    end
 end
 
 --- TEMPORARY
