@@ -378,7 +378,7 @@ local function IM_FIXNORMAL2F(VX, VY)
     return VX, VY
 end
 
-function Metatables.ImDrawData:Clear()
+function _ImDrawData:Clear()
     self.Valid = false
     self.CmdListsCount = 0
     self.TotalIdxCount = 0
@@ -403,7 +403,7 @@ function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
     draw_data.TotalIdxCount = draw_data.TotalIdxCount + draw_list.IdxBuffer.Size
 end
 
-function Metatables.ImDrawData:AddDrawList(draw_list)
+function _ImDrawData:AddDrawList(draw_list)
     IM_ASSERT(self.CmdLists.Size == self.CmdListsCount)
     draw_list:_PopUnusedDrawCmd()
     ImGui.AddDrawListToDrawDataEx(self, self.CmdLists, draw_list)
@@ -423,7 +423,7 @@ function Metatables.ImDrawListSharedData:SetCircleTessellationMaxError(max_error
 end
 
 --- void ImDrawList::_SetDrawListSharedData(ImDrawListSharedData* data)
-function Metatables.ImDrawList:_SetDrawListSharedData(data)
+function _ImDrawList:_SetDrawListSharedData(data)
     if self._Data ~= nil then
         self._Data.DrawLists:find_erase_unsorted(self)
     end
@@ -433,7 +433,7 @@ function Metatables.ImDrawList:_SetDrawListSharedData(data)
     end
 end
 
-function Metatables.ImDrawList:_ResetForNewFrame()
+function _ImDrawList:_ResetForNewFrame()
     self.CmdBuffer:resize(0)
     self.IdxBuffer:resize(0)
     self.VtxBuffer:resize(0)
@@ -446,7 +446,7 @@ function Metatables.ImDrawList:_ResetForNewFrame()
     self._FringeScale = self._Data.InitialFringeScale
 end
 
-function Metatables.ImDrawList:AddDrawCmd()
+function _ImDrawList:AddDrawCmd()
     local draw_cmd = ImDrawCmd()
     draw_cmd.ClipRect = self._CmdHeader.ClipRect
     draw_cmd.VtxOffset = self._CmdHeader.VtxOffset
@@ -456,7 +456,7 @@ function Metatables.ImDrawList:AddDrawCmd()
     self.CmdBuffer:push_back(draw_cmd)
 end
 
-function Metatables.ImDrawList:_PopUnusedDrawCmd()
+function _ImDrawList:_PopUnusedDrawCmd()
     while self.CmdBuffer.Size > 0 do
         local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
         if curr_cmd.ElemCount ~= 0 then
@@ -467,7 +467,7 @@ function Metatables.ImDrawList:_PopUnusedDrawCmd()
     end
 end
 
-function Metatables.ImDrawList:_OnChangedVtxOffset()
+function _ImDrawList:_OnChangedVtxOffset()
     self._VtxCurrentIdx = 1
     -- IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
 
@@ -480,7 +480,7 @@ function Metatables.ImDrawList:_OnChangedVtxOffset()
     curr_cmd.VtxOffset = self._CmdHeader.VtxOffset
 end
 
-function Metatables.ImDrawList:AddConvexPolyFilled(points, points_count, col)
+function _ImDrawList:AddConvexPolyFilled(points, points_count, col)
     if points_count < 3 or col.a == 0 then return end
 
     local uv = self._Data.TexUvWhitePixel
@@ -585,7 +585,7 @@ function Metatables.ImDrawList:AddConvexPolyFilled(points, points_count, col)
 end
 
 --- TODO: LIMIT: 65536 for imesh, 4096 for drawpoly
-function Metatables.ImDrawList:PrimReserve(idx_count, vtx_count)
+function _ImDrawList:PrimReserve(idx_count, vtx_count)
     -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0)
     if self._VtxCurrentIdx + vtx_count >= 4096 then
         self._CmdHeader.VtxOffset = self.VtxBuffer.Size + 1
@@ -604,7 +604,7 @@ function Metatables.ImDrawList:PrimReserve(idx_count, vtx_count)
     self._IdxWritePtr = idx_buffer_old_size + 1
 end
 
-function Metatables.ImDrawList:PrimUnreserve(idx_count, vtx_count)
+function _ImDrawList:PrimUnreserve(idx_count, vtx_count)
     -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0);
 
     local draw_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
@@ -613,7 +613,7 @@ function Metatables.ImDrawList:PrimUnreserve(idx_count, vtx_count)
     self.IdxBuffer:shrink(self.IdxBuffer.Size - idx_count)
 end
 
-function Metatables.ImDrawList:PrimRect(a, c, col)
+function _ImDrawList:PrimRect(a, c, col)
     local b = ImVec2(c.x, a.y)
     local d = ImVec2(a.x, c.y)
 
@@ -653,7 +653,7 @@ end
 
 --- void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32 col, ImDrawFlags flags, float thickness)
 --
-function Metatables.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
+function _ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     if points_count < 2 or col.a == 0 then
         return
     end
@@ -975,7 +975,7 @@ local function FixRectCornerFlags(flags)
     return flags
 end
 
-function Metatables.ImDrawList:PathRect(a, b, rounding, flags)
+function _ImDrawList:PathRect(a, b, rounding, flags)
     if rounding >= 0.5 then
         flags = FixRectCornerFlags(flags)
         rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, Enums.ImDrawFlags.RoundCornersTop) == Enums.ImDrawFlags.RoundCornersTop) or (bit.band(flags, Enums.ImDrawFlags.RoundCornersBottom) == Enums.ImDrawFlags.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
@@ -998,7 +998,7 @@ function Metatables.ImDrawList:PathRect(a, b, rounding, flags)
     end
 end
 
-function Metatables.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
+function _ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
     if col.a == 0 then return end -- TODO: pack color?
 
     if rounding < 0.5 or (bit.band(flags, Enums.ImDrawFlags.RoundCornersMask) == Enums.ImDrawFlags.RoundCornersNone) then
@@ -1010,7 +1010,7 @@ function Metatables.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
     end
 end
 
-function Metatables.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
+function _ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
     if col.a == 0 then return end
     if bit.band(self.Flags, Enums.ImDrawListFlags.AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
@@ -1021,7 +1021,7 @@ function Metatables.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thick
     self:PathStroke(col, Enums.ImDrawFlags.Closed, thickness)
 end
 
-function Metatables.ImDrawList:AddLine(p1, p2, col, thickness)
+function _ImDrawList:AddLine(p1, p2, col, thickness)
     if col.a == 0 then return end
 
     self:PathLineTo(p1 + ImVec2(0.5, 0.5))
@@ -1029,7 +1029,7 @@ function Metatables.ImDrawList:AddLine(p1, p2, col, thickness)
     self:PathStroke(col, 0, thickness)
 end
 
-function Metatables.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
+function _ImDrawList:AddTriangleFilled(p1, p2, p3, col)
     if col.a == 0 then return end
 
     self:PathLineTo(p1)
@@ -1038,14 +1038,14 @@ function Metatables.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
     self:PathFillConvex(col)
 end
 
-function Metatables.ImDrawList:AddText(text, font, pos, color)
+function _ImDrawList:AddText(text, font, pos, color)
     surface.SetTextPos(pos.x, pos.y)
     surface.SetFont(font)
     surface.SetTextColor(color)
     surface.DrawText(text)
 end
 
-function Metatables.ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
+function _ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     surface.SetFont(font)
     local text_width, text_height = surface.GetTextSize(text)
     local need_clipping = text_width > w or text_height > h
@@ -1054,7 +1054,7 @@ function Metatables.ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     self:AddText(text, font, pos, color)
 end
 
-function Metatables.ImDrawList:_CalcCircleAutoSegmentCount(radius)
+function _ImDrawList:_CalcCircleAutoSegmentCount(radius)
     local radius_idx = ImFloor(radius + 0.999999)
 
     if radius_idx >= 0 and radius_idx < 64 then -- IM_ARRAYSIZE(_Data->CircleSegmentCounts))
@@ -1064,7 +1064,7 @@ function Metatables.ImDrawList:_CalcCircleAutoSegmentCount(radius)
     end
 end
 
-function Metatables.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_rect)
+function _ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_rect)
     local cr = ImVec4(cr_min.x, cr_min.y, cr_max.x, cr_max.y)
 
     if intersect_with_current_clip_rect then
@@ -1085,7 +1085,7 @@ function Metatables.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_curre
 end
 
 --- void ImDrawList::_PathArcToFastEx
-function Metatables.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
+function _ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
     if radius < 0.5 then
         self._Path:push_back(center)
         return
@@ -1173,7 +1173,7 @@ function Metatables.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_
     --- IM_ASSERT_PARANOID(_Path.Data + _Path.Size == out_ptr);
 end
 
-function Metatables.ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
+function _ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
     if radius < 0.5 then
         self._Path:push_back(center)
         return
@@ -1182,7 +1182,7 @@ function Metatables.ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_
     self:_PathArcToFastEx(center, radius, a_min_of_12 * IM_DRAWLIST_ARCFAST_SAMPLE_MAX / 12, a_max_of_12 * IM_DRAWLIST_ARCFAST_SAMPLE_MAX / 12, 0)
 end
 
-function Metatables.ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
+function _ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
     if radius < 0.5 then
         self._Path:push_back(center)
         return
@@ -1194,7 +1194,7 @@ function Metatables.ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_seg
     end
 end
 
-function Metatables.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
+function _ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
     if radius < 0.5 then
         self._Path:push_back(center)
         return

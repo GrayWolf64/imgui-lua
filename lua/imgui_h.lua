@@ -50,6 +50,86 @@ function _ImVector:resize(new_size) self.Size = new_size end
 
 local function ImVector() return setmetatable({Data = {}, Size = 0}, _ImVector) end
 
+--- struct ImDrawCmd
+--
+local _ImDrawCmd = {}
+_ImDrawCmd.__index = _ImDrawCmd
+
+local function ImDrawCmd()
+    return setmetatable({
+        ClipRect = ImVec4(),
+        VtxOffset = 0,
+        IdxOffset = 0,
+        ElemCount = 0
+    }, _ImDrawCmd) -- TODO: callback
+end
+
+--- struct ImDrawVert
+-- imgui.h
+local _ImDrawVert = {}
+_ImDrawVert.__index = _ImDrawVert
+
+local function ImDrawVert()
+    return setmetatable({
+        pos = ImVec2(),
+        uv  = nil,
+        col = nil
+    }, _ImDrawVert)
+end
+
+--- struct ImDrawCmdHeader
+--
+local _ImDrawCmdHeader = {}
+_ImDrawCmdHeader.__index = _ImDrawCmdHeader
+
+local function ImDrawCmdHeader()
+    return setmetatable({
+        ClipRect = ImVec4(),
+        VtxOffset = 0
+    }, _ImDrawCmdHeader)
+end
+
+--- struct ImDrawList
+-- imgui.h
+local _ImDrawList = {}
+_ImDrawList.__index = _ImDrawList
+
+local function ImDrawList(data)
+    return setmetatable({
+        CmdBuffer = ImVector(),
+        IdxBuffer = ImVector(),
+        VtxBuffer = ImVector(),
+        Flags = 0,
+
+        _VtxCurrentIdx = 1, -- TODO: validate
+        _Data = data, -- ImDrawListSharedData*, Pointer to shared draw data (you can use ImGui:GetDrawListSharedData() to get the one from current ImGui context)
+        _VtxWritePtr = 1,
+        _IdxWritePtr = 1,
+        _Path = ImVector(),
+        _CmdHeader = ImDrawCmdHeader(),
+        _ClipRectStack = ImVector(),
+
+        _FringeScale = 0
+    }, _ImDrawList)
+end
+
+--- struct ImDrawData
+-- imgui.h
+local _ImDrawData = {}
+_ImDrawData.__index = _ImDrawData
+
+local function ImDrawData()
+    return setmetatable({
+        Valid = false,
+        CmdListsCount = 0,
+        TotalIdxCount = 0,
+        TotalVtxCount = 0,
+        CmdLists = ImVector(),
+        DisplayPos = ImVec2(),
+        DisplaySize = ImVec2()
+    }, _ImDrawData)
+end
+
 local _ImTextureData = {}
 _ImTextureData.__index = _ImTextureData
 
@@ -315,6 +395,21 @@ return {
 
     _ImFontBaked = _ImFontBaked,
     ImFontBaked  = ImFontBaked,
+
+    _ImDrawCmd = _ImDrawCmd,
+    ImDrawCmd  = ImDrawCmd,
+
+    -- _ImDrawVert = _ImDrawVert,
+    ImDrawVert  = ImDrawVert,
+
+    -- _ImDrawCmdHeader = _ImDrawCmdHeader,
+    ImDrawCmdHeader  = ImDrawCmdHeader,
+
+    _ImDrawList = _ImDrawList,
+    ImDrawList  = ImDrawList,
+
+    _ImDrawData = _ImDrawData,
+    ImDrawData  = ImDrawData,
 
     Enums = Enums
 }

@@ -30,6 +30,13 @@ local _ImFont       = imgui_h._ImFont
 local ImFont        = imgui_h.ImFont
 local _ImFontBaked  = imgui_h._ImFontBaked
 local ImFontBaked   = imgui_h.ImFontBaked
+local _ImDrawCmd    = imgui_h._ImDrawCmd
+local ImDrawCmd     = imgui_h.ImDrawCmd
+local ImDrawVert    = imgui_h.ImDrawVert
+local _ImDrawList   = imgui_h._ImDrawList
+local ImDrawList    = imgui_h.ImDrawList
+local _ImDrawData   = imgui_h._ImDrawData
+local ImDrawData    = imgui_h.ImDrawData
 local Enums         = imgui_h.Enums
 
 ----------------------------------------------------

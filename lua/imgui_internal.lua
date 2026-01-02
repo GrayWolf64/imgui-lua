@@ -103,109 +103,29 @@ function Metatables.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) *
 
 local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, Metatables.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, Metatables.ImRect) end
 
---- struct ImDrawCmd
---
-Metatables.ImDrawCmd = {}
-Metatables.ImDrawCmd.__index = Metatables.ImDrawCmd
-
-local function ImDrawCmd()
-    return setmetatable({
-        ClipRect = ImVec4(),
-        VtxOffset = 0,
-        IdxOffset = 0,
-        ElemCount = 0
-    }, Metatables.ImDrawCmd) -- TODO: callback
-end
-
---- struct ImDrawVert
--- imgui.h
-Metatables.ImDrawVert = {}
-Metatables.ImDrawVert.__index = Metatables.ImDrawVert
-
-local function ImDrawVert()
-    return setmetatable({
-        pos = ImVec2(),
-        uv  = nil,
-        col = nil
-    }, Metatables.ImDrawVert)
-end
-
---- struct ImDrawCmdHeader
---
-Metatables.ImDrawCmdHeader = {}
-Metatables.ImDrawCmdHeader.__index = Metatables.ImDrawCmdHeader
-
-local function ImDrawCmdHeader()
-    return setmetatable({
-        ClipRect = ImVec4(),
-        VtxOffset = 0
-    }, Metatables.ImDrawCmdHeader)
-end
-
---- struct ImDrawList
--- imgui.h
-Metatables.ImDrawList = {}
-Metatables.ImDrawList.__index = Metatables.ImDrawList
-
-function Metatables.ImDrawList:PathClear()
+function _ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
 end
 
-function Metatables.ImDrawList:PathLineTo(pos)
+function _ImDrawList:PathLineTo(pos)
     self._Path:push_back(pos)
 end
 
-function Metatables.ImDrawList:PathLineToMergeDuplicate(pos)
+function _ImDrawList:PathLineToMergeDuplicate(pos)
     local path_size = self._Path.Size
     if path_size == 0 or self._Path.Data[path_size].x ~= pos.x or self._Path.Data[path_size].y ~= pos.y then
         self._Path:push_back(pos)
     end
 end
 
-function Metatables.ImDrawList:PathFillConvex(col)
+function _ImDrawList:PathFillConvex(col)
     self:AddConvexPolyFilled(self._Path.Data, self._Path.Size, col)
     self._Path.Size = 0
 end
 
-function Metatables.ImDrawList:PathStroke(col, flags, thickness)
+function _ImDrawList:PathStroke(col, flags, thickness)
     self:AddPolyline(self._Path.Data, self._Path.Size, col, flags, thickness)
     self._Path.Size = 0
-end
-
-local function ImDrawList(data)
-    return setmetatable({
-        CmdBuffer = ImVector(),
-        IdxBuffer = ImVector(),
-        VtxBuffer = ImVector(),
-        Flags = 0,
-
-        _VtxCurrentIdx = 1, -- TODO: validate
-        _Data = data, -- ImDrawListSharedData*, Pointer to shared draw data (you can use ImGui:GetDrawListSharedData() to get the one from current ImGui context)
-        _VtxWritePtr = 1,
-        _IdxWritePtr = 1,
-        _Path = ImVector(),
-        _CmdHeader = ImDrawCmdHeader(),
-        _ClipRectStack = ImVector(),
-
-        _FringeScale = 0
-    }, Metatables.ImDrawList)
-end
-
---- struct ImDrawData
--- imgui.h
-Metatables.ImDrawData = {}
-Metatables.ImDrawData.__index = Metatables.ImDrawData
-
-local function ImDrawData()
-    return setmetatable({
-        Valid = false,
-        CmdListsCount = 0,
-        TotalIdxCount = 0,
-        TotalVtxCount = 0,
-        CmdLists = ImVector(),
-        DisplayPos = ImVec2(),
-        DisplaySize = ImVec2()
-    }, Metatables.ImDrawData)
 end
 
 --- struct IMGUI_API ImDrawListSharedData
