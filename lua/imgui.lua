@@ -414,7 +414,7 @@ local function StopMouseMovingWindow()
 end
 
 --- void ImGui::SetActiveID
-local function SetActiveID(id, window)
+function ImGui.SetActiveID(id, window)
     local g = GImGui
 
     if g.ActiveID ~= 0 then
@@ -439,8 +439,8 @@ local function SetActiveID(id, window)
     end
 end
 
-local function ClearActiveID()
-    SetActiveID(0, nil)
+function ImGui.ClearActiveID()
+    ImGui.SetActiveID(0, nil)
 end
 
 local function PushID(str_id)
@@ -481,7 +481,7 @@ local function SetHoveredID(id)
 end
 
 --- bool ImGui::ItemHoverable
-local function ItemHoverable(id, bb)
+function ImGui.ItemHoverable(id, bb)
     local g = GImGui
 
     local window = g.CurrentWindow
@@ -506,14 +506,14 @@ local function ItemHoverable(id, bb)
 end
 
 --- bool ImGui::IsMouseDown
-local function IsMouseDown(button)
+function ImGui.IsMouseDown(button)
     local g = GImGui
 
     return g.IO.MouseDown[button]
 end
 
 --- bool ImGui::IsMouseClicked
-local function IsMouseClicked(button)
+function ImGui.IsMouseClicked(button)
     local g = GImGui
 
     if not g.IO.MouseDown[button] then
@@ -844,7 +844,7 @@ local function StartMouseMovingWindow(window)
     local g = GImGui
 
     FocusWindow(window)
-    SetActiveID(window.MoveID, window)
+    ImGui.SetActiveID(window.MoveID, window)
 
     g.ActiveIDClickOffset = g.IO.MouseClickedPos[1] - window.Pos
 
@@ -865,14 +865,14 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
             FocusWindow(g.MovingWindow)
         else
             StopMouseMovingWindow()
-            ClearActiveID()
+            ImGui.ClearActiveID()
         end
     else
         if (g.ActiveIDWindow and g.ActiveIDWindow.MoveID == g.ActiveID) then
             KeepAliveID(g.ActiveID)
 
             if g.IO.MouseDown[1] then
-                ClearActiveID()
+                ImGui.ClearActiveID()
             end
         end
     end
@@ -1273,7 +1273,7 @@ function ImGui.NewFrame()
     if (g.ActiveID ~= 0 and g.ActiveIDIsAlive ~= g.ActiveID and g.ActiveIDPreviousFrame == g.ActiveID) then
         print("NewFrame(): ClearActiveID() because it isn't marked alive anymore!")
 
-        ClearActiveID()
+        ImGui.ClearActiveID()
     end
 
     g.ActiveIDPreviousFrame = g.ActiveID

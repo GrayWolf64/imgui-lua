@@ -2,14 +2,14 @@ local function ButtonBehavior(button_id, bb)
     local g = GImGui
 
     local io = g.IO
-    local hovered = ItemHoverable(button_id, bb)
+    local hovered = ImGui.ItemHoverable(button_id, bb)
 
     local pressed = false
     if hovered then
-        if IsMouseClicked(1) then
+        if ImGui.IsMouseClicked(1) then
             pressed = true
 
-            SetActiveID(button_id, g.CurrentWindow) -- FIXME: is this correct?
+            ImGui.SetActiveID(button_id, g.CurrentWindow) -- FIXME: is this correct?
         end
     end
 
@@ -19,10 +19,10 @@ local function ButtonBehavior(button_id, bb)
             g.ActiveIDClickOffset = io.MousePos - bb.Min
         end
 
-        if IsMouseDown(1) then
+        if ImGui.IsMouseDown(1) then
             held = true
         else
-            ClearActiveID()
+            ImGui.ClearActiveID()
         end
     end
 
