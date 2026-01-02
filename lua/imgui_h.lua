@@ -1,57 +1,43 @@
---- Flag defs, misc small functions and some constants
+--- ImVec2
 --
+local _ImVec2 = {}
+_ImVec2.__index = _ImVec2
 
-local ImGuiDir = {
-    Left  = 0,
-    Right = 1,
-    Up    = 2,
-    Down  = 3
-}
+local function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, _ImVec2) end
 
---- Exposed APIs
---
-ImGui = ImGui or {}
-
---- Have to group in table otherwise will run out of limit on locals(200)
---- Functions starting with `ImFontAtlas`
---
-local FontAtlas = {}
-
-local ImFile = {}
-
-local Enums
-local Metatables = {}
+function _ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
+function _ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
+function _ImVec2:__mul(other) if isnumber(self) then return ImVec2(self * other.x, self * other.y) elseif isnumber(other) then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
+function _ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
+function _ImVec2:__tostring() return str_format("ImVec2(%g, %g)", self.x, self.y) end
+function _ImVec2:copy() return ImVec2(self.x, self.y) end
 
 --- A compact ImVector clone, maybe
 -- ImVector<>
-Metatables.ImVector = {}
-Metatables.ImVector.__index = Metatables.ImVector
--- FIXME: this looks ugly. And this file should be includeable!
-function Metatables.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
-function Metatables.ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
-function Metatables.ImVector:clear() self.Size = 0 end
-function Metatables.ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
-function Metatables.ImVector:empty() return self.Size == 0 end
-function Metatables.ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
-function Metatables.ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = remove_at(self.Data, i) self.Size = self.Size - 1 return removed end
-function Metatables.ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
-function Metatables.ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
-function Metatables.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
-function Metatables.ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
-function Metatables.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
-function Metatables.ImVector:reserve() return end
-function Metatables.ImVector:reserve_discard() return end
-function Metatables.ImVector:shrink() return end
-function Metatables.ImVector:resize(new_size) self.Size = new_size end
+local _ImVector = {}
+_ImVector.__index = _ImVector
 
-local function ImVector() return setmetatable({Data = {}, Size = 0}, Metatables.ImVector) end
+function _ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
+function _ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
+function _ImVector:clear() self.Size = 0 end
+function _ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
+function _ImVector:empty() return self.Size == 0 end
+function _ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
+function _ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = remove_at(self.Data, i) self.Size = self.Size - 1 return removed end
+function _ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
+function _ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
+function _ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
+function _ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
+function _ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
+function _ImVector:reserve() return end
+function _ImVector:reserve_discard() return end
+function _ImVector:shrink() return end
+function _ImVector:resize(new_size) self.Size = new_size end
 
-local ImFontAtlasRectId_Invalid = -1
+local function ImVector() return setmetatable({Data = {}, Size = 0}, _ImVector) end
 
-local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
-
-Metatables.ImFontBaked = {}
-Metatables.ImFontBaked.__index = Metatables.ImFontBaked
+local _ImFontBaked = {}
+_ImFontBaked.__index = _ImFontBaked
 
 local function ImFontBaked()
     return setmetatable({
@@ -74,11 +60,11 @@ local function ImFontBaked()
         BakedId              = nil,
         OwnerFont            = nil,
         FontLoaderDatas      = nil
-    }, Metatables.ImFontBaked)
+    }, _ImFontBaked)
 end
 
-Metatables.ImFont = {}
-Metatables.ImFont.__index = Metatables.ImFont
+local _ImFont = {}
+_ImFont.__index = _ImFont
 
 local function ImFont()
     return setmetatable({
@@ -96,13 +82,13 @@ local function ImFont()
         EllipsisAutoBake = nil,
         RemapPairs       = nil,
         Scale            = nil
-    }, Metatables.ImFont)
+    }, _ImFont)
 end
 
 --- struct ImFontConfig
 --
-Metatables.ImFontConfig = {}
-Metatables.ImFontConfig.__index = Metatables.ImFontConfig
+local _ImFontConfig = {}
+_ImFontConfig.__index = _ImFontConfig
 
 local function ImFontConfig()
     return setmetatable({
@@ -135,11 +121,11 @@ local function ImFontConfig()
         DstFont        = nil,
         FontLoader     = nil,
         FontLoaderData = nil
-    }, Metatables.ImFontConfig)
+    }, _ImFontConfig)
 end
 
-Metatables.ImFontAtlas = {}
-Metatables.ImFontAtlas.__index = Metatables.ImFontAtlas
+local _ImFontAtlas = {}
+_ImFontAtlas.__index = _ImFontAtlas
 
 local function ImFontAtlas()
     return setmetatable({
@@ -168,10 +154,17 @@ local function ImFontAtlas()
         FontLoaderFlags     = nil,
         RefCount            = nil,
         OwnerContext        = nil
-    }, Metatables.ImFontAtlas)
+    }, _ImFontAtlas)
 end
 
-Enums = {
+local Enums = {
+    ImGuiDir = {
+        Left  = 0,
+        Right = 1,
+        Up    = 2,
+        Down  = 3
+    },
+
     --- enum ImGuiWindowFlags_
     ImGuiWindowFlags = {
         None                      = 0,
@@ -260,3 +253,22 @@ Enums.ImDrawFlags.RoundCornersRight   = bit.bor(Enums.ImDrawFlags.RoundCornersBo
 Enums.ImDrawFlags.RoundCornersAll     = bit.bor(Enums.ImDrawFlags.RoundCornersTopLeft, Enums.ImDrawFlags.RoundCornersTopRight, Enums.ImDrawFlags.RoundCornersBottomLeft, Enums.ImDrawFlags.RoundCornersBottomRight)
 Enums.ImDrawFlags.RoundCornersMask    = bit.bor(Enums.ImDrawFlags.RoundCornersAll, Enums.ImDrawFlags.RoundCornersNone)
 Enums.ImDrawFlags.RoundCornersDefault = Enums.ImDrawFlags.RoundCornersAll
+
+return {
+    ImVec2   = ImVec2,
+    ImVector = ImVector,
+
+    _ImFontAtlas = _ImFontAtlas,
+    ImFontAtlas  = ImFontAtlas,
+
+    _ImFontConfig = _ImFontConfig,
+    ImFontConfig  = ImFontConfig,
+
+    _ImFont = _ImFont,
+    ImFont  = ImFont,
+
+    _ImFontBaked = _ImFontBaked,
+    ImFontBaked  = ImFontBaked,
+
+    Enums = Enums
+}

@@ -210,7 +210,7 @@ function FontAtlas.BuildMain(atlas)
     atlas.TexIsBuilt = true
 end
 
-function Metatables.ImFontBaked:ClearOutputData()
+function _ImFontBaked:ClearOutputData()
     self.FallbackAdvanceX = 0.0
     self.Glyphs:clear()
     self.IndexAdvanceX:clear()
@@ -221,7 +221,9 @@ function Metatables.ImFontBaked:ClearOutputData()
     self.MetricsTotalSurface = 0
 end
 
-function Metatables.ImFont:ClearOutputData()
+_ImFontBaked = nil -- END EXTEND
+
+function _ImFont:ClearOutputData()
     local atlas = self.OwnerAtlas
     if atlas ~= nil then
         FontAtlas.FontDiscardBakes(atlas, self, 0)
@@ -230,12 +232,14 @@ function Metatables.ImFont:ClearOutputData()
     self.LastBaked = nil
 end
 
-function Metatables.ImFontAtlas:SetFontLoader(font_loader)
+_ImFont = nil -- END EXTEND
+
+function _ImFontAtlas:SetFontLoader(font_loader)
     FontAtlas.BuildSetupFontLoader(self, font_loader)
 end
 
 -- TODO:
-function Metatables.ImFontAtlas:AddFont(font_cfg_in)
+function _ImFontAtlas:AddFont(font_cfg_in)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
     IM_ASSERT((font_cfg_in.FontData ~= nil and font_cfg_in.FontDataSize > 0) or (font_cfg_in.FontLoader ~= nil))
     --IM_ASSERT(font_cfg_in.SizePixels > 0.0, "Is ImFontConfig struct correctly initialized?")
@@ -300,7 +304,7 @@ function Metatables.ImFontAtlas:AddFont(font_cfg_in)
     return font
 end
 
-function Metatables.ImFontAtlas:AddFontDefault(font_cfg)
+function _ImFontAtlas:AddFontDefault(font_cfg)
     if self.OwnerContext == nil or GetExpectedContextFontSize(self.OwnerContext) >= 16.0 then
         return self:AddFontDefaultVector(font_cfg)
     else
@@ -308,7 +312,7 @@ function Metatables.ImFontAtlas:AddFontDefault(font_cfg)
     end
 end
 
-function Metatables.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template, glyph_ranges)
+function _ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template, glyph_ranges)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
     IM_ASSERT(font_cfg.FontData == nil)
@@ -322,7 +326,7 @@ function Metatables.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, 
     return self:AddFont(font_cfg)
 end
 
-function Metatables.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
+function _ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
 
     local data, data_size = ImFileLoadToMemory(filename, "rb")
@@ -331,13 +335,15 @@ function Metatables.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_c
     return self:AddFontFromMemoryTTF()
 end
 
-function Metatables.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
+function _ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
 
 end
 
-function Metatables.ImFontAtlas:AddFontDefaultVector(font_cfg_template)
+function _ImFontAtlas:AddFontDefaultVector(font_cfg_template)
 
 end
+
+_ImFontAtlas = nil -- END EXTEND
 
 local function IM_NORMALIZE2F_OVER_ZERO(VX, VY)
     local d2 = VX * VX + VY * VY
@@ -1238,13 +1244,13 @@ local function RenderArrow(draw_list, pos, color, dir, scale)
 
     local a, b, c
 
-    if dir == ImGuiDir.Up or dir == ImGuiDir.Down then
-        if dir == ImGuiDir.Up then r = -r end
+    if dir == Enums.ImGuiDir.Up or dir == Enums.ImGuiDir.Down then
+        if dir == Enums.ImGuiDir.Up then r = -r end
         a = ImVec2( 0.000,  0.750) * r
         b = ImVec2(-0.866, -0.750) * r
         c = ImVec2( 0.866, -0.750) * r
-    elseif dir == ImGuiDir.Left or dir == ImGuiDir.Right then
-        if dir == ImGuiDir.Left then r = -r end
+    elseif dir == Enums.ImGuiDir.Left or dir == Enums.ImGuiDir.Right then
+        if dir == Enums.ImGuiDir.Left then r = -r end
         a = ImVec2( 0.750,  0.000) * r
         b = ImVec2(-0.750,  0.866) * r
         c = ImVec2(-0.750, -0.866) * r

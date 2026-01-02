@@ -2,7 +2,34 @@
 --
 local GImGui = nil
 
-IMGUI_INCLUDE("imgui_h.lua")
+local ImFontAtlasRectId_Invalid = -1 -- TODO: defines
+
+local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
+
+ImGui = ImGui or {}
+
+--- Have to group in table otherwise will run out of limit on locals(200)
+--- Functions starting with `ImFontAtlas`
+--
+local FontAtlas = {}
+
+local ImFile = {}
+
+local Metatables = {}
+
+local imgui_h = include("imgui_h.lua")
+
+local ImVec2        = imgui_h.ImVec2
+local ImVector      = imgui_h.ImVector
+local _ImFontAtlas  = imgui_h._ImFontAtlas
+local ImFontAtlas   = imgui_h.ImFontAtlas
+local _ImFontConfig = imgui_h._ImFontConfig
+local ImFontConfig  = imgui_h.ImFontConfig
+local _ImFont       = imgui_h._ImFont
+local ImFont        = imgui_h.ImFont
+local _ImFontBaked  = imgui_h._ImFontBaked
+local ImFontBaked   = imgui_h.ImFontBaked
+local Enums         = imgui_h.Enums
 
 ----------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
@@ -46,8 +73,6 @@ local ImResizeGripDef = {
     {CornerPos = ImVec2(1, 1), InnerDir = ImVec2(-1, -1), AngleMin12 = 0, AngleMax12 = 3}, -- Bottom right grip
     {CornerPos = ImVec2(0, 1), InnerDir = ImVec2( 1, -1), AngleMin12 = 3, AngleMax12 = 6} -- Bottom left
 }
-
-IMGUI_INCLUDE("imgui_impl_gmod.lua")
 
 --- Use FNV1a, as one ImGui FIXME suggested
 local function ImHashStr(str)
@@ -1333,7 +1358,7 @@ function ImGui.Render()
     end
 end
 
-local function GetDrawData()
+function ImGui.GetDrawData()
     local g = GImGui
     local viewport = g.Viewports:at(1)
     return viewport.DrawDataP.Valid and viewport.DrawDataP or nil
@@ -1383,42 +1408,3 @@ local function ScaleWindowsInViewport(viewport, scale)
         end
     end
 end
-
---- TEST HERE:
-ImGui.CreateContext()
-
-ImGui_ImplGMOD_Init()
-
---- TODO: can i actually switch different hooks dynamically to achieve our windows rendered under and above the game ui or derma?
-hook.Add("PostRender", "ImGuiTest", function()
-    cam.Start2D()
-
-    ImGui_ImplGMOD_NewFrame()
-
-    ImGui.NewFrame()
-
-    -- Temporary, cool timed scaling
-    PushFont(nil, ImMax(15, math.abs(90 * math.sin(SysTime()))))
-
-    local window1_open = {true}
-    ImGui.Begin("Hello World!", window1_open)
-    ImGui.End()
-
-    ImGui.PopFont()
-
-    -- local window2_open = {true}
-    -- ImGui.Begin("ImGui Demo", window2_open)
-    -- ImGui.End()
-
-    -- local drawlist = ImDrawList()
-    -- drawlist:AddRectFilled(ImVec2(60, 60), ImVec2(120, 120), color_white, 0.01)
-    -- TODO: Finish this rendering!
-
-    ImGui.EndFrame()
-
-    ImGui.Render()
-
-    ImGui_ImplGMOD_RenderDrawData(GetDrawData())
-
-    cam.End2D()
-end)

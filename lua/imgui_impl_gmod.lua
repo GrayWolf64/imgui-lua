@@ -2,6 +2,8 @@
 -- TODO: Rename the dummy panel?
 -- TODO: investigate: this dummy panel is actually a valid viewport? Derma panels can be fake viewports?
 
+local ImVec2 = include("imgui_h.lua").ImVec2
+
 --- VGUIMousePressAllowed hook can only block mouse clicks to derma elements
 -- and can't block mouse hovering
 local GDummyPanel = GDummyPanel or nil
@@ -124,3 +126,10 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
         global_vtx_offset = global_vtx_offset + draw_list.VtxBuffer.Size
     end
 end
+
+return {
+    Init           = ImGui_ImplGMOD_Init,
+    Shutdown       = ImGui_ImplGMOD_Shutdown,
+    NewFrame       = ImGui_ImplGMOD_NewFrame,
+    RenderDrawData = ImGui_ImplGMOD_RenderDrawData
+}

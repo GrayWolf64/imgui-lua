@@ -1,1 +1,40 @@
-return
+local ImGui_ImplGMOD = include("imgui_impl_gmod.lua")
+
+--- TEST HERE:
+ImGui.CreateContext()
+
+ImGui_ImplGMOD.Init()
+
+--- TODO: can i actually switch different hooks dynamically to achieve our windows rendered under and above the game ui or derma?
+hook.Add("PostRender", "ImGuiTest", function()
+    cam.Start2D()
+
+    ImGui_ImplGMOD.NewFrame()
+
+    ImGui.NewFrame()
+
+    -- Temporary test, cool timed scaling
+    PushFont(nil, math.max(15, math.abs(90 * math.sin(SysTime()))))
+
+    local window1_open = {true}
+    ImGui.Begin("Hello World!", window1_open)
+    ImGui.End()
+
+    ImGui.PopFont()
+
+    -- local window2_open = {true}
+    -- ImGui.Begin("ImGui Demo", window2_open)
+    -- ImGui.End()
+
+    -- local drawlist = ImDrawList()
+    -- drawlist:AddRectFilled(ImVec2(60, 60), ImVec2(120, 120), color_white, 0.01)
+    -- TODO: Finish this rendering!
+
+    ImGui.EndFrame()
+
+    ImGui.Render()
+
+    ImGui_ImplGMOD.RenderDrawData(ImGui.GetDrawData())
+
+    cam.End2D()
+end)
