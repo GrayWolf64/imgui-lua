@@ -4,7 +4,9 @@ local GImGui = nil
 
 local ImFontAtlasRectId_Invalid = -1 -- TODO: defines
 
-local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
+IMGUI_DEFINE(IM_DRAWLIST_TEX_LINES_WIDTH_MAX, 32)
+
+IMGUI_DEFINE(IMGUI_VIEWPORT_DEFAULT_ID, 0x11111111)
 
 ImGui = ImGui or {}
 

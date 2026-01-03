@@ -18,18 +18,18 @@ local render  = render
 local draw    = draw
 local bit     = bit
 
-local FLT_MAX = math.huge
-local IM_PI = math.pi
-local ImAbs = math.abs
-local ImMin = math.min
-local ImMax = math.max
-local ImFloor = math.floor
-local ImRound = math.Round
-local ImCeil = math.ceil
-local ImSin = math.sin
-local ImCos = math.cos
-local ImAcos = math.acos
-local ImSqrt = math.sqrt
+IMGUI_DEFINE(FLT_MAX, math.huge)
+IMGUI_DEFINE(IM_PI, math.pi)
+IMGUI_DEFINE(ImAbs, math.abs)
+IMGUI_DEFINE(ImMin, math.min)
+IMGUI_DEFINE(ImMax, math.max)
+IMGUI_DEFINE(ImFloor, math.floor)
+IMGUI_DEFINE(ImRound, math.Round)
+IMGUI_DEFINE(ImCeil, math.ceil)
+IMGUI_DEFINE(ImSin, math.sin)
+IMGUI_DEFINE(ImCos, math.cos)
+IMGUI_DEFINE(ImAcos, math.acos)
+IMGUI_DEFINE(ImSqrt, math.sqrt)
 local function ImLerp(a, b, t) return a + (b - a) * t end
 local function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 local function ImTrunc(f) return ImFloor(f + 0.5) end
@@ -57,17 +57,15 @@ end
 
 local function IM_ASSERT(_EXPR) end -- TODO: preprocess
 
-local IMGUI_FONT_SIZE_MAX = 512
+IMGUI_DEFINE(IMGUI_FONT_SIZE_MAX, 512)
 
-local IMGUI_WINDOW_HARD_MIN_SIZE = 16 -- 4
+IMGUI_DEFINE(IMGUI_WINDOW_HARD_MIN_SIZE, 16) -- 4
 
-local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN = 4
-local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
+IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, 4)
+IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX, 512)
 
-local IM_DRAWLIST_ARCFAST_TABLE_SIZE = 48
-local IM_DRAWLIST_ARCFAST_SAMPLE_MAX = 48
-
-local IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
+IMGUI_DEFINE(IM_DRAWLIST_ARCFAST_TABLE_SIZE, 48)
+IMGUI_DEFINE(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, IM_DRAWLIST_ARCFAST_TABLE_SIZE)
 
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) return ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX) end
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR) return MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI))) end
