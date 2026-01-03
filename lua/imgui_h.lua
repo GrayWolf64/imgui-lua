@@ -11,7 +11,7 @@ function _ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) 
 function _ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
 function _ImVec2:__mul(other) if isnumber(self) then return ImVec2(self * other.x, self * other.y) elseif isnumber(other) then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
 function _ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
-function _ImVec2:__tostring() return str_format("ImVec2(%g, %g)", self.x, self.y) end
+function _ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
 function _ImVec2:copy() return ImVec2(self.x, self.y) end
 
 --- struct ImVec4
@@ -37,7 +37,7 @@ function _ImVector:clear() self.Size = 0 end
 function _ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
 function _ImVector:empty() return self.Size == 0 end
 function _ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
-function _ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = remove_at(self.Data, i) self.Size = self.Size - 1 return removed end
+function _ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = table.remove(self.Data, i) self.Size = self.Size - 1 return removed end
 function _ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
 function _ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
 function _ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end

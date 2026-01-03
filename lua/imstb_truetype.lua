@@ -55,11 +55,12 @@ local STBTT_MS_EID = {
     UNICODE_FULL = 10
 }
 
-
 local STBTT_vmove  = 1
 local STBTT_vline  = 2
 local STBTT_vcurve = 3
 local STBTT_vcubic = 4
+
+local bit = bit
 
 local STBTT_assert = assert
 local STBTT_sqrt = math.sqrt
@@ -86,38 +87,32 @@ local STBTT_memcpy = function() error("memcpy() not allowed!", 2) end
 
 local function STBTT__NOTUSED() return end
 
-local lshift = bit.lshift
-local rshift = bit.rshift
-local bor    = bit.bor
-local band   = bit.band
-local str_byte = string.byte
-
 local function stbtt_int32(value)
-    return band(value, 0xFFFFFFFF) - (band(value, 0x80000000) ~= 0 and 0x100000000 or 0)
+    return bit.band(value, 0xFFFFFFFF) - (bit.band(value, 0x80000000) ~= 0 and 0x100000000 or 0)
 end
 
 local function stbtt_uint32(value)
-    return band(value, 0xFFFFFFFF)
+    return bit.band(value, 0xFFFFFFFF)
 end
 
 local function stbtt_int16(value)
-    return band(value, 0xFFFF) - (band(value, 0x8000) ~= 0 and 0x10000 or 0)
+    return bit.band(value, 0xFFFF) - (bit.band(value, 0x8000) ~= 0 and 0x10000 or 0)
 end
 
 local function stbtt_uint16(value)
-    return band(value, 0xFFFF)
+    return bit.band(value, 0xFFFF)
 end
 
 local function stbtt_int8(value)
-    return band(value, 0xFF) - (band(value, 0x80) ~= 0 and 0x100 or 0)
+    return bit.band(value, 0xFF) - (bit.band(value, 0x80) ~= 0 and 0x100 or 0)
 end
 
 local function stbtt_uint8(value)
-    return band(value, 0xFF)
+    return bit.band(value, 0xFF)
 end
 
 local function unsigned_char(value)
-    return band(value, 0xFF)
+    return bit.band(value, 0xFF)
 end
 
 local function stbtt__buf()
@@ -328,7 +323,7 @@ local function stbtt__buf_get(b, n)
     local v = 0
     STBTT_assert(n >= 1 and n <= 4)
     for _ = 1, n do
-        v = bor(lshift(v, 8), stbtt__buf_get8(b))
+        v = bit.bor(bit.lshift(v, 8), stbtt__buf_get8(b))
     end
     return v
 end
@@ -388,7 +383,7 @@ local function stbtt__cff_skip_operand(b)
         stbtt__buf_skip(b, 1)
         while b.cursor < b.size do
             v = stbtt__buf_get8(b)
-            if (band(v, 0xF) == 0xF or rshift(v, 4) == 0xF) then
+            if (bit.band(v, 0xF) == 0xF or bit.rshift(v, 4) == 0xF) then
                 break
             end
         end
@@ -407,7 +402,7 @@ local function stbtt__dict_get(b, key)
         end
         _end = b.cursor
         op = stbtt__buf_get8(b)
-        if op == 12 then op = bor(stbtt__buf_get8(b), 0x100) end
+        if op == 12 then op = bit.bor(stbtt__buf_get8(b), 0x100) end
         if op == key then return stbtt__buf_range(b, start, _end - start) end
     end
     return stbtt__buf_range(b, 0, 0)
@@ -446,17 +441,17 @@ end
 --
 local function ttUSHORT(p) return stbtt_uint16(p.data[p.offset + 1] * 256 + p.data[p.offset + 2]) end
 local function ttSHORT(p) return stbtt_int16(p.data[p.offset + 1] * 256 + p.data[p.offset + 2]) end
-local function ttULONG(p) return stbtt_uint32(lshift(p.data[p.offset + 1], 24) + lshift(p.data[p.offset + 2], 16) + lshift(p.data[p.offset + 3], 8) + p.data[p.offset + 4]) end
-local function ttLONG(p) return stbtt_int32(lshift(p.data[p.offset + 1], 24) + lshift(p.data[p.offset + 2], 16) + lshift(p.data[p.offset + 3], 8) + p.data[p.offset + 4]) end
+local function ttULONG(p) return stbtt_uint32(bit.lshift(p.data[p.offset + 1], 24) + bit.lshift(p.data[p.offset + 2], 16) + bit.lshift(p.data[p.offset + 3], 8) + p.data[p.offset + 4]) end
+local function ttLONG(p) return stbtt_int32(bit.lshift(p.data[p.offset + 1], 24) + bit.lshift(p.data[p.offset + 2], 16) + bit.lshift(p.data[p.offset + 3], 8) + p.data[p.offset + 4]) end
 
 local function ttBYTE(p) return stbtt_uint8(ptr_deref(p)) end
 local function ttCHAR(p) return stbtt_int8(ptr_deref(p)) end
 
 local function stbtt_tag4(p, c0, c1, c2, c3) return p.data[p.offset + 1] == c0 and p.data[p.offset + 2] == c1 and p.data[p.offset + 3] == c2 and p.data[p.offset + 4] == c3 end
-local function stbtt_tag(p, str) return stbtt_tag4(p, str_byte(str, 1, 4)) end
+local function stbtt_tag(p, str) return stbtt_tag4(p, string.byte(str, 1, 4)) end
 
 local function stbtt__isfont(font)
-    if stbtt_tag4(font, str_byte("1"), 0, 0, 0) then return true end
+    if stbtt_tag4(font, string.byte("1"), 0, 0, 0) then return true end
     if stbtt_tag(font, "typ1") then return true end
     if stbtt_tag(font, "OTTO") then return true end
     if stbtt_tag4(font, 0, 1, 0, 0) then return true end
@@ -585,9 +580,9 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         info.gsubrs = stbtt__cff_get_index(b)
 
         local charstrings = stbtt__dict_get_ints(topdict, 17, 1)
-        local cstype      = stbtt__dict_get_ints(topdict, bor(0x100, 6), 1)
-        local fdarrayoff  = stbtt__dict_get_ints(topdict, bor(0x100, 36), 1)
-        local fdselectoff = stbtt__dict_get_ints(topdict, bor(0x100, 37), 1)
+        local cstype      = stbtt__dict_get_ints(topdict, bit.bor(0x100, 6), 1)
+        local fdarrayoff  = stbtt__dict_get_ints(topdict, bit.bor(0x100, 36), 1)
+        local fdselectoff = stbtt__dict_get_ints(topdict, bit.bor(0x100, 37), 1)
         info.subrs = stbtt__get_subrs(b, topdict)
 
         if cstype[1] ~= 2 then
@@ -666,10 +661,10 @@ function stbtt_FindGlyphIndex(info, unicode_codepoint)
         STBTT_assert(false) -- TODO: high-byte mapping for japanese/chinese/korean
         return 0
     elseif format == 4 then
-        local segcount = rshift(ttUSHORT(ptr_add(data, index_map + 6)), 1)
-        local searchRange = rshift(ttUSHORT(ptr_add(data, index_map + 8)), 1)
+        local segcount = bit.rshift(ttUSHORT(ptr_add(data, index_map + 6)), 1)
+        local searchRange = bit.rshift(ttUSHORT(ptr_add(data, index_map + 8)), 1)
         local entrySelector = ttUSHORT(ptr_add(data, index_map + 10))
-        local rangeShift = rshift(ttUSHORT(ptr_add(data, index_map + 12)), 1)
+        local rangeShift = bit.rshift(ttUSHORT(ptr_add(data, index_map + 12)), 1)
 
         local endCount = index_map + 14
         local search = endCount
@@ -684,7 +679,7 @@ function stbtt_FindGlyphIndex(info, unicode_codepoint)
 
         search = search - 2
         while entrySelector ~= 0 do
-            searchRange = rshift(searchRange, 1)
+            searchRange = bit.rshift(searchRange, 1)
             local _end = ttUSHORT(ptr_add(data, search + searchRange * 2))
             if unicode_codepoint > _end then
                 search = search + searchRange * 2
@@ -694,7 +689,7 @@ function stbtt_FindGlyphIndex(info, unicode_codepoint)
         search = search + 2
 
         do
-            local item = stbtt_uint16(rshift(search - endCount, 1))
+            local item = stbtt_uint16(bit.rshift(search - endCount, 1))
 
             local start = ttUSHORT(ptr_add(data, index_map + 14 + segcount * 2 + 2 + 2 * item))
             local last = ttUSHORT(ptr_add(data, endCount + 2 * item))
@@ -714,7 +709,7 @@ function stbtt_FindGlyphIndex(info, unicode_codepoint)
         local low = 0
         local high = ngroups
         while low < high do
-            local mid = low + rshift(high - low, 1)
+            local mid = low + bit.rshift(high - low, 1)
             local start_char = ttULONG(ptr_add(data, index_map + 16 + mid * 12))
             local end_char = ttULONG(ptr_add(data, index_map + 16 + mid * 12 + 4))
             if unicode_codepoint < start_char then
@@ -803,7 +798,7 @@ end
 local function stbtt__close_shape(vertices, num_vertices, was_off, start_off, sx, sy, scx, scy, cx, cy)
     if start_off ~= 0 then
         if was_off ~= 0 then
-            stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, rshift(cx + scx, 1), rshift(cy + scy, 1), cx, cy)
+            stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, bit.rshift(cx + scx, 1), bit.rshift(cy + scy, 1), cx, cy)
             num_vertices = num_vertices + 1
         end
         stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, sx, sy, scx, scy)
@@ -861,7 +856,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 flags = ptr_deref(points)
                 ptr_inc(points, 1)
 
-                if band(flags, 8) ~= 0 then
+                if bit.band(flags, 8) ~= 0 then
                     flagcount = ptr_deref(points)
                     ptr_inc(points, 1)
                 end
@@ -876,16 +871,16 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
         local x = 0
         for i = 1, n do
             flags = vertices[off + i].type
-            if band(flags, 2) ~= 0 then
+            if bit.band(flags, 2) ~= 0 then
                 local dx = ptr_deref(points)
                 ptr_inc(points, 1)
-                if band(flags, 16) ~= 0 then
+                if bit.band(flags, 16) ~= 0 then
                     x = x + dx
                 else
                     x = x - dx
                 end
             else
-                if band(flags, 16) == 0 then
+                if bit.band(flags, 16) == 0 then
                     x = x + stbtt_int16(ptr_index_at(points, 0) * 256 + ptr_index_at(points, 1))
                     ptr_inc(points, 2)
                 end
@@ -898,16 +893,16 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
         local y = 0
         for i = 1, n do
             flags = vertices[off + i].type
-            if band(flags, 4) ~= 0 then
+            if bit.band(flags, 4) ~= 0 then
                 local dy = ptr_deref(points)
                 ptr_inc(points, 1)
-                if band(flags, 32) ~= 0 then
+                if bit.band(flags, 32) ~= 0 then
                     y = y + dy
                 else
                     y = y - dy
                 end
             else
-                if band(flags, 32) == 0 then
+                if bit.band(flags, 32) == 0 then
                     y = y + stbtt_int16(ptr_index_at(points, 0) * 256 + ptr_index_at(points, 1))
                     ptr_inc(points, 2)
                 end
@@ -930,13 +925,13 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 end
 
                 -- now start the new one
-                start_off = ((band(flags, 1) == 0) and 1 or 0)
+                start_off = ((bit.band(flags, 1) == 0) and 1 or 0)
                 if start_off ~= 0 then
                     scx = x
                     scy = y
-                    if band(vertices[off + i + 1].type, 1) == 0 then
-                        sx = rshift(x + stbtt_int32(vertices[off + i + 1].x), 1)
-                        sy = rshift(y + stbtt_int32(vertices[off + i + 1].y), 1)
+                    if bit.band(vertices[off + i + 1].type, 1) == 0 then
+                        sx = bit.rshift(x + stbtt_int32(vertices[off + i + 1].x), 1)
+                        sy = bit.rshift(y + stbtt_int32(vertices[off + i + 1].y), 1)
                     else
                         sx = stbtt_int32(vertices[off + i + 1].x)
                         sy = stbtt_int32(vertices[off + i + 1].y)
@@ -952,9 +947,9 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 next_move = 1 + ttUSHORT(ptr_add(endPtsOfContours, j * 2))
                 j = j + 1
             else
-                if band(flags, 1) == 0 then
+                if bit.band(flags, 1) == 0 then
                     if was_off ~= 0 then
-                        stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, rshift(cx + x, 1), rshift(cy + y, 1), cx, cy)
+                        stbtt_setvertex(vertices[num_vertices + 1], STBTT_vcurve, bit.rshift(cx + x, 1), bit.rshift(cy + y, 1), cx, cy)
                         num_vertices = num_vertices + 1
                     end
 
@@ -992,8 +987,8 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
             flags = ttSHORT(comp) ptr_inc(comp, 2)
             gidx = ttSHORT(comp) ptr_inc(comp, 2)
 
-            if band(flags, 2) ~= 0 then
-                if band(flags, 1) ~= 0 then
+            if bit.band(flags, 2) ~= 0 then
+                if bit.band(flags, 1) ~= 0 then
                     mtx[5] = ttSHORT(comp) ptr_inc(comp, 2)
                     mtx[6] = ttSHORT(comp) ptr_inc(comp, 2)
                 else
@@ -1005,14 +1000,14 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 STBTT_assert(false)
             end
 
-            if band(flags, lshift(1, 3)) ~= 0 then -- WE_HAVE_A_SCALE
+            if bit.band(flags, bit.lshift(1, 3)) ~= 0 then -- WE_HAVE_A_SCALE
                 mtx[4] = ttSHORT(comp) / 16384.0
                 mtx[1] = mtx[4]
                 ptr_inc(comp, 2)
 
                 mtx[3] = 0
                 mtx[2] = mtx[3]
-            elseif band(flags, lshift(1, 6)) ~= 0 then -- WE_HAVE_AN_X_AND_YSCALE
+            elseif bit.band(flags, bit.lshift(1, 6)) ~= 0 then -- WE_HAVE_AN_X_AND_YSCALE
                 mtx[1] = ttSHORT(comp) / 16384.0
                 ptr_inc(comp, 2)
 
@@ -1021,7 +1016,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
 
                 mtx[4] = ttSHORT(comp) / 16384.0
                 ptr_inc(comp, 2)
-            elseif band(flags, lshift(1, 7)) ~= 0 then -- WE_HAVE_A_TWO_BY_TWO
+            elseif bit.band(flags, bit.lshift(1, 7)) ~= 0 then -- WE_HAVE_A_TWO_BY_TWO
                 mtx[1] = ttSHORT(comp) / 16384.0 ptr_inc(comp, 2)
                 mtx[2] = ttSHORT(comp) / 16384.0 ptr_inc(comp, 2)
                 mtx[3] = ttSHORT(comp) / 16384.0 ptr_inc(comp, 2)
@@ -1060,7 +1055,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 num_vertices = num_vertices + comp_num_vertices
             end
 
-            more = band(flags, lshift(1, 5))
+            more = bit.band(flags, bit.lshift(1, 5))
         end
     end
 
@@ -1291,7 +1286,7 @@ local function stbtt__run_charstring(info, glyph_index, c) -- const stbtt_fontin
             if sp < 4 then return STBTT__CSERR("(vv|hh)curveto stack") end
             f = 0.0
 
-            if band(sp, 1) ~= 0 then
+            if bit.band(sp, 1) ~= 0 then
                 f = s[i]
                 i = i + 1
             end
@@ -1543,10 +1538,10 @@ local function stbtt__GetGlyphKernInfoAdvance(info, glyph1, glyph2)
     local m
     local l = 0
     local r = ttUSHORT(ptr_add(data, 10)) - 1
-    local needle = bor(lshift(glyph1, 16), glyph2)
+    local needle = bit.bor(bit.lshift(glyph1, 16), glyph2)
     local straw
     while l <= r do
-        m = rshift(l + r, 1)
+        m = bit.rshift(l + r, 1)
         straw = ttULONG(ptr_add(data, 18 + (m * 6)))
         if needle < straw then
             r = m - 1
@@ -1571,7 +1566,7 @@ local function stbtt__GetCoverageIndex(coverageTable, glyph)
 
         while l <= r do
             local glyphArray = ptr_add(coverageTable, 4)
-            local m = rshift(l + r, 1)
+            local m = bit.rshift(l + r, 1)
             local glyphID = ttUSHORT(ptr_add(glyphArray, 2 * m))
 
             if glyph < glyphID then
@@ -1591,7 +1586,7 @@ local function stbtt__GetCoverageIndex(coverageTable, glyph)
         local r = rangeCount - 1
 
         while l <= r do
-            local m = rshift(l + r, 1)
+            local m = bit.rshift(l + r, 1)
             local rangeRecord = ptr_add(rangeArray, 6 * m)
             local strawStart = ttUSHORT(rangeRecord)
             local strawEnd = ttUSHORT(ptr_add(rangeRecord, 2))
@@ -1629,7 +1624,7 @@ local function stbtt__GetGlyphClass(classDefTable, glyph)
         local l = 0
         local r = classRangeCount - 1
         while l <= r do
-            local m = rshift(l + r, 1)
+            local m = bit.rshift(l + r, 1)
             local classRangeRecord = ptr_add(classRangeRecords, 6 * m)
             local strawStart = ttUSHORT(classRangeRecord)
             local strawEnd = ttUSHORT(ptr_add(classRangeRecord, 2))
@@ -1702,7 +1697,7 @@ local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
 
                     -- Binary search
                     while l <= r do
-                        local m = rshift(l + r, 1)
+                        local m = bit.rshift(l + r, 1)
                         local pairValue = ptr_add(pairValueArray, (2 + valueRecordPairSizeInBytes) * m)
                         local secondGlyph = ttUSHORT(pairValue)
                         local straw = secondGlyph
@@ -2540,14 +2535,14 @@ local function stbtt__h_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
         for i = 0, kernel_width - 1 do buffer[i] = 0 end
 
         for i = 0, safe_w do
-            total = total + pixels[row_offset + i] - buffer[band(i, STBTT__OVER_MASK)]
-            buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[row_offset + i]
+            total = total + pixels[row_offset + i] - buffer[bit.band(i, STBTT__OVER_MASK)]
+            buffer[bit.band(i + kernel_width, STBTT__OVER_MASK)] = pixels[row_offset + i]
             pixels[row_offset + i] = unsigned_char(total / kernel_width)
         end
 
         for i = safe_w + 1, w - 1 do
             STBTT_assert(pixels[row_offset + i] == 0)
-            total = total - buffer[band(i, STBTT__OVER_MASK)]
+            total = total - buffer[bit.band(i, STBTT__OVER_MASK)]
             pixels[row_offset + i] = unsigned_char(total / kernel_width)
         end
     end
@@ -2564,14 +2559,14 @@ local function stbtt__v_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
         for i = 0, kernel_width - 1 do buffer[i] = 0 end
 
         for i = 0, safe_h do
-            total = total + pixels[col_offset + i * stride_in_bytes] - buffer[band(i, STBTT__OVER_MASK)]
-            buffer[band(i + kernel_width, STBTT__OVER_MASK)] = pixels[col_offset + i * stride_in_bytes]
+            total = total + pixels[col_offset + i * stride_in_bytes] - buffer[bit.band(i, STBTT__OVER_MASK)]
+            buffer[bit.band(i + kernel_width, STBTT__OVER_MASK)] = pixels[col_offset + i * stride_in_bytes]
             pixels[col_offset + i * stride_in_bytes] = unsigned_char(total / kernel_width)
         end
 
         for i = safe_h + 1, h - 1 do
             STBTT_assert(pixels[col_offset + i * stride_in_bytes] == 0)
-            total = total - buffer[band(i, STBTT__OVER_MASK)]
+            total = total - buffer[bit.band(i, STBTT__OVER_MASK)]
             pixels[col_offset + i * stride_in_bytes] = unsigned_char(total / kernel_width)
         end
     end

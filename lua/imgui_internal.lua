@@ -1,17 +1,9 @@
 --- Some internal structures
 -- I won't implement type checks, since I ensure that types are correct in internal usage,
 -- and runtime type checking is very slow
-local insert_at    = table.insert
-local remove_at    = table.remove
 local setmetatable = setmetatable
 local isnumber     = isnumber
 local IsValid      = IsValid
-local str_byte     = string.byte
-local str_format   = string.format
-
-local pairs  = pairs
-local ipairs = ipairs
-local assert = assert
 
 local ScrW = ScrW
 local ScrH = ScrH
@@ -88,14 +80,14 @@ Metatables.ImVec1.__index = Metatables.ImVec1
 
 local function ImVec1(x) return setmetatable({x = x or 0}, Metatables.ImVec1) end
 
-function Metatables.ImVec1:__tostring() return str_format("ImVec1(%g)", self.x) end
+function Metatables.ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
 function Metatables.ImVec1:copy() return ImVec1(self.x) end
 
 --- struct IMGUI_API ImRect
 Metatables.ImRect = {}
 Metatables.ImRect.__index = Metatables.ImRect
 
-function Metatables.ImRect:__tostring() return str_format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+function Metatables.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 function Metatables.ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
 function Metatables.ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
 function Metatables.ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end

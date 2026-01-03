@@ -91,7 +91,7 @@ local function ImHashStr(str)
 
     local byte
     for i = 1, #str do
-        byte = str_byte(str, i)
+        byte = string.byte(str, i)
         hash = bit.bxor(hash, byte)
         hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
     end
