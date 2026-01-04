@@ -294,4 +294,5 @@ local include_stack = {}
 local processed = process_file("imgui.lua", 0, defines, include_stack)
 file.Write("preprocessed_main.txt", processed)
 
+--- Temporary
 CompileString(processed, "ImGui")()
