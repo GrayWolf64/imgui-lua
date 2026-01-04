@@ -42,7 +42,7 @@ end
 local function ImGui_ImplStbTrueType_FontBakedLoadGlyph()
 end
 
-function FontAtlas.GetFontLoaderForStbTruetype()
+local function ImFontAtlasGetFontLoaderForStbTruetype()
     local loader = ImFontLoader()
 
     loader.Name                 = "stb_truetype"
@@ -56,12 +56,12 @@ function FontAtlas.GetFontLoaderForStbTruetype()
     return loader
 end
 
-function FontAtlas.BakedDiscard(atlas, font, baked)
+local function ImFontAtlasBakedDiscard(atlas, font, baked)
     local builder = atlas.Builder
 
     for _, glyph in baked.Glyphs:iter() do
         if glyph.PackID ~= ImFontAtlasRectId_Invalid then
-            FontAtlas.PackDiscardRect(atlas, glyph.PackID)
+            ImFontAtlasPackDiscardRect(atlas, glyph.PackID)
         end
     end
 
@@ -83,7 +83,7 @@ function FontAtlas.BakedDiscard(atlas, font, baked)
     font.LastBaked = nil
 end
 
-function FontAtlas.FontDiscardBakes(atlas, font, unused_frames)
+local function ImFontAtlasFontDiscardBakes(atlas, font, unused_frames)
     local builder = atlas.Builder
     if builder then
         for baked_n = 1, builder.BakedPool.Size do
@@ -94,12 +94,12 @@ function FontAtlas.FontDiscardBakes(atlas, font, unused_frames)
             if (baked.OwnerFont ~= font) or baked.WantDestroy then
                 continue
             end
-            FontAtlas.BakedDiscard(atlas, font, baked)
+            ImFontAtlasBakedDiscard(atlas, font, baked)
         end
     end
 end
 
-function FontAtlas.FontDestroyOutput(atlas, font)
+local function ImFontAtlasFontDestroyOutput(atlas, font)
     font:ClearOutputData()
     for _, src in font.Sources:iter() do
         local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
@@ -109,14 +109,14 @@ function FontAtlas.FontDestroyOutput(atlas, font)
     end
 end
 
-function FontAtlas.BuildSetupFontLoader(atlas, font_loader)
+local function ImFontAtlasBuildSetupFontLoader(atlas, font_loader)
     if atlas.FontLoader == font_loader then
         return
     end
     IM_ASSERT(not atlas.Locked, "Cannot modify a locked ImFontAtlas!")
 
     for _, font in atlas.Fonts:iter() do
-        FontAtlas.FontDestroyOutput(atlas, font)
+        ImFontAtlasFontDestroyOutput(atlas, font)
     end
     if atlas.Builder and atlas.FontLoader and atlas.FontLoader.LoaderShutdown then
         atlas.FontLoader.LoaderShutdown(atlas)
@@ -130,32 +130,32 @@ function FontAtlas.BuildSetupFontLoader(atlas, font_loader)
         atlas.FontLoader.LoaderInit(atlas)
     end
     for _, font in atlas.Fonts:iter() do
-        FontAtlas.FontInitOutput(atlas, font)
+        ImFontAtlasFontInitOutput(atlas, font)
     end
     for _, font in atlas.Fonts:iter() do
         for _, src in font.Sources:iter() do
-            FontAtlas.FontSourceAddToFont(atlas, font, src)
+            ImFontAtlasFontSourceAddToFont(atlas, font, src)
         end
     end
 end
 
-function FontAtlas.BuildUpdateRendererHasTexturesFromContext(atlas)
+local function ImFontAtlasBuildUpdateRendererHasTexturesFromContext(atlas)
     return
 end
 
-function FontAtlas.BuildUpdatePointers(atlas)
+local function ImFontAtlasBuildUpdatePointers(atlas)
     return
 end
 
-function FontAtlas.TextureAdd(atlas, w, h)
+local function ImFontAtlasTextureAdd(atlas, w, h)
     return
 end
 
-function FontAtlas.BuildClear(atlas)
+local function ImFontAtlasBuildClear(atlas)
     return
 end
 
-function FontAtlas.PackInit(atlas)
+local function ImFontAtlasPackInit(atlas)
     local tex = atlas.TexData
     local builder = atlas.Builder
 
@@ -169,42 +169,42 @@ function FontAtlas.PackInit(atlas)
     builder.MaxRectBounds = ImVec2(0, 0)
 end
 
-function FontAtlas.BuildInit(atlas)
+local function ImFontAtlasBuildInit(atlas)
     if atlas.FontLoader == nil then
         -- IMGUI_ENABLE_STB_TRUETYPE
-        atlas:SetFontLoader(FontAtlas.GetFontLoaderForStbTruetype())
+        atlas:SetFontLoader(ImFontAtlasGetFontLoaderForStbTruetype())
     end
 
     if atlas.TexData == nil or atlas.TexData.Pixels == nil then
-        FontAtlas.TextureAdd(atlas, ImUpperPowerOfTwo(atlas.TexMinWidth), ImUpperPowerOfTwo(atlas.TexMinHeight))
+        ImFontAtlasTextureAdd(atlas, ImUpperPowerOfTwo(atlas.TexMinWidth), ImUpperPowerOfTwo(atlas.TexMinHeight))
     end
     atlas.Builder = ImFontAtlasBuilder()
     if atlas.FontLoader.LoaderInit then
         atlas.FontLoader.LoaderInit(atlas)
     end
 
-    FontAtlas.BuildUpdateRendererHasTexturesFromContext(atlas)
+    ImFontAtlasBuildUpdateRendererHasTexturesFromContext(atlas)
 
-    FontAtlas.PackInit(atlas)
+    ImFontAtlasPackInit(atlas)
 
-    FontAtlas.BuildUpdateLinesTexData(atlas)
-    FontAtlas.BuildUpdateBasicTexData(atlas)
+    ImFontAtlasBuildUpdateLinesTexData(atlas)
+    ImFontAtlasBuildUpdateBasicTexData(atlas)
 
-    FontAtlas.BuildUpdatePointers(atlas)
+    ImFontAtlasBuildUpdatePointers(atlas)
 
-    FontAtlas.UpdateDrawListsSharedData(atlas)
+    ImFontAtlasUpdateDrawListsSharedData(atlas)
 
     ImTextInitClassifiers()
 end
 
-function FontAtlas.BuildMain(atlas)
+local function ImFontAtlasBuildMain(atlas)
     IM_ASSERT(not atlas.Locked, "Cannot modify a locked ImFontAtlas!")
     if (atlas.TexData and atlas.TexData.Format ~= atlas.TexDesiredFormat) then
-        FontAtlas.BuildClear(atlas)
+        ImFontAtlasBuildClear(atlas)
     end
 
     if atlas.Builder == nil then
-        FontAtlas.BuildInit(atlas)
+        ImFontAtlasBuildInit(atlas)
     end
 
     -- Default font is none are specified
@@ -232,14 +232,14 @@ end
 function _ImFont:ClearOutputData()
     local atlas = self.OwnerAtlas
     if atlas ~= nil then
-        FontAtlas.FontDiscardBakes(atlas, self, 0)
+        ImFontAtlasFontDiscardBakes(atlas, self, 0)
     end
 
     self.LastBaked = nil
 end
 
 function _ImFontAtlas:SetFontLoader(font_loader)
-    FontAtlas.BuildSetupFontLoader(self, font_loader)
+    ImFontAtlasBuildSetupFontLoader(self, font_loader)
 end
 
 -- TODO:
@@ -256,7 +256,7 @@ function _ImFontAtlas:AddFont(font_cfg_in)
     end
 
     if self.Builder == nil then
-        FontAtlas.BuildInit(self)
+        ImFontAtlasBuildInit(self)
     end
 
     local font
@@ -279,7 +279,7 @@ function _ImFontAtlas:AddFont(font_cfg_in)
         font_cfg.DstFont = font
     end
     font.Sources:push_back(font_cfg)
-    FontAtlas.BuildUpdatePointers(self)
+    ImFontAtlasBuildUpdatePointers(self)
 
     if font_cfg.GlyphExcludeRanges ~= nil then
         local size = #font_cfg.GlyphExcludeRanges
@@ -293,8 +293,8 @@ function _ImFontAtlas:AddFont(font_cfg_in)
     end
     IM_ASSERT(font_cfg.FontLoaderData == nil)
 
-    if not FontAtlas.FontSourceInit(self, font_cfg) then
-        FontAtlas.FontDestroySourceData(self, font_cfg)
+    if not ImFontAtlasFontSourceInit(self, font_cfg) then
+        ImFontAtlasFontDestroySourceData(self, font_cfg)
         self.Sources:pop_back()
         font.Sources:pop_back()
         if not font_cfg.MergeMode then
@@ -303,7 +303,7 @@ function _ImFontAtlas:AddFont(font_cfg_in)
         end
         return nil
     end
-    FontAtlas.FontSourceAddToFont(self, font, font_cfg)
+    ImFontAtlasFontSourceAddToFont(self, font, font_cfg)
 
     return font
 end
