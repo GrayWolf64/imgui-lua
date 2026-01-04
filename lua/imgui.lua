@@ -2,18 +2,9 @@
 --
 local GImGui = nil
 
-local ImFontAtlasRectId_Invalid = -1 -- TODO: defines
-
-IMGUI_DEFINE(IM_DRAWLIST_TEX_LINES_WIDTH_MAX, 32)
-
 IMGUI_DEFINE(IMGUI_VIEWPORT_DEFAULT_ID, 0x11111111)
 
 ImGui = ImGui or {}
-
---- Have to group in table otherwise will run out of limit on locals(200)
---- Functions starting with `ImFontAtlas`
---
-local FontAtlas = {}
 
 local ImFile = {}
 

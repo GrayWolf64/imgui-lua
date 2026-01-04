@@ -1,3 +1,6 @@
+IMGUI_DEFINE(IM_DRAWLIST_TEX_LINES_WIDTH_MAX, 32)
+IMGUI_DEFINE(ImFontAtlasRectId_Invalid, -1)
+
 --- ImVec2
 --
 local _ImVec2 = {}
