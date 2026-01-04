@@ -3,6 +3,12 @@
 -- because GMod limits a file size compressed to 64kb, and the main file is growing so quickly
 -- https://gcc.gnu.org/onlinedocs/cpp.pdf
 
+--- Normally these are for internal use, and will be replaced
+-- immediately after getting parsed
+function IMGUI_DEFINE() error("Unexpected #define!", 2) end
+function IMGUI_INCLUDE(_filename) end
+function IMGUI_PRAGMA_ONCE() error("Unexpected #pragma once!", 2) end
+
 local function is_whitespace(c)
     local b = string.byte(c)
     return b == 32 or b == 9 or b == 10 or b == 13
