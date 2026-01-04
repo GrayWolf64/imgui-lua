@@ -29,6 +29,13 @@ local function skip_spaces(str, len, pos)
     return pos
 end
 
+local function trim_whitespace(s)
+    local start, finish = 1, #s
+    while start <= finish and is_whitespace(string.sub(s, start, start)) do start = start + 1 end
+    while finish >= start and is_whitespace(string.sub(s, finish, finish)) do finish = finish - 1 end
+    return s:sub(start, finish)
+end
+
 local function read_lines(filepath)
     local content = file.Read(filepath, "LUA")
     if not content then error("File not found: " .. filepath) end
@@ -199,11 +206,11 @@ local function expand_line(line, defines, seen)
                             elseif ch == ")" then
                                 paren_depth = paren_depth - 1
                                 if paren_depth == 0 then
-                                    if arg_pos > arg_start then args[#args + 1] = line:sub(arg_start, arg_pos - 1) end
+                                    if arg_pos > arg_start then args[#args + 1] = trim_whitespace(line:sub(arg_start, arg_pos - 1)) end
                                     break
                                 end
                             elseif ch == "," and paren_depth == 1 then
-                                args[#args + 1] = line:sub(arg_start, arg_pos - 1)
+                                args[#args + 1] = trim_whitespace(line:sub(arg_start, arg_pos - 1))
                                 arg_start = arg_pos + 1
                             end
                             arg_pos = arg_pos + 1
