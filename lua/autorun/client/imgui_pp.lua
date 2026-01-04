@@ -3,10 +3,19 @@
 -- because GMod limits a file size compressed to 64kb, and the main file is growing so quickly
 -- https://gcc.gnu.org/onlinedocs/cpp.pdf
 
+local output_dir = "imgui_pp/"
+file.CreateDir(output_dir)
+
 --- Normally these are for internal use, and will be replaced
 -- immediately after getting parsed
 function IMGUI_DEFINE() error("Unexpected #define!", 2) end
-function IMGUI_INCLUDE(_filename) end
+
+function IMGUI_INCLUDE(_filename)
+    local code = file.Read(output_dir .. string.StripExtension(_filename) .. ".txt", "DATA")
+    if not code then error("IMGUI_INCLUDE couldn't find the file!", 2) end
+    return CompileString(code, "IMGUI_INCLUDE")()
+end
+
 function IMGUI_PRAGMA_ONCE() error("Unexpected #pragma once!", 2) end
 
 local function is_whitespace(c)
@@ -291,7 +300,12 @@ local defines = {}
 local include_stack = {}
 
 local processed = process_file("imgui.lua", 0, defines, include_stack)
-file.Write("preprocessed_main.txt", processed)
+file.Write(output_dir .. "imgui.txt", processed)
 
 --- Temporary
 CompileString(processed, "ImGui")()
+
+defines = {}
+include_stack = {}
+processed = process_file("imgui_impl_gmod.lua", 0, defines, include_stack)
+file.Write(output_dir .. "imgui_impl_gmod.txt", processed)

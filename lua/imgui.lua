@@ -19,27 +19,7 @@ local ImFile = {}
 
 local Metatables = {}
 
-local imgui_h = include("imgui_h.lua")
-
-local ImVec2        = imgui_h.ImVec2
-local ImVec4        = imgui_h.ImVec4
-local ImVector      = imgui_h.ImVector
-local _ImFontAtlas  = imgui_h._ImFontAtlas
-local ImFontAtlas   = imgui_h.ImFontAtlas
-local _ImFontConfig = imgui_h._ImFontConfig
-local ImFontConfig  = imgui_h.ImFontConfig
-local _ImFont       = imgui_h._ImFont
-local ImFont        = imgui_h.ImFont
-local _ImFontBaked  = imgui_h._ImFontBaked
-local ImFontBaked   = imgui_h.ImFontBaked
-local _ImDrawCmd    = imgui_h._ImDrawCmd
-local ImDrawCmd     = imgui_h.ImDrawCmd
-local ImDrawVert    = imgui_h.ImDrawVert
-local _ImDrawList   = imgui_h._ImDrawList
-local ImDrawList    = imgui_h.ImDrawList
-local _ImDrawData   = imgui_h._ImDrawData
-local ImDrawData    = imgui_h.ImDrawData
-local Enums         = imgui_h.Enums
+IMGUI_INCLUDE("imgui_h.lua")
 
 ----------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)

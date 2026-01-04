@@ -229,8 +229,6 @@ function _ImFontBaked:ClearOutputData()
     self.MetricsTotalSurface = 0
 end
 
-_ImFontBaked = nil -- END EXTEND
-
 function _ImFont:ClearOutputData()
     local atlas = self.OwnerAtlas
     if atlas ~= nil then
@@ -239,8 +237,6 @@ function _ImFont:ClearOutputData()
 
     self.LastBaked = nil
 end
-
-_ImFont = nil -- END EXTEND
 
 function _ImFontAtlas:SetFontLoader(font_loader)
     FontAtlas.BuildSetupFontLoader(self, font_loader)
@@ -350,8 +346,6 @@ end
 function _ImFontAtlas:AddFontDefaultVector(font_cfg_template)
 
 end
-
-_ImFontAtlas = nil -- END EXTEND
 
 local function IM_NORMALIZE2F_OVER_ZERO(VX, VY)
     local d2 = VX * VX + VY * VY
@@ -1252,13 +1246,13 @@ local function RenderArrow(draw_list, pos, color, dir, scale)
 
     local a, b, c
 
-    if dir == Enums.ImGuiDir.Up or dir == Enums.ImGuiDir.Down then
-        if dir == Enums.ImGuiDir.Up then r = -r end
+    if dir == ImGuiDir_Up or dir == ImGuiDir_Down then
+        if dir == ImGuiDir_Up then r = -r end
         a = ImVec2( 0.000,  0.750) * r
         b = ImVec2(-0.866, -0.750) * r
         c = ImVec2( 0.866, -0.750) * r
-    elseif dir == Enums.ImGuiDir.Left or dir == Enums.ImGuiDir.Right then
-        if dir == Enums.ImGuiDir.Left then r = -r end
+    elseif dir == ImGuiDir_Left or dir == ImGuiDir_Right then
+        if dir == ImGuiDir_Left then r = -r end
         a = ImVec2( 0.750,  0.000) * r
         b = ImVec2(-0.750,  0.866) * r
         c = ImVec2(-0.750, -0.866) * r

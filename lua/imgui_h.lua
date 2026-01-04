@@ -248,7 +248,7 @@ _ImFontAtlas.__index = _ImFontAtlas
 local function ImFontAtlas()
     return setmetatable({
         Flags            = nil,
-        TexDesiredFormat = Enums.ImTextureFormat.RGBA32,
+        TexDesiredFormat = ImTextureFormat_RGBA32,
         TexGlyphPadding  = 1,
         TexMinWidth      = 512,
         TexMinHeight     = 128,
@@ -277,19 +277,16 @@ local function ImFontAtlas()
     }, _ImFontAtlas)
 end
 
+-- TODO: enums
+IMGUI_DEFINE(ImGuiDir_Left, 0)
+IMGUI_DEFINE(ImGuiDir_Right, 1)
+IMGUI_DEFINE(ImGuiDir_Up, 2)
+IMGUI_DEFINE(ImGuiDir_Down, 3)
+
+IMGUI_DEFINE(ImTextureFormat_RGBA32, 0)
+IMGUI_DEFINE(ImTextureFormat_Alpha8, 1)
+
 Enums = {
-    ImGuiDir = {
-        Left  = 0,
-        Right = 1,
-        Up    = 2,
-        Down  = 3
-    },
-
-    ImTextureFormat = {
-        RGBA32 = 0,
-        Alpha8 = 1
-    },
-
     --- enum ImGuiWindowFlags_
     ImGuiWindowFlags = {
         None                      = 0,
@@ -378,38 +375,3 @@ Enums.ImDrawFlags.RoundCornersRight   = bit.bor(Enums.ImDrawFlags.RoundCornersBo
 Enums.ImDrawFlags.RoundCornersAll     = bit.bor(Enums.ImDrawFlags.RoundCornersTopLeft, Enums.ImDrawFlags.RoundCornersTopRight, Enums.ImDrawFlags.RoundCornersBottomLeft, Enums.ImDrawFlags.RoundCornersBottomRight)
 Enums.ImDrawFlags.RoundCornersMask    = bit.bor(Enums.ImDrawFlags.RoundCornersAll, Enums.ImDrawFlags.RoundCornersNone)
 Enums.ImDrawFlags.RoundCornersDefault = Enums.ImDrawFlags.RoundCornersAll
-
-return {
-    ImVec2   = ImVec2,
-    ImVec4   = ImVec4,
-    ImVector = ImVector,
-
-    _ImFontAtlas = _ImFontAtlas,
-    ImFontAtlas  = ImFontAtlas,
-
-    _ImFontConfig = _ImFontConfig,
-    ImFontConfig  = ImFontConfig,
-
-    _ImFont = _ImFont,
-    ImFont  = ImFont,
-
-    _ImFontBaked = _ImFontBaked,
-    ImFontBaked  = ImFontBaked,
-
-    _ImDrawCmd = _ImDrawCmd,
-    ImDrawCmd  = ImDrawCmd,
-
-    -- _ImDrawVert = _ImDrawVert,
-    ImDrawVert  = ImDrawVert,
-
-    -- _ImDrawCmdHeader = _ImDrawCmdHeader,
-    ImDrawCmdHeader  = ImDrawCmdHeader,
-
-    _ImDrawList = _ImDrawList,
-    ImDrawList  = ImDrawList,
-
-    _ImDrawData = _ImDrawData,
-    ImDrawData  = ImDrawData,
-
-    Enums = Enums
-}
