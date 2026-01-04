@@ -30,10 +30,7 @@ local function skip_spaces(str, len, pos)
 end
 
 local function trim_whitespace(s)
-    local start, finish = 1, #s
-    while start <= finish and is_whitespace(string.sub(s, start, start)) do start = start + 1 end
-    while finish >= start and is_whitespace(string.sub(s, finish, finish)) do finish = finish - 1 end
-    return s:sub(start, finish)
+    return string.match(s, "^%s*(.-)%s*$")
 end
 
 local function read_lines(filepath)
