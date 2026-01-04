@@ -283,14 +283,14 @@ local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
     end
 
     -- g.LastItemData.ItemFlags = g.CurrentItemFlags | g.NextItemData.ItemFlags | extra_flags;
-    -- g.LastItemData.StatusFlags = ImGuiItemStatusFlagsNone;
+    -- g.LastItemData.StatusFlags = ImGuiItemStatusFlags_None;
 
     if id ~= 0 then
         KeepAliveID(id)
     end
 
     -- g.NextItemData.HasFlags = ImGuiNextItemDataFlagsNone;
-    -- g.NextItemData.ItemFlags = ImGuiItemFlagsNone;
+    -- g.NextItemData.ItemFlags = ImGuiItemFlags_None;
 
     -- local is_rect_visible = Overlaps(bb, window.ClipRect)
 end
@@ -632,7 +632,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
             pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
         end
 
-        local resize_grip_visible = held or hovered or (i == 1 and bit.band(window.Flags, Enums.ImGuiWindowFlags.ChildWindow) == 0)
+        local resize_grip_visible = held or hovered or (i == 1 and bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) == 0)
         if resize_grip_visible then
             if held then
                 resize_grip_col[i] = g.Style.Colors.ResizeGripActive
@@ -1164,7 +1164,7 @@ end
 
 --- static inline int GetWindowDisplayLayer(ImGuiWindow* window)
 local function GetWindowDisplayLayer(window)
-    return (bit.band(window.Flags, Enums.ImGuiWindowFlags.Tooltip) ~= 0) and 2 or 1
+    return (bit.band(window.Flags, ImGuiWindowFlags_Tooltip) ~= 0) and 2 or 1
 end
 
 --- static inline void AddRootWindowToDrawData(ImGuiWindow* window)
