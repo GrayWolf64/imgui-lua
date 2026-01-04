@@ -1,5 +1,6 @@
 {
-    "lint_maxScopeDepth": 10,
+    "lint_maxScopeDepth": 15,
+
     "lint_syntaxErrors": true,
     "lint_syntaxInconsistencies": true,
 
@@ -16,9 +17,11 @@
     "lint_gotos": false,
 
     "lint_goto_identifier": true,
+
     "lint_doubleNegations": false,
     "lint_redundantIfStatements": false,
-    "lint_redundantParentheses": true,
+    "lint_redundantParentheses": false,
+
     "lint_duplicateTableKeys": true,
     "lint_profanity": true,
     "lint_unusedVars": false,
