@@ -1,7 +1,7 @@
 --- This is a temporary load file script for testing ImGui
 -- This also should be a preprocessor file that includes code into the imgui.lua file before it's executed
 -- because GMod limits a file size compressed to 64kb, and the main file is growing so quickly
---
+-- https://gcc.gnu.org/onlinedocs/cpp.pdf
 
 local function is_whitespace(c)
     local b = string.byte(c)
@@ -53,26 +53,26 @@ local function parse_include(line)
     local pos = 1
 
     if #line < 13 then return nil end
-    if line:sub(pos, pos + 12) ~= "IMGUI_INCLUDE" then return nil end
+    if string.sub(line, pos, pos + 12) ~= "IMGUI_INCLUDE" then return nil end
     pos = pos + 13
 
-    while pos <= #line and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
 
-    if pos > #line or line:sub(pos, pos) ~= "(" then return nil end
+    if pos > #line or string.sub(line, pos, pos) ~= "(" then return nil end
     pos = pos + 1
 
-    while pos <= #line and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
-    if pos > #line or line:sub(pos, pos) ~= "\"" then return nil end
+    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
+    if pos > #line or string.sub(line, pos, pos) ~= "\"" then return nil end
     pos = pos + 1
 
     local start = pos
-    while pos <= #line and line:sub(pos, pos) ~= "\"" do pos = pos + 1 end
+    while pos <= #line and string.sub(line, pos, pos) ~= "\"" do pos = pos + 1 end
     if pos > #line then return nil end
-    local path = line:sub(start, pos - 1)
+    local path = string.sub(line, start, pos - 1)
     pos = pos + 1
 
-    while pos <= #line and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
-    if pos > #line or line:sub(pos, pos) ~= ")" then return nil end
+    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
+    if pos > #line or string.sub(line, pos, pos) ~= ")" then return nil end
 
     return path
 end
@@ -81,31 +81,31 @@ local function parse_define(line)
     local pos = 1
 
     if #line < 12 then return nil end
-    if line:sub(pos, pos + 11) ~= "IMGUI_DEFINE" then return nil end
+    if string.sub(line, pos, pos + 11) ~= "IMGUI_DEFINE" then return nil end
     pos = pos + 12
 
-    while pos <= #line and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
-    if pos > #line or line:sub(pos, pos) ~= "(" then return nil end
+    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
+    if pos > #line or string.sub(line, pos, pos) ~= "(" then return nil end
     pos = pos + 1
 
-    while pos <= #line and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
 
     local name_start = pos
-    while pos <= #line and is_alnum_or_underscore(line:sub(pos, pos)) do pos = pos + 1 end
+    while pos <= #line and is_alnum_or_underscore(string.sub(line, pos, pos)) do pos = pos + 1 end
     if pos == name_start then return nil end
-    local name = line:sub(name_start, pos - 1)
+    local name = string.sub(line, name_start, pos - 1)
 
-    while pos <= #line and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
-    if pos > #line or line:sub(pos, pos) ~= "," then return nil end
+    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
+    if pos > #line or string.sub(line, pos, pos) ~= "," then return nil end
     pos = pos + 1
 
-    while pos <= #line and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
 
     local value_start = pos
     local paren_depth = 0
 
     while pos <= #line do
-        local c = line:sub(pos, pos)
+        local c = string.sub(line, pos, pos)
         if c == "(" then
             paren_depth = paren_depth + 1
         elseif c == ")" then
@@ -116,7 +116,7 @@ local function parse_define(line)
     end
 
     if pos > #line then return nil end
-    local value = line:sub(value_start, pos - 1)
+    local value = string.sub(line, value_start, pos - 1)
 
     return name, value
 end
@@ -127,12 +127,12 @@ local function expand_line(line, defines, seen)
     local i = 1
 
     while i <= #line do
-        local c = line:sub(i, i)
+        local c = string.sub(line, i, i)
 
         if is_alpha(c) or c == "_" then
             local word_start = i
-            while i <= #line and is_alnum_or_underscore(line:sub(i, i)) do i = i + 1 end
-            local word = line:sub(word_start, i - 1)
+            while i <= #line and is_alnum_or_underscore(string.sub(line, i, i)) do i = i + 1 end
+            local word = string.sub(line, word_start, i - 1)
 
             local macro = defines[word]
             if macro and not seen[word] then
