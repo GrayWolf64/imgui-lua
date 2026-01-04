@@ -159,20 +159,9 @@ local function substitute_params(body, params, args)
         param_map[param] = "(" .. args[i] .. ")"  -- AUTO-PARENTHESIZE to prevent precedence bugs
     end
 
-    local result, i, len = {}, 1, #body
-    while i <= len do
-        local c = body:sub(i, i)
-        if is_alpha(c) or c == "_" then
-            local word_start = i
-            while i <= len and is_alnum_or_underscore(body:sub(i, i)) do i = i + 1 end
-            local word = body:sub(word_start, i - 1)
-            table.insert(result, param_map[word] or word)
-        else
-            table.insert(result, c)
-            i = i + 1
-        end
-    end
-    return table.concat(result)
+    return string.gsub(body, "[%a_][%w_]*", function(word)
+        return param_map[word] or word
+    end)
 end
 
 local function expand_line(line, defines, seen)
