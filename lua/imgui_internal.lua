@@ -30,11 +30,11 @@ IMGUI_DEFINE(ImSin, math.sin)
 IMGUI_DEFINE(ImCos, math.cos)
 IMGUI_DEFINE(ImAcos, math.acos)
 IMGUI_DEFINE(ImSqrt, math.sqrt)
-local function ImLerp(a, b, t) return a + (b - a) * t end
-local function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
-local function ImTrunc(f) return ImFloor(f + 0.5) end
-local function IM_ROUNDUP_TO_EVEN(n) return ImCeil(n / 2) * 2 end
-local function ImRsqrt(x) return 1 / ImSqrt(x) end
+IMGUI_DEFINE(ImLerp(a, b, t), a + (b - a) * t)
+IMGUI_DEFINE(ImClamp(v, min, max), ImMin(ImMax(v, min), max))
+IMGUI_DEFINE(ImTrunc(f), ImFloor(f + 0.5))
+IMGUI_DEFINE(IM_ROUNDUP_TO_EVEN(n), ImCeil(n / 2) * 2)
+IMGUI_DEFINE(ImRsqrt(x), 1 / ImSqrt(x))
 
 local function ImUpperPowerOfTwo(v)
     if v <= 0 then return 0 end
@@ -50,9 +50,7 @@ local function ImUpperPowerOfTwo(v)
 end
 
 local function ImSaturate(f)
-    if f < 0.0 then return 0.0
-    elseif f > 1.0 then return 1.0
-    else return f end
+    return (f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f
 end
 
 local function IM_ASSERT(_EXPR) end -- TODO: preprocess
@@ -67,9 +65,9 @@ IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX, 512)
 IMGUI_DEFINE(IM_DRAWLIST_ARCFAST_TABLE_SIZE, 48)
 IMGUI_DEFINE(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, IM_DRAWLIST_ARCFAST_TABLE_SIZE)
 
-local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) return ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX) end
-local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR) return MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI))) end
-local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD) return (1 - ImCos(IM_PI / ImMax(N, IM_PI))) / RAD end
+IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR), ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX))
+IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR), MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI))))
+IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD), (1 - ImCos(IM_PI / ImMax(N, IM_PI))) / RAD)
 
 --- ImVec1
 --
