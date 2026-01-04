@@ -24,6 +24,11 @@ local function is_alnum_or_underscore(c)
         (b >= 48 and b <= 57) or b == 95
 end
 
+local function skip_spaces(str, len, pos)
+    while pos <= len and is_whitespace(string.sub(str, pos, pos)) do pos = pos + 1 end
+    return pos
+end
+
 local function read_lines(filepath)
     local content = file.Read(filepath, "LUA")
     if not content then error("File not found: " .. filepath) end
@@ -51,28 +56,29 @@ end
 
 local function parse_include(line)
     local pos = 1
+    local len = #line
 
-    if #line < 13 then return nil end
+    if len < 13 then return nil end
     if string.sub(line, pos, pos + 12) ~= "IMGUI_INCLUDE" then return nil end
     pos = pos + 13
 
-    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
+    pos = skip_spaces(line, len, pos)
 
-    if pos > #line or string.sub(line, pos, pos) ~= "(" then return nil end
+    if pos > len or string.sub(line, pos, pos) ~= "(" then return nil end
     pos = pos + 1
 
-    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
-    if pos > #line or string.sub(line, pos, pos) ~= "\"" then return nil end
+    pos = skip_spaces(line, len, pos)
+    if pos > len or string.sub(line, pos, pos) ~= "\"" then return nil end
     pos = pos + 1
 
     local start = pos
-    while pos <= #line and string.sub(line, pos, pos) ~= "\"" do pos = pos + 1 end
-    if pos > #line then return nil end
+    while pos <= len and string.sub(line, pos, pos) ~= "\"" do pos = pos + 1 end
+    if pos > len then return nil end
     local path = string.sub(line, start, pos - 1)
     pos = pos + 1
 
-    while pos <= #line and is_whitespace(string.sub(line, pos, pos)) do pos = pos + 1 end
-    if pos > #line or string.sub(line, pos, pos) ~= ")" then return nil end
+    pos = skip_spaces(line, len, pos)
+    if pos > len or string.sub(line, pos, pos) ~= ")" then return nil end
 
     return path
 end
@@ -83,11 +89,11 @@ local function parse_define(line)
     if line:sub(pos, pos + 11) ~= "IMGUI_DEFINE" then return nil end
     pos = pos + 12
 
-    while pos <= len and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+    pos = skip_spaces(line, len, pos)
     if pos > len or line:sub(pos, pos) ~= "(" then return nil end
     pos = pos + 1
 
-    while pos <= len and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+    pos = skip_spaces(line, len, pos)
 
     local name_start = pos
     while pos <= len and is_alnum_or_underscore(line:sub(pos, pos)) do pos = pos + 1 end
@@ -102,7 +108,7 @@ local function parse_define(line)
     if j <= len and line:sub(j, j) == "(" then
         is_func, pos, params = true, j + 1, {}
         while true do
-            while pos <= len and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+            pos = skip_spaces(line, len, pos)
             if pos > len then return nil end
             if line:sub(pos, pos) == ")" then pos = pos + 1; break end
 
@@ -111,7 +117,7 @@ local function parse_define(line)
             if pos == param_start then return nil end
             table.insert(params, line:sub(param_start, pos - 1))
 
-            while pos <= len and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+            pos = skip_spaces(line, len, pos)
             local next_char = line:sub(pos, pos)
             if next_char == "," then pos = pos + 1
             elseif next_char == ")" then pos = pos + 1; break
@@ -119,11 +125,11 @@ local function parse_define(line)
         end
     end
 
-    while pos <= len and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+    pos = skip_spaces(line, len, pos)
     if pos > len or line:sub(pos, pos) ~= "," then return nil end
     pos = pos + 1
 
-    while pos <= len and is_whitespace(line:sub(pos, pos)) do pos = pos + 1 end
+    pos = skip_spaces(line, len, pos)
 
     local value_start = pos
     local paren_depth = 0
