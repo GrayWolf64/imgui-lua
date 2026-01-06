@@ -89,27 +89,27 @@ struct_method ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, 
 
 local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, GMetaTables.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, GMetaTables.ImRect) end
 
-function _ImDrawList:PathClear()
+struct_method ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
 end
 
-function _ImDrawList:PathLineTo(pos)
+struct_method ImDrawList:PathLineTo(pos)
     self._Path:push_back(pos)
 end
 
-function _ImDrawList:PathLineToMergeDuplicate(pos)
+struct_method ImDrawList:PathLineToMergeDuplicate(pos)
     local path_size = self._Path.Size
     if path_size == 0 or self._Path.Data[path_size].x ~= pos.x or self._Path.Data[path_size].y ~= pos.y then
         self._Path:push_back(pos)
     end
 end
 
-function _ImDrawList:PathFillConvex(col)
+struct_method ImDrawList:PathFillConvex(col)
     self:AddConvexPolyFilled(self._Path.Data, self._Path.Size, col)
     self._Path.Size = 0
 end
 
-function _ImDrawList:PathStroke(col, flags, thickness)
+struct_method ImDrawList:PathStroke(col, flags, thickness)
     self:AddPolyline(self._Path.Data, self._Path.Size, col, flags, thickness)
     self._Path.Size = 0
 end
@@ -150,11 +150,11 @@ struct_def("ImFontAtlasBuilder")
 
 local function ImFontAtlasBuilder()
     return setmetatable({
-        PackContext              = nil,
-        PackNodes                = nil,
-        Rects                    = nil,
-        RectsIndex               = nil,
-        TempBuffer               = nil,
+        PackContext              = {}, -- struct stbrp_context_opaque { char data[80]; };
+        PackNodes                = ImVector(),
+        Rects                    = ImVector(),
+        RectsIndex               = ImVector(),
+        TempBuffer               = ImVector(),
         RectsIndexFreeListStart  = nil,
         RectsPackedCount         = nil,
         RectsPackedSurface       = nil,

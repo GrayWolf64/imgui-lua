@@ -1,60 +1,67 @@
 IMGUI_DEFINE(IM_DRAWLIST_TEX_LINES_WIDTH_MAX, 32)
 IMGUI_DEFINE(ImFontAtlasRectId_Invalid, -1)
+IMGUI_DEFINE(ImTextureID_Invalid, 0)
+
+IMGUI_DEFINE(struct_def(_name), local GMetaTables = GMetaTables or {}; GMetaTables[_name] = {}; GMetaTables[_name].__index = GMetaTables[_name])
+IMGUI_DEFINE(struct_method, function GMetaTables.)
+
+local function ImTextureRect()
+    return {
+        x = nil, y = nil,
+        w = nil, h = nil
+    }
+end
 
 --- ImVec2
 --
-local _ImVec2 = {}
-_ImVec2.__index = _ImVec2
+struct_def("ImVec2")
 
-local function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, _ImVec2) end
+local function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, GMetaTables.ImVec2) end
 
-function _ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
-function _ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
-function _ImVec2:__mul(other) if isnumber(self) then return ImVec2(self * other.x, self * other.y) elseif isnumber(other) then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
-function _ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
-function _ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
-function _ImVec2:copy() return ImVec2(self.x, self.y) end
+struct_method ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
+struct_method ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
+struct_method ImVec2:__mul(other) if isnumber(self) then return ImVec2(self * other.x, self * other.y) elseif isnumber(other) then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
+struct_method ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
+struct_method ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
+struct_method ImVec2:copy() return ImVec2(self.x, self.y) end
 
 --- struct ImVec4
 --
-local _ImVec4 = {}
-_ImVec4.__index = _ImVec4
+struct_def("ImVec4")
 
-local function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, _ImVec4) end
+local function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, GMetaTables.ImVec4) end
 
-function _ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
-function _ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
-function _ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif isnumber(other) then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
-function _ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
+struct_method ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
+struct_method ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
+struct_method ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif isnumber(other) then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
+struct_method ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
 
 --- A compact ImVector clone, maybe
 -- ImVector<>
-local _ImVector = {}
-_ImVector.__index = _ImVector
+struct_def("ImVector")
 
-function _ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
-function _ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
-function _ImVector:clear() self.Size = 0 end
-function _ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
-function _ImVector:empty() return self.Size == 0 end
-function _ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
-function _ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = table.remove(self.Data, i) self.Size = self.Size - 1 return removed end
-function _ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
-function _ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
-function _ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
-function _ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
-function _ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
-function _ImVector:reserve() return end
-function _ImVector:reserve_discard() return end
-function _ImVector:shrink() return end
-function _ImVector:resize(new_size) self.Size = new_size end
+struct_method ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
+struct_method ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
+struct_method ImVector:clear() self.Size = 0 end
+struct_method ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
+struct_method ImVector:empty() return self.Size == 0 end
+struct_method ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
+struct_method ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = table.remove(self.Data, i) self.Size = self.Size - 1 return removed end
+struct_method ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
+struct_method ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
+struct_method ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
+struct_method ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
+struct_method ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
+struct_method ImVector:reserve() return end
+struct_method ImVector:reserve_discard() return end
+struct_method ImVector:shrink() return end
+struct_method ImVector:resize(new_size) self.Size = new_size end
 
-local function ImVector() return setmetatable({Data = {}, Size = 0}, _ImVector) end
+local function ImVector() return setmetatable({Data = {}, Size = 0}, GMetaTables.ImVector) end
 
 --- struct ImDrawCmd
 --
-local _ImDrawCmd = {}
-_ImDrawCmd.__index = _ImDrawCmd
+struct_def("ImDrawCmd")
 
 local function ImDrawCmd()
     return setmetatable({
@@ -62,38 +69,35 @@ local function ImDrawCmd()
         VtxOffset = 0,
         IdxOffset = 0,
         ElemCount = 0
-    }, _ImDrawCmd) -- TODO: callback
+    }, GMetaTables.ImDrawCmd) -- TODO: callback
 end
 
 --- struct ImDrawVert
 -- imgui.h
-local _ImDrawVert = {}
-_ImDrawVert.__index = _ImDrawVert
+struct_def("ImDrawVert")
 
 local function ImDrawVert()
     return setmetatable({
         pos = ImVec2(),
         uv  = nil,
         col = nil
-    }, _ImDrawVert)
+    }, GMetaTables.ImDrawVert)
 end
 
 --- struct ImDrawCmdHeader
 --
-local _ImDrawCmdHeader = {}
-_ImDrawCmdHeader.__index = _ImDrawCmdHeader
+struct_def("ImDrawCmdHeader")
 
 local function ImDrawCmdHeader()
     return setmetatable({
         ClipRect = ImVec4(),
         VtxOffset = 0
-    }, _ImDrawCmdHeader)
+    }, GMetaTables.ImDrawCmdHeader)
 end
 
 --- struct ImDrawList
 -- imgui.h
-local _ImDrawList = {}
-_ImDrawList.__index = _ImDrawList
+struct_def("ImDrawList")
 
 local function ImDrawList(data)
     return setmetatable({
@@ -111,13 +115,12 @@ local function ImDrawList(data)
         _ClipRectStack = ImVector(),
 
         _FringeScale = 0
-    }, _ImDrawList)
+    }, GMetaTables.ImDrawList)
 end
 
 --- struct ImDrawData
 -- imgui.h
-local _ImDrawData = {}
-_ImDrawData.__index = _ImDrawData
+struct_def("ImDrawData")
 
 local function ImDrawData()
     return setmetatable({
@@ -128,35 +131,42 @@ local function ImDrawData()
         CmdLists = ImVector(),
         DisplayPos = ImVec2(),
         DisplaySize = ImVec2()
-    }, _ImDrawData)
+    }, GMetaTables.ImDrawData)
 end
 
-local _ImTextureData = {}
-_ImTextureData.__index = _ImTextureData
+struct_def("ImTextureData")
 
 local function ImTextureData()
     return setmetatable({
         UniqueID             = nil,
         Status               = nil,
         BackendUserData      = nil,
-        TexID                = 0, -- ImTextureID_Invalid
+        TexID                = ImTextureID_Invalid,
         Format               = nil,
         Width                = nil,
         Height               = nil,
         BytesPerPixel        = nil,
         Pixels               = nil,
-        UsedRect             = nil,
-        UpdateRect           = nil,
-        Updates              = nil,
+        UsedRect             = ImTextureRect(),
+        UpdateRect           = ImTextureRect(),
+        Updates              = ImVector(),
         UnusedFrames         = nil,
         RefCount             = nil,
         UseColors            = nil,
         WantDestroyNextFrame = nil
-    }, _ImTextureData)
+    }, GMetaTables.ImTextureData)
 end
 
-local _ImFontBaked = {}
-_ImFontBaked.__index = _ImFontBaked
+struct_def("ImTextureRef")
+
+local function ImTextureRef()
+    return setmetatable({
+        _TexData = nil,
+        _TexID   = nil
+    }, GMetaTables.ImTextureRef)
+end
+
+struct_def("ImFontBaked")
 
 local function ImFontBaked()
     return setmetatable({
@@ -179,11 +189,10 @@ local function ImFontBaked()
         BakedId              = nil,
         OwnerFont            = nil,
         FontLoaderDatas      = nil
-    }, _ImFontBaked)
+    }, GMetaTables.ImFontBaked)
 end
 
-local _ImFont = {}
-_ImFont.__index = _ImFont
+struct_def("ImFont")
 
 local function ImFont()
     return setmetatable({
@@ -201,13 +210,12 @@ local function ImFont()
         EllipsisAutoBake = nil,
         RemapPairs       = nil,
         Scale            = nil
-    }, _ImFont)
+    }, GMetaTables.ImFont)
 end
 
 --- struct ImFontConfig
 --
-local _ImFontConfig = {}
-_ImFontConfig.__index = _ImFontConfig
+struct_def("ImFontConfig")
 
 local function ImFontConfig()
     return setmetatable({
@@ -240,11 +248,10 @@ local function ImFontConfig()
         DstFont        = nil,
         FontLoader     = nil,
         FontLoaderData = nil
-    }, _ImFontConfig)
+    }, GMetaTables.ImFontConfig)
 end
 
-local _ImFontAtlas = {}
-_ImFontAtlas.__index = _ImFontAtlas
+struct_def("ImFontAtlas")
 
 local function ImFontAtlas()
     return setmetatable({
@@ -257,6 +264,9 @@ local function ImFontAtlas()
         TexMaxHeight     = 8192,
 
         TexData = ImTextureData(),
+
+        TexRef = nil,
+        TexID  = nil,
 
         TexList             = ImVector(),
         Locked              = nil,
@@ -275,7 +285,7 @@ local function ImFontAtlas()
         FontLoaderFlags     = nil,
         RefCount            = nil,
         OwnerContext        = nil
-    }, _ImFontAtlas)
+    }, GMetaTables.ImFontAtlas)
 end
 
 -- TODO: enums, evals?

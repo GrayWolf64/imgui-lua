@@ -6,10 +6,6 @@ IMGUI_DEFINE(IMGUI_VIEWPORT_DEFAULT_ID, 0x11111111)
 
 ImGui = ImGui or {}
 
-local GMetaTables = {}
-IMGUI_DEFINE(struct_def(_name), GMetaTables[_name] = {}; GMetaTables[_name].__index = GMetaTables[_name])
-IMGUI_DEFINE(struct_method, function GMetaTables.)
-
 IMGUI_INCLUDE("imgui_h.lua")
 
 ----------------------------------------------------
