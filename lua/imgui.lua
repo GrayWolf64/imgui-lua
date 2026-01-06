@@ -6,8 +6,6 @@ IMGUI_DEFINE(IMGUI_VIEWPORT_DEFAULT_ID, 0x11111111)
 
 ImGui = ImGui or {}
 
-local ImFile = {}
-
 local Metatables = {}
 
 IMGUI_INCLUDE("imgui_h.lua")
@@ -22,28 +20,28 @@ local FILE = {
     write = FindMetaTable("File").Write
 }
 
-function ImFile.Open(filename, mode) return file.Open(filename, mode, "GAME") end
-function ImFile.Close(f) FILE.close(f) end
-function ImFile.GetSize(f) return FILE.size(f) end
-function ImFile.Read(f, num_chars) return FILE.read(f, num_chars) end
+local function ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
+local function ImFileClose(f) FILE.close(f) end
+local function ImFileGetSize(f) return FILE.size(f) end
+local function ImFileRead(f, num_chars) return FILE.read(f, num_chars) end
 
-function ImFile.LoadToMemory(filename, mode)
-    local f = ImFile.Open(filename, mode)
+local function ImFileLoadToMemory(filename, mode)
+    local f = ImFileOpen(filename, mode)
     if not f then return end
 
-    local file_size = ImFile.GetSize(f)
+    local file_size = ImFileGetSize(f)
     if file_size <= 0 then
-        ImFile.Close(f)
+        ImFileClose(f)
         return
     end
 
-    local file_data = ImFile.Read(f)
+    local file_data = ImFileRead(f)
     if not file_data or file_data == "" then
-        ImFile.Close(f)
+        ImFileClose(f)
         return
     end
 
-    ImFile.Close(f)
+    ImFileClose(f)
 
     return file_data, file_size
 end
@@ -192,7 +190,7 @@ local MouseButtonMap = { -- TODO: enums instead
 }
 
 --- void ImGui::Initialize()
-local function Initialize()
+function ImGui.Initialize()
     local g = GImGui
 
     local viewport = ImGuiViewportP()
@@ -208,12 +206,10 @@ function ImGui.CreateContext()
 
     for i = 0, 59 do GImGui.FramerateSecPerFrame[i] = 0 end
 
-    Initialize()
+    ImGui.Initialize()
 
     return GImGui
 end
-
-
 
 --- void ImGui::DestroyContext
 -- local function DestroyContext()
@@ -241,13 +237,12 @@ local function CreateNewWindow(name)
     return window
 end
 
---- TODO: fix drawlist
 --- void ImGui::PushClipRect
 
 --- void ImGui::PopClipRect
 
 --- void ImGui::KeepAliveID(ImGuiID id)
-local function KeepAliveID(id)
+function ImGui.KeepAliveID(id)
     local g = GImGui
 
     if g.ActiveID == id then
@@ -277,7 +272,7 @@ local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
     -- g.LastItemData.StatusFlags = ImGuiItemStatusFlags_None;
 
     if id ~= 0 then
-        KeepAliveID(id)
+        ImGui.KeepAliveID(id)
     end
 
     -- g.NextItemData.HasFlags = ImGuiNextItemDataFlagsNone;
@@ -830,7 +825,7 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
     local window = g.MovingWindow
 
     if window then
-        KeepAliveID(g.ActiveID)
+        ImGui.KeepAliveID(g.ActiveID)
 
         if g.IO.MouseDown[1] then
             SetWindowPos(window, g.IO.MousePos - g.ActiveIDClickOffset)
@@ -842,7 +837,7 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
         end
     else
         if (g.ActiveIDWindow and g.ActiveIDWindow.MoveID == g.ActiveID) then
-            KeepAliveID(g.ActiveID)
+            ImGui.KeepAliveID(g.ActiveID)
 
             if g.IO.MouseDown[1] then
                 ImGui.ClearActiveID()
@@ -875,7 +870,7 @@ function ImGui.UpdateMouseMovingWindowEndFrame()
 end
 
 --- ImGui::FindWindowByID
-local function FindWindowByID(id)
+function ImGui.FindWindowByID(id)
     local g = GImGui
 
     if not g then return end
@@ -884,9 +879,9 @@ local function FindWindowByID(id)
 end
 
 --- ImGui::FindWindowByName
-local function FindWindowByName(name)
+function ImGui.FindWindowByName(name)
     local id = ImHashStr(name)
-    return FindWindowByID(id)
+    return ImGui.FindWindowByID(id)
 end
 
 function ImGui.GetMainViewport()
@@ -896,7 +891,7 @@ function ImGui.GetMainViewport()
 end
 
 --- void ImGui::SetWindowViewport(ImGuiWindow* window, ImGuiViewportP* viewport)
-local function SetWindowViewport(window, viewport)
+function ImGui.SetWindowViewport(window, viewport)
     window.Viewport = viewport
 end
 
@@ -907,7 +902,7 @@ function ImGui.Begin(name, p_open, flags)
     if name == nil or name == "" then return false end
     -- IM_ASSERT(g.FrameCountEnded != g.FrameCount)
 
-    local window = FindWindowByName(name)
+    local window = ImGui.FindWindowByName(name)
     local window_just_created = (window == nil)
     if window_just_created then
         window = CreateNewWindow(name)
@@ -933,7 +928,7 @@ function ImGui.Begin(name, p_open, flags)
         window.DrawList:_ResetForNewFrame()
 
         local viewport = ImGui.GetMainViewport()
-        SetWindowViewport(window, viewport)
+        ImGui.SetWindowViewport(window, viewport)
         SetCurrentWindow(window)
 
         -- TODO: if (flags & ImGuiWindowFlagsChildWindow)
@@ -1123,7 +1118,7 @@ local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
     return draw_list
 end
 
-local function GetBackgroundDrawList(viewport)
+function ImGui.GetBackgroundDrawList(viewport)
     local g = GImGui
 
     if viewport ~= nil then
@@ -1133,7 +1128,7 @@ local function GetBackgroundDrawList(viewport)
     return GetViewportBgFgDrawList(g.Viewports:at(1), 1, "##Background")
 end
 
-local function GetForegroundDrawList(viewport)
+function ImGui.GetForegroundDrawList(viewport)
     local g = GImGui
 
     if viewport ~= nil then
@@ -1295,7 +1290,7 @@ function ImGui.Render()
     for _, viewport in g.Viewports:iter() do
         InitViewportDrawData(viewport)
         if viewport.BgFgDrawLists[1] ~= nil then
-            ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], GetBackgroundDrawList(viewport))
+            ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], ImGui.GetBackgroundDrawList(viewport))
         end
     end
 
@@ -1313,7 +1308,7 @@ function ImGui.Render()
         FlattenDrawDataIntoSingleLayer(viewport.DrawDataBuilder)
 
         if viewport.BgFgDrawLists[2] ~= nil then
-            ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], GetForegroundDrawList(viewport))
+            ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], ImGui.GetForegroundDrawList(viewport))
         end
 
         local draw_data = viewport.DrawDataP
@@ -1368,7 +1363,7 @@ local function ScaleWindow(window, scale)
 end
 
 --- void ImGui::ScaleWindowsInViewport(ImGuiViewportP* viewport, float scale)
-local function ScaleWindowsInViewport(viewport, scale)
+function ImGui.ScaleWindowsInViewport(viewport, scale)
     local g = GImGui
 
     for _, window in g.Windows:iter() do
