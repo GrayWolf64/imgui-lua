@@ -62,32 +62,7 @@ local function read_lines(filepath)
 end
 
 local function parse_include(line)
-    local pos = 1
-    local len = #line
-
-    if len < 13 then return nil end
-    if string.sub(line, pos, pos + 12) ~= "IMGUI_INCLUDE" then return nil end
-    pos = pos + 13
-
-    pos = skip_spaces(line, len, pos)
-
-    if pos > len or string.sub(line, pos, pos) ~= "(" then return nil end
-    pos = pos + 1
-
-    pos = skip_spaces(line, len, pos)
-    if pos > len or string.sub(line, pos, pos) ~= "\"" then return nil end
-    pos = pos + 1
-
-    local start = pos
-    while pos <= len and string.sub(line, pos, pos) ~= "\"" do pos = pos + 1 end
-    if pos > len then return nil end
-    local path = string.sub(line, start, pos - 1)
-    pos = pos + 1
-
-    pos = skip_spaces(line, len, pos)
-    if pos > len or string.sub(line, pos, pos) ~= ")" then return nil end
-
-    return path
+    return string.match(line, "^IMGUI_INCLUDE%s*%(%s*\"([^\"]*)\"%s*%)\n?$")
 end
 
 local function parse_define(line)
@@ -269,7 +244,7 @@ local function process_file(filepath, depth, defines, include_stack)
             if included then table.insert(output, included) end
         elseif def_name then
             defines[def_name] = macro
-            table.insert(output, string.format("--[[ #define %s%s %s ]]--",
+            table.insert(output, string.format("--[[ #define %s%s %s ]]--\n",
                 def_name,
                 macro.type == "func" and ("(" .. table.concat(macro.params, ", ") .. ")") or "",
                 macro.body))
