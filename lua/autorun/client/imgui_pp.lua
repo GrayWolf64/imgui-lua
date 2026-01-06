@@ -49,26 +49,14 @@ local function trim_whitespace(s)
 end
 
 local function read_lines(filepath)
-    local content = file.Read(filepath, "LUA")
-    if not content then error("File not found: " .. filepath) end
+    local f = file.Open(filepath, "r", "LUA")
+    if not f then error("File not found: " .. filepath) end
 
     local lines = {}
-    local start = 1
-    local i = 1
-
-    while i <= #content do
-        local c = string.sub(content, i, i)
-
-        if c == "\n" or c == "\r" then
-            table.insert(lines, string.sub(content, start, i))
-            start = i + 1
-        end
-        i = i + 1
+    while not f:EndOfFile() do
+        lines[#lines + 1] = f:ReadLine()
     end
-
-    if start <= #content then
-        table.insert(lines, string.sub(content, start))
-    end
+    f:Close()
 
     return lines
 end

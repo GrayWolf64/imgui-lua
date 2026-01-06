@@ -6,3 +6,4 @@
 4. All loop var start from 1 unless necessary
 5. Project file structure. `include` & preprocessor usage.
     Use `getfenv` and `setfenv`?
+6. *imgui_pp* pragma once, process_file with file.Write
