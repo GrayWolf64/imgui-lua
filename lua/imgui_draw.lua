@@ -435,7 +435,7 @@ function _ImDrawData:AddDrawList(draw_list)
     ImGui.AddDrawListToDrawDataEx(self, self.CmdLists, draw_list)
 end
 
-function Metatables.ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
+struct_method ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     if self.CircleSegmentMaxError == max_error then return end
     IM_ASSERT(max_error > 0)
 
