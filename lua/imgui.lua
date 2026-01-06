@@ -339,7 +339,7 @@ end
 -- end
 
 --- void ImGui::BringWindowToDisplayFront(ImGuiWindow* window)
-local function BringWindowToDisplayFront(window)
+function ImGui.BringWindowToDisplayFront(window)
     local g = GImGui
 
     local current_front_window = g.Windows:back()
@@ -364,14 +364,14 @@ local function SetNavWindow(window)
 end
 
 --- void ImGui::FocusWindow
-local function FocusWindow(window)
+function ImGui.FocusWindow(window)
     if GImGui.NavWindow ~= window then
         SetNavWindow(window)
     end
 
     if not window then return end
 
-    BringWindowToDisplayFront(window)
+    ImGui.BringWindowToDisplayFront(window)
 end
 
 --- void ImGui::SetFocusID
@@ -811,7 +811,7 @@ end
 local function StartMouseMovingWindow(window)
     local g = GImGui
 
-    FocusWindow(window)
+    ImGui.FocusWindow(window)
     ImGui.SetActiveID(window.MoveID, window)
 
     g.ActiveIDClickOffset = g.IO.MouseClickedPos[1] - window.Pos
@@ -830,7 +830,7 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
         if g.IO.MouseDown[1] then
             SetWindowPos(window, g.IO.MousePos - g.ActiveIDClickOffset)
 
-            FocusWindow(g.MovingWindow)
+            ImGui.FocusWindow(g.MovingWindow)
         else
             StopMouseMovingWindow()
             ImGui.ClearActiveID()
@@ -863,7 +863,7 @@ function ImGui.UpdateMouseMovingWindowEndFrame()
         if hovered_window then
             StartMouseMovingWindow(hovered_window)
         else -- TODO: investigate elseif (hovered_window == nil and g.NavWindow == nil) 
-            FocusWindow(nil)
+            ImGui.FocusWindow(nil)
             g.ActiveIDWindow = nil
         end
     end

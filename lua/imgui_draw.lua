@@ -242,7 +242,6 @@ function _ImFontAtlas:SetFontLoader(font_loader)
     ImFontAtlasBuildSetupFontLoader(self, font_loader)
 end
 
--- TODO:
 function _ImFontAtlas:AddFont(font_cfg_in)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
     IM_ASSERT((font_cfg_in.FontData ~= nil and font_cfg_in.FontDataSize > 0) or (font_cfg_in.FontLoader ~= nil))
