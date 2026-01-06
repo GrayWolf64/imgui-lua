@@ -258,7 +258,7 @@ local function ImFontAtlas()
 
         TexData = ImTextureData(),
 
-        TexList             = nil,
+        TexList             = ImVector(),
         Locked              = nil,
         RendererHasTextures = false,
 
@@ -362,3 +362,10 @@ IMGUI_DEFINE(ImDrawListFlags_AntiAliasedLines      , bit.lshift(1, 0))
 IMGUI_DEFINE(ImDrawListFlags_AntiAliasedLinesUseTex, bit.lshift(1, 1))
 IMGUI_DEFINE(ImDrawListFlags_AntiAliasedFill       , bit.lshift(1, 2))
 IMGUI_DEFINE(ImDrawListFlags_AllowVtxOffset        , bit.lshift(1, 3))
+
+--- enum ImTextureStatus
+IMGUI_DEFINE(ImTextureStatus_OK         , 0)
+IMGUI_DEFINE(ImTextureStatus_Destroyed  , 1)
+IMGUI_DEFINE(ImTextureStatus_WantCreate , 2)
+IMGUI_DEFINE(ImTextureStatus_WantUpdates, 3)
+IMGUI_DEFINE(ImTextureStatus_WantDestroy, 4)

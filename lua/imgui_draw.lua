@@ -3,6 +3,7 @@
 RunConsoleCommand("mat_antialias", "8")
 
 local stbrp = include("imstb_rectpack.lua")
+local stbtt = include("imstb_truetype.lua")
 
 function ImGui.StyleColorsDark(dst)
     local style = dst and dst or ImGui.GetStyle()
@@ -147,8 +148,36 @@ local function ImFontAtlasBuildUpdatePointers(atlas)
     return
 end
 
+local function ImFontAtlasBuildSetTexture(atlas, tex)
+    local old_tex_ref = atlas.TexRef
+    atlas.TexData = tex
+    atlas.TexUvScale = ImVec2(1.0 / tex.Width, 1.0 / tex.Height)
+    atlas.TexRef._TexData = tex
+    -- atlas->TexRef._TexID = tex->TexID; // <-- We intentionally don't do that. It would be misleading and betray promise that both fields aren't set.
+    ImFontAtlasUpdateDrawListsTextures(atlas, old_tex_ref, atlas.TexRef)
+end
+
 local function ImFontAtlasTextureAdd(atlas, w, h)
-    return
+    local old_tex = atlas.TexData
+    local new_tex
+
+    -- FIXME: Cannot reuse texture because old UV may have been used already (unless we remap UV).
+    new_tex = ImTextureData()
+    new_tex.UniqueID = atlas.TexNextUniqueID
+    atlas.TexNextUniqueID = atlas.TexNextUniqueID + 1
+    atlas.TexList:push_back(new_tex)
+
+    if old_tex ~= nil then
+        old_tex.WantDestroyNextFrame = true
+        IM_ASSERT(old_tex.Status == ImTextureStatus_OK or old_tex.Status == ImTextureStatus_WantCreate or old_tex.Status == ImTextureStatus_WantUpdates)
+    end
+
+    new_tex:Create(atlas.TexDesiredFormat, w, h)
+    atlas.TexIsBuilt = false
+
+    ImFontAtlasBuildSetTexture(atlas, new_tex)
+
+    return new_tex
 end
 
 local function ImFontAtlasBuildClear(atlas)
@@ -216,6 +245,10 @@ local function ImFontAtlasBuildMain(atlas)
     -- ImFontAtlasBuildUpdateRendererHasTexturesFromContext(atlas);
 
     atlas.TexIsBuilt = true
+end
+
+function _ImTextureData:Create(format, w, h)
+
 end
 
 function _ImFontBaked:ClearOutputData()
@@ -404,7 +437,7 @@ end
 
 function Metatables.ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     if self.CircleSegmentMaxError == max_error then return end
-    -- IM_ASSERT(max_error > 0)
+    IM_ASSERT(max_error > 0)
 
     self.CircleSegmentMaxError = max_error
     for i = 0, 64 - 1 do

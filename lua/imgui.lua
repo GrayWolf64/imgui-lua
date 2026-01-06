@@ -91,7 +91,6 @@ function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
         final_size = final_size * g.Style.FontScaleMain
     end
 
-    -- Again, due to gmod font system limitation
     final_size = ImRound(final_size)
     final_size = ImClamp(final_size, 4, IMGUI_FONT_SIZE_MAX)
 
@@ -102,7 +101,7 @@ function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     --font_data_new.size = final_size
 
     --local font_new = ImFontAtlas:AddFont(font_data_new)
-    g.Font = font_new
+    -- TODO: 
 end
 
 --- void ImGui::SetCurrentFont
