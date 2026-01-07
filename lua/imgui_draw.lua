@@ -228,11 +228,16 @@ local function ImFontAtlasBuildUpdateBasicTexData(atlas)
 end
 
 local function ImFontAtlasUpdateDrawListsSharedData(atlas)
-
+    for _, shared_data in atlas.DrawListSharedDatas:iter() do
+        if (shared_data.FontAtlas == atlas) then
+            shared_data.TexUvWhitePixel = atlas.TexUvWhitePixel
+            shared_data.TexUvLines = atlas.TexUvLines
+        end
+    end
 end
 
 local function ImTextInitClassifiers()
-    
+
 end
 
 local function ImFontAtlasBuildInit(atlas)
