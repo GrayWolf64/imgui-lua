@@ -186,6 +186,10 @@ local MouseButtonMap = { -- TODO: enums instead
     [2] = MOUSE_RIGHT
 }
 
+function ImGui.GetCurrentContext()
+    return GImGui
+end
+
 --- void ImGui::Initialize()
 function ImGui.Initialize()
     local g = GImGui

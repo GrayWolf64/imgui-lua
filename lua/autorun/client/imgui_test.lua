@@ -36,5 +36,19 @@ hook.Add("PostRender", "ImGuiTest", function()
 
     ImGui_ImplGMOD.RenderDrawData(ImGui.GetDrawData())
 
+    -- Temporary
+    local g = ImGui.GetCurrentContext()
+    draw.DrawText(
+        string.format(
+            "ActiveID: %s\nActiveIDWindow: %s\nActiveIDIsAlive: %s\nActiveIDPreviousFrame: %s\n\nMem: %dkb\nFramerate: %d",
+            g.ActiveID,
+            g.ActiveIDWindow and g.ActiveIDWindow.ID or nil,
+            g.ActiveIDIsAlive,
+            g.ActiveIDPreviousFrame,
+            math.Round(collectgarbage("count")),
+            g.IO.Framerate
+        ), "CloseCaption_Bold", 800, 800, color_white
+    )
+
     cam.End2D()
 end)
