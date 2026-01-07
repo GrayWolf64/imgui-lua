@@ -6,6 +6,8 @@
 local output_dir = "imgui_pp/"
 file.CreateDir(output_dir)
 
+local PATTERN_OP = "[%+%-*/%^%%#]"
+
 --- Normally these are for internal use, and will be replaced
 -- immediately after getting parsed
 function IMGUI_DEFINE() error("Unexpected #define!", 2) end
@@ -131,7 +133,11 @@ end
 local function substitute_params(body, params, args)
     local param_map = {}
     for i, param in ipairs(params) do
-        param_map[param] = "(" .. args[i] .. ")"  -- AUTO-PARENTHESIZE to prevent precedence bugs
+        if string.find(args[i], PATTERN_OP) then
+            param_map[param] = "(" .. args[i] .. ")"
+        else
+            param_map[param] = args[i]
+        end
     end
 
     return string.gsub(body, "[%a_][%w_]*", function(word)
