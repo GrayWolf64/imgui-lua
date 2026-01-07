@@ -19,28 +19,25 @@ end
 function IMGUI_PRAGMA_ONCE() error("Unexpected #pragma once!", 2) end
 
 local function is_whitespace(c)
-    local b = string.byte(c)
-    return b == 32 or b == 9 or b == 10 or b == 13
+    return c == 32 or c == 9 or c == 10 or c == 13
 end
 
 local function is_alpha(c)
-    local b = string.byte(c)
-    return (b >= 65 and b <= 90) or (b >= 97 and b <= 122)
+    return (c >= 65 and c <= 90) or (c >= 97 and c <= 122)
 end
 
-local function is_digit(c)
-    local b = string.byte(c)
-    return b >= 48 and b <= 57
-end
-
-local function is_alnum_or_underscore(c)
-    local b = string.byte(c)
-    return (b >= 65 and b <= 90) or (b >= 97 and b <= 122) or
-        (b >= 48 and b <= 57) or b == 95
+local function is_valid_identifier_char(c)
+    return (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or
+        (c >= 48 and c <= 57) or c == 95
 end
 
 local function skip_spaces(str, len, pos)
-    while pos <= len and is_whitespace(string.sub(str, pos, pos)) do pos = pos + 1 end
+    while pos <= len and is_whitespace(string.byte(str, pos)) do pos = pos + 1 end
+    return pos
+end
+
+local function skip_identifier(str, len, pos)
+    while pos <= len and is_valid_identifier_char(string.byte(str, pos)) do pos = pos + 1 end
     return pos
 end
 
@@ -78,14 +75,14 @@ local function parse_define(line)
     pos = skip_spaces(line, len, pos)
 
     local name_start = pos
-    while pos <= len and is_alnum_or_underscore(line:sub(pos, pos)) do pos = pos + 1 end
+    pos = skip_identifier(line, len, pos)
     if pos == name_start then return nil end
     local name = line:sub(name_start, pos - 1)
 
     -- Check for function parameters
     local params, is_func = nil, false
     local j = pos
-    while j <= len and is_whitespace(line:sub(j, j)) do j = j + 1 end
+    j = skip_spaces(line, len, j)
 
     if j <= len and line:sub(j, j) == "(" then
         is_func, pos, params = true, j + 1, {}
@@ -95,7 +92,7 @@ local function parse_define(line)
             if line:sub(pos, pos) == ")" then pos = pos + 1; break end
 
             local param_start = pos
-            while pos <= len and is_alnum_or_underscore(line:sub(pos, pos)) do pos = pos + 1 end
+            pos = skip_identifier(line, len, pos)
             if pos == param_start then return nil end
             table.insert(params, line:sub(param_start, pos - 1))
 
@@ -148,17 +145,17 @@ local function expand_line(line, defines, seen)
     local expanded_any = false
 
     while i <= len do
-        local c = line:sub(i, i)
-        if is_alpha(c) or c == "_" then
+        local c = string.byte(line, i)
+        if is_alpha(c) or c == 95 then
             local word_start = i
-            while i <= len and is_alnum_or_underscore(line:sub(i, i)) do i = i + 1 end
+            i = skip_identifier(line, len, i)
             local word = line:sub(word_start, i - 1)
 
             local macro = defines[word]
             if macro and not seen[word] then
                 if macro.type == "func" then
                     local j = i
-                    while j <= len and is_whitespace(line:sub(j, j)) do j = j + 1 end
+                    j = skip_spaces(line, len, j)
 
                     if j <= len and line:sub(j, j) == "(" then
                         local args, arg_start, paren_depth = {}, j + 1, 1
@@ -216,7 +213,7 @@ local function expand_line(line, defines, seen)
                 table.insert(result, word)
             end
         else
-            table.insert(result, c)
+            table.insert(result, string.char(c))
             i = i + 1
         end
     end

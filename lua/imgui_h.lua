@@ -159,10 +159,10 @@ end
 
 struct_def("ImTextureRef")
 
-local function ImTextureRef()
+local function ImTextureRef(tex_id)
     return setmetatable({
         _TexData = nil,
-        _TexID   = nil
+        _TexID   = tex_id or ImTextureID_Invalid
     }, GMetaTables.ImTextureRef)
 end
 
