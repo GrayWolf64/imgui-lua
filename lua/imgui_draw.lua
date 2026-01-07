@@ -2,8 +2,9 @@
 -- TODO: let client decide?
 RunConsoleCommand("mat_antialias", "8")
 
-local stbrp = include("imstb_rectpack.lua")
-local stbtt = include("imstb_truetype.lua")
+stbrp = include("imstb_rectpack.lua")
+
+stbtt = include("imstb_truetype.lua")
 
 function ImGui.StyleColorsDark(dst)
     local style = dst and dst or ImGui.GetStyle()
@@ -148,6 +149,26 @@ local function ImFontAtlasBuildUpdatePointers(atlas)
     return
 end
 
+local function ImFontAtlasUpdateDrawListsTextures(atlas, old_tex, new_tex)
+    for _, shared_data in atlas.DrawListSharedDatas:iter() do
+        if (shared_data.Context and not shared_data.Context.WithinFrameScope) then
+            continue
+        end
+
+        for _, draw_list in shared_data.DrawLists:iter() do
+            if (draw_list.CmdBuffer.Size > 0 and draw_list._CmdHeader.TexRef == old_tex) then
+                draw_list._SetTexture(new_tex)
+            end
+
+            for _, stacked_tex in draw_list._TextureStack:iter() do
+                if (stacked_tex == old_tex) then
+                    stacked_tex = new_tex
+                end
+            end
+        end
+    end
+end
+
 local function ImFontAtlasBuildSetTexture(atlas, tex)
     local old_tex_ref = atlas.TexRef
     atlas.TexData = tex
@@ -196,6 +217,22 @@ local function ImFontAtlasPackInit(atlas)
     builder.RectsPackedSurface = 0
     builder.MaxRectSize = ImVec2(0, 0)
     builder.MaxRectBounds = ImVec2(0, 0)
+end
+
+local function ImFontAtlasBuildUpdateLinesTexData(atlas)
+
+end
+
+local function ImFontAtlasBuildUpdateBasicTexData(atlas)
+
+end
+
+local function ImFontAtlasUpdateDrawListsSharedData(atlas)
+
+end
+
+local function ImTextInitClassifiers()
+    
 end
 
 local function ImFontAtlasBuildInit(atlas)
@@ -499,6 +536,7 @@ struct_method ImDrawList:_ResetForNewFrame()
     self._VtxWritePtr = 1
     self._IdxWritePtr = 1
     self._ClipRectStack:resize(0)
+    self._TextureStack:resize(0)
     self._Path:resize(0)
     self.CmdBuffer:push_back(ImDrawCmd())
     self._FringeScale = self._Data.InitialFringeScale

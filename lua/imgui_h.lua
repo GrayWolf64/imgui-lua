@@ -2,6 +2,9 @@ IMGUI_DEFINE(IM_DRAWLIST_TEX_LINES_WIDTH_MAX, 32)
 IMGUI_DEFINE(ImFontAtlasRectId_Invalid, -1)
 IMGUI_DEFINE(ImTextureID_Invalid, 0)
 
+IMGUI_DEFINE(ImTextureFormat_RGBA32, 0)
+IMGUI_DEFINE(ImTextureFormat_Alpha8, 1)
+
 IMGUI_DEFINE(struct_def(_name), local GMetaTables = GMetaTables or {}; GMetaTables[_name] = {}; GMetaTables[_name].__index = GMetaTables[_name])
 IMGUI_DEFINE(struct_method, function GMetaTables.)
 
@@ -113,6 +116,7 @@ local function ImDrawList(data)
         _Path = ImVector(),
         _CmdHeader = ImDrawCmdHeader(),
         _ClipRectStack = ImVector(),
+        _TextureStack = ImVector(),
 
         _FringeScale = 0
     }, GMetaTables.ImDrawList)
@@ -254,7 +258,7 @@ end
 struct_def("ImFontAtlas")
 
 local function ImFontAtlas()
-    return setmetatable({
+    local this = setmetatable({
         Flags            = nil,
         TexDesiredFormat = ImTextureFormat_RGBA32,
         TexGlyphPadding  = 1,
@@ -263,9 +267,9 @@ local function ImFontAtlas()
         TexMaxWidth      = 8192,
         TexMaxHeight     = 8192,
 
-        TexData = ImTextureData(),
+        TexData = nil,
 
-        TexRef = nil,
+        TexRef = ImTextureRef(),
         TexID  = nil,
 
         TexList             = ImVector(),
@@ -277,7 +281,7 @@ local function ImFontAtlas()
         TexUvLines          = nil, -- size = IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1
         TexNextUniqueID     = 1,
         FontNextUniqueID    = 1,
-        DrawListSharedDatas = nil,
+        DrawListSharedDatas = ImVector(),
         Builder             = nil,
         FontLoader          = nil,
         FontLoaderName      = nil,
@@ -286,6 +290,10 @@ local function ImFontAtlas()
         RefCount            = nil,
         OwnerContext        = nil
     }, GMetaTables.ImFontAtlas)
+
+    this.TexRef._TexID = ImTextureID_Invalid
+
+    return this
 end
 
 -- TODO: enums, evals?
@@ -293,9 +301,6 @@ IMGUI_DEFINE(ImGuiDir_Left, 0)
 IMGUI_DEFINE(ImGuiDir_Right, 1)
 IMGUI_DEFINE(ImGuiDir_Up, 2)
 IMGUI_DEFINE(ImGuiDir_Down, 3)
-
-IMGUI_DEFINE(ImTextureFormat_RGBA32, 0)
-IMGUI_DEFINE(ImTextureFormat_Alpha8, 1)
 
 --- enum ImGuiWindowFlags_
 IMGUI_DEFINE(ImGuiWindowFlags_None                     , 0)

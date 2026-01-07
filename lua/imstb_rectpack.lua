@@ -45,7 +45,7 @@ local function stbrp_context()
 
         active_head = nil,
         free_head   = nil,
-        extra       = {nil, nil}
+        extra       = {stbrp_node(), stbrp_node()}
     }
 end
 
@@ -84,7 +84,9 @@ function stbrp_setup_allow_out_of_mem(context, allow_out_of_mem)
 end
 
 function stbrp_init_target(context, width, height, nodes, num_nodes)
+    nodes[1] = stbrp_node()
     for i = 1, num_nodes - 1 do
+        nodes[i + 1] = stbrp_node()
         nodes[i].next = nodes[i + 1]
     end
     nodes[num_nodes].next = nil
@@ -95,7 +97,7 @@ function stbrp_init_target(context, width, height, nodes, num_nodes)
     context.width = width
     context.height = height
     context.num_nodes = num_nodes
-    stbrp_setup_allow_out_of_mem()
+    stbrp_setup_allow_out_of_mem(context, false)
 
     context.extra[1].x = 0
     context.extra[1].y = 0
@@ -320,6 +322,9 @@ function stbrp_pack_rects(context, rects, num_rects)
 end
 
 return {
+    context = stbrp_context,
+    node    = stbrp_node,
+
     pack_rects             = stbrp_pack_rects,
     init_target            = stbrp_init_target,
     setup_allow_out_of_mem = stbrp_setup_allow_out_of_mem,

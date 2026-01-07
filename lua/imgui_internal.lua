@@ -18,6 +18,9 @@ local render  = render
 local draw    = draw
 local bit     = bit
 
+local stbrp
+local stbtt
+
 IMGUI_DEFINE(FLT_MAX, math.huge)
 IMGUI_DEFINE(IM_PI, math.pi)
 IMGUI_DEFINE(ImAbs, math.abs)
@@ -150,7 +153,7 @@ struct_def("ImFontAtlasBuilder")
 
 local function ImFontAtlasBuilder()
     return setmetatable({
-        PackContext              = {}, -- struct stbrp_context_opaque { char data[80]; };
+        PackContext              = stbrp.context(), -- struct stbrp_context_opaque { char data[80]; };
         PackNodes                = ImVector(),
         Rects                    = ImVector(),
         RectsIndex               = ImVector(),
