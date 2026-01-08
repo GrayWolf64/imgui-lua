@@ -17,6 +17,7 @@ local surface = surface
 local render  = render
 local draw    = draw
 local bit     = bit
+local math    = math
 
 local stbrp
 local stbtt
@@ -38,6 +39,10 @@ IMGUI_DEFINE(ImClamp(v, min, max), ImMin(ImMax(v, min), max))
 IMGUI_DEFINE(ImTrunc(f), ImFloor(f + 0.5))
 IMGUI_DEFINE(IM_ROUNDUP_TO_EVEN(n), ImCeil(n / 2) * 2)
 IMGUI_DEFINE(ImRsqrt(x), 1 / ImSqrt(x))
+
+local function ImIsPowerOfTwo(v)
+    return (v ~= 0) and (bit.band(v, (v - 1)) == 0)
+end
 
 local function ImUpperPowerOfTwo(v)
     if v <= 0 then return 0 end
@@ -71,6 +76,8 @@ IMGUI_DEFINE(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, IM_DRAWLIST_ARCFAST_TABLE_SIZE)
 IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR), ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX))
 IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR), MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI))))
 IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD), (1 - ImCos(IM_PI / ImMax(N, IM_PI))) / RAD)
+
+IMGUI_DEFINE(IM_ASSERT_USER_ERROR(_EXPR, _MSG), if not _EXPR or _EXPR == 0 then error(_MSG, 2) end)
 
 --- ImVec1
 --
@@ -512,4 +519,12 @@ local function ImFontLoader()
 
         FontBakedSrcLoaderDataSize = nil
     }, GMetaTables.ImFontLoader)
+end
+
+local function ImFontAtlasRectEntry()
+    return {
+        TargetIndex = nil,
+        Generation  = nil,
+        IsUsed      = nil
+    }
 end

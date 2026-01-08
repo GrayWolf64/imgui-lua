@@ -323,6 +323,7 @@ end
 
 return {
     context = stbrp_context,
+    rect    = stbrp_rect,
     node    = stbrp_node,
 
     pack_rects             = stbrp_pack_rects,

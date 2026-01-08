@@ -27,21 +27,251 @@ function ImGui.StyleColorsDark(dst)
     colors["ResizeGripActive"]  = ImVec4(0.26, 0.59, 0.98, 0.95)
 end
 
+local ImFontAtlasBakedDiscard
+
+local function ImFontAtlasBuildGetOversampleFactors(src, baked)
+    local raster_size = baked.Size * baked.RasterizerDensity * src.RasterizerDensity
+    local out_oversample_h
+    if src.OversampleH ~= 0 then
+        out_oversample_h = src.OversampleH
+    elseif raster_size > 36.0 or src.PixelSnapH then
+        out_oversample_h = 1
+    else
+        out_oversample_h = 2
+    end
+    local out_oversample_v = (src.OversampleV ~= 0) and src.OversampleV or 1
+    return out_oversample_h, out_oversample_v
+end
+
+local function ImFontAtlasBuildDiscardBakes(atlas, unused_frames)
+    local builder = atlas.Builder
+
+    for baked_n = 0, builder.BakedPool.Size - 1 do -- TODO: index from 1!
+        local baked = builder.BakedPool[baked_n]
+        if (baked.LastUsedFrame + unused_frames > atlas.Builder.FrameCount) then
+            continue
+        end
+        if (baked.WantDestroy or (bit.band(baked.OwnerFont.Flags, ImFontFlags_LockBakedSizes) ~= 0)) then
+            continue
+        end
+        ImFontAtlasBakedDiscard(atlas, baked.OwnerFont, baked)
+    end
+end
+
+local function ImFontAtlasTextureRepack()
+    -- TODO: 
+end
+
+local function ImFontAtlasTextureGrow(atlas, old_tex_w, old_tex_h)
+    local builder = atlas.Builder
+    if (old_tex_w == -1) then
+        old_tex_w = atlas.TexData.Width
+    end
+    if (old_tex_h == -1) then
+        old_tex_h = atlas.TexData.Height
+    end
+
+    IM_ASSERT(ImIsPowerOfTwo(old_tex_w) && ImIsPowerOfTwo(old_tex_h))
+    IM_ASSERT(ImIsPowerOfTwo(atlas.TexMinWidth) and ImIsPowerOfTwo(atlas.TexMaxWidth) and ImIsPowerOfTwo(atlas.TexMinHeight) and ImIsPowerOfTwo(atlas.TexMaxHeight))
+
+    local new_tex_w = (old_tex_h <= old_tex_w) and old_tex_w or old_tex_w * 2
+    local new_tex_h = (old_tex_h <= old_tex_w) and old_tex_h * 2 or old_tex_h
+
+    local int pack_padding = atlas.TexGlyphPadding
+    new_tex_w = ImMax(new_tex_w, ImUpperPowerOfTwo(builder.MaxRectSize.x + pack_padding))
+    new_tex_h = ImMax(new_tex_h, ImUpperPowerOfTwo(builder.MaxRectSize.y + pack_padding))
+    new_tex_w = ImClamp(new_tex_w, atlas.TexMinWidth, atlas.TexMaxWidth)
+    new_tex_h = ImClamp(new_tex_h, atlas.TexMinHeight, atlas.TexMaxHeight)
+    if (new_tex_w == old_tex_w and new_tex_h == old_tex_h) then
+        return
+    end
+
+    ImFontAtlasTextureRepack(atlas, new_tex_w, new_tex_h)
+end
+
+local function ImFontAtlasTextureMakeSpace(atlas)
+    local builder = atlas.Builder
+    ImFontAtlasBuildDiscardBakes(atlas, 2)
+
+    if (builder.RectsDiscardedSurface < builder.RectsPackedSurface * 0.20) then
+        ImFontAtlasTextureGrow(atlas)
+    else
+        ImFontAtlasTextureRepack(atlas, atlas.TexData.Width, atlas.TexData.Height)
+    end
+end
+
+local function ImFontAtlasPackReuseRectEntry(atlas, index_entry)
+    IM_ASSERT(index_entry.IsUsed)
+    index_entry.TargetIndex = atlas.Builder.Rects.Size - 1
+    local index_idx = atlas.Builder.RectsIndex.index_from_ptr(index_entry)
+    return ImFontAtlasRectId_Make(index_idx, index_entry.Generation)
+end
+
+local function ImFontAtlasPackAllocRectEntry(atlas, rect_idx)
+    local builder = atlas.Builder
+    local index_idx, index_entry
+    if builder.RectsIndexFreeListStart < 0 then
+        builder.RectsIndex:resize(builder.RectsIndex.Size + 1)
+        index_idx = builder.RectsIndex.Size - 1 -- TODO: index from 1!
+        index_entry = builder.RectsIndex[index_idx]
+        for k in pairs(index_entry) do index_entry[k] = 0 end
+    else
+        index_idx = builder.RectsIndexFreeListStart
+        index_entry = builder.RectsIndex[index_idx]
+        IM_ASSERT(index_entry.IsUsed == false and index_entry.Generation > 0)
+        builder.RectsIndexFreeListStart = index_entry.TargetIndex
+    end
+
+    index_entry.TargetIndex = rect_idx
+    index_entry.IsUsed = 1
+
+    return ImFontAtlasRectId_Make(index_idx, index_entry.Generation)
+end
+
+local function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry)
+    IM_ASSERT(w > 0 and w <= 0xFFFF)
+    IM_ASSERT(h > 0 and h <= 0xFFFF)
+
+    local builder = atlas.Builder
+    local pack_padding = atlas.TexGlyphPadding
+    builder.MaxRectSize.x = ImMax(builder.MaxRectSize.x, w)
+    builder.MaxRectSize.y = ImMax(builder.MaxRectSize.y, h)
+
+    local r = ImTextureRect(0, 0, w, h)
+    for attempts_remaining = 3, 0, -1 do
+        local pack_r = stbrp_rect()
+        pack_r.w = w + pack_padding
+        pack_r.h = h + pack_padding
+        stbrp.pack_rects(builder.PackContext, {pack_r}, 1)
+        r.x = pack_r.x -- (unsigned short)
+        r.y = pack_r.y -- (unsigned short)
+        if pack_r.was_packed then
+            break
+        end
+
+        if (attempts_remaining == 0 or builder.LockDisableResize) then
+            -- IMGUI_DEBUG_LOG_FONT("[font] Failed packing %dx%d rectangle. Returning fallback.\n", w, h)
+            return ImFontAtlasRectId_Invalid
+        end
+
+        ImFontAtlasTextureMakeSpace(atlas)
+    end
+
+    builder.MaxRectBounds.x = ImMax(builder.MaxRectBounds.x, r.x + r.w + pack_padding)
+    builder.MaxRectBounds.y = ImMax(builder.MaxRectBounds.y, r.y + r.h + pack_padding)
+    builder.RectsPackedCount = builder.RectsPackedCount + 1
+    builder.RectsPackedSurface = builder.RectsPackedSurface + (w + pack_padding) * (h + pack_padding)
+
+    builder.Rects:push_back(r)
+    if (overwrite_entry ~= nil) then
+        return ImFontAtlasPackReuseRectEntry(atlas, overwrite_entry)
+    else
+        return ImFontAtlasPackAllocRectEntry(atlas, builder.Rects.Size - 1)
+    end
+end
+
+local function ImGui_ImplStbTrueType_FontSrcData()
+    return {
+        FontInfo    = stbtt.fontinfo(),
+        ScaleFactor = nil
+    }
+end
+
 local function ImGui_ImplStbTrueType_FontSrcInit(atlas, src)
     -- IM_UNUSED(atlas)
+    local bd_font_data = ImGui_ImplStbTrueType_FontSrcData()
+    IM_ASSERT(src.FontLoaderData == nil)
 
+    local font_offset = stbtt.GetFontOffsetForIndex(src.FontData, src.FontNo)
+    if font_offset < 0 then
+        IM_DELETE(bd_font_data)
+        IM_ASSERT_USER_ERROR(0, "stbtt_GetFontOffsetForIndex(): FontData is incorrect, or FontNo cannot be found.")
+        return false
+    end
+    if (not stbtt.InitFont(bd_font_data.FontInfo, src.FontData, font_offset)) then
+        IM_DELETE(bd_font_data)
+        IM_ASSERT_USER_ERROR(0, "stbtt_InitFont(): failed to parse FontData. It is correct and complete? Check FontDataSize.")
+        return false
+    end
+    src.FontLoaderData = bd_font_data
+
+    local ref_size = src.DstFont.Sources:at(1).SizePixels
+    if (src.MergeMode and src.SizePixels == 0.0) then
+        src.SizePixels = ref_size
+    end
+
+    bd_font_data.ScaleFactor = stbtt.ScaleForPixelHeight(bd_font_data.FontInfo, 1.0)
+    if (src.MergeMode and src.SizePixels ~= 0.0 and ref_size ~= 0.0) then
+        bd_font_data.ScaleFactor = bd_font_data.ScaleFactor * (src.SizePixels / ref_size)
+    end
+    bd_font_data.ScaleFactor = bd_font_data.ScaleFactor * src.ExtraSizeScale
+
+    return true
 end
 
-local function ImGui_ImplStbTrueType_FontSrcDestroy()
+local function ImGui_ImplStbTrueType_FontSrcDestroy(atlas, src)
+    -- IM_UNUSED(atlas)
+    IM_DELETE(src.FontLoaderData)
 end
 
-local function ImGui_ImplStbTrueType_FontSrcContainsGlyph()
+local function ImGui_ImplStbTrueType_FontSrcContainsGlyph(src, codepoint)
+    -- IM_UNUSED(atlas)
+    local bd_font_data = src.FontLoaderData
+    IM_ASSERT(bd_font_data ~= NULL)
+
+    local glyph_index = stbtt.FindGlyphIndex(bd_font_data.FontInfo, codepoint)
+    return (glyph_index ~= 0)
 end
 
-local function ImGui_ImplStbTrueType_FontBakedInit()
+local function ImGui_ImplStbTrueType_FontBakedInit(atlas, src, baked)
+    -- IM_UNUSED(atlas)
+
+    local bd_font_data = src.FontLoaderData
+    if (src.MergeMode == false) then
+        local scale_for_layout = bd_font_data.ScaleFactor * baked.Size
+        local unscaled_ascent, unscaled_descent, unscaled_line_gap = stbtt.GetFontVMetrics(bd_font_data.FontInfo)
+
+        baked.Ascent = ImCeil(unscaled_ascent * scale_for_layout)
+        baked.Descent = ImFloor(unscaled_descent * scale_for_layout)
+    end
+
+    return true
 end
 
-local function ImGui_ImplStbTrueType_FontBakedLoadGlyph()
+local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, codepoint, out_glyph, out_advance_x) -- FIXME: out_advance_x is a size = 1 table
+    local bd_font_data = src.FontLoaderData
+    IM_ASSERT(bd_font_data ~= nil)
+    local glyph_index = stbtt.FindGlyphIndex(bd_font_data.FontInfo, codepoint)
+    if (glyph_index == 0) then
+        return false
+    end
+
+    local oversample_h, oversample_v = ImFontAtlasBuildGetOversampleFactors(src, baked)
+    local scale_for_layout = bd_font_data.ScaleFactor * baked.Size
+    local rasterizer_density = src.RasterizerDensity * baked.RasterizerDensity
+    local scale_for_raster_x = bd_font_data.ScaleFactor * baked.Size * rasterizer_density * oversample_h
+    local scale_for_raster_y = bd_font_data.ScaleFactor * baked.Size * rasterizer_density * oversample_v
+
+    local x0, y0, x1, y1 = stbtt.GetGlyphBitmapBoxSubpixel(bd_font_data.FontInfo, glyph_index, scale_for_raster_x, scale_for_raster_y, 0, 0)
+    local advance, lsb = stbtt.GetGlyphHMetrics(bd_font_data.FontInfo, glyph_index)
+
+    if (out_advance_x ~= nil) then
+        IM_ASSERT(out_glyph == nil)
+        out_advance_x[1] = advance * scale_for_layout
+
+        return true
+    end
+
+    out_glyph.Codepoint = codepoint
+    out_glyph.AdvanceX = advance * scale_for_layout
+
+    local is_visible = (x0 ~= x1 and y0 ~= y1)
+    if is_visible then
+        local w = (x1 - x0 + oversample_h - 1)
+        local h = (y1 - y0 + oversample_v - 1)
+        local pack_id = ImFontAtlasPackAddRect(atlas, w, h)
+        -- TODO:
+    end
 end
 
 local function ImFontAtlasGetFontLoaderForStbTruetype()
@@ -58,7 +288,7 @@ local function ImFontAtlasGetFontLoaderForStbTruetype()
     return loader
 end
 
-local function ImFontAtlasBakedDiscard(atlas, font, baked)
+function ImFontAtlasBakedDiscard(atlas, font, baked)
     local builder = atlas.Builder
 
     for _, glyph in baked.Glyphs:iter() do
@@ -440,17 +670,29 @@ struct_method ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_tem
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
 
     local data, data_size = ImFileLoadToMemory(filename, "rb")
+    if not data then
+        if (font_cfg_template == nil or (bit.band(font_cfg_template.Flags, ImFontFlags_NoLoadError) == 0)) then
+            -- IMGUI_DEBUG_LOG("While loading '%s'\n", filename)
+            IM_ASSERT_USER_ERROR(0, "Could not load font file!")
+        end
+
+        return nil
+    end
 
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
-    return self:AddFontFromMemoryTTF()
+    if not font_cfg.Name or font_cfg.Name == "" then
+        font_cfg.Name = string.GetFileFromFilename(filename) -- TODO: validate
+    end
+
+    return self:AddFontFromMemoryTTF(data, data_size, size_pixels, font_cfg, glyph_ranges)
 end
 
 struct_method ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
-
+    -- TODO: 
 end
 
 struct_method ImFontAtlas:AddFontDefaultVector(font_cfg_template)
-
+    -- TODO: 
 end
 
 local function IM_NORMALIZE2F_OVER_ZERO(VX, VY)

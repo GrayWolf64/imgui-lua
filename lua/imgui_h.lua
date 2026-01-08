@@ -8,10 +8,12 @@ IMGUI_DEFINE(ImTextureFormat_Alpha8, 1)
 IMGUI_DEFINE(struct_def(_name), local GMetaTables = GMetaTables or {}; GMetaTables[_name] = {}; GMetaTables[_name].__index = GMetaTables[_name])
 IMGUI_DEFINE(struct_method, function GMetaTables.)
 
-local function ImTextureRect()
+IMGUI_DEFINE(IM_DELETE(_t), _t = nil)
+
+local function ImTextureRect(x, y, w, h)
     return {
-        x = nil, y = nil,
-        w = nil, h = nil
+        x = x, y = y,
+        w = w, h = h
     }
 end
 
@@ -296,6 +298,22 @@ local function ImFontAtlas()
     return this
 end
 
+--- struct ImFontGlyph
+local function ImFontGlyph()
+    return {
+        Colored   = 0,
+        Visible   = 0,
+        SourceIdx = 0,
+        Codepoint = 0,
+        AdvanceX  = 0,
+
+        X0 = 0, Y0 = 0, X1 = 0, Y1 = 0,
+        U0 = 0, V0 = 0, U1 = 0, V1 = 0,
+
+        PackId    = -1
+    }
+end
+
 -- TODO: enums, evals?
 IMGUI_DEFINE(ImGuiDir_Left, 0)
 IMGUI_DEFINE(ImGuiDir_Right, 1)
@@ -384,3 +402,9 @@ IMGUI_DEFINE(ImTextureStatus_Destroyed  , 1)
 IMGUI_DEFINE(ImTextureStatus_WantCreate , 2)
 IMGUI_DEFINE(ImTextureStatus_WantUpdates, 3)
 IMGUI_DEFINE(ImTextureStatus_WantDestroy, 4)
+
+--- enum ImFontFlags_
+IMGUI_DEFINE(ImFontFlags_None          , 0)
+IMGUI_DEFINE(ImFontFlags_NoLoadError   , bit.lshift(1, 1))
+IMGUI_DEFINE(ImFontFlags_NoLoadGlyphs  , bit.lshift(1, 2))
+IMGUI_DEFINE(ImFontFlags_LockBakedSizes, bit.lshift(1, 3))

@@ -12,16 +12,20 @@ IMGUI_INCLUDE("imgui_h.lua")
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ----------------------------------------------------
 local FILE = {
-    close = FindMetaTable("File").Close,
-    size  = FindMetaTable("File").Size,
-    read  = FindMetaTable("File").Read,
-    write = FindMetaTable("File").Write
+    close     = FindMetaTable("File").Close,
+    size      = FindMetaTable("File").Size,
+    write     = FindMetaTable("File").Write,
+    read_byte = FindMetaTable("File").ReadByte
 }
 
 local function ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
 local function ImFileClose(f) FILE.close(f) end
 local function ImFileGetSize(f) return FILE.size(f) end
-local function ImFileRead(f, num_chars) return FILE.read(f, num_chars) end
+local function ImFileRead(f, data, count)
+    for i = 1, count do
+        data[i] = FILE.read_byte(f)
+    end
+end
 
 local function ImFileLoadToMemory(filename, mode)
     local f = ImFileOpen(filename, mode)
@@ -33,8 +37,9 @@ local function ImFileLoadToMemory(filename, mode)
         return
     end
 
-    local file_data = ImFileRead(f)
-    if not file_data or file_data == "" then
+    local file_data = {data = {}, offset = 0} -- XXX: ptr-like op support
+    ImFileRead(f, file_data.data, file_size)
+    if #file_data.data == 0 then
         ImFileClose(f)
         return
     end
