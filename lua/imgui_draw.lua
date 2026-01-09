@@ -153,7 +153,7 @@ function ImFontAtlasTextureGrow(atlas, old_tex_w, old_tex_h)
         old_tex_h = atlas.TexData.Height
     end
 
-    IM_ASSERT(ImIsPowerOfTwo(old_tex_w) && ImIsPowerOfTwo(old_tex_h))
+    IM_ASSERT(ImIsPowerOfTwo(old_tex_w) and ImIsPowerOfTwo(old_tex_h))
     IM_ASSERT(ImIsPowerOfTwo(atlas.TexMinWidth) and ImIsPowerOfTwo(atlas.TexMaxWidth) and ImIsPowerOfTwo(atlas.TexMinHeight) and ImIsPowerOfTwo(atlas.TexMaxHeight))
 
     local new_tex_w = (old_tex_h <= old_tex_w) and old_tex_w or old_tex_w * 2
@@ -669,8 +669,8 @@ struct_method ImTextureData:Create(format, w, h)
     self.Height = h
     self.BytesPerPixel = ImTextureDataGetFormatBytesPerPixel(format)
     self.UseColors = false
-    self.Pixels = {data = {}, offset = 0} -- TODO: investigate
-    -- memset(Pixels, 0, Width * Height * BytesPerPixel)
+    self.Pixels = {data = {}, offset = 0}
+    memset(self.Pixels, 0, self.Width * self.Height * self.BytesPerPixel)
     self.UsedRect.x = 0
     self.UsedRect.y = 0
     self.UsedRect.w = 0

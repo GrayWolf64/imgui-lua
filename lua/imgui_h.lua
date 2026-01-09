@@ -8,6 +8,12 @@ local function memcpy(_dst, _src, _cnt)
     end
 end
 
+local function memset(_dst, _val, _cnt)
+    for i = 0, _cnt - 1 do
+        ptr_index_set(_dst, i, _val)
+    end
+end
+
 IMGUI_DEFINE(IM_DRAWLIST_TEX_LINES_WIDTH_MAX, 32)
 IMGUI_DEFINE(ImFontAtlasRectId_Invalid, -1)
 IMGUI_DEFINE(ImTextureID_Invalid, 0)
