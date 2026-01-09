@@ -329,6 +329,15 @@ local function ImFontAtlas()
     return this
 end
 
+local function ImFontAtlasRect()
+    return {
+        x = nil, y = nil,
+        w = nil, h = nil,
+        uv0 = ImVec2(),
+        uv1 = ImVec2()
+    }
+end
+
 --- struct ImFontGlyph
 local function ImFontGlyph()
     return {
@@ -341,7 +350,7 @@ local function ImFontGlyph()
         X0 = 0, Y0 = 0, X1 = 0, Y1 = 0,
         U0 = 0, V0 = 0, U1 = 0, V1 = 0,
 
-        PackId    = -1
+        PackId = -1
     }
 end
 

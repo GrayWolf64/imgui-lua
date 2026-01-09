@@ -159,7 +159,7 @@ end
 struct_def("ImFontAtlasBuilder")
 
 local function ImFontAtlasBuilder()
-    return setmetatable({
+    local this = setmetatable({
         PackContext              = stbrp.context(), -- struct stbrp_context_opaque { char data[80]; };
         PackNodes                = ImVector(),
         Rects                    = ImVector(),
@@ -176,13 +176,21 @@ local function ImFontAtlasBuilder()
         LockDisableResize        = nil,
         PreloadedAllGlyphsRanges = nil,
 
-        BakedPool           = nil,
+        BakedPool           = ImVector(), -- ImStableVector<ImFontBaked,32>
         BakedMap            = nil,
         BakedDiscardedCount = nil,
 
         PackIDMouseCursors = nil,
         PackIDLinesTexData = nil
     }, GMetaTables.ImFontAtlasBuilder)
+
+    this.FrameCount = 0
+    this.RectsIndexFreeListStart = 0
+
+    this.PackIdLinesTexData = -1
+    this.PackIdMouseCursors = -1
+
+    return this
 end
 
 --- struct ImGuiContext
@@ -523,9 +531,9 @@ end
 
 local function ImFontAtlasRectEntry()
     return {
-        TargetIndex = nil,
-        Generation  = nil,
-        IsUsed      = nil
+        TargetIndex = 0,
+        Generation  = 0,
+        IsUsed      = false
     }
 end
 
