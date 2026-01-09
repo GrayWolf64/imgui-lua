@@ -1,3 +1,13 @@
+--- XXX: ptr
+IMGUI_DEFINE(ptr_index_get(p, i), p.data[p.offset + i + 1])
+IMGUI_DEFINE(ptr_index_set(p, i, v), p.data[p.offset + i + 1] = v)
+
+local function memcpy(_dst, _src, _cnt)
+    for i = 0, _cnt - 1 do
+        ptr_index_set(_dst, i, ptr_index_get(_src, i))
+    end
+end
+
 IMGUI_DEFINE(IM_DRAWLIST_TEX_LINES_WIDTH_MAX, 32)
 IMGUI_DEFINE(ImFontAtlasRectId_Invalid, -1)
 IMGUI_DEFINE(ImTextureID_Invalid, 0)
@@ -9,6 +19,19 @@ IMGUI_DEFINE(struct_def(_name), local GMetaTables = GMetaTables or {}; GMetaTabl
 IMGUI_DEFINE(struct_method, function GMetaTables.)
 
 IMGUI_DEFINE(IM_DELETE(_t), _t = nil)
+
+--- enum ImTextureStatus
+IMGUI_DEFINE(ImTextureStatus_OK         , 0)
+IMGUI_DEFINE(ImTextureStatus_Destroyed  , 1)
+IMGUI_DEFINE(ImTextureStatus_WantCreate , 2)
+IMGUI_DEFINE(ImTextureStatus_WantUpdates, 3)
+IMGUI_DEFINE(ImTextureStatus_WantDestroy, 4)
+
+--- enum ImFontAtlasFlags_
+IMGUI_DEFINE(ImFontAtlasFlags_None              , 0)
+IMGUI_DEFINE(ImFontAtlasFlags_NoPowerOfTwoHeight, bit.lshift(1, 0))
+IMGUI_DEFINE(ImFontAtlasFlags_NoMouseCursors    , bit.lshift(1, 1))
+IMGUI_DEFINE(ImFontAtlasFlags_NoBakedLines      , bit.lshift(1, 2))
 
 local function ImTextureRect(x, y, w, h)
     return {
@@ -61,6 +84,7 @@ struct_method ImVector:reserve() return end
 struct_method ImVector:reserve_discard() return end
 struct_method ImVector:shrink() return end
 struct_method ImVector:resize(new_size) self.Size = new_size end
+struct_method ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
 
 local function ImVector() return setmetatable({Data = {}, Size = 0}, GMetaTables.ImVector) end
 
@@ -143,7 +167,7 @@ end
 struct_def("ImTextureData")
 
 local function ImTextureData()
-    return setmetatable({
+    local this = setmetatable({
         UniqueID             = nil,
         Status               = nil,
         BackendUserData      = nil,
@@ -152,7 +176,7 @@ local function ImTextureData()
         Width                = nil,
         Height               = nil,
         BytesPerPixel        = nil,
-        Pixels               = nil,
+        Pixels               = {data = {}, offset = 0}, -- XXX: ptr: unsigned char
         UsedRect             = ImTextureRect(),
         UpdateRect           = ImTextureRect(),
         Updates              = ImVector(),
@@ -161,6 +185,16 @@ local function ImTextureData()
         UseColors            = nil,
         WantDestroyNextFrame = nil
     }, GMetaTables.ImTextureData)
+
+    this.Status = ImTextureStatus_Destroyed
+    this.TexID = ImTextureID_Invalid
+
+    return this
+end
+
+struct_method ImTextureData:GetPixelsAt(x, y)
+    self.Pixels.offset = self.Pixels.offset + (x + y * self.Width) * self.BytesPerPixel
+    return self.Pixels
 end
 
 struct_def("ImTextureRef")
@@ -261,7 +295,7 @@ struct_def("ImFontAtlas")
 
 local function ImFontAtlas()
     local this = setmetatable({
-        Flags            = nil,
+        Flags            = 0,
         TexDesiredFormat = ImTextureFormat_RGBA32,
         TexGlyphPadding  = 1,
         TexMinWidth      = 512,
@@ -280,7 +314,7 @@ local function ImFontAtlas()
 
         Fonts               = ImVector(),
         Sources             = ImVector(),
-        TexUvLines          = nil, -- size = IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1
+        TexUvLines          = {}, -- size = IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1
         TexNextUniqueID     = 1,
         FontNextUniqueID    = 1,
         DrawListSharedDatas = ImVector(),
@@ -395,13 +429,6 @@ IMGUI_DEFINE(ImDrawListFlags_AntiAliasedLines      , bit.lshift(1, 0))
 IMGUI_DEFINE(ImDrawListFlags_AntiAliasedLinesUseTex, bit.lshift(1, 1))
 IMGUI_DEFINE(ImDrawListFlags_AntiAliasedFill       , bit.lshift(1, 2))
 IMGUI_DEFINE(ImDrawListFlags_AllowVtxOffset        , bit.lshift(1, 3))
-
---- enum ImTextureStatus
-IMGUI_DEFINE(ImTextureStatus_OK         , 0)
-IMGUI_DEFINE(ImTextureStatus_Destroyed  , 1)
-IMGUI_DEFINE(ImTextureStatus_WantCreate , 2)
-IMGUI_DEFINE(ImTextureStatus_WantUpdates, 3)
-IMGUI_DEFINE(ImTextureStatus_WantDestroy, 4)
 
 --- enum ImFontFlags_
 IMGUI_DEFINE(ImFontFlags_None          , 0)

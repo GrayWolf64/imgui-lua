@@ -27,7 +27,7 @@ local stbtt_ScaleForPixelHeight
 local stbtt_FindGlyphIndex
 
 ---------------------------------
---- To mock C arrays and pointers
+--- TODO: ptr helpers, make these defines?
 --
 local function ptr_inc(p, n) p.offset = p.offset + n end
 local function ptr_deref(p) return p.data[p.offset + 1] end
@@ -35,8 +35,8 @@ local function ptr_set_deref(p, v) p.data[p.offset + 1] = v end
 
 local function ptr_add(p, n) return {data = p.data, offset = p.offset + n, size = p.size} end
 
-local function ptr_index_at(p, i) return p.data[p.offset + i + 1] end
-local function ptr_newindex(p, i, v) p.data[p.offset + i + 1] = v end
+local function ptr_index_get(p, i) return p.data[p.offset + i + 1] end
+local function ptr_index_set(p, i, v) p.data[p.offset + i + 1] = v end
 
 local STBTT_MAX_OVERSAMPLE = 8
 
@@ -881,7 +881,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 end
             else
                 if bit.band(flags, 16) == 0 then
-                    x = x + stbtt_int16(ptr_index_at(points, 0) * 256 + ptr_index_at(points, 1))
+                    x = x + stbtt_int16(ptr_index_get(points, 0) * 256 + ptr_index_get(points, 1))
                     ptr_inc(points, 2)
                 end
             end
@@ -903,7 +903,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 end
             else
                 if bit.band(flags, 32) == 0 then
-                    y = y + stbtt_int16(ptr_index_at(points, 0) * 256 + ptr_index_at(points, 1))
+                    y = y + stbtt_int16(ptr_index_get(points, 0) * 256 + ptr_index_get(points, 1))
                     ptr_inc(points, 2)
                 end
             end
@@ -2206,7 +2206,7 @@ local function stbtt__rasterize_sorted_edges(result, e, n, vsubsample, off_x, of
                 k = STBTT_fabs(k) * 255 + 0.5
                 m = trunc(k)
                 if m > 255 then m = 255 end
-                ptr_newindex(result.pixels, j * result.stride + i, unsigned_char(m))
+                ptr_index_set(result.pixels, j * result.stride + i, unsigned_char(m))
             end
         end
 
