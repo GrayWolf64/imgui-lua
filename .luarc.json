@@ -3,7 +3,9 @@
         "undefined-global",
         "exp-in-action",
         "need-check-nil",
-        "undefined-field"
+        "undefined-field",
+        "inject-field",
+        "lowercase-global"
     ],
     "checkThirdParty": false,
     "runtime.nonstandardSymbol": [
