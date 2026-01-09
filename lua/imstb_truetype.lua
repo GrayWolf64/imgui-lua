@@ -85,7 +85,7 @@ local STBTT_sort = table.sort
 local STBTT_memset = function() error("memset() not allowed!", 2) end
 local STBTT_memcpy = function() error("memcpy() not allowed!", 2) end
 
-local function STBTT__NOTUSED() return end
+local function STBTT__NOTUSED(_) return end
 
 local function stbtt_int32(value)
     return bit.band(value, 0xFFFFFFFF) - (bit.band(value, 0x80000000) ~= 0 and 0x100000000 or 0)
@@ -1833,7 +1833,8 @@ end
 --
 
 function stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, shift_x, shift_y)
-    local n, x0, y0, x1, y1 = 0, 0, 0
+    local n, x0, y0 = 0, 0, 0
+    local x1, y1
     n, x0, y0, x1, y1 = stbtt_GetGlyphBox(font, glyph)
 
     local ix0, iy0, ix1, iy1

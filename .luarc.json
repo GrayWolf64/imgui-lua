@@ -1,0 +1,21 @@
+{
+    "diagnostics.disable": [
+        "undefined-global",
+        "exp-in-action",
+        "need-check-nil",
+        "undefined-field"
+    ],
+    "checkThirdParty": false,
+    "runtime.nonstandardSymbol": [
+        "continue"
+    ],
+    "runtime.special": {
+        "include": "dofile",
+        "IncludeCS": "dofile"
+    },
+    "workspace.library": [
+        "${addons}/garrysmod/module/library"
+    ],
+    "runtime.version": "LuaJIT",
+    "runtime.plugin": "misc/luals_plugin.lua"
+}

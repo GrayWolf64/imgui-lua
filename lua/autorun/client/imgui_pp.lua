@@ -10,7 +10,7 @@ local PATTERN_OP = "[%+%-*/%^%%#]"
 
 --- Normally these are for internal use, and will be replaced
 -- immediately after getting parsed
-function IMGUI_DEFINE() error("Unexpected #define!", 2) end
+function IMGUI_DEFINE(_identifier, _token_string) error("Unexpected #define!", 2) end
 
 function IMGUI_INCLUDE(_filename)
     local code = file.Read(output_dir .. string.StripExtension(_filename) .. ".txt", "DATA")
@@ -125,9 +125,17 @@ local function parse_define(line)
     end
 
     if pos > len then return nil end
-    local value = line:sub(value_start, pos - 1)
 
-    return name, {type = is_func and "func" or "obj", params = params, body = value}
+    local raw = line:sub(value_start, pos - 1)
+    -- if the whole body is one quoted string, unwrap it
+    local str_open, str_close = raw:match('^%s*(["\'])(.*)%1%s*$')
+    if str_close then
+        -- honour Lua escapes so \" inside the string is kept correctly
+        local body = str_close:gsub('\\(.)', '%1')   -- naive, good enough here
+        return name, {type = is_func and "func" or "obj", params = params, body = body}
+    else
+        return name, {type = is_func and "func" or "obj", params = params, body = raw}
+    end
 end
 
 local function substitute_params(body, params, args)

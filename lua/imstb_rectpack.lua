@@ -59,7 +59,7 @@ end
 
 local STBRP_SORT = table.sort
 local STBRP_ASSERT = assert
-local STBRP__NOTUSED = function() end
+local STBRP__NOTUSED = function(_) end
 
 --------------------------
 --- IMPLEMENTATION SECTION

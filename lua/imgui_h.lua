@@ -1,6 +1,6 @@
 --- XXX: ptr
-IMGUI_DEFINE(ptr_index_get(p, i), p.data[p.offset + i + 1])
-IMGUI_DEFINE(ptr_index_set(p, i, v), p.data[p.offset + i + 1] = v)
+IMGUI_DEFINE(ptr_index_get(p, i), "p.data[p.offset + i + 1]")
+IMGUI_DEFINE(ptr_index_set(p, i, v), "p.data[p.offset + i + 1] = v")
 
 local function memcpy(_dst, _src, _cnt)
     for i = 0, _cnt - 1 do
@@ -21,10 +21,10 @@ IMGUI_DEFINE(ImTextureID_Invalid, 0)
 IMGUI_DEFINE(ImTextureFormat_RGBA32, 0)
 IMGUI_DEFINE(ImTextureFormat_Alpha8, 1)
 
-IMGUI_DEFINE(struct_def(_name), local GMetaTables = GMetaTables or {}; GMetaTables[_name] = {}; GMetaTables[_name].__index = GMetaTables[_name])
-IMGUI_DEFINE(struct_method, function GMetaTables.)
+IMGUI_DEFINE(struct_def(_name), "local GMetaTables = GMetaTables or {}; GMetaTables[_name] = {}; GMetaTables[_name].__index = GMetaTables[_name]")
+IMGUI_DEFINE(struct_method, "function GMetaTables.")
 
-IMGUI_DEFINE(IM_DELETE(_t), _t = nil)
+IMGUI_DEFINE(IM_DELETE(_t), "_t = nil")
 
 --- enum ImTextureStatus
 IMGUI_DEFINE(ImTextureStatus_OK         , 0)

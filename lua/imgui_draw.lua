@@ -1590,10 +1590,7 @@ struct_method ImDrawList:AddTriangleFilled(p1, p2, p3, col)
 end
 
 struct_method ImDrawList:AddText(text, font, pos, color)
-    surface.SetTextPos(pos.x, pos.y)
-    surface.SetFont(font)
-    surface.SetTextColor(color)
-    surface.DrawText(text)
+    -- TODO: 
 end
 
 struct_method ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
