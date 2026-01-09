@@ -669,7 +669,7 @@ struct_method ImTextureData:Create(format, w, h)
     self.Height = h
     self.BytesPerPixel = ImTextureDataGetFormatBytesPerPixel(format)
     self.UseColors = false
-    self.Pixels = {} -- TODO: investigate
+    self.Pixels = {data = {}, offset = 0} -- TODO: investigate
     -- memset(Pixels, 0, Width * Height * BytesPerPixel)
     self.UsedRect.x = 0
     self.UsedRect.y = 0
