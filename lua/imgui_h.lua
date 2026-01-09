@@ -102,15 +102,12 @@ local function ImDrawCmd()
 end
 
 --- struct ImDrawVert
--- imgui.h
-struct_def("ImDrawVert")
-
 local function ImDrawVert()
-    return setmetatable({
+    return {
         pos = ImVec2(),
         uv  = nil,
         col = nil
-    }, GMetaTables.ImDrawVert)
+    }
 end
 
 --- struct ImDrawCmdHeader
