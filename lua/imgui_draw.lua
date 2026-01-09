@@ -54,6 +54,10 @@ local function ImFontAtlasTextureBlockCopy(src_tex, src_x, src_y, dst_tex, dst_x
     end
 end
 
+local function ImFontAtlasBakedSetFontGlyphBitmap(atlas, baked, src, glyph, r, src_pixels, src_fmt, src_pitch)
+    -- TODO: 
+end
+
 local function ImFontAtlasBuildGetOversampleFactors(src, baked)
     local raster_size = baked.Size * baked.RasterizerDensity * src.RasterizerDensity
     local out_oversample_h
@@ -141,7 +145,7 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
 
     builder.LockDisableResize = false
     ImFontAtlasUpdateDrawListsSharedData(atlas)
-    //ImFontAtlasDebugWriteTexToDisk(new_tex, "After Pack");
+    -- ImFontAtlasDebugWriteTexToDisk(new_tex, "After Pack");
 end
 
 function ImFontAtlasTextureGrow(atlas, old_tex_w, old_tex_h)
@@ -382,8 +386,43 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, codep
         local w = (x1 - x0 + oversample_h - 1)
         local h = (y1 - y0 + oversample_v - 1)
         local pack_id = ImFontAtlasPackAddRect(atlas, w, h)
-        -- TODO:
+        if (pack_id == ImFontAtlasRectId_Invalid) then
+            -- Pathological out of memory case (TexMaxWidth/TexMaxHeight set too small?)
+            IM_ASSERT(pack_id ~= ImFontAtlasRectId_Invalid, "Out of texture memory.")
+            return false
+        end
+
+        local r = ImFontAtlasPackGetRect(atlas, pack_id)
+
+        x0, y0, x1, y1 = stbtt.GetGlyphBitmapBox(bd_font_data.FontInfo, glyph_index, scale_for_raster_x, scale_for_raster_y)
+        local builder = atlas.Builder
+        -- builder.TempBuffer:resize(w * h * 1)
+        local bitmap_pixels = builder.TempBuffer
+        memset(bitmap_pixels, 0, w * h * 1)
+
+        local sub_x, sub_y = stbtt_MakeGlyphBitmapSubpixelPrefilter(bd_font_data.FontInfo, bitmap_pixels, w, h, w,
+            scale_for_raster_x, scale_for_raster_y, 0, 0, oversample_h, oversample_v, glyph_index)
+
+        local ref_size = baked.OwnerFont.Sources:at(1).SizePixels
+        local offsets_scale = (ref_size ~= 0.0) and (baked.Size / ref_size) or 1.0
+        local font_off_x = ImFloor(src.GlyphOffset.x * offsets_scale + 0.5)
+        local font_off_y = ImFloor(src.GlyphOffset.y * offsets_scale + 0.5)
+        font_off_x = font_off_x + sub_x
+        font_off_y = font_off_y + (sub_y + ImRound(baked.Ascent))
+        local recip_h = 1.0 / (oversample_h * rasterizer_density)
+        local recip_v = 1.0 / (oversample_v * rasterizer_density)
+
+        out_glyph.X0 = x0 * recip_h + font_off_x
+        out_glyph.Y0 = y0 * recip_v + font_off_y
+        out_glyph.X1 = (x0 + r.w) * recip_h + font_off_x
+        out_glyph.Y1 = (y0 + r.h) * recip_v + font_off_y
+        out_glyph.Visible = true
+        out_glyph.PackId = pack_id
+
+        ImFontAtlasBakedSetFontGlyphBitmap(atlas, baked, src, out_glyph, r, bitmap_pixels, ImTextureFormat_Alpha8, w)
     end
+
+    return true
 end
 
 local function ImFontAtlasGetFontLoaderForStbTruetype()
