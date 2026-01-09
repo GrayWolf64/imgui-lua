@@ -1,3 +1,4 @@
+--- @module "imstb_rectpack"
 local bit = bit
 
 local STBRP__MAXVAL = 0x7fffffff
@@ -7,6 +8,7 @@ local stbrp_init_target
 local stbrp_setup_allow_out_of_mem
 local stbrp_setup_heuristic
 
+--- @enum STBRP_HEURISTIC_Skyline
 local STBRP_HEURISTIC_Skyline = {
     default = 0,
     BL_sortHeight = 0,
@@ -15,6 +17,17 @@ local STBRP_HEURISTIC_Skyline = {
 
 local STBRP__INIT_skyline = 1
 
+--- @alias stbrp_coord integer
+
+--- @class stbrp_rect
+--- @field id integer
+--- @field w stbrp_coord
+--- @field h stbrp_coord
+--- @field x stbrp_coord
+--- @field y stbrp_coord
+--- @field was_packed boolean
+
+--- @return stbrp_rect
 local function stbrp_rect()
     return {
         id         = nil,
@@ -26,6 +39,12 @@ local function stbrp_rect()
     }
 end
 
+--- @class stbrp_node
+--- @field x stbrp_coord
+--- @field y stbrp_coord
+--- @field next stbrp_node
+
+--- @return stbrp_node
 local function stbrp_node()
     return {
         x    = nil,
@@ -34,6 +53,18 @@ local function stbrp_node()
     }
 end
 
+--- @class stbrp_context
+--- @field width integer
+--- @field height integer
+--- @field align integer
+--- @field init_mode integer
+--- @field heuristic integer
+--- @field num_nodes integer
+--- @field active_head stbrp_node
+--- @field free_head stbrp_node
+--- @field extra stbrp_node[]
+
+--- @return stbrp_context
 local function stbrp_context()
     return {
         width     = nil,
@@ -49,6 +80,12 @@ local function stbrp_context()
     }
 end
 
+--- @class stbrp__findresult
+--- @field x integer
+--- @field y integer
+--- @field prev_link stbrp_node
+
+--- @return stbrp__findresult
 local function stbrp__findresult()
     return {
         x         = nil,
@@ -65,6 +102,8 @@ local STBRP__NOTUSED = function(_) end
 --- IMPLEMENTATION SECTION
 --
 
+--- @param context stbrp_context
+--- @param heuristic integer
 function stbrp_setup_heuristic(context, heuristic)
     if context.init_mode == STBRP__INIT_skyline then
         STBRP_ASSERT(heuristic == STBRP_HEURISTIC_Skyline.BL_sortHeight or heuristic == STBRP_HEURISTIC_Skyline.BF_sortHeight)
@@ -74,7 +113,8 @@ function stbrp_setup_heuristic(context, heuristic)
     end
 end
 
-
+--- @param context stbrp_context
+--- @param allow_out_of_mem boolean
 function stbrp_setup_allow_out_of_mem(context, allow_out_of_mem)
     if allow_out_of_mem then
         context.align = 1
@@ -83,6 +123,11 @@ function stbrp_setup_allow_out_of_mem(context, allow_out_of_mem)
     end
 end
 
+--- @param context stbrp_context
+--- @param width integer
+--- @param height integer
+--- @param nodes stbrp_node[]
+--- @param num_nodes integer
 function stbrp_init_target(context, width, height, nodes, num_nodes)
     nodes[1] = stbrp_node()
     for i = 1, num_nodes - 1 do
@@ -107,6 +152,11 @@ function stbrp_init_target(context, width, height, nodes, num_nodes)
     context.extra[2].next = nil
 end
 
+--- @param c stbrp_context
+--- @param first stbrp_node
+--- @param x0 integer
+--- @param width integer
+--- @return integer, integer
 local function stbrp__skyline_find_min_y(c, first, x0, width)
     local node = first
     local x1 = x0 + width
@@ -145,6 +195,10 @@ local function stbrp__skyline_find_min_y(c, first, x0, width)
     return min_y, waste_area
 end
 
+--- @param c stbrp_context
+--- @param width integer
+--- @param height integer
+--- @return stbrp__findresult
 local function stbrp__skyline_find_best_pos(c, width, height)
     local best_waste = bit.lshift(1, 30)
     local best_x
@@ -228,6 +282,10 @@ local function stbrp__skyline_find_best_pos(c, width, height)
     return fr
 end
 
+--- @param context stbrp_context
+--- @param width integer
+--- @param height integer
+--- @return stbrp__findresult
 local function stbrp__skyline_pack_rectangle(context, width, height)
     local res = stbrp__skyline_find_best_pos(context, width, height)
     local node, cur
@@ -270,7 +328,11 @@ local function stbrp__skyline_pack_rectangle(context, width, height)
     return res
 end
 
-local function rect_height_compare(p, q)
+--- @param a stbrp_rect
+--- @param b stbrp_rect
+--- @return boolean
+--- @package
+local function rect_height_compare(a, b)
     if a.h > b.h then
         return true
     elseif a.h < b.h then
@@ -280,15 +342,23 @@ local function rect_height_compare(p, q)
     end
 end
 
-local function rect_original_order(p, q)
+--- @param a stbrp_rect
+--- @param b stbrp_rect
+--- @return boolean
+--- @package
+local function rect_original_order(a, b)
     return a.was_packed < b.was_packed
 end
 
+--- @param context stbrp_context
+--- @param rects stbrp_rect[]
+--- @param num_rects integer
+--- @return boolean
 function stbrp_pack_rects(context, rects, num_rects)
     local all_rects_packed = true
 
     for i = 1, num_rects do
-        rects[i].was_packed = i
+        rects[i].was_packed = ((i - 1) ~= 0)
     end
 
     STBRP_SORT(rects, rect_height_compare)

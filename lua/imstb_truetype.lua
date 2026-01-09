@@ -40,6 +40,7 @@ local function ptr_index_set(p, i, v) p.data[p.offset + i + 1] = v end
 
 local STBTT_MAX_OVERSAMPLE = 8
 
+--- @enum STBTT_PLATFORM_ID
 local STBTT_PLATFORM_ID = {
     UNICODE   = 0,
     MAC       = 1,
@@ -47,7 +48,7 @@ local STBTT_PLATFORM_ID = {
     MICROSOFT = 3,
 }
 
---- encodingID for STBTT_PLATFORM_ID_MICROSOFT
+--- @enum STBTT_MS_EID
 local STBTT_MS_EID = {
     SYMBOL       = 0,
     UNICODE_BMP  = 1,
@@ -202,13 +203,8 @@ local function STBTT__CSCTX_INIT(bounds)
     return this
 end
 
-local function stbtt_kerningentry()
-    return {
-        glyph1 = nil,
-        glyph2 = nil,
-        advance = nil
-    }
-end
+-- local function stbtt_kerningentry()
+-- end
 
 local function stbtt__edge()
     return {
@@ -258,6 +254,11 @@ local function stbtt__bitmap()
     }
 end
 
+--- @class stbtt__point
+--- @field x number
+--- @field y number
+
+--- @return stbtt__point
 local function stbtt__point()
     return {
         x = nil,
@@ -277,19 +278,8 @@ end
 -- local function stbtt_pack_range()
 -- end
 
-local function stbtt_packedchar()
-    return {
-        x0 = nil,
-        y0 = nil,
-        x1 = nil,
-        y1 = nil,
-        xoff = nil,
-        yoff = nil,
-        xadvance = nil,
-        xoff2 = nil,
-        yoff2 = nil
-    }
-end
+-- local function stbtt_packedchar()
+-- end
 
 ----------------------------------------------
 --- stbtt__buf helpers to parse data from file
@@ -761,6 +751,7 @@ end
 
 local stbtt__GetGlyphInfoT2
 
+--- @return integer, integer?, integer?, integer?, integer?
 local function stbtt_GetGlyphBox(info, glyph_index)
     local n, x0, y0, x1, y1
 
@@ -785,7 +776,7 @@ end
 
 local function stbtt_IsGlyphEmpty(info, glyph_index)
     if info.cff.size ~= 0 then
-        return stbtt__GetGlyphInfoT2(info, glyph_index, nil, nil, nil, nil) == 0
+        return stbtt__GetGlyphInfoT2(info, glyph_index) == 0
     end
 
     local g = stbtt__GetGlyfOffset(info, glyph_index)
@@ -1833,9 +1824,7 @@ end
 --
 
 function stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, shift_x, shift_y)
-    local n, x0, y0 = 0, 0, 0
-    local x1, y1
-    n, x0, y0, x1, y1 = stbtt_GetGlyphBox(font, glyph)
+    local n, x0, y0, x1, y1 = stbtt_GetGlyphBox(font, glyph)
 
     local ix0, iy0, ix1, iy1
     if n == 0 then
@@ -2301,6 +2290,7 @@ local function stbtt__add_point(points, n, x, y)
 end
 
 -- tessellate until threshold p is happy... @TODO warped to compensate for non-linear stretching
+--- @return integer
 local function stbtt__tesselate_curve(points, num_points, x0, y0, x1, y1, x2, y2, objspace_flatness_squared, n)
     -- midpoint
     local mx = (x0 + 2 * x1 + x2) / 4
@@ -2310,7 +2300,7 @@ local function stbtt__tesselate_curve(points, num_points, x0, y0, x1, y1, x2, y2
     local dy = (y0 + y2) / 2 - my
 
     if n > 16 then -- 65536 segments on one curve better be enough!
-        return
+        return num_points
     end
 
     if dx * dx + dy * dy > objspace_flatness_squared then -- half-pixel error allowed... need to be smaller if AA
@@ -2324,6 +2314,7 @@ local function stbtt__tesselate_curve(points, num_points, x0, y0, x1, y1, x2, y2
     return num_points
 end
 
+--- @return integer
 local function stbtt__tesselate_cubic(points, num_points, x0, y0, x1, y1, x2, y2, x3, y3, objspace_flatness_squared, n)
     -- @TODO this "flatness" calculation is just made-up nonsense that seems to work well enough
     local dx0 = x1 - x0
@@ -2339,7 +2330,7 @@ local function stbtt__tesselate_cubic(points, num_points, x0, y0, x1, y1, x2, y2
     local flatness_squared = longlen * longlen - shortlen * shortlen
 
     if n > 16 then -- 65536 segments on one curve better be enough!
-        return
+        return num_points
     end
 
     if flatness_squared > objspace_flatness_squared then
@@ -2368,8 +2359,9 @@ local function stbtt__tesselate_cubic(points, num_points, x0, y0, x1, y1, x2, y2
     return num_points
 end
 
+--- @return stbtt__point[], integer?, integer[]?
 local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
-    local points = nil
+    local points = {}
     local num_points = 0
 
     local objspace_flatness_squared = objspace_flatness * objspace_flatness
@@ -2384,7 +2376,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
     end
 
     local num_contours = n
-    if n == 0 then return 0 end
+    if n == 0 then return points end
 
     local contour_lengths = {} -- size = n
 
@@ -2392,7 +2384,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
     for pass = 0, 1 do
         local x, y = 0, 0
         if pass == 1 then
-            points = {} for i = 1, num_points do points[i] = stbtt__point() end
+            for i = 1, num_points do points[i] = stbtt__point() end
         end
         num_points = 0
         n = -1
@@ -2440,7 +2432,7 @@ end
 local function stbtt_Rasterize(result, flatness_in_pixels, vertices, num_verts, scale_x, scale_y, shift_x, shift_y, x_off, y_off, invert)
     local scale = (scale_x > scale_y) and scale_y or scale_x
     local windings
-    local winding_count = 0
+    local winding_count
     local winding_lengths
 
     windings, winding_count, winding_lengths = stbtt_FlattenCurves(vertices, num_verts, flatness_in_pixels / scale)
@@ -2680,384 +2672,31 @@ end
 --- sdf computation
 --
 
-local STBTT_min = math.min
-local STBTT_max = math.max
+-- local STBTT_min = math.min
+-- local STBTT_max = math.max
 
-local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
-    local q0perp = q0[2] * ray[1] - q0[1] * ray[2]
-    local q1perp = q1[2] * ray[1] - q1[1] * ray[2]
-    local q2perp = q2[2] * ray[1] - q2[1] * ray[2]
-    local roperp = orig[2] * ray[1] - orig[1] * ray[2]
+-- local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
+-- end
 
-    local a = q0perp - 2 * q1perp + q2perp
-    local b = q1perp - q0perp
-    local c = q0perp - roperp
+-- local function equal(a, b)
+--     return a[1] == b[1] and a[2] == b[2]
+-- end
 
-    local s0, s1 = 0.0, 0.0
-    local num_s = 0
+-- local function stbtt__compute_crossings_x(x, y, nverts, verts)
+-- end
 
-    if a ~= 0.0 then
-        local discr = b * b - a * c
-        if discr > 0.0 then
-            local rcpna = -1 / a
-            local d = STBTT_sqrt(discr)
-            s0 = (b + d) * rcpna
-            s1 = (b - d) * rcpna
-            if s0 >= 0.0 and s0 <= 1.0 then
-                num_s = 1
-            end
-            if d > 0.0 and s1 >= 0.0 and s1 <= 1.0 then
-                if num_s == 0 then s0 = s1 end
-                num_s = num_s + 1
-            end
-        end
-    else
-        s0 = c / (-2 * b)
-        if s0 >= 0.0 and s0 <= 1.0 then
-            num_s = 1
-        end
-    end
+-- local function stbtt__cuberoot(x)
+-- end
 
-    if num_s == 0 then
-        return 0
-    else
-        local rcp_len2 = 1 / (ray[1] * ray[1] + ray[2] * ray[2])
-        local rayn_x = ray[1] * rcp_len2
-        local rayn_y = ray[2] * rcp_len2
+-- local function stbtt__solve_cubic(a, b, c, r)
+-- end
 
-        local q0d = q0[1] * rayn_x + q0[2] * rayn_y
-        local q1d = q1[1] * rayn_x + q1[2] * rayn_y
-        local q2d = q2[1] * rayn_x + q2[2] * rayn_y
-        local rod = orig[1] * rayn_x + orig[2] * rayn_y
+-- local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixel_dist_scale)
+-- end
 
-        local q10d = q1d - q0d
-        local q20d = q2d - q0d
-        local q0rd = q0d - rod
-
-        hits[1][1] = q0rd + s0 * (2.0 - 2.0 * s0) * q10d + s0 * s0 * q20d
-        hits[1][2] = a * s0 + b
-
-        if num_s > 1 then
-            hits[2][1] = q0rd + s1 * (2.0 - 2.0 * s1) * q10d + s1 * s1 * q20d
-            hits[2][2] = a * s1 + b
-            return 2
-        else
-            return 1
-        end
-    end
-end
-
-local function equal(a, b)
-    return a[1] == b[1] and a[2] == b[2]
-end
-
-local function stbtt__compute_crossings_x(x, y, nverts, verts)
-    local orig = {}
-    local ray = {1, 0}
-    local y_frac
-    local winding = 0
-
-    y_frac = STBTT_fmod(y, 1.0)
-    if y_frac < 0.01 then
-        y = y + 0.01
-    elseif y_frac > 0.99 then
-        y = y - 0.01
-    end
-
-    orig[1] = x
-    orig[2] = y
-
-    for i = 1, nverts do
-        if verts[i].type == STBTT_vline then
-            local x0 = trunc(verts[i - 1].x)
-            local y0 = trunc(verts[i - 1].y)
-            local x1 = trunc(verts[i].x)
-            local y1 = trunc(verts[i].y)
-            if y > STBTT_min(y0, y1) and y < STBTT_max(y0, y1) and x > STBTT_min(x0, x1) then
-                local x_inter = (y - y0) / (y1 - y0) * (x1 - x0) + x0
-                if x_inter < x then
-                    winding = winding + (y0 < y1 and 1 or -1)
-                end
-            end
-        end
-        if verts[i].type == STBTT_vcurve then
-            local x0 = trunc(verts[i - 1].x)
-            local y0 = trunc(verts[i - 1].y)
-            local x1 = trunc(verts[i].cx)
-            local y1 = trunc(verts[i].cy)
-            local x2 = trunc(verts[i].x)
-            local y2 = trunc(verts[i].y)
-            local ax = STBTT_min(x0, STBTT_min(x1, x2))
-            local ay = STBTT_min(y0, STBTT_min(y1, y2))
-            local by = STBTT_max(y0, STBTT_max(y1, y2))
-            if y > ay and y < by and x > ax then
-                local q0 = {x0, y0}
-                local q1 = {x1, y1}
-                local q2 = {x2, y2}
-                local hits = {{0, 0}, {0, 0}}
-
-                if equal(q0, q1) or equal(q1, q2) then
-                    x0 = trunc(verts[i - 1].x)
-                    y0 = trunc(verts[i - 1].y)
-                    x1 = trunc(verts[i].x)
-                    y1 = trunc(verts[i].y)
-                    if y > STBTT_min(y0, y1) and y < STBTT_max(y0, y1) and x > STBTT_min(x0, x1) then
-                        local x_inter = (y - y0) / (y1 - y0) * (x1 - x0) + x0
-                        if x_inter < x then
-                            winding = winding + (y0 < y1 and 1 or -1)
-                        end
-                    end
-                else
-                    local num_hits = stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
-                    if num_hits >= 1 then
-                        if hits[1][1] < 0 then
-                            winding = winding + ((hits[1][2] < 0) and -1 or 1)
-                        end
-                    end
-                    if num_hits >= 2 then
-                        if hits[2][1] < 0 then
-                            winding = winding + ((hits[2][2] < 0) and -1 or 1)
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return winding
-end
-
-
-local function stbtt__cuberoot(x)
-    if x < 0 then
-        return -STBTT_pow(-x, 1.0 / 3.0)
-    else
-        return STBTT_pow(x, 1.0 / 3.0)
-    end
-end
-
-local function stbtt__solve_cubic(a, b, c, r)
-    local s = -a / 3
-    local p = b - a * a / 3
-    local q = a * (2 * a * a - 9 * b) / 27 + c
-    local p3 = p * p * p
-    local d = q * q + 4 * p3 / 27
-    if d >= 0 then
-        local z = STBTT_sqrt(d)
-        local u = (-q + z) / 2
-        local v = (-q - z) / 2
-        u = stbtt__cuberoot(u)
-        v = stbtt__cuberoot(v)
-        r[1] = s + u + v
-        return 1
-    else
-        local u = STBTT_sqrt(-p / 3)
-        local v = STBTT_acos(-STBTT_sqrt(-27 / p3) * q / 2) / 3
-        local m = STBTT_cos(v)
-        local n = STBTT_cos(v - 3.141592 / 2) * 1.732050808
-        r[1] = s + u * 2 * m
-        r[2] = s - u * (m + n)
-        r[3] = s - u * (m - n)
-        return 3
-    end
-end
-
-
-local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixel_dist_scale)
-    local scale_x = scale
-    local scale_y = scale
-    local w, h
-
-    if scale == 0 then return nil end
-
-    local ix0, iy0, ix1, iy1 = stbtt_GetGlyphBitmapBoxSubpixel(info, glyph, scale, scale, 0.0, 0.0)
-
-    if ix0 == ix1 or iy0 == iy1 then
-        return nil
-    end
-
-    local ix0_val = ix0 - padding
-    local iy0_val = iy0 - padding
-    local ix1_val = ix1 + padding
-    local iy1_val = iy1 + padding
-
-    w = ix1_val - ix0_val
-    h = iy1_val - iy0_val
-
-    scale_y = -scale_y
-
-    local num_verts, verts = stbtt_GetGlyphShape(info, glyph)
-    local data = {} -- size = w * h
-    local precompute = {} -- size = num_verts
-
-    for i = 1, num_verts do
-        local j = i - 1
-        if i == 1 then j = num_verts end
-        if verts[i].type == STBTT_vline then
-            local x0 = verts[i].x * scale_x
-            local y0 = verts[i].y * scale_y
-            local x1 = verts[j].x * scale_x
-            local y1 = verts[j].y * scale_y
-            local dist = STBTT_sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
-            precompute[i] = (dist == 0) and 0.0 or (1.0 / dist)
-        elseif verts[i].type == STBTT_vcurve then
-            local x2 = verts[j].x * scale_x
-            local y2 = verts[j].y * scale_y
-            local x1 = verts[i].cx * scale_x
-            local y1 = verts[i].cy * scale_y
-            local x0 = verts[i].x * scale_x
-            local y0 = verts[i].y * scale_y
-            local bx = x0 - 2 * x1 + x2
-            local by = y0 - 2 * y1 + y2
-            local len2 = bx * bx + by * by
-            if len2 ~= 0.0 then
-                precompute[i] = 1.0 / (bx * bx + by * by)
-            else
-                precompute[i] = 0.0
-            end
-        else
-            precompute[i] = 0.0
-        end
-    end
-
-    for y = iy0_val, iy1_val - 1 do
-        for x = ix0_val, ix1_val - 1 do
-            local val
-            local min_dist = 999999.0
-            local sx = x + 0.5
-            local sy = y + 0.5
-            local x_gspace = sx / scale_x
-            local y_gspace = sy / scale_y
-
-            local winding = stbtt__compute_crossings_x(x_gspace, y_gspace, num_verts, verts)
-
-            for i = 1, num_verts do
-                local x0 = verts[i].x * scale_x
-                local y0 = verts[i].y * scale_y
-
-                if verts[i].type == STBTT_vline and precompute[i] ~= 0.0 then
-                    local x1 = verts[i - 1].x * scale_x
-                    local y1 = verts[i - 1].y * scale_y
-
-                    local dist2 = (x0 - sx) * (x0 - sx) + (y0 - sy) * (y0 - sy)
-                    if dist2 < min_dist * min_dist then
-                        min_dist = STBTT_sqrt(dist2)
-                    end
-
-                    local dist = STBTT_fabs((x1 - x0) * (y0 - sy) - (y1 - y0) * (x0 - sx)) * precompute[i]
-                    STBTT_assert(i ~= 1)
-                    if dist < min_dist then
-                        local dx = x1 - x0
-                        local dy = y1 - y0
-                        local px = x0 - sx
-                        local py = y0 - sy
-                        local t = -(px * dx + py * dy) / (dx * dx + dy * dy)
-                        if t >= 0.0 and t <= 1.0 then
-                            min_dist = dist
-                        end
-                    end
-                elseif verts[i].type == STBTT_vcurve then
-                    local x2 = verts[i - 1].x * scale_x
-                    local y2 = verts[i - 1].y * scale_y
-                    local x1 = verts[i].cx * scale_x
-                    local y1 = verts[i].cy * scale_y
-                    local box_x0 = STBTT_min(STBTT_min(x0, x1), x2)
-                    local box_y0 = STBTT_min(STBTT_min(y0, y1), y2)
-                    local box_x1 = STBTT_max(STBTT_max(x0, x1), x2)
-                    local box_y1 = STBTT_max(STBTT_max(y0, y1), y2)
-                    if sx > box_x0 - min_dist and sx < box_x1 + min_dist and sy > box_y0 - min_dist and sy < box_y1 + min_dist then
-                        local num = 0
-                        local ax = x1 - x0
-                        local ay = y1 - y0
-                        local bx = x0 - 2 * x1 + x2
-                        local by = y0 - 2 * y1 + y2
-                        local mx = x0 - sx
-                        local my = y0 - sy
-                        local res = {0.0, 0.0, 0.0}
-                        local px, py, t, it, dist2
-                        local a_inv = precompute[i]
-                        if a_inv == 0.0 then
-                            local a = 3 * (ax * bx + ay * by)
-                            local b = 2 * (ax * ax + ay * ay) + (mx * bx + my * by)
-                            local c = mx * ax + my * ay
-                            if a == 0.0 then
-                                if b ~= 0.0 then
-                                    res[num + 1] = -c / b
-                                    num = num + 1
-                                end
-                            else
-                                local discriminant = b * b - 4 * a * c
-                                if discriminant < 0 then
-                                    num = 0
-                                else
-                                    local root = STBTT_sqrt(discriminant)
-                                    res[1] = (-b - root) / (2 * a)
-                                    res[2] = (-b + root) / (2 * a)
-                                    num = 2
-                                end
-                            end
-                        else
-                            local b = 3 * (ax * bx + ay * by) * a_inv
-                            local c = (2 * (ax * ax + ay * ay) + (mx * bx + my * by)) * a_inv
-                            local d = (mx * ax + my * ay) * a_inv
-                            num = stbtt__solve_cubic(b, c, d, res)
-                        end
-                        dist2 = (x0 - sx) * (x0 - sx) + (y0 - sy) * (y0 - sy)
-                        if dist2 < min_dist * min_dist then
-                            min_dist = STBTT_sqrt(dist2)
-                        end
-
-                        if num >= 1 and res[1] >= 0.0 and res[1] <= 1.0 then
-                            t = res[1]
-                            it = 1.0 - t
-                            px = it * it * x0 + 2 * t * it * x1 + t * t * x2
-                            py = it * it * y0 + 2 * t * it * y1 + t * t * y2
-                            dist2 = (px - sx) * (px - sx) + (py - sy) * (py - sy)
-                            if dist2 < min_dist * min_dist then
-                                min_dist = STBTT_sqrt(dist2)
-                            end
-                        end
-                        if num >= 2 and res[2] >= 0.0 and res[2] <= 1.0 then
-                            t = res[2]
-                            it = 1.0 - t
-                            px = it * it * x0 + 2 * t * it * x1 + t * t * x2
-                            py = it * it * y0 + 2 * t * it * y1 + t * t * y2
-                            dist2 = (px - sx) * (px - sx) + (py - sy) * (py - sy)
-                            if dist2 < min_dist * min_dist then
-                                min_dist = STBTT_sqrt(dist2)
-                            end
-                        end
-                        if num >= 3 and res[3] >= 0.0 and res[3] <= 1.0 then
-                            t = res[3]
-                            it = 1.0 - t
-                            px = it * it * x0 + 2 * t * it * x1 + t * t * x2
-                            py = it * it * y0 + 2 * t * it * y1 + t * t * y2
-                            dist2 = (px - sx) * (px - sx) + (py - sy) * (py - sy)
-                            if dist2 < min_dist * min_dist then
-                                min_dist = STBTT_sqrt(dist2)
-                            end
-                        end
-                    end
-                end
-            end
-            if winding == 0 then
-                min_dist = -min_dist
-            end
-            val = onedge_value + pixel_dist_scale * min_dist
-            if val < 0 then
-                val = 0
-            elseif val > 255 then
-                val = 255
-            end
-            data[trunc((y - iy0_val) * w + (x - ix0_val)) + 1] = val
-        end
-    end
-
-    return data, w, h, ix0_val, iy0_val
-end
-
-local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_value, pixel_dist_scale)
-    return stbtt_GetGlyphSDF(info, scale, stbtt_FindGlyphIndex(info, codepoint), padding, onedge_value, pixel_dist_scale)
-end
+-- local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_value, pixel_dist_scale)
+--     return stbtt_GetGlyphSDF(info, scale, stbtt_FindGlyphIndex(info, codepoint), padding, onedge_value, pixel_dist_scale)
+-- end
 
 -----------------------------------------------------
 --- font name matching -- recommended not to use this
