@@ -76,3 +76,20 @@ local function CollapseButton(id, pos)
 
     return pressed
 end
+
+function ImGui.TextEx(str_text)
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    if window.SkipItems then return end
+
+    local strlen = #str_text
+    local text_pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
+
+    local wrap_pos_x = window.DC.TextWrapPos
+    local wrap_enabled = wrap_pos_x >= 0
+
+    -- if strlen <= 2e11 or wrap_enabled then
+
+    -- end
+end

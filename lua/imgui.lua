@@ -661,7 +661,7 @@ end
 
 --- TODO: AutoFit -> ScrollBar() -> Text()
 --- float ImGui::CalcWrapWidthForPos
-local function CalcWrapWidthForPos(pos, wrap_pos_x)
+function ImGui.CalcWrapWidthForPos(pos, wrap_pos_x)
     if wrap_pos_x < 0 then return 0 end
 
     local g = GImGui
@@ -669,23 +669,6 @@ local function CalcWrapWidthForPos(pos, wrap_pos_x)
 
     -- if wrap_pos_x == 0 then
     --     wrap_pos_x = 
-    -- end
-end
-
-local function Text(str_text)
-    local g = GImGui
-    local window = g.CurrentWindow
-
-    if window.SkipItems then return end
-
-    local strlen = #str_text
-    local text_pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
-
-    local wrap_pos_x = window.DC.TextWrapPos
-    local wrap_enabled = wrap_pos_x >= 0
-
-    -- if strlen <= 2e11 or wrap_enabled then
-
     -- end
 end
 
