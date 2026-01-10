@@ -2,6 +2,9 @@
 -- TODO: let client decide?
 RunConsoleCommand("mat_antialias", "8")
 
+#IMGUI_DEFINE FONT_ATLAS_DEFAULT_TEX_DATA_W 122
+#IMGUI_DEFINE FONT_ATLAS_DEFAULT_TEX_DATA_H 27
+
 stbrp = include("imstb_rectpack.lua")
 
 stbtt = include("imstb_truetype.lua")
@@ -600,6 +603,7 @@ function ImFontAtlasPackInit(atlas)
     builder.MaxRectBounds = ImVec2(0, 0)
 end
 
+--- @param atlas ImFontAtlas
 function ImFontAtlasBuildUpdateLinesTexData(atlas)
     if bit.band(atlas.Flags, ImFontAtlasFlags_NoBakedLines) ~= 0 then
         return
@@ -615,11 +619,84 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
         builder.PackIdLinesTexData = atlas:AddCustomRect(pack_size.x, pack_size.y, r)
         IM_ASSERT(builder.PackIdLinesTexData ~= ImFontAtlasRectId_Invalid)
     end
+
+    for n = 0, IM_DRAWLIST_TEX_LINES_WIDTH_MAX do
+        local y = n
+        local line_width = n
+        local pad_left = (r.w - line_width) / 2
+        local pad_right = r.w - (pad_left + line_width)
+        IM_ASSERT(pad_left + line_width + pad_right == r.w and y < r.h)
+
+        if (add_and_draw and tex.Format == ImTextureFormat_Alpha8) then
+            local write_ptr = tex:GetPixelsAt(r.x, r.y + y) -- ImU8*
+
+            for i = 0, pad_left - 1 do
+                ptr_index_set(write_ptr, i, 0x00)
+            end
+
+            for i = 0, line_width - 1 do
+                ptr_index_set(write_ptr, pad_left + i, 0xFF)
+            end
+
+            for i = 0, pad_right - 1 do
+                ptr_index_set(write_ptr, pad_left + line_width + i, 0x00)
+            end
+        elseif (add_and_draw and tex.Format == ImTextureFormat_RGBA32) then
+            local write_ptr = tex:GetPixelsAt(r.x, r.y + y) -- ImU32*
+
+            for i = 0, pad_left - 1 do
+                ptr_index_set(write_ptr, i, IM_COL32(255, 255, 255, 0))
+            end
+
+            for i = 0, line_width - 1 do
+                ptr_index_set(write_ptr, pad_left + i, IM_COL32_WHITE)
+            end
+
+            for i = 0, pad_right - 1 do
+                ptr_index_set(write_ptr, pad_left + line_width + i, IM_COL32(255, 255, 255, 0))
+            end
+        end
+
+        local uv0 = ImVec2((r.x + pad_left - 1), (r.y + y)) * atlas.TexUvScale
+        local uv1 = ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)) * atlas.TexUvScale
+        local half_v = (uv0.y + uv1.y) * 0.5
+        atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v) -- XXX: index
+    end
+end
+
+--- @param atlas ImFontAtlas
+--- @param x integer
+--- @param y integer
+--- @param w integer
+--- @param h integer
+--- @param in_str string
+--- @param in_marker_char string
+local function ImFontAtlasBuildRenderBitmapFromString(atlas, x, y, w, h, in_str, in_marker_char)
     -- TODO:
 end
 
+--- @param atlas ImFontAtlas
 function ImFontAtlasBuildUpdateBasicTexData(atlas)
-    -- TODO:
+    local builder = atlas.Builder
+    local pack_size = (bit.band(atlas.Flags, ImFontAtlasFlags_NoMouseCursors) ~= 0) and ImVec2(2, 2) or ImVec2(FONT_ATLAS_DEFAULT_TEX_DATA_W * 2 + 1, FONT_ATLAS_DEFAULT_TEX_DATA_H)
+
+    local r = ImFontAtlasRect()
+    local add_and_draw = (atlas:GetCustomRect(builder.PackIdMouseCursors, r) == false)
+    if (add_and_draw) then
+        builder.PackIdMouseCursors = atlas:AddCustomRect(pack_size.x, pack_size.y, r)
+        IM_ASSERT(builder.PackIdMouseCursors ~= ImFontAtlasRectId_Invalid)
+
+        if bit.band(atlas.Flags, ImFontAtlasFlags_NoMouseCursors) ~= 0 then
+            ImFontAtlasBuildRenderBitmapFromString(atlas, r.x, r.y, 2, 2, "XXXX", "X")
+        else
+            local x_for_white = r.x
+            local x_for_black = r.x + FONT_ATLAS_DEFAULT_TEX_DATA_W + 1
+            ImFontAtlasBuildRenderBitmapFromString(atlas, x_for_white, r.y, FONT_ATLAS_DEFAULT_TEX_DATA_W, FONT_ATLAS_DEFAULT_TEX_DATA_H, FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS, ".")
+            ImFontAtlasBuildRenderBitmapFromString(atlas, x_for_black, r.y, FONT_ATLAS_DEFAULT_TEX_DATA_W, FONT_ATLAS_DEFAULT_TEX_DATA_H, FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS, "X")
+        end
+    end
+
+    atlas.TexUvWhitePixel = ImVec2((r.x + 0.5) * atlas.TexUvScale.x, (r.y + 0.5) * atlas.TexUvScale.y)
 end
 
 function ImFontAtlasUpdateDrawListsSharedData(atlas)
