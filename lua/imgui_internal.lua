@@ -57,11 +57,7 @@ local function ImUpperPowerOfTwo(v)
     return v + 1
 end
 
-local function ImSaturate(f)
-    return (f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f
-end
-
-local function IM_ASSERT(_EXPR) end -- TODO: preprocess
+#IMGUI_DEFINE ImSaturate(f) ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f)
 
 #IMGUI_DEFINE IMGUI_FONT_SIZE_MAX 512
 

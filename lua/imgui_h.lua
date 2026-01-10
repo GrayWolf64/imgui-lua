@@ -1,3 +1,5 @@
+local function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
+
 --- XXX: ptr
 #IMGUI_DEFINE ptr_index_get(p, i)    p.data[p.offset + i + 1]
 #IMGUI_DEFINE ptr_index_set(p, i, v) p.data[p.offset + i + 1] = v
