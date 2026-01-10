@@ -34,11 +34,11 @@ local stbtt
 #IMGUI_DEFINE ImCos   math.cos
 #IMGUI_DEFINE ImAcos  math.acos
 #IMGUI_DEFINE ImSqrt  math.sqrt
-#IMGUI_DEFINE ImLerp(a, b, t)       a + (b - a) * t
-#IMGUI_DEFINE ImClamp(v, min, max)  ImMin(ImMax(v, min), max)
-#IMGUI_DEFINE ImTrunc(f)            ImFloor(f + 0.5)
-#IMGUI_DEFINE IM_ROUNDUP_TO_EVEN(n) ImCeil(n / 2) * 2
-#IMGUI_DEFINE ImRsqrt(x)            1 / ImSqrt(x)
+#IMGUI_DEFINE ImLerp(a, b, t)       ((a) + ((b) - (a)) * (t))
+#IMGUI_DEFINE ImClamp(v, min, max)  ImMin(ImMax((v), (min)), (max))
+#IMGUI_DEFINE ImTrunc(f)            ImFloor((f) + 0.5)
+#IMGUI_DEFINE IM_ROUNDUP_TO_EVEN(n) (ImCeil((n) / 2) * 2)
+#IMGUI_DEFINE ImRsqrt(x)            (1 / ImSqrt(x))
 
 local function ImIsPowerOfTwo(v)
     return (v ~= 0) and (bit.band(v, (v - 1)) == 0)
