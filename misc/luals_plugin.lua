@@ -21,6 +21,17 @@ function OnSetText(uri, text)
         }
     end
 
+    -- Currently just make it ignore them
+    for line_start, line in text:gmatch("()([^\r\n]+)") do
+        if line:match("^#IMGUI_[A-Z]+") then
+            diffs[#diffs + 1] = {
+                start = line_start,
+                finish = line_start + #line - 1,
+                text = "-- " .. line
+            }
+        end
+    end
+
     if #diffs == 0 then return nil end
     return diffs
 end

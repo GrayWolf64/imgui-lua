@@ -22,23 +22,23 @@ local math    = math
 local stbrp
 local stbtt
 
-IMGUI_DEFINE(FLT_MAX, math.huge)
-IMGUI_DEFINE(IM_PI, math.pi)
-IMGUI_DEFINE(ImAbs, math.abs)
-IMGUI_DEFINE(ImMin, math.min)
-IMGUI_DEFINE(ImMax, math.max)
-IMGUI_DEFINE(ImFloor, math.floor)
-IMGUI_DEFINE(ImRound, math.Round)
-IMGUI_DEFINE(ImCeil, math.ceil)
-IMGUI_DEFINE(ImSin, math.sin)
-IMGUI_DEFINE(ImCos, math.cos)
-IMGUI_DEFINE(ImAcos, math.acos)
-IMGUI_DEFINE(ImSqrt, math.sqrt)
-IMGUI_DEFINE(ImLerp(a, b, t), a + (b - a) * t)
-IMGUI_DEFINE(ImClamp(v, min, max), ImMin(ImMax(v, min), max))
-IMGUI_DEFINE(ImTrunc(f), ImFloor(f + 0.5))
-IMGUI_DEFINE(IM_ROUNDUP_TO_EVEN(n), ImCeil(n / 2) * 2)
-IMGUI_DEFINE(ImRsqrt(x), 1 / ImSqrt(x))
+#IMGUI_DEFINE FLT_MAX math.huge
+#IMGUI_DEFINE IM_PI   math.pi
+#IMGUI_DEFINE ImAbs   math.abs
+#IMGUI_DEFINE ImMin   math.min
+#IMGUI_DEFINE ImMax   math.max
+#IMGUI_DEFINE ImFloor math.floor
+#IMGUI_DEFINE ImRound math.Round
+#IMGUI_DEFINE ImCeil  math.ceil
+#IMGUI_DEFINE ImSin   math.sin
+#IMGUI_DEFINE ImCos   math.cos
+#IMGUI_DEFINE ImAcos  math.acos
+#IMGUI_DEFINE ImSqrt  math.sqrt
+#IMGUI_DEFINE ImLerp(a, b, t)       a + (b - a) * t
+#IMGUI_DEFINE ImClamp(v, min, max)  ImMin(ImMax(v, min), max)
+#IMGUI_DEFINE ImTrunc(f)            ImFloor(f + 0.5)
+#IMGUI_DEFINE IM_ROUNDUP_TO_EVEN(n) ImCeil(n / 2) * 2
+#IMGUI_DEFINE ImRsqrt(x)            1 / ImSqrt(x)
 
 local function ImIsPowerOfTwo(v)
     return (v ~= 0) and (bit.band(v, (v - 1)) == 0)
@@ -63,21 +63,21 @@ end
 
 local function IM_ASSERT(_EXPR) end -- TODO: preprocess
 
-IMGUI_DEFINE(IMGUI_FONT_SIZE_MAX, 512)
+#IMGUI_DEFINE IMGUI_FONT_SIZE_MAX 512
 
-IMGUI_DEFINE(IMGUI_WINDOW_HARD_MIN_SIZE, 16) -- 4
+#IMGUI_DEFINE IMGUI_WINDOW_HARD_MIN_SIZE 16
 
-IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, 4)
-IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX, 512)
+#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN 4
+#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX 512
 
-IMGUI_DEFINE(IM_DRAWLIST_ARCFAST_TABLE_SIZE, 48)
-IMGUI_DEFINE(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, IM_DRAWLIST_ARCFAST_TABLE_SIZE)
+#IMGUI_DEFINE IM_DRAWLIST_ARCFAST_TABLE_SIZE 48
+#IMGUI_DEFINE IM_DRAWLIST_ARCFAST_SAMPLE_MAX IM_DRAWLIST_ARCFAST_TABLE_SIZE
 
-IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR), ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX))
-IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR), MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI))))
-IMGUI_DEFINE(IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD), (1 - ImCos(IM_PI / ImMax(N, IM_PI))) / RAD)
+#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
+#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(N, MAXERROR)   MAXERROR / (1 - ImCos(IM_PI / ImMax(N, IM_PI)))
+#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(N, RAD)    (1 - ImCos(IM_PI / ImMax(N, IM_PI))) / RAD
 
-IMGUI_DEFINE(IM_ASSERT_USER_ERROR(_EXPR, _MSG), "if not _EXPR or _EXPR == 0 then error(_MSG, 2) end")
+#IMGUI_DEFINE IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not _EXPR or _EXPR == 0 then error(_MSG, 2) end
 
 --- ImVec1
 --
@@ -537,9 +537,9 @@ local function ImFontAtlasRectEntry()
     }
 end
 
-IMGUI_DEFINE(ImFontAtlasRectId_IndexMask_      , (0x0007FFFF))
-IMGUI_DEFINE(ImFontAtlasRectId_GenerationMask_ , (0x3FF00000))
-IMGUI_DEFINE(ImFontAtlasRectId_GenerationShift_, (20))
+#IMGUI_DEFINE ImFontAtlasRectId_IndexMask_       (0x0007FFFF)
+#IMGUI_DEFINE ImFontAtlasRectId_GenerationMask_  (0x3FF00000)
+#IMGUI_DEFINE ImFontAtlasRectId_GenerationShift_ (20)
 local function ImFontAtlasRectId_GetIndex(id) return bit.band(id, ImFontAtlasRectId_IndexMask_) end
 local function ImFontAtlasRectId_GetGeneration(id) return bit.rshift(bit.band(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
 local function ImFontAtlasRectId_Make(index_idx, gen_idx)

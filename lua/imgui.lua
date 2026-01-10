@@ -2,11 +2,11 @@
 --
 local GImGui = nil
 
-IMGUI_DEFINE(IMGUI_VIEWPORT_DEFAULT_ID, 0x11111111)
+#IMGUI_DEFINE IMGUI_VIEWPORT_DEFAULT_ID 0x11111111
 
 ImGui = ImGui or {}
 
-IMGUI_INCLUDE("imgui_h.lua")
+#IMGUI_INCLUDE "imgui_h.lua"
 
 ----------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
@@ -49,7 +49,7 @@ local function ImFileLoadToMemory(filename, mode)
     return file_data, file_size
 end
 
-IMGUI_INCLUDE("imgui_internal.lua")
+#IMGUI_INCLUDE "imgui_internal.lua"
 
 local ImResizeGripDef = {
     {CornerPos = ImVec2(1, 1), InnerDir = ImVec2(-1, -1), AngleMin12 = 0, AngleMax12 = 3}, -- Bottom right grip
@@ -75,7 +75,7 @@ local function ImHashStr(str)
     return hash
 end
 
-IMGUI_INCLUDE("imgui_draw.lua")
+#IMGUI_INCLUDE "imgui_draw.lua"
 
 --- void ImGui::UpdateCurrentFontSize
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
@@ -507,7 +507,7 @@ function ImGui.IsMouseClicked(button)
     return true
 end
 
-IMGUI_INCLUDE("imgui_widgets.lua")
+#IMGUI_INCLUDE "imgui_widgets.lua"
 
 --- static bool IsWindowActiveAndVisible
 local function IsWindowActiveAndVisible(window)

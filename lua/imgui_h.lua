@@ -1,6 +1,6 @@
 --- XXX: ptr
-IMGUI_DEFINE(ptr_index_get(p, i), "p.data[p.offset + i + 1]")
-IMGUI_DEFINE(ptr_index_set(p, i, v), "p.data[p.offset + i + 1] = v")
+#IMGUI_DEFINE ptr_index_get(p, i)    p.data[p.offset + i + 1]
+#IMGUI_DEFINE ptr_index_set(p, i, v) p.data[p.offset + i + 1] = v
 
 local function memcpy(_dst, _src, _cnt)
     for i = 0, _cnt - 1 do
@@ -14,30 +14,30 @@ local function memset(_dst, _val, _cnt)
     end
 end
 
-IMGUI_DEFINE(IM_DRAWLIST_TEX_LINES_WIDTH_MAX, 32)
-IMGUI_DEFINE(ImFontAtlasRectId_Invalid, -1)
-IMGUI_DEFINE(ImTextureID_Invalid, 0)
+#IMGUI_DEFINE IM_DRAWLIST_TEX_LINES_WIDTH_MAX 32
+#IMGUI_DEFINE ImFontAtlasRectId_Invalid -1
+#IMGUI_DEFINE ImTextureID_Invalid 0
 
-IMGUI_DEFINE(ImTextureFormat_RGBA32, 0)
-IMGUI_DEFINE(ImTextureFormat_Alpha8, 1)
+#IMGUI_DEFINE ImTextureFormat_RGBA32 0
+#IMGUI_DEFINE ImTextureFormat_Alpha8 1
 
-IMGUI_DEFINE(struct_def(_name), "local GMetaTables = GMetaTables or {}; GMetaTables[_name] = {}; GMetaTables[_name].__index = GMetaTables[_name]")
-IMGUI_DEFINE(struct_method, "function GMetaTables.")
+#IMGUI_DEFINE struct_def(_name) local GMetaTables = GMetaTables or {}; GMetaTables[_name] = {}; GMetaTables[_name].__index = GMetaTables[_name]
+#IMGUI_DEFINE struct_method function GMetaTables.
 
-IMGUI_DEFINE(IM_DELETE(_t), "_t = nil")
+#IMGUI_DEFINE IM_DELETE(_t) _t = nil
 
 --- enum ImTextureStatus
-IMGUI_DEFINE(ImTextureStatus_OK         , 0)
-IMGUI_DEFINE(ImTextureStatus_Destroyed  , 1)
-IMGUI_DEFINE(ImTextureStatus_WantCreate , 2)
-IMGUI_DEFINE(ImTextureStatus_WantUpdates, 3)
-IMGUI_DEFINE(ImTextureStatus_WantDestroy, 4)
+#IMGUI_DEFINE ImTextureStatus_OK          0
+#IMGUI_DEFINE ImTextureStatus_Destroyed   1
+#IMGUI_DEFINE ImTextureStatus_WantCreate  2
+#IMGUI_DEFINE ImTextureStatus_WantUpdates 3
+#IMGUI_DEFINE ImTextureStatus_WantDestroy 4
 
 --- enum ImFontAtlasFlags_
-IMGUI_DEFINE(ImFontAtlasFlags_None              , 0)
-IMGUI_DEFINE(ImFontAtlasFlags_NoPowerOfTwoHeight, bit.lshift(1, 0))
-IMGUI_DEFINE(ImFontAtlasFlags_NoMouseCursors    , bit.lshift(1, 1))
-IMGUI_DEFINE(ImFontAtlasFlags_NoBakedLines      , bit.lshift(1, 2))
+#IMGUI_DEFINE ImFontAtlasFlags_None               0
+#IMGUI_DEFINE ImFontAtlasFlags_NoPowerOfTwoHeight bit.lshift(1, 0)
+#IMGUI_DEFINE ImFontAtlasFlags_NoMouseCursors     bit.lshift(1, 1)
+#IMGUI_DEFINE ImFontAtlasFlags_NoBakedLines       bit.lshift(1, 2)
 
 local function ImTextureRect(x, y, w, h)
     return {
@@ -361,89 +361,89 @@ local function ImFontGlyph()
 end
 
 -- TODO: enums, evals?
-IMGUI_DEFINE(ImGuiDir_Left, 0)
-IMGUI_DEFINE(ImGuiDir_Right, 1)
-IMGUI_DEFINE(ImGuiDir_Up, 2)
-IMGUI_DEFINE(ImGuiDir_Down, 3)
+#IMGUI_DEFINE ImGuiDir_Left  0
+#IMGUI_DEFINE ImGuiDir_Right 1
+#IMGUI_DEFINE ImGuiDir_Up    2
+#IMGUI_DEFINE ImGuiDir_Down  3
 
 --- enum ImGuiWindowFlags_
-IMGUI_DEFINE(ImGuiWindowFlags_None                     , 0)
-IMGUI_DEFINE(ImGuiWindowFlags_NoTitleBar               , bit.lshift(1, 0))
-IMGUI_DEFINE(ImGuiWindowFlags_NoResize                 , bit.lshift(1, 1))
-IMGUI_DEFINE(ImGuiWindowFlags_NoMove                   , bit.lshift(1, 2))
-IMGUI_DEFINE(ImGuiWindowFlags_NoScrollbar              , bit.lshift(1, 3))
-IMGUI_DEFINE(ImGuiWindowFlags_NoScrollWithMouse        , bit.lshift(1, 4))
-IMGUI_DEFINE(ImGuiWindowFlags_NoCollapse               , bit.lshift(1, 5))
-IMGUI_DEFINE(ImGuiWindowFlags_AlwaysAutoResize         , bit.lshift(1, 6))
-IMGUI_DEFINE(ImGuiWindowFlags_NoBackground             , bit.lshift(1, 7))
-IMGUI_DEFINE(ImGuiWindowFlags_NoSavedSettings          , bit.lshift(1, 8))
-IMGUI_DEFINE(ImGuiWindowFlags_NoMouseInputs            , bit.lshift(1, 9))
-IMGUI_DEFINE(ImGuiWindowFlags_MenuBar                  , bit.lshift(1, 10))
-IMGUI_DEFINE(ImGuiWindowFlags_HorizontalScrollbar      , bit.lshift(1, 11))
-IMGUI_DEFINE(ImGuiWindowFlags_NoFocusOnAppearing       , bit.lshift(1, 12))
-IMGUI_DEFINE(ImGuiWindowFlags_NoBringToFrontOnFocus    , bit.lshift(1, 13))
-IMGUI_DEFINE(ImGuiWindowFlags_AlwaysVerticalScrollbar  , bit.lshift(1, 14))
-IMGUI_DEFINE(ImGuiWindowFlags_AlwaysHorizontalScrollbar, bit.lshift(1, 15))
-IMGUI_DEFINE(ImGuiWindowFlags_NoNavInputs              , bit.lshift(1, 16))
-IMGUI_DEFINE(ImGuiWindowFlags_NoNavFocus               , bit.lshift(1, 17))
-IMGUI_DEFINE(ImGuiWindowFlags_UnsavedDocument          , bit.lshift(1, 18))
-IMGUI_DEFINE(ImGuiWindowFlags_ChildWindow              , bit.lshift(1, 24))
-IMGUI_DEFINE(ImGuiWindowFlags_Tooltip                  , bit.lshift(1, 25))
-IMGUI_DEFINE(ImGuiWindowFlags_Popup                    , bit.lshift(1, 26))
-IMGUI_DEFINE(ImGuiWindowFlags_Modal                    , bit.lshift(1, 27))
-IMGUI_DEFINE(ImGuiWindowFlags_ChildMenu                , bit.lshift(1, 28))
+#IMGUI_DEFINE ImGuiWindowFlags_None                      0
+#IMGUI_DEFINE ImGuiWindowFlags_NoTitleBar                bit.lshift(1, 0)
+#IMGUI_DEFINE ImGuiWindowFlags_NoResize                  bit.lshift(1, 1)
+#IMGUI_DEFINE ImGuiWindowFlags_NoMove                    bit.lshift(1, 2)
+#IMGUI_DEFINE ImGuiWindowFlags_NoScrollbar               bit.lshift(1, 3)
+#IMGUI_DEFINE ImGuiWindowFlags_NoScrollWithMouse         bit.lshift(1, 4)
+#IMGUI_DEFINE ImGuiWindowFlags_NoCollapse                bit.lshift(1, 5)
+#IMGUI_DEFINE ImGuiWindowFlags_AlwaysAutoResize          bit.lshift(1, 6)
+#IMGUI_DEFINE ImGuiWindowFlags_NoBackground              bit.lshift(1, 7)
+#IMGUI_DEFINE ImGuiWindowFlags_NoSavedSettings           bit.lshift(1, 8)
+#IMGUI_DEFINE ImGuiWindowFlags_NoMouseInputs             bit.lshift(1, 9)
+#IMGUI_DEFINE ImGuiWindowFlags_MenuBar                   bit.lshift(1, 10)
+#IMGUI_DEFINE ImGuiWindowFlags_HorizontalScrollbar       bit.lshift(1, 11)
+#IMGUI_DEFINE ImGuiWindowFlags_NoFocusOnAppearing        bit.lshift(1, 12)
+#IMGUI_DEFINE ImGuiWindowFlags_NoBringToFrontOnFocus     bit.lshift(1, 13)
+#IMGUI_DEFINE ImGuiWindowFlags_AlwaysVerticalScrollbar   bit.lshift(1, 14)
+#IMGUI_DEFINE ImGuiWindowFlags_AlwaysHorizontalScrollbar bit.lshift(1, 15)
+#IMGUI_DEFINE ImGuiWindowFlags_NoNavInputs               bit.lshift(1, 16)
+#IMGUI_DEFINE ImGuiWindowFlags_NoNavFocus                bit.lshift(1, 17)
+#IMGUI_DEFINE ImGuiWindowFlags_UnsavedDocument           bit.lshift(1, 18)
+#IMGUI_DEFINE ImGuiWindowFlags_ChildWindow               bit.lshift(1, 24)
+#IMGUI_DEFINE ImGuiWindowFlags_Tooltip                   bit.lshift(1, 25)
+#IMGUI_DEFINE ImGuiWindowFlags_Popup                     bit.lshift(1, 26)
+#IMGUI_DEFINE ImGuiWindowFlags_Modal                     bit.lshift(1, 27)
+#IMGUI_DEFINE ImGuiWindowFlags_ChildMenu                 bit.lshift(1, 28)
 
-IMGUI_DEFINE(ImGuiWindowFlags_NoNav       , bit.bor(ImGuiWindowFlags_NoNavInputs, ImGuiWindowFlags_NoNavFocus))
-IMGUI_DEFINE(ImGuiWindowFlags_NoDecoration, bit.bor(ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoScrollbar, ImGuiWindowFlags_NoCollapse))
-IMGUI_DEFINE(ImGuiWindowFlags_NoInputs    , bit.bor(ImGuiWindowFlags_NoMouseInputs, ImGuiWindowFlags_NoNavInputs, ImGuiWindowFlags_NoNavFocus))
+#IMGUI_DEFINE ImGuiWindowFlags_NoNav        bit.bor(ImGuiWindowFlags_NoNavInputs, ImGuiWindowFlags_NoNavFocus)
+#IMGUI_DEFINE ImGuiWindowFlags_NoDecoration bit.bor(ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoScrollbar, ImGuiWindowFlags_NoCollapse)
+#IMGUI_DEFINE ImGuiWindowFlags_NoInputs     bit.bor(ImGuiWindowFlags_NoMouseInputs, ImGuiWindowFlags_NoNavInputs, ImGuiWindowFlags_NoNavFocus)
 
 --- enum ImGuiItemFlags_
-IMGUI_DEFINE(ImGuiItemFlags_None             , 0)
-IMGUI_DEFINE(ImGuiItemFlags_NoTabStop        , bit.lshift(1, 0))
-IMGUI_DEFINE(ImGuiItemFlags_NoNav            , bit.lshift(1, 1))
-IMGUI_DEFINE(ImGuiItemFlags_NoNavDefaultFocus, bit.lshift(1, 2))
-IMGUI_DEFINE(ImGuiItemFlags_ButtonRepeat     , bit.lshift(1, 3))
-IMGUI_DEFINE(ImGuiItemFlags_AutoClosePopups  , bit.lshift(1, 4))
-IMGUI_DEFINE(ImGuiItemFlags_AllowDuplicateID , bit.lshift(1, 5))
+#IMGUI_DEFINE ImGuiItemFlags_None              0
+#IMGUI_DEFINE ImGuiItemFlags_NoTabStop         bit.lshift(1, 0)
+#IMGUI_DEFINE ImGuiItemFlags_NoNav             bit.lshift(1, 1)
+#IMGUI_DEFINE ImGuiItemFlags_NoNavDefaultFocus bit.lshift(1, 2)
+#IMGUI_DEFINE ImGuiItemFlags_ButtonRepeat      bit.lshift(1, 3)
+#IMGUI_DEFINE ImGuiItemFlags_AutoClosePopups   bit.lshift(1, 4)
+#IMGUI_DEFINE ImGuiItemFlags_AllowDuplicateID  bit.lshift(1, 5)
 
-IMGUI_DEFINE(ImGuiItemStatusFlags_None            , 0)
-IMGUI_DEFINE(ImGuiItemStatusFlags_HoveredRect     , bit.lshift(1, 0))
-IMGUI_DEFINE(ImGuiItemStatusFlags_HasDisplayRect  , bit.lshift(1, 1))
-IMGUI_DEFINE(ImGuiItemStatusFlags_Edited          , bit.lshift(1, 2))
-IMGUI_DEFINE(ImGuiItemStatusFlags_ToggledSelection, bit.lshift(1, 3))
-IMGUI_DEFINE(ImGuiItemStatusFlags_ToggledOpen     , bit.lshift(1, 4))
-IMGUI_DEFINE(ImGuiItemStatusFlags_HasDeactivated  , bit.lshift(1, 5))
-IMGUI_DEFINE(ImGuiItemStatusFlags_Deactivated     , bit.lshift(1, 6))
-IMGUI_DEFINE(ImGuiItemStatusFlags_HoveredWindow   , bit.lshift(1, 7))
-IMGUI_DEFINE(ImGuiItemStatusFlags_Visible         , bit.lshift(1, 8))
-IMGUI_DEFINE(ImGuiItemStatusFlags_HasClipRect     , bit.lshift(1, 9))
-IMGUI_DEFINE(ImGuiItemStatusFlags_HasShortcut     , bit.lshift(1, 10))
+#IMGUI_DEFINE ImGuiItemStatusFlags_None             0
+#IMGUI_DEFINE ImGuiItemStatusFlags_HoveredRect      bit.lshift(1, 0)
+#IMGUI_DEFINE ImGuiItemStatusFlags_HasDisplayRect   bit.lshift(1, 1)
+#IMGUI_DEFINE ImGuiItemStatusFlags_Edited           bit.lshift(1, 2)
+#IMGUI_DEFINE ImGuiItemStatusFlags_ToggledSelection bit.lshift(1, 3)
+#IMGUI_DEFINE ImGuiItemStatusFlags_ToggledOpen      bit.lshift(1, 4)
+#IMGUI_DEFINE ImGuiItemStatusFlags_HasDeactivated   bit.lshift(1, 5)
+#IMGUI_DEFINE ImGuiItemStatusFlags_Deactivated      bit.lshift(1, 6)
+#IMGUI_DEFINE ImGuiItemStatusFlags_HoveredWindow    bit.lshift(1, 7)
+#IMGUI_DEFINE ImGuiItemStatusFlags_Visible          bit.lshift(1, 8)
+#IMGUI_DEFINE ImGuiItemStatusFlags_HasClipRect      bit.lshift(1, 9)
+#IMGUI_DEFINE ImGuiItemStatusFlags_HasShortcut      bit.lshift(1, 10)
 
 --- enum ImDrawFlags_
-IMGUI_DEFINE(ImDrawFlags_None                   , 0)
-IMGUI_DEFINE(ImDrawFlags_Closed                 , bit.lshift(1, 0))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersTopLeft    , bit.lshift(1, 4))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersTopRight   , bit.lshift(1, 5))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersBottomLeft , bit.lshift(1, 6))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersBottomRight, bit.lshift(1, 7))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersNone       , bit.lshift(1, 8))
+#IMGUI_DEFINE ImDrawFlags_None                    0
+#IMGUI_DEFINE ImDrawFlags_Closed                  bit.lshift(1, 0)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersTopLeft     bit.lshift(1, 4)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersTopRight    bit.lshift(1, 5)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersBottomLeft  bit.lshift(1, 6)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersBottomRight bit.lshift(1, 7)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersNone        bit.lshift(1, 8)
 
-IMGUI_DEFINE(ImDrawFlags_RoundCornersTop    , bit.bor(ImDrawFlags_RoundCornersTopLeft, ImDrawFlags_RoundCornersTopRight))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersBottom , bit.bor(ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersBottomRight))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersLeft   , bit.bor(ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersTopLeft))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersRight  , bit.bor(ImDrawFlags_RoundCornersBottomRight, ImDrawFlags_RoundCornersTopRight))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersAll    , bit.bor(ImDrawFlags_RoundCornersTopLeft, ImDrawFlags_RoundCornersTopRight, ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersBottomRight))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersMask   , bit.bor(ImDrawFlags_RoundCornersAll, ImDrawFlags_RoundCornersNone))
-IMGUI_DEFINE(ImDrawFlags_RoundCornersDefault, ImDrawFlags_RoundCornersAll)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersTop     bit.bor(ImDrawFlags_RoundCornersTopLeft, ImDrawFlags_RoundCornersTopRight)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersBottom  bit.bor(ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersBottomRight)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersLeft    bit.bor(ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersTopLeft)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersRight   bit.bor(ImDrawFlags_RoundCornersBottomRight, ImDrawFlags_RoundCornersTopRight)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersAll     bit.bor(ImDrawFlags_RoundCornersTopLeft, ImDrawFlags_RoundCornersTopRight, ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersBottomRight)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersMask    bit.bor(ImDrawFlags_RoundCornersAll, ImDrawFlags_RoundCornersNone)
+#IMGUI_DEFINE ImDrawFlags_RoundCornersDefault ImDrawFlags_RoundCornersAll
 
-IMGUI_DEFINE(ImDrawListFlags_None                  , 0)
-IMGUI_DEFINE(ImDrawListFlags_AntiAliasedLines      , bit.lshift(1, 0))
-IMGUI_DEFINE(ImDrawListFlags_AntiAliasedLinesUseTex, bit.lshift(1, 1))
-IMGUI_DEFINE(ImDrawListFlags_AntiAliasedFill       , bit.lshift(1, 2))
-IMGUI_DEFINE(ImDrawListFlags_AllowVtxOffset        , bit.lshift(1, 3))
+#IMGUI_DEFINE ImDrawListFlags_None                   0
+#IMGUI_DEFINE ImDrawListFlags_AntiAliasedLines       bit.lshift(1, 0)
+#IMGUI_DEFINE ImDrawListFlags_AntiAliasedLinesUseTex bit.lshift(1, 1)
+#IMGUI_DEFINE ImDrawListFlags_AntiAliasedFill        bit.lshift(1, 2)
+#IMGUI_DEFINE ImDrawListFlags_AllowVtxOffset         bit.lshift(1, 3)
 
 --- enum ImFontFlags_
-IMGUI_DEFINE(ImFontFlags_None          , 0)
-IMGUI_DEFINE(ImFontFlags_NoLoadError   , bit.lshift(1, 1))
-IMGUI_DEFINE(ImFontFlags_NoLoadGlyphs  , bit.lshift(1, 2))
-IMGUI_DEFINE(ImFontFlags_LockBakedSizes, bit.lshift(1, 3))
+#IMGUI_DEFINE ImFontFlags_None           0
+#IMGUI_DEFINE ImFontFlags_NoLoadError    bit.lshift(1, 1)
+#IMGUI_DEFINE ImFontFlags_NoLoadGlyphs   bit.lshift(1, 2)
+#IMGUI_DEFINE ImFontFlags_LockBakedSizes bit.lshift(1, 3)

@@ -1605,7 +1605,7 @@ end
 struct_method ImDrawList:_CalcCircleAutoSegmentCount(radius)
     local radius_idx = ImFloor(radius + 0.999999)
 
-    if radius_idx >= 0 and radius_idx < 64 then -- IM_ARRAYSIZE(_Data->CircleSegmentCounts))
+    if radius_idx >= 0 and radius_idx < 64 then -- IM_ARRAYSIZE(_Data->CircleSegmentCounts)
         return self._Data.CircleSegmentCounts[radius_idx] -- Use cached value
     else
         return IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self._Data.CircleSegmentMaxError)
