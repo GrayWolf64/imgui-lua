@@ -46,10 +46,13 @@ local function ImTextureRect(x, y, w, h)
     }
 end
 
---- ImVec2
---
+--- @class ImVec2
+--- @field x number
+--- @field y number
 struct_def("ImVec2")
 
+--- @return ImVec2
+--- @nodiscard
 local function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, GMetaTables.ImVec2) end
 
 struct_method ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
@@ -59,10 +62,15 @@ struct_method ImVec2:__eq(other) return self.x == other.x and self.y == other.y 
 struct_method ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
 struct_method ImVec2:copy() return ImVec2(self.x, self.y) end
 
---- struct ImVec4
---
+--- @class ImVec4
+--- @field x number
+--- @field y number
+--- @field z number
+--- @field w number
 struct_def("ImVec4")
 
+--- @return ImVec4
+--- @nodiscard
 local function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, GMetaTables.ImVec4) end
 
 struct_method ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
@@ -71,7 +79,7 @@ struct_method ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * ot
 struct_method ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
 
 --- A compact ImVector clone, maybe
--- ImVector<>
+--- @class ImVector
 struct_def("ImVector")
 
 struct_method ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
@@ -92,12 +100,15 @@ struct_method ImVector:shrink() return end
 struct_method ImVector:resize(new_size) self.Size = new_size end
 struct_method ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
 
+--- @return ImVector
+--- @nodiscard
 local function ImVector() return setmetatable({Data = {}, Size = 0}, GMetaTables.ImVector) end
 
---- struct ImDrawCmd
---
+--- @class ImDrawCmd
 struct_def("ImDrawCmd")
 
+--- @return ImDrawCmd
+--- @nodiscard
 local function ImDrawCmd()
     return setmetatable({
         ClipRect = ImVec4(),
@@ -107,7 +118,10 @@ local function ImDrawCmd()
     }, GMetaTables.ImDrawCmd) -- TODO: callback
 end
 
---- struct ImDrawVert
+--- @class ImDrawVert
+
+--- @return ImDrawVert
+--- @nodiscard
 local function ImDrawVert()
     return {
         pos = ImVec2(),
@@ -116,10 +130,11 @@ local function ImDrawVert()
     }
 end
 
---- struct ImDrawCmdHeader
---
+--- @class ImDrawCmdHeader
 struct_def("ImDrawCmdHeader")
 
+--- @return ImDrawCmdHeader
+--- @nodiscard
 local function ImDrawCmdHeader()
     return setmetatable({
         ClipRect = ImVec4(),
@@ -127,10 +142,10 @@ local function ImDrawCmdHeader()
     }, GMetaTables.ImDrawCmdHeader)
 end
 
---- struct ImDrawList
--- imgui.h
+--- @class ImDrawList
 struct_def("ImDrawList")
 
+--- @return ImDrawList
 local function ImDrawList(data)
     return setmetatable({
         CmdBuffer = ImVector(),
@@ -151,10 +166,10 @@ local function ImDrawList(data)
     }, GMetaTables.ImDrawList)
 end
 
---- struct ImDrawData
--- imgui.h
+--- @class ImDrawData
 struct_def("ImDrawData")
 
+--- @return ImDrawData
 local function ImDrawData()
     return setmetatable({
         Valid = false,
@@ -167,8 +182,11 @@ local function ImDrawData()
     }, GMetaTables.ImDrawData)
 end
 
+--- @class ImTextureData
 struct_def("ImTextureData")
 
+--- @return ImTextureData
+--- @nodiscard
 local function ImTextureData()
     local this = setmetatable({
         UniqueID             = nil,
@@ -200,8 +218,11 @@ struct_method ImTextureData:GetPixelsAt(x, y)
     return self.Pixels
 end
 
+--- @class ImTextureRef
 struct_def("ImTextureRef")
 
+--- @return ImTextureRef
+--- @nodiscard
 local function ImTextureRef(tex_id)
     return setmetatable({
         _TexData = nil,
@@ -209,8 +230,11 @@ local function ImTextureRef(tex_id)
     }, GMetaTables.ImTextureRef)
 end
 
+--- @class ImFontBaked
 struct_def("ImFontBaked")
 
+--- @return ImFontBaked
+--- @nodiscard
 local function ImFontBaked()
     return setmetatable({
         IndexAdvanceX     = nil,
@@ -235,8 +259,11 @@ local function ImFontBaked()
     }, GMetaTables.ImFontBaked)
 end
 
+--- @class ImFont
 struct_def("ImFont")
 
+--- @return ImFont
+--- @nodiscard
 local function ImFont()
     return setmetatable({
         LastBaked                = nil,
@@ -256,10 +283,11 @@ local function ImFont()
     }, GMetaTables.ImFont)
 end
 
---- struct ImFontConfig
---
+--- @class ImFontConfig
 struct_def("ImFontConfig")
 
+--- @return ImFontConfig
+--- @nodiscard
 local function ImFontConfig()
     return setmetatable({
         Name                 = nil,
@@ -294,8 +322,11 @@ local function ImFontConfig()
     }, GMetaTables.ImFontConfig)
 end
 
+--- @class ImFontAtlas
 struct_def("ImFontAtlas")
 
+--- @return ImFontAtlas
+--- @nodiscard
 local function ImFontAtlas()
     local this = setmetatable({
         Flags            = 0,

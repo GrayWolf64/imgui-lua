@@ -69,9 +69,9 @@ local function CollapseButton(id, pos)
     end
 
     if window.Collapsed then
-        RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir_Right, 1)
+        ImGui.RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir_Right, 1)
     else
-        RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir_Down, 1)
+        ImGui.RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir_Down, 1)
     end
 
     return pressed

@@ -1791,8 +1791,9 @@ struct_method ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
     end
 end
 
---- ImGui::RenderArrow
-local function RenderArrow(draw_list, pos, color, dir, scale)
+--- @param draw_list ImDrawList
+--- @param pos ImVec2
+function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
     local h = GImGui.FontSize -- TODO: draw_list->_Data->FontSize * 1.00f?
     local r = h * 0.40 * scale
 

@@ -334,14 +334,15 @@ local function ImGuiContext()
     return this
 end
 
+--- @class ImGuiWindow
 struct_def("ImGuiWindow")
 
 struct_method ImGuiWindow:TitleBarRect()
     return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
 end
 
---- struct IMGUI_API ImGuiWindow
--- TODO: make this a struct
+--- @return ImGuiWindow
+--- @nodiscard
 local function ImGuiWindow(ctx, name)
     local this = {
         ID = 0,
@@ -422,8 +423,7 @@ local function ImGuiWindow(ctx, name)
     return setmetatable(this, GMetaTables.ImGuiWindow)
 end
 
---- struct ImGuiViewport
--- imgui.h
+--- @class ImGuiViewport
 struct_def("ImGuiViewport")
 
 struct_method ImGuiViewport:GetCenter()
@@ -434,6 +434,8 @@ struct_method ImGuiViewport:GetWorkCenter()
     return ImVec2(self.WorkPos.x + self.WorkSize.x * 0.5, self.WorkPos.y + self.WorkSize.y * 0.5)
 end
 
+--- @return ImGuiViewport
+--- @nodiscard
 local function ImGuiViewport()
     return setmetatable({
         ID = 0,
@@ -448,10 +450,11 @@ local function ImGuiViewport()
     }, GMetaTables.ImGuiViewport)
 end
 
---- struct ImDrawDataBuilder
---
+--- @class ImDrawDataBuilder
 struct_def("ImDrawDataBuilder")
 
+--- @return ImDrawDataBuilder
+--- @nodiscard
 local function ImDrawDataBuilder()
     return setmetatable({
         Layers = {nil, nil},
@@ -459,7 +462,7 @@ local function ImDrawDataBuilder()
     }, GMetaTables.ImDrawDataBuilder)
 end
 
---- struct ImGuiViewportP : public ImGuiViewport
+--- @class ImGuiViewportP : ImGuiViewport
 struct_def("ImGuiViewportP")
 
 setmetatable(GMetaTables.ImGuiViewportP, {__index = GMetaTables.ImGuiViewport})
@@ -495,8 +498,12 @@ struct_method ImGuiViewportP:GetBuildWorkRect()
     return ImRect(pos.x, pos.y, pos.x + size.x, pos.y + size.y)
 end
 
+--- @return ImGuiViewportP
+--- @nodiscard
 local function ImGuiViewportP()
+
     local this = setmetatable(ImGuiViewport(), GMetaTables.ImGuiViewportP)
+    --- @cast this ImGuiViewportP
 
     this.BgFgDrawListsLastFrame = {-1, -1}
     this.BgFgDrawLists = {nil, nil}
@@ -511,8 +518,11 @@ local function ImGuiViewportP()
     return this
 end
 
+--- @class ImFontLoader
 struct_def("ImFontLoader")
 
+--- @return ImFontLoader
+--- @nodiscard
 local function ImFontLoader()
     return setmetatable({
         Name                 = nil,

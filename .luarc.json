@@ -5,7 +5,9 @@
         "need-check-nil",
         "undefined-field",
         "inject-field",
-        "lowercase-global"
+        "lowercase-global",
+        "unused-function",
+        "unused-local"
     ],
     "checkThirdParty": false,
     "runtime.nonstandardSymbol": [
