@@ -18,7 +18,7 @@ function OnSetText(uri, text)
             if name then
                 -- Has parameters: IMGUI_DEFINE("name(params)", "body")
                 local first_arg = name .. params
-                replacement = ('IMGUI_DEFINE("%s", "%s")'):format(
+                replacement = ('IMGUI_DEFINE(%s, "%s")'):format(
                     escape_lua_string(first_arg),
                     escape_lua_string(body)
                 )
@@ -26,7 +26,7 @@ function OnSetText(uri, text)
                 -- Without parameters: #IMGUI_DEFINE name body
                 name, body = line:match("^#IMGUI_DEFINE%s+([^%s]+)%s+(.+)$")
                 if name then
-                    replacement = ('IMGUI_DEFINE("%s", "%s")'):format(
+                    replacement = ('IMGUI_DEFINE(%s, "%s")'):format(
                         escape_lua_string(name),
                         escape_lua_string(body)
                     )

@@ -605,7 +605,7 @@ end
 
 --- @param atlas ImFontAtlas
 function ImFontAtlasBuildUpdateLinesTexData(atlas)
-    if bit.band(atlas.Flags, ImFontAtlasFlags_NoBakedLines) ~= 0 then
+    if bit.band(atlas.Flags, ImFontAtlasFlags.NoBakedLines) ~= 0 then
         return
     end
 
@@ -678,7 +678,7 @@ end
 --- @param atlas ImFontAtlas
 function ImFontAtlasBuildUpdateBasicTexData(atlas)
     local builder = atlas.Builder
-    local pack_size = (bit.band(atlas.Flags, ImFontAtlasFlags_NoMouseCursors) ~= 0) and ImVec2(2, 2) or ImVec2(FONT_ATLAS_DEFAULT_TEX_DATA_W * 2 + 1, FONT_ATLAS_DEFAULT_TEX_DATA_H)
+    local pack_size = (bit.band(atlas.Flags, ImFontAtlasFlags.NoMouseCursors) ~= 0) and ImVec2(2, 2) or ImVec2(FONT_ATLAS_DEFAULT_TEX_DATA_W * 2 + 1, FONT_ATLAS_DEFAULT_TEX_DATA_H)
 
     local r = ImFontAtlasRect()
     local add_and_draw = (atlas:GetCustomRect(builder.PackIdMouseCursors, r) == false)
@@ -686,7 +686,7 @@ function ImFontAtlasBuildUpdateBasicTexData(atlas)
         builder.PackIdMouseCursors = atlas:AddCustomRect(pack_size.x, pack_size.y, r)
         IM_ASSERT(builder.PackIdMouseCursors ~= ImFontAtlasRectId_Invalid)
 
-        if bit.band(atlas.Flags, ImFontAtlasFlags_NoMouseCursors) ~= 0 then
+        if bit.band(atlas.Flags, ImFontAtlasFlags.NoMouseCursors) ~= 0 then
             ImFontAtlasBuildRenderBitmapFromString(atlas, r.x, r.y, 2, 2, "XXXX", "X")
         else
             local x_for_white = r.x
@@ -1870,6 +1870,9 @@ end
 
 --- @param draw_list ImDrawList
 --- @param pos ImVec2
+--- @param color ImU32
+--- @param dir ImGuiDir
+--- @param scale float
 function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
     local h = GImGui.FontSize -- TODO: draw_list->_Data->FontSize * 1.00f?
     local r = h * 0.40 * scale
@@ -1878,13 +1881,13 @@ function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
 
     local a, b, c
 
-    if dir == ImGuiDir_Up or dir == ImGuiDir_Down then
-        if dir == ImGuiDir_Up then r = -r end
+    if dir == ImGuiDir.Up or dir == ImGuiDir.Down then
+        if dir == ImGuiDir.Up then r = -r end
         a = ImVec2( 0.000,  0.750) * r
         b = ImVec2(-0.866, -0.750) * r
         c = ImVec2( 0.866, -0.750) * r
-    elseif dir == ImGuiDir_Left or dir == ImGuiDir_Right then
-        if dir == ImGuiDir_Left then r = -r end
+    elseif dir == ImGuiDir.Left or dir == ImGuiDir.Right then
+        if dir == ImGuiDir.Left then r = -r end
         a = ImVec2( 0.750,  0.000) * r
         b = ImVec2(-0.750,  0.866) * r
         c = ImVec2(-0.750, -0.866) * r

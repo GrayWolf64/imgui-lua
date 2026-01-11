@@ -1,4 +1,4 @@
-local function ButtonBehavior(button_id, bb)
+function ImGui.ButtonBehavior(button_id, bb)
     local g = GImGui
 
     local io = g.IO
@@ -29,7 +29,8 @@ local function ButtonBehavior(button_id, bb)
     return pressed, hovered, held
 end
 
-local function CloseButton(id, pos)
+--- @return boolean
+function ImGui.CloseButton(id, pos)
     local g = GImGui
     local window = g.CurrentWindow
 
@@ -37,7 +38,7 @@ local function CloseButton(id, pos)
 
     local is_clipped = not ItemAdd(bb, id)
 
-    local pressed, hovered = ButtonBehavior(id, bb)
+    local pressed, hovered = ImGui.ButtonBehavior(id, bb)
 
     if hovered then
         window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered, 0, 0) -- TODO: 0 rounding
@@ -54,7 +55,8 @@ local function CloseButton(id, pos)
     return pressed
 end
 
-local function CollapseButton(id, pos)
+--- @return boolean
+function ImGui.CollapseButton(id, pos)
     local g = GImGui
     local window = g.CurrentWindow
 
@@ -62,16 +64,16 @@ local function CollapseButton(id, pos)
 
     local is_clipped = not ItemAdd(bb, id)
 
-    local pressed, hovered = ButtonBehavior(id, bb)
+    local pressed, hovered = ImGui.ButtonBehavior(id, bb)
 
     if hovered then
         window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered, 0, 0) -- TODO: 0 rounding
     end
 
     if window.Collapsed then
-        ImGui.RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir_Right, 1)
+        ImGui.RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir.Right, 1)
     else
-        ImGui.RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir_Down, 1)
+        ImGui.RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir.Down, 1)
     end
 
     return pressed

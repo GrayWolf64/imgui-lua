@@ -607,7 +607,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
         local resize_grip_id = GetID(i)
 
         ItemAdd(resize_rect, resize_grip_id)
-        local pressed, hovered, held = ButtonBehavior(resize_grip_id, resize_rect)
+        local pressed, hovered, held = ImGui.ButtonBehavior(resize_grip_id, resize_rect)
 
         if hovered or held then
             if i == 1 then
@@ -752,11 +752,11 @@ local function RenderWindowTitleBarContents(window, p_open)
     local close_button_size = button_size
     local close_button_pos = ImVec2(window.Pos.x + window.Size.x - button_size - pad_r, window.Pos.y + g.Style.FramePadding.y)
 
-    if CollapseButton(GetID("#COLLAPSE"), collapse_button_pos) then
+    if ImGui.CollapseButton(GetID("#COLLAPSE"), collapse_button_pos) then
         window.Collapsed = not window.Collapsed
     end
 
-    if CloseButton(GetID("#CLOSE"), close_button_pos) then
+    if ImGui.CloseButton(GetID("#CLOSE"), close_button_pos) then
         p_open[1] = false
         window.Hidden = true -- TODO: temporary hidden set
     end

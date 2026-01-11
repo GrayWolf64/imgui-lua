@@ -1,3 +1,9 @@
+--- @alias ImU32 integer
+--- @alias float number
+--- @alias unsigned_int integer
+--- @alias int integer
+--- @alias unsigned_short integer
+
 local function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
 
 --- XXX: ptr
@@ -34,11 +40,13 @@ end
 #IMGUI_DEFINE ImTextureStatus_WantUpdates 3
 #IMGUI_DEFINE ImTextureStatus_WantDestroy 4
 
---- enum ImFontAtlasFlags_
-#IMGUI_DEFINE ImFontAtlasFlags_None               0
-#IMGUI_DEFINE ImFontAtlasFlags_NoPowerOfTwoHeight bit.lshift(1, 0)
-#IMGUI_DEFINE ImFontAtlasFlags_NoMouseCursors     bit.lshift(1, 1)
-#IMGUI_DEFINE ImFontAtlasFlags_NoBakedLines       bit.lshift(1, 2)
+--- @enum ImFontAtlasFlags
+ImFontAtlasFlags = {
+    None               = 0,
+    NoPowerOfTwoHeight = bit.lshift(1, 0),
+    NoMouseCursors     = bit.lshift(1, 1),
+    NoBakedLines       = bit.lshift(1, 2)
+}
 
 local function ImTextureRect(x, y, w, h)
     return {
@@ -52,6 +60,8 @@ end
 --- @field y number
 struct_def("ImVec2")
 
+--- @param x number?
+--- @param y number?
 --- @return ImVec2
 --- @nodiscard
 local function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, MT.ImVec2) end
@@ -367,6 +377,16 @@ local function ImFontAtlas()
     return this
 end
 
+--- @class ImFontAtlasRect
+--- @field x unsigned_short
+--- @field y unsigned_short
+--- @field w unsigned_short
+--- @field h unsigned_short
+--- @field uv0 ImVec2
+--- @field uv1 ImVec2
+
+--- @return ImFontAtlasRect
+--- @nodiscard
 local function ImFontAtlasRect()
     return {
         x = nil, y = nil,
@@ -376,7 +396,24 @@ local function ImFontAtlasRect()
     }
 end
 
---- struct ImFontGlyph
+--- @class ImFontGlyph
+--- @field Colored boolean
+--- @field Visible boolean
+--- @field SourceIdx unsigned_int
+--- @field Codepoint unsigned_int
+--- @field AdvanceX float
+--- @field X0 float
+--- @field Y0 float
+--- @field X1 float
+--- @field Y1 float
+--- @field U0 float
+--- @field V0 float
+--- @field U1 float
+--- @field V1 float
+--- @field PackId int
+
+--- @return ImFontGlyph
+--- @nodiscard
 local function ImFontGlyph()
     return {
         Colored   = 0,
@@ -392,11 +429,13 @@ local function ImFontGlyph()
     }
 end
 
--- TODO: enums, evals?
-#IMGUI_DEFINE ImGuiDir_Left  0
-#IMGUI_DEFINE ImGuiDir_Right 1
-#IMGUI_DEFINE ImGuiDir_Up    2
-#IMGUI_DEFINE ImGuiDir_Down  3
+--- @enum ImGuiDir
+ImGuiDir = {
+    Left  = 0,
+    Right = 1,
+    Up    = 2,
+    Down  = 3
+}
 
 --- @alias ImGuiWindowFlags integer
 ImGuiWindowFlags_None                      = 0
