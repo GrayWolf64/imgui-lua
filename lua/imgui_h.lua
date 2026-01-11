@@ -1,9 +1,16 @@
---- @alias ImU8 integer
---- @alias ImU32 integer
---- @alias float number
---- @alias unsigned_int integer
---- @alias int integer
+--- @alias ImU8           integer
+--- @alias ImU32          integer
+--- @alias float          number
+--- @alias unsigned_int   integer
+--- @alias int            integer
 --- @alias unsigned_short integer
+
+--- @alias ImWchar16 unsigned_short
+--- @alias ImWchar   ImWchar16
+
+--- @alias bool boolean
+
+--- @alias ImGuiID unsigned_int
 
 ----------------------------------------------------------------
 -- [SECTION] METATABLE MANAGEMENT
@@ -11,7 +18,7 @@
 
 --- File-scope metatable storage
 --- @type table<string, table>
-local MT = MT or {}
+local MT = {}
 
 --- @param _EXPR boolean
 --- @param _MSG string?
@@ -332,6 +339,18 @@ function ImFontBaked()
 end
 
 --- @class ImFont
+--- @field LastBaked                ImFontBaked
+--- @field OwnerAtlas               ImFontAtlas
+--- @field Flags                    ImFontFlags
+--- @field CurrentRasterizerDensity float
+--- @field FontId                   ImGuiID
+--- @field LegacySize               float
+--- @field Sources                  ImVector<ImFontConfig>
+--- @field EllipsisChar             ImWchar
+--- @field FallbackChar             ImWchar
+--- @field Used8kPagesMap           ImU8
+--- @field EllipsisAutoBake         bool
+--- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
 
@@ -351,7 +370,7 @@ function ImFont()
         FallbackChar     = nil,
         Used8kPagesMap   = nil,
         EllipsisAutoBake = nil,
-        RemapPairs       = nil,
+        RemapPairs       = nil, -- TODO: ImGuiStorage
         Scale            = nil
     }, MT.ImFont)
 end
@@ -408,9 +427,9 @@ end
 --- @field TexID               ImTextureRef
 --- @field TexData             ImTextureData
 --- @field TexList             ImVector<ImTextureData>
---- @field Locked              boolean
---- @field RenderHasTextures   boolean
---- @field TexPixelsUseColors  boolean
+--- @field Locked              bool
+--- @field RenderHasTextures   bool
+--- @field TexPixelsUseColors  bool
 --- @field TexUvScale          ImVec2
 --- @field TexUvWhitePixel     ImVec2
 --- @field Fonts               ImVector<ImFont>
@@ -609,11 +628,13 @@ ImDrawListFlags_AntiAliasedLinesUseTex = bit.lshift(1, 1)
 ImDrawListFlags_AntiAliasedFill        = bit.lshift(1, 2)
 ImDrawListFlags_AllowVtxOffset         = bit.lshift(1, 3)
 
---- @alias ImFontFlags integer
-ImFontFlags_None           = 0
-ImFontFlags_NoLoadError    = bit.lshift(1, 1)
-ImFontFlags_NoLoadGlyphs   = bit.lshift(1, 2)
-ImFontFlags_LockBakedSizes = bit.lshift(1, 3)
+--- @enum ImFontFlags
+ImFontFlags = {
+    None           = 0,
+    NoLoadError    = bit.lshift(1, 1),
+    NoLoadGlyphs   = bit.lshift(1, 2),
+    LockBakedSizes = bit.lshift(1, 3)
+}
 
 IM_COL32_R_SHIFT = 0
 IM_COL32_G_SHIFT = 8

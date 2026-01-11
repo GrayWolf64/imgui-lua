@@ -74,10 +74,70 @@ local ImFontAtlasBuildSetTexture
 local ImFontAtlasBuildUpdateLinesTexData
 local ImFontAtlasBuildUpdateBasicTexData
 local ImFontAtlasBuildSetupFontLoader
+local ImFontAtlasBuildDestroy
 local ImFontAtlasUpdateDrawListsSharedData
+local ImFontAtlasFontSourceInit
+local ImFontAtlasFontSourceAddToFont
+local ImFontAtlasFontDestroySourceData
+local ImFontAtlasFontDestroyOutput
+local ImFontAtlasBuildSetupFontSpecialGlyphs
+
+function MT.ImFontAtlas:Clear()
+    local backup_renderer_has_textures = self.RendererHasTextures
+    self.RendererHasTextures = false
+    self:ClearFonts()
+    self:ClearTexData()
+    self.RendererHasTextures = backup_renderer_has_textures
+end
 
 function MT.ImFontAtlas:SetFontLoader(font_loader)
     ImFontAtlasBuildSetupFontLoader(self, font_loader)
+end
+
+function MT.ImFontAtlas:ClearInputData()
+    IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
+
+    for _, font in self.Fonts:iter() do
+        ImFontAtlasFontDestroyOutput(self, font)
+    end
+    for _, font_cfg in self.Sources:iter() do
+        ImFontAtlasFontDestroySourceData(self, font_cfg)
+    end
+    for _, font in self.Fonts:iter() do
+        font.Sources:clear()
+        font.Flags = bit.bor(font.Flags, ImFontFlags.NoLoadGlyphs)
+    end
+    self.Sources:clear()
+end
+
+function MT.ImFontAtlas:ClearTexData()
+    IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
+    IM_ASSERT(self.RendererHasTextures == false, "Not supported for dynamic atlases, but you may call Clear().")
+
+    for _, tex in self.TexList:iter() do
+        tex:DestroyPixels()
+    end
+end
+
+function MT.ImFontAtlas:ClearFonts()
+    IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
+
+    for _, font in self.Fonts:iter() do
+        ImFontAtlasBuildNotifySetFont(self, font, nil)
+    end
+
+    ImFontAtlasBuildDestroy(self)
+    self:ClearInputData()
+    self.Fonts:clear_delete()
+    self.TexIsBuilt = false
+
+    for _, shared_data in self.DrawListSharedDatas:iter() do
+        if shared_data.FontAtlas == self then
+            shared_data.Font = nil
+            shared_data.FontSize = 0.0
+            shared_data.FontScale = 0.0
+        end
+    end
 end
 
 local function ImFontAtlasTextureBlockCopy(src_tex, src_x, src_y, dst_tex, dst_x, dst_y, w, h)
@@ -121,7 +181,7 @@ local function ImFontAtlasBuildDiscardBakes(atlas, unused_frames)
         if (baked.LastUsedFrame + unused_frames > atlas.Builder.FrameCount) then
             continue
         end
-        if (baked.WantDestroy or (bit.band(baked.OwnerFont.Flags, ImFontFlags_LockBakedSizes) ~= 0)) then
+        if (baked.WantDestroy or (bit.band(baked.OwnerFont.Flags, ImFontFlags.LockBakedSizes) ~= 0)) then
             continue
         end
         ImFontAtlasBakedDiscard(atlas, baked.OwnerFont, baked)
@@ -523,7 +583,7 @@ local function ImFontAtlasFontDiscardBakes(atlas, font, unused_frames)
     end
 end
 
-local function ImFontAtlasFontDestroyOutput(atlas, font)
+function ImFontAtlasFontDestroyOutput(atlas, font)
     font:ClearOutputData()
     for _, src in font.Sources:iter() do
         local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
@@ -531,6 +591,43 @@ local function ImFontAtlasFontDestroyOutput(atlas, font)
             loader.FontSrcDestroy(atlas, src)
         end
     end
+end
+
+--- @param atlas ImFontAtlas
+--- @param src ImFontConfig
+--- @return boolean
+function ImFontAtlasFontSourceInit(atlas, src)
+    local loader = (src.FontLoader) and src.FontLoader or atlas.FontLoader
+    if (loader.FontSrcInit ~= nil and not loader.FontSrcInit(atlas, src)) then
+        return false
+    end
+    return true
+end
+
+--- @param atlas ImFontAtlas
+--- @param font ImFont
+--- @param src ImFontConfig
+function ImFontAtlasFontSourceAddToFont(atlas, font, src)
+    if src.MergeMode == false then
+        font:ClearOutputData()
+        font.OwnerAtlas = atlas
+        IM_ASSERT(font.Sources:at(1) == src)
+    end
+    atlas.TexIsBuilt = false
+    ImFontAtlasBuildSetupFontSpecialGlyphs(atlas, font, src)
+end
+
+--- @param atlas ImFontAtlas
+--- @param src ImFontConfig
+function ImFontAtlasFontDestroySourceData(atlas, src)
+    -- TODO: 
+end
+
+--- @param atlas ImFontAtlas
+--- @param font ImFont
+--- @param src ImFontConfig
+function ImFontAtlasBuildSetupFontSpecialGlyphs(atlas, font, src)
+    -- TODO: 
 end
 
 function ImFontAtlasBuildSetupFontLoader(atlas, font_loader)
@@ -804,6 +901,18 @@ local function ImFontAtlasBuildInit(atlas)
     ImTextInitClassifiers()
 end
 
+--- @param atlas ImFontAtlas
+function ImFontAtlasBuildDestroy(atlas)
+    for _, font in atlas.Fonts:iter() do
+        ImFontAtlasFontDestroyOutput(atlas, font)
+    end
+    if atlas.Builder and atlas.FontLoader and atlas.FontLoader.LoaderShutdown then
+        atlas.FontLoader.LoaderShutdown(atlas)
+        IM_ASSERT(atlas.FontLoaderData == nil)
+    end
+    atlas.Builder = nil
+end
+
 local function ImFontAtlasBuildMain(atlas)
     IM_ASSERT(not atlas.Locked, "Cannot modify a locked ImFontAtlas!")
     if (atlas.TexData and atlas.TexData.Format ~= atlas.TexDesiredFormat) then
@@ -973,7 +1082,7 @@ function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_templ
 
     local data, data_size = ImFileLoadToMemory(filename, "rb")
     if not data then
-        if (font_cfg_template == nil or (bit.band(font_cfg_template.Flags, ImFontFlags_NoLoadError) == 0)) then
+        if (font_cfg_template == nil or (bit.band(font_cfg_template.Flags, ImFontFlags.NoLoadError) == 0)) then
             -- IMGUI_DEBUG_LOG("While loading '%s'\n", filename)
             IM_ASSERT_USER_ERROR(0, "Could not load font file!")
         end
