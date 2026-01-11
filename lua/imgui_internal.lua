@@ -160,7 +160,7 @@ local function ImFontAtlasBuilder()
         PackNodes                = ImVector(),
         Rects                    = ImVector(),
         RectsIndex               = ImVector(),
-        TempBuffer               = {data = {}, offset = 0}, -- ImVector()
+        TempBuffer               = IM_SLICE(), -- ImVector()
         RectsIndexFreeListStart  = nil,
         RectsPackedCount         = nil,
         RectsPackedSurface       = nil,

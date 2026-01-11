@@ -1,37 +1,71 @@
+--- @alias ImU8 integer
 --- @alias ImU32 integer
 --- @alias float number
 --- @alias unsigned_int integer
 --- @alias int integer
 --- @alias unsigned_short integer
 
-local function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
-
---- XXX: ptr
-#IMGUI_DEFINE ptr_index_get(p, i)    p.data[p.offset + i + 1]
-#IMGUI_DEFINE ptr_index_set(p, i, v) p.data[p.offset + i + 1] = v
-
-local function memcpy(_dst, _src, _cnt)
-    for i = 0, _cnt - 1 do
-        ptr_index_set(_dst, i, ptr_index_get(_src, i))
-    end
-end
-
-local function memset(_dst, _val, _cnt)
-    for i = 0, _cnt - 1 do
-        ptr_index_set(_dst, i, _val)
-    end
-end
-
-#IMGUI_DEFINE IM_DRAWLIST_TEX_LINES_WIDTH_MAX 32
-#IMGUI_DEFINE ImFontAtlasRectId_Invalid -1
-#IMGUI_DEFINE ImTextureID_Invalid 0
-
-#IMGUI_DEFINE ImTextureFormat_RGBA32 0
-#IMGUI_DEFINE ImTextureFormat_Alpha8 1
-
 #IMGUI_DEFINE struct_def(_name) local MT = MT or {} MT[_name] = {} MT[_name].__index = MT[_name]
 
-#IMGUI_DEFINE IM_DELETE(_t) _t = nil
+local MT = MT or {}
+
+--- @param _EXPR boolean
+--- @param _MSG string?
+function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
+
+----------------------------------------------------------------
+-- [SECTION] C POINTER / ARRAY LIKE OPERATIONS SUPPORT
+----------------------------------------------------------------
+
+--- @class ImSlice
+--- @field data table
+--- @field offset integer
+
+--- @param _data table?
+--- @return ImSlice
+function IM_SLICE(_data) return {data = _data or {}, offset = 0} end
+
+--- @param p ImSlice
+--- @param i integer
+--- @return any
+function IM_SLICE_GET(p, i) return p.data[p.offset + i + 1] end
+
+--- @param p ImSlice
+--- @param i integer
+--- @param v any
+function IM_SLICE_SET(p, i, v) p.data[p.offset + i + 1] = v end
+
+--- @param p ImSlice
+--- @param n integer?
+function IM_SLICE_INC(p, n) p.offset = p.offset + (n or 1) end
+
+--- @param _dst ImSlice
+--- @param _src ImSlice
+--- @param _cnt integer
+function IM_SLICE_COPY(_dst, _src, _cnt)
+    for i = 0, _cnt - 1 do
+        IM_SLICE_SET(_dst, i, IM_SLICE_GET(_src, i))
+    end
+end
+
+--- @param _dst ImSlice
+--- @param _val any
+--- @param _cnt integer
+local function IM_SLICE_FILL(_dst, _val, _cnt)
+    for i = 0, _cnt - 1 do
+        IM_SLICE_SET(_dst, i, _val)
+    end
+end
+
+IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
+ImFontAtlasRectId_Invalid       = -1
+ImTextureID_Invalid             = 0
+
+--- @enum ImTextureFormat
+ImTextureFormat = {
+    RGBA32 = 0,
+    Alpha8 = 1
+}
 
 --- @enum ImTextureStatus
 ImTextureStatus = {
@@ -50,6 +84,17 @@ ImFontAtlasFlags = {
     NoBakedLines       = bit.lshift(1, 2)
 }
 
+--- @class ImTextureRect
+--- @field x unsigned_short
+--- @field y unsigned_short
+--- @field w unsigned_short
+--- @field h unsigned_short
+
+--- @param x unsigned_short?
+--- @param y unsigned_short?
+--- @param w unsigned_short?
+--- @param h unsigned_short?
+--- @return ImTextureRect
 local function ImTextureRect(x, y, w, h)
     return {
         x = x, y = y,
@@ -60,7 +105,8 @@ end
 --- @class ImVec2
 --- @field x number
 --- @field y number
-struct_def("ImVec2")
+MT.ImVec2 = {}
+MT.ImVec2.__index = MT.ImVec2
 
 --- @param x number?
 --- @param y number?
@@ -80,7 +126,8 @@ function MT.ImVec2:copy() return ImVec2(self.x, self.y) end
 --- @field y number
 --- @field z number
 --- @field w number
-struct_def("ImVec4")
+MT.ImVec4 = {}
+MT.ImVec4.__index = MT.ImVec4
 
 --- @return ImVec4
 --- @nodiscard
@@ -91,9 +138,10 @@ function MT.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y
 function MT.ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif isnumber(other) then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
 function MT.ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
 
---- A compact ImVector clone, maybe
+--- A compact ImVector clone
 --- @class ImVector
-struct_def("ImVector")
+MT.ImVector = {}
+MT.ImVector.__index = MT.ImVector
 
 function MT.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value end
 function MT.ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
@@ -115,7 +163,7 @@ function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size s
 
 --- @return ImVector
 --- @nodiscard
-local function ImVector() return setmetatable({Data = {}, Size = 0}, MT.ImVector) end
+function ImVector() return setmetatable({Data = {}, Size = 0}, MT.ImVector) end
 
 --- @class ImDrawCmd
 struct_def("ImDrawCmd")
@@ -210,7 +258,7 @@ local function ImTextureData()
         Width                = nil,
         Height               = nil,
         BytesPerPixel        = nil,
-        Pixels               = {data = {}, offset = 0}, -- XXX: ptr: unsigned char
+        Pixels               = IM_SLICE(), -- XXX: ptr: unsigned char
         UsedRect             = ImTextureRect(),
         UpdateRect           = ImTextureRect(),
         Updates              = ImVector(),
@@ -343,7 +391,7 @@ struct_def("ImFontAtlas")
 local function ImFontAtlas()
     local this = setmetatable({
         Flags            = 0,
-        TexDesiredFormat = ImTextureFormat_RGBA32,
+        TexDesiredFormat = ImTextureFormat.RGBA32,
         TexGlyphPadding  = 1,
         TexMinWidth      = 512,
         TexMinHeight     = 128,

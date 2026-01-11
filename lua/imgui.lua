@@ -41,7 +41,7 @@ local function ImFileLoadToMemory(filename, mode)
         return
     end
 
-    local file_data = {data = {}, offset = 0} -- XXX: ptr-like op support
+    local file_data = IM_SLICE() -- XXX: ptr-like op support
     ImFileRead(f, file_data.data, file_size)
     if #file_data.data == 0 then
         ImFileClose(f)

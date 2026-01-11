@@ -2,11 +2,44 @@
 -- TODO: let client decide?
 RunConsoleCommand("mat_antialias", "8")
 
-#IMGUI_DEFINE FONT_ATLAS_DEFAULT_TEX_DATA_W 122
-#IMGUI_DEFINE FONT_ATLAS_DEFAULT_TEX_DATA_H 27
+FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
+FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
 
+--- Original ImGui pixel art!
+FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE{string.ToTable(
+    "..-         -XXXXXXX-    X    -           X           -XXXXXXX          -          XXXXXXX-     XX          - XX       XX " ..
+    "..-         -X.....X-   X.X   -          X.X          -X.....X          -          X.....X-    X..X         -X..X     X..X" ..
+    "---         -XXX.XXX-  X...X  -         X...X         -X....X           -           X....X-    X..X         -X...X   X...X" ..
+    "X           -  X.X  - X.....X -        X.....X        -X...X            -            X...X-    X..X         - X...X X...X " ..
+    "XX          -  X.X  -X.......X-       X.......X       -X..X.X           -           X.X..X-    X..X         -  X...X...X  " ..
+    "X.X         -  X.X  -XXXX.XXXX-       XXXX.XXXX       -X.X X.X          -          X.X X.X-    X..XXX       -   X.....X   " ..
+    "X..X        -  X.X  -   X.X   -          X.X          -XX   X.X         -         X.X   XX-    X..X..XXX    -    X...X    " ..
+    "X...X       -  X.X  -   X.X   -    XX    X.X    XX    -      X.X        -        X.X      -    X..X..X..XX  -     X.X     " ..
+    "X....X      -  X.X  -   X.X   -   X.X    X.X    X.X   -       X.X       -       X.X       -    X..X..X..X.X -    X...X    " ..
+    "X.....X     -  X.X  -   X.X   -  X..X    X.X    X..X  -        X.X      -      X.X        -XXX X..X..X..X..X-   X.....X   " ..
+    "X......X    -  X.X  -   X.X   - X...XXXXXX.XXXXXX...X -         X.X   XX-XX   X.X         -X..XX........X..X-  X...X...X  " ..
+    "X.......X   -  X.X  -   X.X   -X.....................X-          X.X X.X-X.X X.X          -X...X...........X- X...X X...X " ..
+    "X........X  -  X.X  -   X.X   - X...XXXXXX.XXXXXX...X -           X.X..X-X..X.X           - X..............X-X...X   X...X" ..
+    "X.........X -XXX.XXX-   X.X   -  X..X    X.X    X..X  -            X...X-X...X            -  X.............X-X..X     X..X" ..
+    "X..........X-X.....X-   X.X   -   X.X    X.X    X.X   -           X....X-X....X           -  X.............X- XX       XX " ..
+    "X......XXXXX-XXXXXXX-   X.X   -    XX    X.X    XX    -          X.....X-X.....X          -   X............X--------------" ..
+    "X...X..X    ---------   X.X   -          X.X          -          XXXXXXX-XXXXXXX          -   X...........X -             " ..
+    "X..X X..X   -       -XXXX.XXXX-       XXXX.XXXX       -------------------------------------    X..........X -             " ..
+    "X.X  X..X   -       -X.......X-       X.......X       -    XX           XX    -           -    X..........X -             " ..
+    "XX    X..X  -       - X.....X -        X.....X        -   X.X           X.X   -           -     X........X  -             " ..
+    "      X..X  -       -  X...X  -         X...X         -  X..X           X..X  -           -     X........X  -             " ..
+    "       XX   -       -   X.X   -          X.X          - X...XXXXXXXXXXXXX...X -           -     XXXXXXXXXX  -             " ..
+    "-------------       -    X    -           X           -X.....................X-           -------------------             " ..
+    "                    ----------------------------------- X...XXXXXXXXXXXXX...X -                                           " ..
+    "                                                      -  X..X           X..X  -                                           " ..
+    "                                                      -   X.X           X.X   -                                           " ..
+    "                                                      -    XX           XX    -                                           "
+)}
+
+--- @module "imstb_rectpack"
 stbrp = include("imstb_rectpack.lua")
 
+--- @module "imstb_truetype"
 stbtt = include("imstb_truetype.lua")
 
 function ImGui.StyleColorsDark(dst)
@@ -50,9 +83,9 @@ local function ImFontAtlasTextureBlockCopy(src_tex, src_x, src_y, dst_tex, dst_x
     IM_ASSERT(dst_x >= 0 and dst_x + w <= dst_tex.Width)
     IM_ASSERT(dst_y >= 0 and dst_y + h <= dst_tex.Height)
     for y = 0, h - 1 do
-        --memcpy(dst_tex->GetPixelsAt(dst_x, dst_y + y), src_tex->GetPixelsAt(src_x, src_y + y), w * dst_tex->BytesPerPixel);
+        -- memcpy(dst_tex->GetPixelsAt(dst_x, dst_y + y), src_tex->GetPixelsAt(src_x, src_y + y), w * dst_tex->BytesPerPixel);
         for i = 0, w - 1 do
-            memcpy(dst_tex:GetPixelsAt(dst_x, dst_y + y), src_tex:GetPixelsAt(src_x, src_y + y), w)
+            IM_SLICE_COPY(dst_tex:GetPixelsAt(dst_x, dst_y + y), src_tex:GetPixelsAt(src_x, src_y + y), w)
         end
     end
 end
@@ -303,12 +336,12 @@ local function ImGui_ImplStbTrueType_FontSrcInit(atlas, src)
 
     local font_offset = stbtt.GetFontOffsetForIndex(src.FontData, src.FontNo)
     if font_offset < 0 then
-        IM_DELETE(bd_font_data)
+        bd_font_data = nil
         IM_ASSERT_USER_ERROR(0, "stbtt_GetFontOffsetForIndex(): FontData is incorrect, or FontNo cannot be found.")
         return false
     end
     if (not stbtt.InitFont(bd_font_data.FontInfo, src.FontData, font_offset)) then
-        IM_DELETE(bd_font_data)
+        bd_font_data = nil
         IM_ASSERT_USER_ERROR(0, "stbtt_InitFont(): failed to parse FontData. It is correct and complete? Check FontDataSize.")
         return false
     end
@@ -330,7 +363,7 @@ end
 
 local function ImGui_ImplStbTrueType_FontSrcDestroy(atlas, src)
     -- IM_UNUSED(atlas)
-    IM_DELETE(src.FontLoaderData)
+    src.FontLoaderData = nil
 end
 
 local function ImGui_ImplStbTrueType_FontSrcContainsGlyph(src, codepoint)
@@ -401,7 +434,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, codep
         local builder = atlas.Builder
         -- builder.TempBuffer:resize(w * h * 1)
         local bitmap_pixels = builder.TempBuffer
-        memset(bitmap_pixels, 0, w * h * 1)
+        IM_SLICE_FILL(bitmap_pixels, 0, w * h * 1)
 
         local sub_x, sub_y = stbtt_MakeGlyphBitmapSubpixelPrefilter(bd_font_data.FontInfo, bitmap_pixels, w, h, w,
             scale_for_raster_x, scale_for_raster_y, 0, 0, oversample_h, oversample_v, glyph_index)
@@ -422,7 +455,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, codep
         out_glyph.Visible = true
         out_glyph.PackId = pack_id
 
-        ImFontAtlasBakedSetFontGlyphBitmap(atlas, baked, src, out_glyph, r, bitmap_pixels, ImTextureFormat_Alpha8, w)
+        ImFontAtlasBakedSetFontGlyphBitmap(atlas, baked, src, out_glyph, r, bitmap_pixels, ImTextureFormat.Alpha8, w)
     end
 
     return true
@@ -627,33 +660,33 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
         local pad_right = r.w - (pad_left + line_width)
         IM_ASSERT(pad_left + line_width + pad_right == r.w and y < r.h)
 
-        if (add_and_draw and tex.Format == ImTextureFormat_Alpha8) then
+        if (add_and_draw and tex.Format == ImTextureFormat.Alpha8) then
             local write_ptr = tex:GetPixelsAt(r.x, r.y + y) -- ImU8*
 
             for i = 0, pad_left - 1 do
-                ptr_index_set(write_ptr, i, 0x00)
+                IM_SLICE_SET(write_ptr, i, 0x00)
             end
 
             for i = 0, line_width - 1 do
-                ptr_index_set(write_ptr, pad_left + i, 0xFF)
+                IM_SLICE_SET(write_ptr, pad_left + i, 0xFF)
             end
 
             for i = 0, pad_right - 1 do
-                ptr_index_set(write_ptr, pad_left + line_width + i, 0x00)
+                IM_SLICE_SET(write_ptr, pad_left + line_width + i, 0x00)
             end
-        elseif (add_and_draw and tex.Format == ImTextureFormat_RGBA32) then
+        elseif (add_and_draw and tex.Format == ImTextureFormat.RGBA32) then
             local write_ptr = tex:GetPixelsAt(r.x, r.y + y) -- ImU32*
 
             for i = 0, pad_left - 1 do
-                ptr_index_set(write_ptr, i, IM_COL32(255, 255, 255, 0))
+                IM_SLICE_SET(write_ptr, i, IM_COL32(255, 255, 255, 0))
             end
 
             for i = 0, line_width - 1 do
-                ptr_index_set(write_ptr, pad_left + i, IM_COL32_WHITE)
+                IM_SLICE_SET(write_ptr, pad_left + i, IM_COL32_WHITE)
             end
 
             for i = 0, pad_right - 1 do
-                ptr_index_set(write_ptr, pad_left + line_width + i, IM_COL32(255, 255, 255, 0))
+                IM_SLICE_SET(write_ptr, pad_left + line_width + i, IM_COL32(255, 255, 255, 0))
             end
         end
 
@@ -665,14 +698,40 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
 end
 
 --- @param atlas ImFontAtlas
---- @param x integer
---- @param y integer
---- @param w integer
---- @param h integer
---- @param in_str string
+--- @param x int
+--- @param y int
+--- @param w int
+--- @param h int
+--- @param in_str ImSlice
 --- @param in_marker_char string
 local function ImFontAtlasBuildRenderBitmapFromString(atlas, x, y, w, h, in_str, in_marker_char)
-    -- TODO:
+    local tex = atlas.TexData
+    IM_ASSERT(x >= 0 and x + w <= tex.Width)
+    IM_ASSERT(y >= 0 and y + h <= tex.Height)
+
+    if tex.Format == ImTextureFormat.Alpha8 then
+        --- @type ImSlice<ImU8>
+        local out_p = tex:GetPixelsAt(x, y)
+        for off_y = 0, h - 1 do
+            for off_x = 0, w - 1 do
+                IM_SLICE_SET(out_p, off_x, (IM_SLICE_GET(in_str, off_x) == in_marker_char) and 0xFF or 0x00)
+            end
+
+            IM_SLICE_INC(out_p, tex.Width)
+            IM_SLICE_INC(in_str, w)
+        end
+    elseif tex.Format == ImTextureFormat.RGBA32 then
+        --- @type ImSlice<ImU32>
+        local out_p = tex:GetPixelsAt(x, y)
+        for off_y = 0, h - 1 do
+            for off_x = 0, w - 1 do
+                IM_SLICE_SET(out_p, off_x, (IM_SLICE_GET(in_str, off_x) == in_marker_char) and IM_COL32_WHITE or IM_COL32_BLACK_TRANS)
+            end
+
+            IM_SLICE_INC(out_p, tex.Width)
+            IM_SLICE_INC(in_str, w)
+        end
+    end
 end
 
 --- @param atlas ImFontAtlas
@@ -687,7 +746,7 @@ function ImFontAtlasBuildUpdateBasicTexData(atlas)
         IM_ASSERT(builder.PackIdMouseCursors ~= ImFontAtlasRectId_Invalid)
 
         if bit.band(atlas.Flags, ImFontAtlasFlags.NoMouseCursors) ~= 0 then
-            ImFontAtlasBuildRenderBitmapFromString(atlas, r.x, r.y, 2, 2, "XXXX", "X")
+            ImFontAtlasBuildRenderBitmapFromString(atlas, r.x, r.y, 2, 2, IM_SLICE{"X", "X", "X", "X"}, "X")
         else
             local x_for_white = r.x
             local x_for_black = r.x + FONT_ATLAS_DEFAULT_TEX_DATA_W + 1
@@ -767,9 +826,9 @@ function MT.ImTextureData:DestroyPixels()
 end
 
 local function ImTextureDataGetFormatBytesPerPixel(format)
-    if format == ImTextureFormat_Alpha8 then
+    if format == ImTextureFormat.Alpha8 then
         return 1
-    elseif format == ImTextureFormat_RGBA32 then
+    elseif format == ImTextureFormat.RGBA32 then
         return 4
     end
     IM_ASSERT(false)
@@ -785,8 +844,8 @@ function MT.ImTextureData:Create(format, w, h)
     self.Height = h
     self.BytesPerPixel = ImTextureDataGetFormatBytesPerPixel(format)
     self.UseColors = false
-    self.Pixels = {data = {}, offset = 0}
-    memset(self.Pixels, 0, self.Width * self.Height * self.BytesPerPixel)
+    self.Pixels = IM_SLICE()
+    IM_SLICE_FILL(self.Pixels, 0, self.Width * self.Height * self.BytesPerPixel)
     self.UsedRect.x = 0
     self.UsedRect.y = 0
     self.UsedRect.w = 0
