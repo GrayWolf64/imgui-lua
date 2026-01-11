@@ -558,7 +558,7 @@ function ImFontAtlasBuildSetTexture(atlas, tex)
     atlas.TexData = tex
     atlas.TexUvScale = ImVec2(1.0 / tex.Width, 1.0 / tex.Height)
     atlas.TexRef._TexData = tex
-    -- atlas->TexRef._TexID = tex->TexID; // <-- We intentionally don't do that. It would be misleading and betray promise that both fields aren't set.
+    -- atlas->TexRef._TexID = tex->TexID; <-- We intentionally don't do that. It would be misleading and betray promise that both fields aren't set.
     ImFontAtlasUpdateDrawListsTextures(atlas, old_tex_ref, atlas.TexRef)
 end
 
@@ -574,7 +574,7 @@ function ImFontAtlasTextureAdd(atlas, w, h)
 
     if old_tex ~= nil then
         old_tex.WantDestroyNextFrame = true
-        IM_ASSERT(old_tex.Status == ImTextureStatus_OK or old_tex.Status == ImTextureStatus_WantCreate or old_tex.Status == ImTextureStatus_WantUpdates)
+        IM_ASSERT(old_tex.Status == ImTextureStatus.OK or old_tex.Status == ImTextureStatus.WantCreate or old_tex.Status == ImTextureStatus.WantUpdates)
     end
 
     new_tex:Create(atlas.TexDesiredFormat, w, h)
@@ -777,10 +777,10 @@ local function ImTextureDataGetFormatBytesPerPixel(format)
 end
 
 function MT.ImTextureData:Create(format, w, h)
-    IM_ASSERT(self.Status == ImTextureStatus_Destroyed)
+    IM_ASSERT(self.Status == ImTextureStatus.Destroyed)
     self:DestroyPixels()
     self.Format = format
-    self.Status = ImTextureStatus_WantCreate
+    self.Status = ImTextureStatus.WantCreate
     self.Width = w
     self.Height = h
     self.BytesPerPixel = ImTextureDataGetFormatBytesPerPixel(format)

@@ -33,12 +33,14 @@ end
 
 #IMGUI_DEFINE IM_DELETE(_t) _t = nil
 
---- enum ImTextureStatus
-#IMGUI_DEFINE ImTextureStatus_OK          0
-#IMGUI_DEFINE ImTextureStatus_Destroyed   1
-#IMGUI_DEFINE ImTextureStatus_WantCreate  2
-#IMGUI_DEFINE ImTextureStatus_WantUpdates 3
-#IMGUI_DEFINE ImTextureStatus_WantDestroy 4
+--- @enum ImTextureStatus
+ImTextureStatus = {
+    OK          = 0,
+    Destroyed   = 1,
+    WantCreate  = 2,
+    WantUpdates = 3,
+    WantDestroy = 4
+}
 
 --- @enum ImFontAtlasFlags
 ImFontAtlasFlags = {
@@ -218,7 +220,7 @@ local function ImTextureData()
         WantDestroyNextFrame = nil
     }, MT.ImTextureData)
 
-    this.Status = ImTextureStatus_Destroyed
+    this.Status = ImTextureStatus.Destroyed
     this.TexID = ImTextureID_Invalid
 
     return this
