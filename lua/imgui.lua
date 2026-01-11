@@ -2,15 +2,19 @@
 --
 local GImGui = nil
 
-#IMGUI_DEFINE IMGUI_VIEWPORT_DEFAULT_ID 0x11111111
-
 ImGui = ImGui or {}
 
-#IMGUI_INCLUDE "imgui_h.lua"
+----------------------------------------------------------------
+-- [SECTION] METATABLE MANAGEMENT
+----------------------------------------------------------------
 
-----------------------------------------------------
+--- @type table<string, table>
+local MT = MT or {}
+
+----------------------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
-----------------------------------------------------
+----------------------------------------------------------------
+
 local FILE = {
     close     = FindMetaTable("File").Close,
     size      = FindMetaTable("File").Size,
@@ -48,6 +52,10 @@ local function ImFileLoadToMemory(filename, mode)
 
     return file_data, file_size
 end
+
+#IMGUI_DEFINE IMGUI_VIEWPORT_DEFAULT_ID 0x11111111
+
+#IMGUI_INCLUDE "imgui_h.lua"
 
 #IMGUI_INCLUDE "imgui_internal.lua"
 

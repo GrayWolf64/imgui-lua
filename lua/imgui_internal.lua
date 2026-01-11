@@ -79,43 +79,43 @@ end
 --
 struct_def("ImVec1")
 
-local function ImVec1(x) return setmetatable({x = x or 0}, GMetaTables.ImVec1) end
+local function ImVec1(x) return setmetatable({x = x or 0}, MT.ImVec1) end
 
-struct_method ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
-struct_method ImVec1:copy() return ImVec1(self.x) end
+function MT.ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
+function MT.ImVec1:copy() return ImVec1(self.x) end
 
 --- struct IMGUI_API ImRect
 struct_def("ImRect")
 
-struct_method ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
-struct_method ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
-struct_method ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
-struct_method ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
-struct_method ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
+function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+function MT.ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
+function MT.ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
+function MT.ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
+function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
 
-local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, GMetaTables.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, GMetaTables.ImRect) end
+local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, MT.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, MT.ImRect) end
 
-struct_method ImDrawList:PathClear()
+function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
 end
 
-struct_method ImDrawList:PathLineTo(pos)
+function MT.ImDrawList:PathLineTo(pos)
     self._Path:push_back(pos)
 end
 
-struct_method ImDrawList:PathLineToMergeDuplicate(pos)
+function MT.ImDrawList:PathLineToMergeDuplicate(pos)
     local path_size = self._Path.Size
     if path_size == 0 or self._Path.Data[path_size].x ~= pos.x or self._Path.Data[path_size].y ~= pos.y then
         self._Path:push_back(pos)
     end
 end
 
-struct_method ImDrawList:PathFillConvex(col)
+function MT.ImDrawList:PathFillConvex(col)
     self:AddConvexPolyFilled(self._Path.Data, self._Path.Size, col)
     self._Path.Size = 0
 end
 
-struct_method ImDrawList:PathStroke(col, flags, thickness)
+function MT.ImDrawList:PathStroke(col, flags, thickness)
     self:AddPolyline(self._Path.Data, self._Path.Size, col, flags, thickness)
     self._Path.Size = 0
 end
@@ -137,7 +137,7 @@ local function ImDrawListSharedData()
         ArcFastVtx = {}, -- size = IM_DRAWLIST_ARCFAST_TABLE_SIZE
         ArcFastRadiusCutoff = nil,
         CircleSegmentCounts = {} -- size = 64
-    }, GMetaTables.ImDrawListSharedData)
+    }, MT.ImDrawListSharedData)
 
     for i = 0, IM_DRAWLIST_ARCFAST_TABLE_SIZE - 1 do
         local a = (i * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
@@ -178,7 +178,7 @@ local function ImFontAtlasBuilder()
 
         PackIDMouseCursors = nil,
         PackIDLinesTexData = nil
-    }, GMetaTables.ImFontAtlasBuilder)
+    }, MT.ImFontAtlasBuilder)
 
     this.FrameCount = 0
     this.RectsIndexFreeListStart = 0
@@ -333,7 +333,7 @@ end
 --- @class ImGuiWindow
 struct_def("ImGuiWindow")
 
-struct_method ImGuiWindow:TitleBarRect()
+function MT.ImGuiWindow:TitleBarRect()
     return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
 end
 
@@ -416,17 +416,17 @@ local function ImGuiWindow(ctx, name)
 
     this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)
 
-    return setmetatable(this, GMetaTables.ImGuiWindow)
+    return setmetatable(this, MT.ImGuiWindow)
 end
 
 --- @class ImGuiViewport
 struct_def("ImGuiViewport")
 
-struct_method ImGuiViewport:GetCenter()
+function MT.ImGuiViewport:GetCenter()
     return ImVec2(self.Pos.x + self.Size.x * 0.5, self.Pos.y + self.Size.y * 0.5)
 end
 
-struct_method ImGuiViewport:GetWorkCenter()
+function MT.ImGuiViewport:GetWorkCenter()
     return ImVec2(self.WorkPos.x + self.WorkSize.x * 0.5, self.WorkPos.y + self.WorkSize.y * 0.5)
 end
 
@@ -443,7 +443,7 @@ local function ImGuiViewport()
 
         PlatformHandle = nil,
         PlatformHandleRaw = nil
-    }, GMetaTables.ImGuiViewport)
+    }, MT.ImGuiViewport)
 end
 
 --- @class ImDrawDataBuilder
@@ -455,40 +455,40 @@ local function ImDrawDataBuilder()
     return setmetatable({
         Layers = {nil, nil},
         LayerData1 = ImVector()
-    }, GMetaTables.ImDrawDataBuilder)
+    }, MT.ImDrawDataBuilder)
 end
 
 --- @class ImGuiViewportP : ImGuiViewport
 struct_def("ImGuiViewportP")
 
-setmetatable(GMetaTables.ImGuiViewportP, {__index = GMetaTables.ImGuiViewport})
+setmetatable(MT.ImGuiViewportP, {__index = MT.ImGuiViewport})
 
-struct_method ImGuiViewportP:CalcWorkRectPos(inset_min)
+function MT.ImGuiViewportP:CalcWorkRectPos(inset_min)
     return ImVec2(self.Pos.x + inset_min.x, self.Pos.y + inset_min.y)
 end
 
-struct_method ImGuiViewportP:CalcWorkRectSize(inset_min, inset_max)
+function MT.ImGuiViewportP:CalcWorkRectSize(inset_min, inset_max)
     return ImVec2(ImMax(0.0, self.Size.x - inset_min.x - inset_max.x), ImMax(0.0, self.Size.y - inset_min.y - inset_max.y))
 end
 
-struct_method ImGuiViewportP:UpdateWorkRect()
+function MT.ImGuiViewportP:UpdateWorkRect()
     self.WorkPos = self:CalcWorkRectPos(self.WorkInsetMin)
     self.WorkSize = self:CalcWorkRectSize(self.WorkInsetMin, self.WorkInsetMax)
 end
 
-struct_method ImGuiViewportP:GetMainRect()
+function MT.ImGuiViewportP:GetMainRect()
     return ImRect(self.Pos.x, self.Pos.y,
         self.Pos.x + self.Size.x,
         self.Pos.y + self.Size.y)
 end
 
-struct_method ImGuiViewportP:GetWorkRect()
+function MT.ImGuiViewportP:GetWorkRect()
     return ImRect(self.WorkPos.x, self.WorkPos.y,
         self.WorkPos.x + self.WorkSize.x,
         self.WorkPos.y + self.WorkSize.y)
 end
 
-struct_method ImGuiViewportP:GetBuildWorkRect()
+function MT.ImGuiViewportP:GetBuildWorkRect()
     local pos = self:CalcWorkRectPos(self.BuildWorkInsetMin)
     local size = self:CalcWorkRectSize(self.BuildWorkInsetMin, self.BuildWorkInsetMax)
     return ImRect(pos.x, pos.y, pos.x + size.x, pos.y + size.y)
@@ -498,7 +498,7 @@ end
 --- @nodiscard
 local function ImGuiViewportP()
 
-    local this = setmetatable(ImGuiViewport(), GMetaTables.ImGuiViewportP)
+    local this = setmetatable(ImGuiViewport(), MT.ImGuiViewportP)
     --- @cast this ImGuiViewportP
 
     this.BgFgDrawListsLastFrame = {-1, -1}
@@ -532,7 +532,7 @@ local function ImFontLoader()
         FontBakedLoadGlyph   = nil,
 
         FontBakedSrcLoaderDataSize = nil
-    }, GMetaTables.ImFontLoader)
+    }, MT.ImFontLoader)
 end
 
 local function ImFontAtlasRectEntry()

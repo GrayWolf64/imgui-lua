@@ -761,7 +761,7 @@ local function ImFontAtlasBuildMain(atlas)
     atlas.TexIsBuilt = true
 end
 
-struct_method ImTextureData:DestroyPixels()
+function MT.ImTextureData:DestroyPixels()
     self.Pixels = nil
     self.UseColors = false
 end
@@ -776,7 +776,7 @@ local function ImTextureDataGetFormatBytesPerPixel(format)
     return 0
 end
 
-struct_method ImTextureData:Create(format, w, h)
+function MT.ImTextureData:Create(format, w, h)
     IM_ASSERT(self.Status == ImTextureStatus_Destroyed)
     self:DestroyPixels()
     self.Format = format
@@ -797,7 +797,7 @@ struct_method ImTextureData:Create(format, w, h)
     self.UpdateRect.h = 0
 end
 
-struct_method ImFontBaked:ClearOutputData()
+function MT.ImFontBaked:ClearOutputData()
     self.FallbackAdvanceX = 0.0
     self.Glyphs:clear()
     self.IndexAdvanceX:clear()
@@ -808,7 +808,7 @@ struct_method ImFontBaked:ClearOutputData()
     self.MetricsTotalSurface = 0
 end
 
-struct_method ImFont:ClearOutputData()
+function MT.ImFont:ClearOutputData()
     local atlas = self.OwnerAtlas
     if atlas ~= nil then
         ImFontAtlasFontDiscardBakes(atlas, self, 0)
@@ -817,11 +817,11 @@ struct_method ImFont:ClearOutputData()
     self.LastBaked = nil
 end
 
-struct_method ImFontAtlas:SetFontLoader(font_loader)
+function MT.ImFontAtlas:SetFontLoader(font_loader)
     ImFontAtlasBuildSetupFontLoader(self, font_loader)
 end
 
-struct_method ImFontAtlas:AddFont(font_cfg_in)
+function MT.ImFontAtlas:AddFont(font_cfg_in)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
     IM_ASSERT((font_cfg_in.FontData ~= nil and font_cfg_in.FontDataSize > 0) or (font_cfg_in.FontLoader ~= nil))
     --IM_ASSERT(font_cfg_in.SizePixels > 0.0, "Is ImFontConfig struct correctly initialized?")
@@ -886,7 +886,7 @@ struct_method ImFontAtlas:AddFont(font_cfg_in)
     return font
 end
 
-struct_method ImFontAtlas:AddFontDefault(font_cfg)
+function MT.ImFontAtlas:AddFontDefault(font_cfg)
     if self.OwnerContext == nil or GetExpectedContextFontSize(self.OwnerContext) >= 16.0 then
         return self:AddFontDefaultVector(font_cfg)
     else
@@ -894,7 +894,7 @@ struct_method ImFontAtlas:AddFontDefault(font_cfg)
     end
 end
 
-struct_method ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template, glyph_ranges)
+function MT.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template, glyph_ranges)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
     IM_ASSERT(font_cfg.FontData == nil)
@@ -908,7 +908,7 @@ struct_method ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_p
     return self:AddFont(font_cfg)
 end
 
-struct_method ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
+function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
 
     local data, data_size = ImFileLoadToMemory(filename, "rb")
@@ -929,15 +929,15 @@ struct_method ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_tem
     return self:AddFontFromMemoryTTF(data, data_size, size_pixels, font_cfg, glyph_ranges)
 end
 
-struct_method ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
+function MT.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
     -- TODO: 
 end
 
-struct_method ImFontAtlas:AddFontDefaultVector(font_cfg_template)
+function MT.ImFontAtlas:AddFontDefaultVector(font_cfg_template)
     -- TODO: 
 end
 
-struct_method ImFontAtlas:GetCustomRect(id, out_r)
+function MT.ImFontAtlas:GetCustomRect(id, out_r)
     local r = ImFontAtlasPackGetRectSafe(self, id)
     if r == nil then
         return false
@@ -956,7 +956,7 @@ struct_method ImFontAtlas:GetCustomRect(id, out_r)
     return true
 end
 
-struct_method ImFontAtlas:AddCustomRect(width, height, out_r)
+function MT.ImFontAtlas:AddCustomRect(width, height, out_r)
     IM_ASSERT(width > 0 and width <= 0xFFFF)
     IM_ASSERT(height > 0 and height <= 0xFFFF)
 
@@ -1005,7 +1005,7 @@ local function IM_FIXNORMAL2F(VX, VY)
     return VX, VY
 end
 
-struct_method ImDrawData:Clear()
+function MT.ImDrawData:Clear()
     self.Valid = false
     self.CmdListsCount = 0
     self.TotalIdxCount = 0
@@ -1030,13 +1030,13 @@ function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
     draw_data.TotalIdxCount = draw_data.TotalIdxCount + draw_list.IdxBuffer.Size
 end
 
-struct_method ImDrawData:AddDrawList(draw_list)
+function MT.ImDrawData:AddDrawList(draw_list)
     IM_ASSERT(self.CmdLists.Size == self.CmdListsCount)
     draw_list:_PopUnusedDrawCmd()
     ImGui.AddDrawListToDrawDataEx(self, self.CmdLists, draw_list)
 end
 
-struct_method ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
+function MT.ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     if self.CircleSegmentMaxError == max_error then return end
     IM_ASSERT(max_error > 0)
 
@@ -1050,7 +1050,7 @@ struct_method ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
 end
 
 --- void ImDrawList::_SetDrawListSharedData(ImDrawListSharedData* data)
-struct_method ImDrawList:_SetDrawListSharedData(data)
+function MT.ImDrawList:_SetDrawListSharedData(data)
     if self._Data ~= nil then
         self._Data.DrawLists:find_erase_unsorted(self)
     end
@@ -1060,7 +1060,7 @@ struct_method ImDrawList:_SetDrawListSharedData(data)
     end
 end
 
-struct_method ImDrawList:_ResetForNewFrame()
+function MT.ImDrawList:_ResetForNewFrame()
     self.CmdBuffer:resize(0)
     self.IdxBuffer:resize(0)
     self.VtxBuffer:resize(0)
@@ -1074,7 +1074,7 @@ struct_method ImDrawList:_ResetForNewFrame()
     self._FringeScale = self._Data.InitialFringeScale
 end
 
-struct_method ImDrawList:AddDrawCmd()
+function MT.ImDrawList:AddDrawCmd()
     local draw_cmd = ImDrawCmd()
     draw_cmd.ClipRect = self._CmdHeader.ClipRect
     draw_cmd.VtxOffset = self._CmdHeader.VtxOffset
@@ -1084,7 +1084,7 @@ struct_method ImDrawList:AddDrawCmd()
     self.CmdBuffer:push_back(draw_cmd)
 end
 
-struct_method ImDrawList:_PopUnusedDrawCmd()
+function MT.ImDrawList:_PopUnusedDrawCmd()
     while self.CmdBuffer.Size > 0 do
         local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
         if curr_cmd.ElemCount ~= 0 then
@@ -1095,7 +1095,7 @@ struct_method ImDrawList:_PopUnusedDrawCmd()
     end
 end
 
-struct_method ImDrawList:_OnChangedVtxOffset()
+function MT.ImDrawList:_OnChangedVtxOffset()
     self._VtxCurrentIdx = 1
     -- IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
 
@@ -1108,7 +1108,7 @@ struct_method ImDrawList:_OnChangedVtxOffset()
     curr_cmd.VtxOffset = self._CmdHeader.VtxOffset
 end
 
-struct_method ImDrawList:AddConvexPolyFilled(points, points_count, col)
+function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
     if points_count < 3 or col.a == 0 then return end
 
     local uv = self._Data.TexUvWhitePixel
@@ -1213,7 +1213,7 @@ struct_method ImDrawList:AddConvexPolyFilled(points, points_count, col)
 end
 
 --- TODO: LIMIT: 65536 for imesh, 4096 for drawpoly
-struct_method ImDrawList:PrimReserve(idx_count, vtx_count)
+function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0)
     if self._VtxCurrentIdx + vtx_count >= 4096 then
         self._CmdHeader.VtxOffset = self.VtxBuffer.Size + 1
@@ -1232,7 +1232,7 @@ struct_method ImDrawList:PrimReserve(idx_count, vtx_count)
     self._IdxWritePtr = idx_buffer_old_size + 1
 end
 
-struct_method ImDrawList:PrimUnreserve(idx_count, vtx_count)
+function MT.ImDrawList:PrimUnreserve(idx_count, vtx_count)
     -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0);
 
     local draw_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
@@ -1241,7 +1241,7 @@ struct_method ImDrawList:PrimUnreserve(idx_count, vtx_count)
     self.IdxBuffer:shrink(self.IdxBuffer.Size - idx_count)
 end
 
-struct_method ImDrawList:PrimRect(a, c, col)
+function MT.ImDrawList:PrimRect(a, c, col)
     local b = ImVec2(c.x, a.y)
     local d = ImVec2(a.x, c.y)
 
@@ -1281,7 +1281,7 @@ end
 
 --- void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32 col, ImDrawFlags flags, float thickness)
 --
-struct_method ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
+function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     if points_count < 2 or col.a == 0 then
         return
     end
@@ -1603,7 +1603,7 @@ local function FixRectCornerFlags(flags)
     return flags
 end
 
-struct_method ImDrawList:PathRect(a, b, rounding, flags)
+function MT.ImDrawList:PathRect(a, b, rounding, flags)
     if rounding >= 0.5 then
         flags = FixRectCornerFlags(flags)
         rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags_RoundCornersTop) == ImDrawFlags_RoundCornersTop) or (bit.band(flags, ImDrawFlags_RoundCornersBottom) == ImDrawFlags_RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
@@ -1626,7 +1626,7 @@ struct_method ImDrawList:PathRect(a, b, rounding, flags)
     end
 end
 
-struct_method ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
+function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
     if col.a == 0 then return end -- TODO: pack color?
 
     if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask) == ImDrawFlags_RoundCornersNone) then
@@ -1638,7 +1638,7 @@ struct_method ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
     end
 end
 
-struct_method ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
+function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
     if col.a == 0 then return end
     if bit.band(self.Flags, ImDrawListFlags_AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
@@ -1649,7 +1649,7 @@ struct_method ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
     self:PathStroke(col, ImDrawFlags_Closed, thickness)
 end
 
-struct_method ImDrawList:AddLine(p1, p2, col, thickness)
+function MT.ImDrawList:AddLine(p1, p2, col, thickness)
     if col.a == 0 then return end
 
     self:PathLineTo(p1 + ImVec2(0.5, 0.5))
@@ -1657,7 +1657,7 @@ struct_method ImDrawList:AddLine(p1, p2, col, thickness)
     self:PathStroke(col, 0, thickness)
 end
 
-struct_method ImDrawList:AddTriangleFilled(p1, p2, p3, col)
+function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
     if col.a == 0 then return end
 
     self:PathLineTo(p1)
@@ -1666,11 +1666,11 @@ struct_method ImDrawList:AddTriangleFilled(p1, p2, p3, col)
     self:PathFillConvex(col)
 end
 
-struct_method ImDrawList:AddText(text, font, pos, color)
+function MT.ImDrawList:AddText(text, font, pos, color)
     -- TODO: 
 end
 
-struct_method ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
+function MT.ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     surface.SetFont(font)
     local text_width, text_height = surface.GetTextSize(text)
     local need_clipping = text_width > w or text_height > h
@@ -1679,7 +1679,7 @@ struct_method ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     self:AddText(text, font, pos, color)
 end
 
-struct_method ImDrawList:_CalcCircleAutoSegmentCount(radius)
+function MT.ImDrawList:_CalcCircleAutoSegmentCount(radius)
     local radius_idx = ImFloor(radius + 0.999999)
 
     if radius_idx >= 0 and radius_idx < 64 then -- IM_ARRAYSIZE(_Data->CircleSegmentCounts)
@@ -1689,7 +1689,7 @@ struct_method ImDrawList:_CalcCircleAutoSegmentCount(radius)
     end
 end
 
-struct_method ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_rect)
+function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_rect)
     local cr = ImVec4(cr_min.x, cr_min.y, cr_max.x, cr_max.y)
 
     if intersect_with_current_clip_rect then
@@ -1710,7 +1710,7 @@ struct_method ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_cli
 end
 
 --- void ImDrawList::_PathArcToFastEx
-struct_method ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
+function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
     if radius < 0.5 then
         self._Path:push_back(center)
         return
@@ -1798,7 +1798,7 @@ struct_method ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sa
     --- IM_ASSERT_PARANOID(_Path.Data + _Path.Size == out_ptr);
 end
 
-struct_method ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
+function MT.ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
     if radius < 0.5 then
         self._Path:push_back(center)
         return
@@ -1807,7 +1807,7 @@ struct_method ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
     self:_PathArcToFastEx(center, radius, a_min_of_12 * IM_DRAWLIST_ARCFAST_SAMPLE_MAX / 12, a_max_of_12 * IM_DRAWLIST_ARCFAST_SAMPLE_MAX / 12, 0)
 end
 
-struct_method ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
+function MT.ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
     if radius < 0.5 then
         self._Path:push_back(center)
         return
@@ -1819,7 +1819,7 @@ struct_method ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
     end
 end
 
-struct_method ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
+function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
     if radius < 0.5 then
         self._Path:push_back(center)
         return
