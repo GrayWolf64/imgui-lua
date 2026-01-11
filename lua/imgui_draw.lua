@@ -6,7 +6,7 @@ FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
 FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
 
 --- Original ImGui pixel art!
-FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE{string.ToTable(
+FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE(string.ToTable(
     "..-         -XXXXXXX-    X    -           X           -XXXXXXX          -          XXXXXXX-     XX          - XX       XX " ..
     "..-         -X.....X-   X.X   -          X.X          -X.....X          -          X.....X-    X..X         -X..X     X..X" ..
     "---         -XXX.XXX-  X...X  -         X...X         -X....X           -           X....X-    X..X         -X...X   X...X" ..
@@ -34,7 +34,7 @@ FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE{string.ToTable(
     "                                                      -  X..X           X..X  -                                           " ..
     "                                                      -   X.X           X.X   -                                           " ..
     "                                                      -    XX           XX    -                                           "
-)}
+))
 
 --- @module "imstb_rectpack"
 stbrp = include("imstb_rectpack.lua")
