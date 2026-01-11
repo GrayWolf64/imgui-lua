@@ -73,7 +73,12 @@ local ImFontAtlasBakedDiscard
 local ImFontAtlasBuildSetTexture
 local ImFontAtlasBuildUpdateLinesTexData
 local ImFontAtlasBuildUpdateBasicTexData
+local ImFontAtlasBuildSetupFontLoader
 local ImFontAtlasUpdateDrawListsSharedData
+
+function MT.ImFontAtlas:SetFontLoader(font_loader)
+    ImFontAtlasBuildSetupFontLoader(self, font_loader)
+end
 
 local function ImFontAtlasTextureBlockCopy(src_tex, src_x, src_y, dst_tex, dst_x, dst_y, w, h)
     IM_ASSERT(src_tex.Pixels ~= nil and dst_tex.Pixels ~= nil)
@@ -528,7 +533,7 @@ local function ImFontAtlasFontDestroyOutput(atlas, font)
     end
 end
 
-local function ImFontAtlasBuildSetupFontLoader(atlas, font_loader)
+function ImFontAtlasBuildSetupFontLoader(atlas, font_loader)
     if atlas.FontLoader == font_loader then
         return
     end
@@ -874,10 +879,6 @@ function MT.ImFont:ClearOutputData()
     end
 
     self.LastBaked = nil
-end
-
-function MT.ImFontAtlas:SetFontLoader(font_loader)
-    ImFontAtlasBuildSetupFontLoader(self, font_loader)
 end
 
 function MT.ImFontAtlas:AddFont(font_cfg_in)

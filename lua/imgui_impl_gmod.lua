@@ -2,8 +2,6 @@
 -- TODO: Rename the dummy panel?
 -- TODO: investigate: this dummy panel is actually a valid viewport? Derma panels can be fake viewports?
 
-#IMGUI_INCLUDE "imgui_h.lua"
-
 --- VGUIMousePressAllowed hook can only block mouse clicks to derma elements
 -- and can't block mouse hovering
 local GDummyPanel = GDummyPanel or nil

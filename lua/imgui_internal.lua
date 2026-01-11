@@ -75,6 +75,8 @@ end
 
 #IMGUI_DEFINE IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end
 
+#IMGUI_DEFINE struct_def(_name) MT[_name] = {} MT[_name].__index = MT[_name]
+
 --- ImVec1
 --
 struct_def("ImVec1")
@@ -120,7 +122,7 @@ function MT.ImDrawList:PathStroke(col, flags, thickness)
     self._Path.Size = 0
 end
 
---- struct IMGUI_API ImDrawListSharedData
+--- @class ImDrawListSharedData
 struct_def("ImDrawListSharedData")
 
 local function ImDrawListSharedData()
@@ -150,8 +152,7 @@ local function ImDrawListSharedData()
     return this
 end
 
---- struct ImFontAtlasBuilder
---
+--- @class ImFontAtlasBuilder
 struct_def("ImFontAtlasBuilder")
 
 local function ImFontAtlasBuilder()
@@ -189,7 +190,7 @@ local function ImFontAtlasBuilder()
     return this
 end
 
---- struct ImGuiContext
+--- @class ImGuiContext
 local function ImGuiContext()
     local this = {
         Style = { -- TODO: ImGuiStyle

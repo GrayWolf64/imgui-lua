@@ -5,8 +5,12 @@
 --- @alias int integer
 --- @alias unsigned_short integer
 
-#IMGUI_DEFINE struct_def(_name) local MT = MT or {} MT[_name] = {} MT[_name].__index = MT[_name]
+----------------------------------------------------------------
+-- [SECTION] METATABLE MANAGEMENT
+----------------------------------------------------------------
 
+--- File-scope metatable storage
+--- @type table<string, table>
 local MT = MT or {}
 
 --- @param _EXPR boolean
@@ -51,7 +55,7 @@ end
 --- @param _dst ImSlice
 --- @param _val any
 --- @param _cnt integer
-local function IM_SLICE_FILL(_dst, _val, _cnt)
+function IM_SLICE_FILL(_dst, _val, _cnt)
     for i = 0, _cnt - 1 do
         IM_SLICE_SET(_dst, i, _val)
     end
@@ -95,7 +99,7 @@ ImFontAtlasFlags = {
 --- @param w unsigned_short?
 --- @param h unsigned_short?
 --- @return ImTextureRect
-local function ImTextureRect(x, y, w, h)
+function ImTextureRect(x, y, w, h)
     return {
         x = x, y = y,
         w = w, h = h
@@ -112,7 +116,7 @@ MT.ImVec2.__index = MT.ImVec2
 --- @param y number?
 --- @return ImVec2
 --- @nodiscard
-local function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, MT.ImVec2) end
+function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, MT.ImVec2) end
 
 function MT.ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
 function MT.ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
@@ -131,7 +135,7 @@ MT.ImVec4.__index = MT.ImVec4
 
 --- @return ImVec4
 --- @nodiscard
-local function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, MT.ImVec4) end
+function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, MT.ImVec4) end
 
 function MT.ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
 function MT.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
@@ -166,11 +170,12 @@ function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size s
 function ImVector() return setmetatable({Data = {}, Size = 0}, MT.ImVector) end
 
 --- @class ImDrawCmd
-struct_def("ImDrawCmd")
+MT.ImDrawCmd = {}
+MT.ImDrawCmd.__index = MT.ImDrawCmd
 
 --- @return ImDrawCmd
 --- @nodiscard
-local function ImDrawCmd()
+function ImDrawCmd()
     return setmetatable({
         ClipRect = ImVec4(),
         VtxOffset = 0,
@@ -183,7 +188,7 @@ end
 
 --- @return ImDrawVert
 --- @nodiscard
-local function ImDrawVert()
+function ImDrawVert()
     return {
         pos = ImVec2(),
         uv  = nil,
@@ -192,11 +197,12 @@ local function ImDrawVert()
 end
 
 --- @class ImDrawCmdHeader
-struct_def("ImDrawCmdHeader")
+MT.ImDrawCmdHeader = {}
+MT.ImDrawCmdHeader.__index = MT.ImDrawCmdHeader
 
 --- @return ImDrawCmdHeader
 --- @nodiscard
-local function ImDrawCmdHeader()
+function ImDrawCmdHeader()
     return setmetatable({
         ClipRect = ImVec4(),
         VtxOffset = 0
@@ -204,10 +210,11 @@ local function ImDrawCmdHeader()
 end
 
 --- @class ImDrawList
-struct_def("ImDrawList")
+MT.ImDrawList = {}
+MT.ImDrawList.__index = MT.ImDrawList
 
 --- @return ImDrawList
-local function ImDrawList(data)
+function ImDrawList(data)
     return setmetatable({
         CmdBuffer = ImVector(),
         IdxBuffer = ImVector(),
@@ -228,10 +235,11 @@ local function ImDrawList(data)
 end
 
 --- @class ImDrawData
-struct_def("ImDrawData")
+MT.ImDrawData = {}
+MT.ImDrawData.__index = MT.ImDrawData
 
 --- @return ImDrawData
-local function ImDrawData()
+function ImDrawData()
     return setmetatable({
         Valid = false,
         CmdListsCount = 0,
@@ -244,11 +252,12 @@ local function ImDrawData()
 end
 
 --- @class ImTextureData
-struct_def("ImTextureData")
+MT.ImTextureData = {}
+MT.ImTextureData.__index = MT.ImTextureData
 
 --- @return ImTextureData
 --- @nodiscard
-local function ImTextureData()
+function ImTextureData()
     local this = setmetatable({
         UniqueID             = nil,
         Status               = nil,
@@ -280,11 +289,12 @@ function MT.ImTextureData:GetPixelsAt(x, y)
 end
 
 --- @class ImTextureRef
-struct_def("ImTextureRef")
+MT.ImTextureRef = {}
+MT.ImTextureRef.__index = MT.ImTextureRef
 
 --- @return ImTextureRef
 --- @nodiscard
-local function ImTextureRef(tex_id)
+function ImTextureRef(tex_id)
     return setmetatable({
         _TexData = nil,
         _TexID   = tex_id or ImTextureID_Invalid
@@ -292,11 +302,12 @@ local function ImTextureRef(tex_id)
 end
 
 --- @class ImFontBaked
-struct_def("ImFontBaked")
+MT.ImFontBaked = {}
+MT.ImFontBaked.__index = MT.ImFontBaked
 
 --- @return ImFontBaked
 --- @nodiscard
-local function ImFontBaked()
+function ImFontBaked()
     return setmetatable({
         IndexAdvanceX     = nil,
         FallbackAdvanceX  = nil,
@@ -321,11 +332,12 @@ local function ImFontBaked()
 end
 
 --- @class ImFont
-struct_def("ImFont")
+MT.ImFont = {}
+MT.ImFont.__index = MT.ImFont
 
 --- @return ImFont
 --- @nodiscard
-local function ImFont()
+function ImFont()
     return setmetatable({
         LastBaked                = nil,
         OwnerAtlas               = nil,
@@ -345,11 +357,12 @@ local function ImFont()
 end
 
 --- @class ImFontConfig
-struct_def("ImFontConfig")
+MT.ImFontConfig = {}
+MT.ImFontConfig.__index = MT.ImFontConfig
 
 --- @return ImFontConfig
 --- @nodiscard
-local function ImFontConfig()
+function ImFontConfig()
     return setmetatable({
         Name                 = nil,
         FontData             = nil,
@@ -384,45 +397,78 @@ local function ImFontConfig()
 end
 
 --- @class ImFontAtlas
-struct_def("ImFontAtlas")
+--- @field Flags               ImFontAtlasFlags
+--- @field TexDesiredFormat    ImTextureFormat
+--- @field TexGlyphPadding     int
+--- @field TexMinWidth         int
+--- @field TexMinHeight        int
+--- @field TexMaxWidth         int
+--- @field TexMaxHeight        int
+--- @field TexRef              ImTextureRef
+--- @field TexID               ImTextureRef
+--- @field TexData             ImTextureData
+--- @field TexList             ImVector<ImTextureData>
+--- @field Locked              boolean
+--- @field RenderHasTextures   boolean
+--- @field TexPixelsUseColors  boolean
+--- @field TexUvScale          ImVec2
+--- @field TexUvWhitePixel     ImVec2
+--- @field Fonts               ImVector<ImFont>
+--- @field Sources             ImVector<ImFontConfig>
+--- @field TexUvLines          ImVec4[]
+--- @field TexNextUniqueID     int
+--- @field FontNextUniqueID    int
+--- @field DrawListSharedDatas ImVector<ImDrawListSharedData>
+--- @field Builder             ImFontAtlasBuilder
+--- @field FontLoader          ImFontLoader
+--- @field FontLoaderName      string
+--- @field FontLoaderData      any
+--- @field FontLoaderFlags     unsigned_int
+--- @field RefCount            int
+--- @field OwnerContext        ImGuiContext
+MT.ImFontAtlas = {}
+MT.ImFontAtlas.__index = MT.ImFontAtlas
 
 --- @return ImFontAtlas
 --- @nodiscard
-local function ImFontAtlas()
-    local this = setmetatable({
-        Flags            = 0,
-        TexDesiredFormat = ImTextureFormat.RGBA32,
-        TexGlyphPadding  = 1,
-        TexMinWidth      = 512,
-        TexMinHeight     = 128,
-        TexMaxWidth      = 8192,
-        TexMaxHeight     = 8192,
+function ImFontAtlas()
+    --- @type ImFontAtlas
+    local this = setmetatable({}, MT.ImFontAtlas)
 
-        TexData = nil,
+    this.Flags               = 0
+    this.TexDesiredFormat    = ImTextureFormat.RGBA32
+    this.TexGlyphPadding     = 1
+    this.TexMinWidth         = 512
+    this.TexMinHeight        = 128
+    this.TexMaxWidth         = 8192
+    this.TexMaxHeight        = 8192
 
-        TexRef = ImTextureRef(),
-        TexID  = nil,
+    this.TexRef              = ImTextureRef()
+    this.TexID               = nil
 
-        TexList             = ImVector(),
-        Locked              = nil,
-        RendererHasTextures = false,
+    this.TexData             = nil
 
-        Fonts               = ImVector(),
-        Sources             = ImVector(),
-        TexUvLines          = {}, -- size = IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1
-        TexNextUniqueID     = 1,
-        FontNextUniqueID    = 1,
-        DrawListSharedDatas = ImVector(),
-        Builder             = nil,
-        FontLoader          = nil,
-        FontLoaderName      = nil,
-        FontLoaderData      = nil,
-        FontLoaderFlags     = nil,
-        RefCount            = nil,
-        OwnerContext        = nil
-    }, MT.ImFontAtlas)
+    this.TexList             = ImVector()
+    this.Locked              = nil
+    this.RendererHasTextures = false
+    this.TexPixelsUseColors  = nil
+    this.TexUvScale          = nil
+    this.TexUvWhitePixel     = nil
+    this.Fonts               = ImVector()
+    this.Sources             = ImVector()
+    this.TexUvLines          = {} -- size = IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1
+    this.TexNextUniqueID     = 1
+    this.FontNextUniqueID    = 1
+    this.DrawListSharedDatas = ImVector()
+    this.Builder             = nil
+    this.FontLoader          = nil
+    this.FontLoaderName      = nil
+    this.FontLoaderData      = nil
+    this.FontLoaderFlags     = nil
+    this.RefCount            = nil
+    this.OwnerContext        = nil
 
-    this.TexRef._TexID = ImTextureID_Invalid
+    this.TexRef._TexID       = ImTextureID_Invalid
 
     return this
 end
@@ -437,7 +483,7 @@ end
 
 --- @return ImFontAtlasRect
 --- @nodiscard
-local function ImFontAtlasRect()
+function ImFontAtlasRect()
     return {
         x = nil, y = nil,
         w = nil, h = nil,
@@ -569,13 +615,19 @@ ImFontFlags_NoLoadError    = bit.lshift(1, 1)
 ImFontFlags_NoLoadGlyphs   = bit.lshift(1, 2)
 ImFontFlags_LockBakedSizes = bit.lshift(1, 3)
 
-#IMGUI_DEFINE IM_COL32_R_SHIFT 0
-#IMGUI_DEFINE IM_COL32_G_SHIFT 8
-#IMGUI_DEFINE IM_COL32_B_SHIFT 16
-#IMGUI_DEFINE IM_COL32_A_SHIFT 24
-#IMGUI_DEFINE IM_COL32_A_MASK  0xFF000000
+IM_COL32_R_SHIFT = 0
+IM_COL32_G_SHIFT = 8
+IM_COL32_B_SHIFT = 16
+IM_COL32_A_SHIFT = 24
+IM_COL32_A_MASK  = 0xFF000000
 
-#IMGUI_DEFINE IM_COL32(R, G, B, A) (bit.bor(bit.lshift(A, IM_COL32_A_SHIFT), bit.lshift(B, IM_COL32_B_SHIFT), bit.lshift(G, IM_COL32_G_SHIFT), bit.lshift(R, IM_COL32_R_SHIFT)))
-#IMGUI_DEFINE IM_COL32_WHITE       IM_COL32(255, 255, 255, 255)
-#IMGUI_DEFINE IM_COL32_BLACK       IM_COL32(0, 0, 0, 255)
-#IMGUI_DEFINE IM_COL32_BLACK_TRANS IM_COL32(0, 0, 0, 0)
+--- @param R ImU32
+--- @param G ImU32
+--- @param B ImU32
+--- @param A ImU32
+IM_COL32             = function(R, G, B, A) return (bit.bor(bit.lshift(A, IM_COL32_A_SHIFT), bit.lshift(B, IM_COL32_B_SHIFT), bit.lshift(G, IM_COL32_G_SHIFT), bit.lshift(R, IM_COL32_R_SHIFT))) end
+IM_COL32_WHITE       = IM_COL32(255, 255, 255, 255)
+IM_COL32_BLACK       = IM_COL32(0, 0, 0, 255)
+IM_COL32_BLACK_TRANS = IM_COL32(0, 0, 0, 0)
+
+return MT

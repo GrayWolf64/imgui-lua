@@ -5,13 +5,6 @@ local GImGui = nil
 ImGui = ImGui or {}
 
 ----------------------------------------------------------------
--- [SECTION] METATABLE MANAGEMENT
-----------------------------------------------------------------
-
---- @type table<string, table>
-local MT = MT or {}
-
-----------------------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ----------------------------------------------------------------
 
@@ -55,7 +48,7 @@ end
 
 #IMGUI_DEFINE IMGUI_VIEWPORT_DEFAULT_ID 0x11111111
 
-#IMGUI_INCLUDE "imgui_h.lua"
+local MT = include"imgui_h.lua"
 
 #IMGUI_INCLUDE "imgui_internal.lua"
 
