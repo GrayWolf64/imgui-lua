@@ -2,6 +2,11 @@
 -- TODO: let client decide?
 RunConsoleCommand("mat_antialias", "8")
 
+--- @param _c string
+--- @return char
+--- @package
+local function chr(_c) return string.byte(_c) end
+
 FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
 FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
 
@@ -620,13 +625,38 @@ end
 --- @param atlas ImFontAtlas
 --- @param src ImFontConfig
 function ImFontAtlasFontDestroySourceData(atlas, src)
-    -- TODO: 
+    -- IM_UNUSED(atlas)
+
+    -- if src.FontDataOwnedByAtlas then
+    --     IM_FREE(src.FontData)
+    -- end
+    src.FontData = nil
+    -- if src.GlyphExcludeRanges then
+    --     IM_FREE(src.GlyphExcludeRanges)
+    -- end
+    src.GlyphExcludeRanges = nil
 end
 
 --- @param atlas ImFontAtlas
 --- @param font ImFont
 --- @param src ImFontConfig
 function ImFontAtlasBuildSetupFontSpecialGlyphs(atlas, font, src)
+    -- IM_UNUSED(atlas)
+    IM_ASSERT(font.Sources:contains(src))
+
+    --- @type ImWchar[]
+    local fallback_chars = {font.FallbackChar, IM_UNICODE_CODEPOINT_INVALID, chr'?', chr' '}
+    if font.FallbackChar == 0 then
+        for _, candidate_char in ipairs(fallback_chars) do
+            if candidate_char ~= 0 and font.IsGlyphInFont(candidate_char) then
+                font.FallbackChar = candidate_char
+
+                break
+            end
+        end
+    end
+
+    error("NOT IMPLEMENTED")
     -- TODO: 
 end
 
@@ -988,6 +1018,23 @@ function MT.ImFont:ClearOutputData()
     end
 
     self.LastBaked = nil
+end
+
+--- @param atlas ImFontAtlas
+--- @param font ImFont
+--- @param c ImWchar
+local function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
+    -- TODO: 
+end
+
+--- @param c ImWchar
+--- @return bool
+function MT.ImFont:IsGlyphInFont(c)
+    local atlas = self.OwnerAtlas
+    ImFontAtlas_FontHookRemapCodepoint(atlas, this, c)
+    -- TODO: 
+
+    return false
 end
 
 function MT.ImFontAtlas:AddFont(font_cfg_in)

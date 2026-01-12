@@ -8,6 +8,8 @@
 --- @alias int            integer
 --- @alias unsigned_short integer
 
+--- @alias char integer
+
 --- @alias ImWchar16 unsigned_short
 --- @alias ImWchar   ImWchar16
 
@@ -16,6 +18,8 @@
 --- @alias ImGuiID unsigned_int
 
 --- @alias ImTextureID ImU64
+
+IM_UNICODE_CODEPOINT_INVALID = 0xFFFD
 
 ----------------------------------------------------------------
 -- [SECTION] METATABLE MANAGEMENT
@@ -175,6 +179,7 @@ function MT.ImVector:reserve_discard() return end
 function MT.ImVector:shrink() return end
 function MT.ImVector:resize(new_size) self.Size = new_size end
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
+function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end return false end end
 
 --- @return ImVector
 --- @nodiscard
