@@ -544,12 +544,22 @@ local function ImFontAtlasRectEntry()
     }
 end
 
-#IMGUI_DEFINE ImFontAtlasRectId_IndexMask_       (0x0007FFFF)
-#IMGUI_DEFINE ImFontAtlasRectId_GenerationMask_  (0x3FF00000)
-#IMGUI_DEFINE ImFontAtlasRectId_GenerationShift_ (20)
-local function ImFontAtlasRectId_GetIndex(id) return bit.band(id, ImFontAtlasRectId_IndexMask_) end
-local function ImFontAtlasRectId_GetGeneration(id) return bit.rshift(bit.band(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
-local function ImFontAtlasRectId_Make(index_idx, gen_idx)
+local ImFontAtlasRectId_IndexMask_       = 0x0007FFFF
+local ImFontAtlasRectId_GenerationMask_  = 0x3FF00000
+local ImFontAtlasRectId_GenerationShift_ = 20
+
+--- @param id ImFontAtlasRectId
+--- @return int
+function ImFontAtlasRectId_GetIndex(id) return bit.band(id, ImFontAtlasRectId_IndexMask_) end
+
+--- @param id ImFontAtlasRectId
+--- @return unsigned_int
+function ImFontAtlasRectId_GetGeneration(id) return bit.rshift(bit.band(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
+
+--- @param index_idx int
+--- @param gen_idx int
+--- @return ImFontAtlasRectId
+function ImFontAtlasRectId_Make(index_idx, gen_idx)
     IM_ASSERT(index_idx >= 0 and index_idx <= ImFontAtlasRectId_IndexMask_ and gen_idx <= bit.rshift(ImFontAtlasRectId_GenerationMask_, ImFontAtlasRectId_GenerationShift_))
     return bit.bor(index_idx, bit.lshift(gen_idx, ImFontAtlasRectId_GenerationShift_))
 end

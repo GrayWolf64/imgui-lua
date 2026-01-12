@@ -1175,13 +1175,16 @@ local function IM_FIXNORMAL2F(VX, VY)
 end
 
 function MT.ImDrawData:Clear()
-    self.Valid = false
+    self.Valid         = false
     self.CmdListsCount = 0
     self.TotalIdxCount = 0
     self.TotalVtxCount = 0
-    self.CmdLists:clear_delete()
-    self.DisplayPos = ImVec2()
-    self.DisplaySize = ImVec2()
+    self.CmdLists:resize(0)
+    self.DisplayPos       = ImVec2(0.0, 0.0)
+    self.DisplaySize      = ImVec2(0.0, 0.0)
+    self.FramebufferScale = ImVec2(0.0, 0.0)
+    self.OwnerViewport    = nil
+    self.Textures         = nil
 end
 
 function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)

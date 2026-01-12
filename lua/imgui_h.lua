@@ -1,5 +1,8 @@
 --- @alias ImU8           integer
+--- @alias ImU16          integer
 --- @alias ImU32          integer
+--- @alias ImU64          integer
+--- @alias ImS8           integer
 --- @alias float          number
 --- @alias unsigned_int   integer
 --- @alias int            integer
@@ -11,6 +14,8 @@
 --- @alias bool boolean
 
 --- @alias ImGuiID unsigned_int
+
+--- @alias ImTextureID ImU64
 
 ----------------------------------------------------------------
 -- [SECTION] METATABLE MANAGEMENT
@@ -69,7 +74,6 @@ function IM_SLICE_FILL(_dst, _val, _cnt)
 end
 
 IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
-ImFontAtlasRectId_Invalid       = -1
 ImTextureID_Invalid             = 0
 
 --- @enum ImTextureFormat
@@ -242,50 +246,72 @@ function ImDrawList(data)
 end
 
 --- @class ImDrawData
+--- @field Valid            bool
+--- @field CmdListsCount    int
+--- @field TotalIdxCount    int
+--- @field TotalVtxCount    int
+--- @field CmdLists         ImVector<ImDrawList>
+--- @field DisplayPos       ImVec2
+--- @field DisplaySize      ImVec2
+--- @field FramebufferScale ImVec2
+--- @field OwnerViewport    ImGuiViewport
+--- @field Textures         ImVector<ImTextureData>
 MT.ImDrawData = {}
 MT.ImDrawData.__index = MT.ImDrawData
 
 --- @return ImDrawData
 function ImDrawData()
-    return setmetatable({
-        Valid = false,
-        CmdListsCount = 0,
-        TotalIdxCount = 0,
-        TotalVtxCount = 0,
-        CmdLists = ImVector(),
-        DisplayPos = ImVec2(),
-        DisplaySize = ImVec2()
-    }, MT.ImDrawData)
+    --- @type ImDrawData
+    local this = setmetatable({}, MT.ImDrawData)
+
+    this.CmdLists = ImVector()
+    this:Clear()
+
+    return this
 end
 
 --- @class ImTextureData
+--- @field UniqueID             int
+--- @field Status               ImTextureStatus
+--- @field BackendUserData      any
+--- @field TexID                ImTextureID
+--- @field Format               ImTextureFormat
+--- @field Width                int
+--- @field Height               int
+--- @field BytesPerPixel        int
+--- @field Pixels               ImSlice
+--- @field UsedRect             ImTextureRect
+--- @field UpdateRect           ImTextureRect
+--- @field Updates              ImVector<ImTextureRect>
+--- @field UnusedFrames         int
+--- @field RefCount             unsigned_short
+--- @field UseColors            bool
+--- @field WantDestroyNextFrame bool
 MT.ImTextureData = {}
 MT.ImTextureData.__index = MT.ImTextureData
 
 --- @return ImTextureData
 --- @nodiscard
 function ImTextureData()
-    local this = setmetatable({
-        UniqueID             = nil,
-        Status               = nil,
-        BackendUserData      = nil,
-        TexID                = ImTextureID_Invalid,
-        Format               = nil,
-        Width                = nil,
-        Height               = nil,
-        BytesPerPixel        = nil,
-        Pixels               = IM_SLICE(), -- XXX: ptr: unsigned char
-        UsedRect             = ImTextureRect(),
-        UpdateRect           = ImTextureRect(),
-        Updates              = ImVector(),
-        UnusedFrames         = nil,
-        RefCount             = nil,
-        UseColors            = nil,
-        WantDestroyNextFrame = nil
-    }, MT.ImTextureData)
+    --- @type ImTextureData
+    local this = setmetatable({}, MT.ImTextureData)
 
-    this.Status = ImTextureStatus.Destroyed
-    this.TexID = ImTextureID_Invalid
+    this.UniqueID             = 0
+    this.Status               = ImTextureStatus.Destroyed
+    this.BackendUserData      = nil
+    this.TexID                = ImTextureID_Invalid
+    this.Format               = 0
+    this.Width                = 0
+    this.Height               = 0
+    this.BytesPerPixel        = 0
+    this.Pixels               = IM_SLICE() -- XXX: ptr: unsigned char
+    this.UsedRect             = ImTextureRect()
+    this.UpdateRect           = ImTextureRect()
+    this.Updates              = ImVector()
+    this.UnusedFrames         = 0
+    this.RefCount             = 0
+    this.UseColors            = false
+    this.WantDestroyNextFrame = false
 
     return this
 end
@@ -309,33 +335,53 @@ function ImTextureRef(tex_id)
 end
 
 --- @class ImFontBaked
+--- @field IndexAdvanceX        ImVector<float>
+--- @field FallbackAdvanceX     float
+--- @field Size                 float
+--- @field RasterizerDensity    float
+--- @field IndexLookup          ImVector<ImU16>
+--- @field Glyphs               ImVector<ImFontGlyph>
+--- @field FallbackGlyphIndex   int
+--- @field Ascent               float
+--- @field Descent              float
+--- @field MetricsTotalSurface  unsigned_int
+--- @field WantDestroy          bool
+--- @field LoadNoFallback       bool
+--- @field LoadNoRenderOnLayout bool
+--- @field LastUsedFrame        int
+--- @field BakedId              ImGuiID
+--- @field OwnerFont            ImFont
+--- @field FontLoaderDatas      any
 MT.ImFontBaked = {}
 MT.ImFontBaked.__index = MT.ImFontBaked
 
 --- @return ImFontBaked
 --- @nodiscard
 function ImFontBaked()
-    return setmetatable({
-        IndexAdvanceX     = nil,
-        FallbackAdvanceX  = nil,
-        Size              = nil,
-        RasterizerDensity = nil,
+    --- @type ImFontBaked
+    local this = setmetatable({}, MT.ImFontBaked)
 
-        IndexLookup        = nil,
-        Glyphs             = nil,
-        FallbackGlyphIndex = -1,
+    this.IndexAdvanceX     = ImVector()
+    this.FallbackAdvanceX  = 0
+    this.Size              = 0
+    this.RasterizerDensity = 0
 
-        Ascent               = nil,
-        Descent              = nil,
-        MetricsTotalSurface  = nil,
-        WantDestroy          = nil,
-        LoadNoFallback       = nil,
-        LoadNoRenderOnLayout = nil,
-        LastUsedFrame        = nil,
-        BakedId              = nil,
-        OwnerFont            = nil,
-        FontLoaderDatas      = nil
-    }, MT.ImFontBaked)
+    this.IndexLookup        = ImVector()
+    this.Glyphs             = ImVector()
+    this.FallbackGlyphIndex = -1
+
+    this.Ascent               = 0
+    this.Descent              = 0
+    this.MetricsTotalSurface  = 0
+    this.WantDestroy          = false
+    this.LoadNoFallback       = false
+    this.LoadNoRenderOnLayout = false
+    this.LastUsedFrame        = 0
+    this.BakedId              = 0
+    this.OwnerFont            = nil
+    this.FontLoaderDatas      = nil
+
+    return this
 end
 
 --- @class ImFont
@@ -350,6 +396,7 @@ end
 --- @field FallbackChar             ImWchar
 --- @field Used8kPagesMap           ImU8
 --- @field EllipsisAutoBake         bool
+--- @field RemapPairs               any
 --- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
@@ -357,62 +404,90 @@ MT.ImFont.__index = MT.ImFont
 --- @return ImFont
 --- @nodiscard
 function ImFont()
-    return setmetatable({
-        LastBaked                = nil,
-        OwnerAtlas               = nil,
-        Flags                    = nil,
-        CurrentRasterizerDensity = nil,
+    --- @type ImFont
+    local this = setmetatable({}, MT.ImFont)
 
-        FontId           = nil,
-        LegacySize       = nil,
-        Sources          = nil,
-        EllipsisChar     = nil,
-        FallbackChar     = nil,
-        Used8kPagesMap   = nil,
-        EllipsisAutoBake = nil,
-        RemapPairs       = nil, -- TODO: ImGuiStorage
-        Scale            = nil
-    }, MT.ImFont)
+    this.LastBaked                = nil
+    this.OwnerAtlas               = nil
+    this.Flags                    = 0
+    this.CurrentRasterizerDensity = 0
+    this.FontId           = 0
+    this.LegacySize       = 0
+    this.Sources          = ImVector()
+    this.EllipsisChar     = 0
+    this.FallbackChar     = 0
+    this.Used8kPagesMap   = 0
+    this.EllipsisAutoBake = false
+    this.RemapPairs       = nil -- TODO: ImGuiStorage
+    this.Scale            = 0
+
+    return this
 end
 
 --- @class ImFontConfig
+--- @field Name                 string
+--- @field FontData             any
+--- @field FontDataSize         int
+--- @field FontDataOwnedByAtlas bool
+--- @field MergeMode            bool
+--- @field PixelSnapH           bool
+--- @field OversampleH          ImS8
+--- @field OversampleV          ImS8
+--- @field EllipsisChar         ImWchar
+--- @field SizePixels           float
+--- @field GlyphRanges          ImWchar[]
+--- @field GlyphExcludeRanges   ImWchar[]
+--- @field GlyphOffset          ImVec2
+--- @field GlyphMinAdvanceX     float
+--- @field GlyphMaxAdvanceX     float
+--- @field GlyphExtraAdvanceX   float
+--- @field FontNo               ImU32
+--- @field FontLoaderFlags      unsigned_int
+--- @field RasterizerMultiply   float
+--- @field RasterizerDensity    float
+--- @field ExtraSizeScale       float
+--- @field Flags                ImFontFlags
+--- @field DstFont              ImFont
+--- @field FontLoader           ImFontLoader
+--- @field FontLoaderData       any
 MT.ImFontConfig = {}
 MT.ImFontConfig.__index = MT.ImFontConfig
 
 --- @return ImFontConfig
 --- @nodiscard
 function ImFontConfig()
-    return setmetatable({
-        Name                 = nil,
-        FontData             = nil,
-        FontDataSize         = nil,
-        FontDataOwnedByAtlas = nil,
+    --- @type ImFontConfig
+    local this = setmetatable({}, MT.ImFontConfig)
 
-        MergeMode          = nil,
-        PixelSnapH         = nil,
-        OversampleH        = nil,
-        OversampleV        = nil,
-        EllipsisChar       = nil,
-        SizePixels         = nil,
-        GlyphRanges        = nil,
-        GlyphExcludeRanges = nil,
-        GlyphExtraSpacing  = nil,
-        GlyphOffset        = nil,
-        GlyphMinAdvanceX   = nil,
-        GlyphMaxAdvanceX   = nil,
-        GlyphExtraAdvanceX = nil,
-        FontNo             = nil,
-        FontLoaderFlags    = nil,
-        FontBuilderFlags   = nil,
-        RasterizerMultiply = nil,
-        RasterizerDensity  = nil,
-        ExtraSizeScale     = nil,
+    this.Name                 = nil
+    this.FontData             = nil
+    this.FontDataSize         = 0
+    this.FontDataOwnedByAtlas = true
 
-        Flags          = nil,
-        DstFont        = nil,
-        FontLoader     = nil,
-        FontLoaderData = nil
-    }, MT.ImFontConfig)
+    this.MergeMode          = false
+    this.PixelSnapH         = false
+    this.OversampleH        = 0
+    this.OversampleV        = 0
+    this.EllipsisChar       = 0
+    this.SizePixels         = 0
+    this.GlyphRanges        = nil
+    this.GlyphExcludeRanges = nil
+    this.GlyphOffset        = ImVec2()
+    this.GlyphMinAdvanceX   = 0
+    this.GlyphMaxAdvanceX   = FLT_MAX
+    this.GlyphExtraAdvanceX = 0
+    this.FontNo             = 0
+    this.FontLoaderFlags    = 0
+    this.RasterizerMultiply = 1.0
+    this.RasterizerDensity  = 1.0
+    this.ExtraSizeScale     = 1.0
+
+    this.Flags          = 0
+    this.DstFont        = nil
+    this.FontLoader     = nil
+    this.FontLoaderData = nil
+
+    return this
 end
 
 --- @class ImFontAtlas
@@ -493,12 +568,16 @@ function ImFontAtlas()
 end
 
 --- @class ImFontAtlasRect
---- @field x unsigned_short
---- @field y unsigned_short
---- @field w unsigned_short
---- @field h unsigned_short
+--- @field x   unsigned_short
+--- @field y   unsigned_short
+--- @field w   unsigned_short
+--- @field h   unsigned_short
 --- @field uv0 ImVec2
 --- @field uv1 ImVec2
+
+--- @alias ImFontAtlasRectId int
+
+ImFontAtlasRectId_Invalid = -1
 
 --- @return ImFontAtlasRect
 --- @nodiscard
@@ -512,20 +591,20 @@ function ImFontAtlasRect()
 end
 
 --- @class ImFontGlyph
---- @field Colored boolean
---- @field Visible boolean
+--- @field Colored   boolean
+--- @field Visible   boolean
 --- @field SourceIdx unsigned_int
 --- @field Codepoint unsigned_int
---- @field AdvanceX float
---- @field X0 float
---- @field Y0 float
---- @field X1 float
---- @field Y1 float
---- @field U0 float
---- @field V0 float
---- @field U1 float
---- @field V1 float
---- @field PackId int
+--- @field AdvanceX  float
+--- @field X0        float
+--- @field Y0        float
+--- @field X1        float
+--- @field Y1        float
+--- @field U0        float
+--- @field V0        float
+--- @field U1        float
+--- @field V1        float
+--- @field PackId    int
 
 --- @return ImFontGlyph
 --- @nodiscard
