@@ -648,7 +648,7 @@ function ImFontAtlasBuildSetupFontSpecialGlyphs(atlas, font, src)
     local fallback_chars = {font.FallbackChar, IM_UNICODE_CODEPOINT_INVALID, chr'?', chr' '}
     if font.FallbackChar == 0 then
         for _, candidate_char in ipairs(fallback_chars) do
-            if candidate_char ~= 0 and font.IsGlyphInFont(candidate_char) then
+            if candidate_char ~= 0 and font:IsGlyphInFont(candidate_char) then
                 font.FallbackChar = candidate_char
 
                 break
@@ -943,7 +943,8 @@ function ImFontAtlasBuildDestroy(atlas)
     atlas.Builder = nil
 end
 
-local function ImFontAtlasBuildMain(atlas)
+--- @param atlas ImFontAtlas
+function ImFontAtlasBuildMain(atlas)
     IM_ASSERT(not atlas.Locked, "Cannot modify a locked ImFontAtlas!")
     if (atlas.TexData and atlas.TexData.Format ~= atlas.TexDesiredFormat) then
         ImFontAtlasBuildClear(atlas)
@@ -960,6 +961,9 @@ local function ImFontAtlasBuildMain(atlas)
 
     -- [LEGACY] For backends not supporting RendererHasTextures: preload all glyphs
     -- ImFontAtlasBuildUpdateRendererHasTexturesFromContext(atlas);
+    -- if atlas.RendererHasTextures == false then
+    --     ImFontAtlasBuildLegacyPreloadAllGlyphRanges(atlas)
+    -- end
 
     atlas.TexIsBuilt = true
 end
@@ -1102,6 +1106,13 @@ function MT.ImFontAtlas:AddFont(font_cfg_in)
     return font
 end
 
+--- @param ctx ImGuiContext
+--- @return float
+local function GetExpectedContextFontSize(ctx)
+    return ((ctx.Style.FontSizeBase > 0.0) and ctx.Style.FontSizeBase or 13.0) * ctx.Style.FontScaleMain * ctx.Style.FontScaleDpi
+end
+
+--- @param font_cfg ImFontConfig
 function MT.ImFontAtlas:AddFontDefault(font_cfg)
     if self.OwnerContext == nil or GetExpectedContextFontSize(self.OwnerContext) >= 16.0 then
         return self:AddFontDefaultVector(font_cfg)
@@ -1122,6 +1133,10 @@ function MT.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pix
         font_cfg.GlyphRanges = glyph_ranges
     end
     return self:AddFont(font_cfg)
+end
+
+function MT.ImFontAtlas:AddFontFromMemoryCompressedTTF()
+    -- TODO: 
 end
 
 function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
@@ -1145,10 +1160,36 @@ function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_templ
     return self:AddFontFromMemoryTTF(data, data_size, size_pixels, font_cfg, glyph_ranges)
 end
 
-function MT.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
-    -- TODO: 
+function GetDefaultFontDataProggyClean()
+    return ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
 end
 
+--- @param font_cfg_template ImFontConfig
+function MT.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
+    -- #ifndef IMGUI_DISABLE_DEFAULT_FONT
+    local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
+    if not font_cfg_template then
+        font_cfg.OversampleV = 1
+        font_cfg.OversampleH = 1
+        font_cfg.PixelSnapH  = true
+    end
+    if font_cfg.SizePixels <= 0.0 then
+        font_cfg.SizePixels = 13.0
+    end
+    if not font_cfg.Name or font_cfg.Name == "" then
+        font_cfg.Name = "ProggyClean.ttf"
+    end
+    font_cfg.EllipsisChar = 0x0085
+    font_cfg.GlyphOffset.y = font_cfg.GlyphOffset.y +  1.0 * (font_cfg.SizePixels / 13.0)
+
+    local ttf_data, ttf_data_size = GetDefaultFontDataProggyClean()
+    return self:AddFontFromMemoryTTF(ttf_data, ttf_data_size, font_cfg.SizePixels, font_cfg)
+    -- #else
+
+    -- #endif
+end
+
+--- @param font_cfg_template ImFontConfig
 function MT.ImFontAtlas:AddFontDefaultVector(font_cfg_template)
     -- TODO: 
 end

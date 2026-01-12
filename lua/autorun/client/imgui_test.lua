@@ -14,13 +14,13 @@ hook.Add("PostRender", "ImGuiTest", function()
     ImGui.NewFrame()
 
     -- Temporary test, cool timed scaling
-    ImGui.PushFont(nil, math.max(15, math.abs(90 * math.sin(SysTime()))))
+    -- ImGui.PushFont(nil, math.max(15, math.abs(90 * math.sin(SysTime()))))
 
     local window1_open = {true}
     ImGui.Begin("Hello World!", window1_open)
     ImGui.End()
 
-    ImGui.PopFont()
+    -- ImGui.PopFont()
 
     -- local window2_open = {true}
     -- ImGui.Begin("ImGui Demo", window2_open)

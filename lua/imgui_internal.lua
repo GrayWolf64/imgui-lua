@@ -190,28 +190,66 @@ local function ImFontAtlasBuilder()
     return this
 end
 
---- @class ImGuiContext
-local function ImGuiContext()
+--- @class ImFontStackData
+--- @field Font ImFont
+--- @field FontSizeBeforeScaling float
+--- @field FontSizeAfterScaling float
+
+--- @return ImFontStackData
+--- @param font ImFont
+--- @param font_size_before_scaling float
+--- @param font_size_after_scaling float
+function ImFontStackData(font, font_size_before_scaling, font_size_after_scaling)
+    return {
+        Font                  = font,
+        FontSizeBeforeScaling = font_size_before_scaling,
+        FontSizeAfterScaling  = font_size_after_scaling
+    }
+end
+
+--- @class ImGuiStyle
+
+--- @return ImGuiStyle
+--- @nodiscard
+function ImGuiStyle()
+    --- @type ImGuiStyle
     local this = {
-        Style = { -- TODO: ImGuiStyle
-            FramePadding = ImVec2(4, 3),
+        FontSizeBase  = 0.0,
+        FontScaleMain = 1.0,
+        FontScaleDpi  = 1.0,
 
-            WindowRounding = 0,
-            WindowBorderSize = 1,
+        Alpha = 1.0,
 
-            Colors = {},
-            Alpha = 1.0,
+        FramePadding = ImVec2(4, 3),
 
-            FontSizeBase = 18,
-            FontScaleMain = 1,
+        WindowRounding = 0,
+        WindowBorderSize = 1,
 
-            WindowMinSize = ImVec2(60, 60),
+        Colors = {},
 
-            FrameBorderSize = 1,
-            ItemSpacing = ImVec2(8, 4),
+        WindowMinSize = ImVec2(60, 60),
 
-            CircleTessellationMaxError = 0.30
-        },
+        FrameBorderSize = 1,
+        ItemSpacing = ImVec2(8, 4),
+
+        CircleTessellationMaxError = 0.30,
+
+        _NextFrameFontSizeBase = 0.0
+    }
+
+    ImGui.StyleColorsDark(this)
+
+    return this
+end
+
+--- @class ImGuiContext
+
+--- @param shared_font_atlas? ImFontAtlas
+--- @return ImGuiContext
+--- @nodiscard
+function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
+    local this = {
+        Style = ImGuiStyle(),
 
         Config = nil,
         Initialized = true,
@@ -225,6 +263,8 @@ local function ImGuiContext()
         CurrentWindow = nil,
 
         IO = { -- TODO: make IO independent?
+            BackendFlags = 0,
+
             MousePos = ImVec2(),
             IsMouseDown = input.IsMouseDown,
 
@@ -308,6 +348,8 @@ local function ImGuiContext()
         FontSize = 18,
         FontSizeBase = 18,
 
+        FontAtlases = ImVector(),
+
         --- Contains ImFontStackData
         FontStack = ImVector(),
 
@@ -327,6 +369,10 @@ local function ImGuiContext()
 
         MouseCursor = "arrow"
     }
+
+    if shared_font_atlas == nil then
+        this.IO.Fonts.OwnerContext = this
+    end
 
     return this
 end

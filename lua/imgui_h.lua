@@ -406,6 +406,8 @@ end
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
 
+function MT.ImFont:IsLoaded() return self.OwnerAtlas ~= nil end
+
 --- @return ImFont
 --- @nodiscard
 function ImFont()
@@ -718,6 +720,16 @@ ImFontFlags = {
     NoLoadError    = bit.lshift(1, 1),
     NoLoadGlyphs   = bit.lshift(1, 2),
     LockBakedSizes = bit.lshift(1, 3)
+}
+
+--- @enum ImGuiBackendFlags
+ImGuiBackendFlags = {
+    None                  = 0,
+    HasGamepad            = bit.lshift(1, 0),
+    HasMouseCursors       = bit.lshift(1, 1),
+    HasSetMousePos        = bit.lshift(1, 2),
+    RendererHasVtxOffset  = bit.lshift(1, 3),
+    RendererHasTextures   = bit.lshift(1, 4)
 }
 
 IM_COL32_R_SHIFT = 0

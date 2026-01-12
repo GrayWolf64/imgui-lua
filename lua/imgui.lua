@@ -1,8 +1,12 @@
 --- ImGui for Garry's Mod written in pure Lua
 --
+
+--- @type ImGuiContext?
 local GImGui = nil
 
 ImGui = ImGui or {}
+
+local FONT_DEFAULT_SIZE_BASE = 20
 
 ----------------------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
@@ -15,16 +19,19 @@ local FILE = {
     read_byte = FindMetaTable("File").ReadByte
 }
 
-local function ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
-local function ImFileClose(f) FILE.close(f) end
-local function ImFileGetSize(f) return FILE.size(f) end
-local function ImFileRead(f, data, count)
+function ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
+function ImFileClose(f) FILE.close(f) end
+function ImFileGetSize(f) return FILE.size(f) end
+function ImFileRead(f, data, count)
     for i = 1, count do
         data[i] = FILE.read_byte(f)
     end
 end
 
-local function ImFileLoadToMemory(filename, mode)
+--- @param filename string
+--- @param mode string
+--- @return ImSlice?, integer?
+function ImFileLoadToMemory(filename, mode)
     local f = ImFileOpen(filename, mode)
     if not f then return end
 
@@ -150,7 +157,8 @@ function ImGui.PopFont()
     g.FontStack:pop_back()
 end
 
-function ImGui.GetDefaultFont() -- FIXME: fix impl
+--- @return ImFont
+function ImGui.GetDefaultFont()
     local g = GImGui
     local atlas = g.IO.Fonts
     if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
@@ -162,18 +170,29 @@ end
 --- void ImGui::UpdateFontsNewFrame
 function ImGui.UpdateFontsNewFrame() -- TODO: investigate
     local g = GImGui
+    if (bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) == 0) then
+        for _, atlas in g.FontAtlases:iter() do
+            atlas.Locked = true
+        end
+    end
 
-    g.Font = ImGui.GetDefaultFont()
+    if (g.Style._NextFrameFontSizeBase ~= 0.0) then
+        g.Style.FontSizeBase = g.Style._NextFrameFontSizeBase
+        g.Style._NextFrameFontSizeBase = 0.0
+    end
 
-    local font_stack_data  = {
-        Font = g.Font,
-        FontSizeBeforeScaling = g.Style.FontSizeBase,
-        FontSizeAfterScaling = g.Style.FontSizeBase
-    }
+    local font = ImGui.GetDefaultFont()
+    if g.Style.FontSizeBase <= 0.0 then
+        g.Style.FontSizeBase = ((font.LegacySize > 0.0) and font.LegacySize or FONT_DEFAULT_SIZE_BASE)
+    end
 
-    SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, 0)
-
+    g.Font = font
+    g.FontSizeBase = g.Style.FontSizeBase
+    g.FontSize = 0.0
+    local font_stack_data = ImFontStackData(font, g.Style.FontSizeBase, g.Style.FontSizeBase)
+    SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, 0.0)
     g.FontStack:push_back(font_stack_data)
+    IM_ASSERT(g.Font:IsLoaded())
 end
 
 --- void ImGui::UpdateFontsEndFrame
@@ -205,10 +224,10 @@ function ImGui.Initialize()
     g.Viewports:push_back(viewport)
 end
 
-function ImGui.CreateContext()
-    GImGui = ImGuiContext()
+--- @param shared_font_atlas? ImFontAtlas
+function ImGui.CreateContext(shared_font_atlas)
+    GImGui = ImGuiContext(shared_font_atlas)
 
-    ImGui.StyleColorsDark(GImGui.Style)
     GImGui.Config = DefaultConfig
 
     for i = 0, 59 do GImGui.FramerateSecPerFrame[i] = 0 end
