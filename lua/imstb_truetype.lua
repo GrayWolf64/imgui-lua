@@ -26,13 +26,25 @@ local stbtt_GetFontOffsetForIndex
 local stbtt_ScaleForPixelHeight
 local stbtt_FindGlyphIndex
 
----------------------------------
---- TODO: ptr helpers, make these defines?
+------------------------------
+--- C Pointer / Array Mimicing
 --
+
+--- @class stbtt_slice
+--- @field data table
+--- @field offset integer
+
+--- @param p stbtt_slice
+--- @param n integer
 local function ptr_inc(p, n) p.offset = p.offset + n end
+
 local function ptr_deref(p) return p.data[p.offset + 1] end
 local function ptr_set_deref(p, v) p.data[p.offset + 1] = v end
 
+--- @param p stbtt_slice
+--- @param n integer
+--- @return stbtt_slice
+--- @nodiscard
 local function ptr_add(p, n) return {data = p.data, offset = p.offset + n, size = p.size} end
 
 local function ptr_index_get(p, i) return p.data[p.offset + i + 1] end
@@ -2578,16 +2590,7 @@ end
 -- end
 
 function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, prefilter_x, prefilter_y, glyph)
-    stbtt_MakeGlyphBitmapSubpixel(info,
-                                output,
-                                out_w - (prefilter_x - 1),
-                                out_h - (prefilter_y - 1),
-                                out_stride,
-                                scale_x,
-                                scale_y,
-                                shift_x,
-                                shift_y,
-                                glyph)
+    stbtt_MakeGlyphBitmapSubpixel(info, output, out_w - (prefilter_x - 1), out_h - (prefilter_y - 1), out_stride, scale_x, scale_y, shift_x, shift_y, glyph)
 
     if prefilter_x > 1 then
         stbtt__h_prefilter(output, out_w, out_h, out_stride, prefilter_x)
@@ -2701,8 +2704,8 @@ end
 -----------------------------------------------------
 --- font name matching -- recommended not to use this
 --
--- THIS IS MOSTLY UNUSED
---
+
+--- NOT IMPLEMENTED
 
 function stbtt_GetFontOffsetForIndex(data, index)
     return stbtt_GetFontOffsetForIndex_internal(data, index)
