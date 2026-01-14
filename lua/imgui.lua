@@ -8,6 +8,8 @@ ImGui = ImGui or {}
 
 local FONT_DEFAULT_SIZE_BASE = 20
 
+IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
+
 ----------------------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ----------------------------------------------------------------
@@ -53,9 +55,46 @@ function ImFileLoadToMemory(filename, mode)
     return file_data, file_size
 end
 
-#IMGUI_DEFINE IMGUI_VIEWPORT_DEFAULT_ID 0x11111111
-
 local MT = include"imgui_h.lua"
+
+----------------------------------------------------------------
+-- [SECTION] ImGuiStorage HELPERS
+----------------------------------------------------------------
+
+-- TODO: remove this, not actually needed
+--- @param in_begin int
+--- @param in_end int
+--- @param key ImGuiID
+--- @return int
+function MT.ImGuiStorage:ImLowerBound(in_begin, in_end, key)
+    local count = in_end - in_begin
+    local count2, mid
+    while count > 0 do
+        count2 = bit.rshift(count, 1)
+        mid = in_begin + count2
+
+        if self.Data.Data[mid].key < key then
+            in_begin = mid + 1
+            count = count - count2 - 1
+        else
+            count = count2
+        end
+    end
+
+    return in_begin
+end
+
+--- @param key ImGuiID
+--- @param default_val int
+--- @return int
+function MT.ImGuiStorage:GetInt(key, default_val)
+    local it = self:ImLowerBound(1, self.Data.Size, key)
+    if it > self.Data.Size or self.Data.Data[it].key ~= key then
+        return default_val
+    end
+
+    return self.Data.Data[it].val
+end
 
 #IMGUI_INCLUDE "imgui_internal.lua"
 

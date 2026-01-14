@@ -436,10 +436,10 @@ local function ImGui_ImplStbTrueType_FontSrcDestroy(atlas, src)
     src.FontLoaderData = nil
 end
 
-local function ImGui_ImplStbTrueType_FontSrcContainsGlyph(src, codepoint)
+local function ImGui_ImplStbTrueType_FontSrcContainsGlyph(atlas, src, codepoint)
     -- IM_UNUSED(atlas)
     local bd_font_data = src.FontLoaderData
-    IM_ASSERT(bd_font_data ~= NULL)
+    IM_ASSERT(bd_font_data ~= nil)
 
     local glyph_index = stbtt.FindGlyphIndex(bd_font_data.FontInfo, codepoint)
     return (glyph_index ~= 0)
@@ -588,6 +588,17 @@ local function ImFontAtlasFontDiscardBakes(atlas, font, unused_frames)
     end
 end
 
+function ImFontAtlasFontInitOutput(atlas, font)
+    local ret = true
+    for _, src in font.Sources:iter() do
+        if not ImFontAtlasFontSourceInit(atlas, src) then
+            ret = false
+        end
+    end
+    IM_ASSERT(ret)
+    return ret
+end
+
 function ImFontAtlasFontDestroyOutput(atlas, font)
     font:ClearOutputData()
     for _, src in font.Sources:iter() do
@@ -656,8 +667,22 @@ function ImFontAtlasBuildSetupFontSpecialGlyphs(atlas, font, src)
         end
     end
 
-    error("NOT IMPLEMENTED")
-    -- TODO: 
+    --- @type ImWchar[]
+    local ellipsis_chars = {src.EllipsisChar, 0x2026, 0x0085}
+    if font.EllipsisChar == 0 then
+        for _, candidate_char in ipairs(ellipsis_chars) do
+            if candidate_char ~= 0 and font:IsGlyphInFont(candidate_char) then
+                font.EllipsisChar = candidate_char
+
+                break
+            end
+        end
+    end
+
+    if font.EllipsisChar == 0 then
+        font.EllipsisChar = 0x0085
+        font.EllipsisAutoBake = true
+    end
 end
 
 function ImFontAtlasBuildSetupFontLoader(atlas, font_loader)
@@ -1027,16 +1052,27 @@ end
 --- @param atlas ImFontAtlas
 --- @param font ImFont
 --- @param c ImWchar
+--- @return ImWchar
 local function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
-    -- TODO: 
+    -- IM_UNUSED(atlas)
+    if font.RemapPairs.Data.Size ~= 0 then
+        return font.RemapPairs:GetInt(c, c)
+    end
+
+    return c
 end
 
 --- @param c ImWchar
 --- @return bool
 function MT.ImFont:IsGlyphInFont(c)
     local atlas = self.OwnerAtlas
-    ImFontAtlas_FontHookRemapCodepoint(atlas, this, c)
-    -- TODO: 
+    c = ImFontAtlas_FontHookRemapCodepoint(atlas, self, c)
+    for _, src in self.Sources:iter() do
+        local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
+        if loader.FontSrcContainsGlyph ~= nil and loader.FontSrcContainsGlyph(atlas, src, c) then
+            return true
+        end
+    end
 
     return false
 end
@@ -1368,7 +1404,7 @@ function MT.ImDrawList:_OnChangedVtxOffset()
     curr_cmd.VtxOffset = self._CmdHeader.VtxOffset
 end
 
-function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
+function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col) -- TODO: cleanup
     if points_count < 3 or col.a == 0 then return end
 
     local uv = self._Data.TexUvWhitePixel

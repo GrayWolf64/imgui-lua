@@ -533,6 +533,7 @@ local function stbtt__get_svg(info) -- stbtt_fontinfo *info
     return info.svg
 end
 
+--- @return bool
 local function stbtt_InitFont_internal(info, data, fontstart)
     local cmap
     local numTables
@@ -551,16 +552,16 @@ local function stbtt_InitFont_internal(info, data, fontstart)
     info.gpos = stbtt__find_table(data, fontstart, "GPOS")
 
     if (cmap == 0 or info.head == 0 or info.hhea == 0 or info.hmtx == 0) then
-        return 0
+        return false
     end
     if info.glyf ~= 0 then
         if info.loca == 0 then
-            return 0
+            return false
         end
     else
         local cff = stbtt__find_table(data, fontstart, "CFF ")
         if cff == 0 then
-            return 0
+            return false
         end
 
         info.fontdicts = stbtt__new_buf(nil, 0)
@@ -588,15 +589,15 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         info.subrs = stbtt__get_subrs(b, topdict)
 
         if cstype[1] ~= 2 then
-            return 0
+            return false
         end
         if charstrings[1] == 0 then
-            return 0
+            return false
         end
 
         if fdarrayoff[1] ~= 0 then
             if fdselectoff[1] == 0 then
-                return 0
+                return false
             end
 
             stbtt__buf_seek(b, fdarrayoff[1])
@@ -634,11 +635,11 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         end
     end
     if info.index_map == 0 then
-        return 0
+        return false
     end
 
     info.indexToLocFormat = ttUSHORT(ptr_add(data, info.head + 50))
-    return 1
+    return true
 end
 
 function stbtt_FindGlyphIndex(info, unicode_codepoint)

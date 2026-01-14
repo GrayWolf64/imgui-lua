@@ -425,7 +425,7 @@ function ImFont()
     this.FallbackChar     = 0
     this.Used8kPagesMap   = 0
     this.EllipsisAutoBake = false
-    this.RemapPairs       = nil -- TODO: ImGuiStorage
+    this.RemapPairs       = ImGuiStorage()
     this.Scale            = 0
 
     return this
@@ -628,6 +628,32 @@ local function ImFontGlyph()
 
         PackId = -1
     }
+end
+
+--- @class ImGuiStoragePair
+--- @field key ImGuiID
+--- @field val int|float|any
+
+--- @param _key ImGuiID
+--- @param _val int|float|any
+--- @return ImGuiStoragePair
+function ImGuiStoragePair(_key, _val)
+    return {key = _key, val = _val}
+end
+
+--- @class ImGuiStorage
+--- @field Data ImVector<ImGuiStoragePair>
+MT.ImGuiStorage = {}
+MT.ImGuiStorage.__index = MT.ImGuiStorage
+
+--- @return ImGuiStorage
+function ImGuiStorage()
+    --- @type ImGuiStorage
+    local this = setmetatable({}, MT.ImGuiStorage)
+
+    this.Data = ImVector()
+
+    return this
 end
 
 --- @enum ImGuiDir
