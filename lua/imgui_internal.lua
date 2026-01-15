@@ -22,9 +22,12 @@ local math    = math
 local stbrp
 local stbtt
 
+IM_TABSIZE = 4
+
 #IMGUI_DEFINE FLT_MAX math.huge
 #IMGUI_DEFINE IM_PI   math.pi
 #IMGUI_DEFINE ImAbs   math.abs
+#IMGUI_DEFINE ImFabs  math.abs
 #IMGUI_DEFINE ImMin   math.min
 #IMGUI_DEFINE ImMax   math.max
 #IMGUI_DEFINE ImFloor math.floor
@@ -57,9 +60,10 @@ local function ImUpperPowerOfTwo(v)
     return v + 1
 end
 
-#IMGUI_DEFINE ImSaturate(f) ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f)
+function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
-#IMGUI_DEFINE IMGUI_FONT_SIZE_MAX 512
+IMGUI_FONT_SIZE_MAX                                = 512.0
+IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE = 128.0
 
 #IMGUI_DEFINE IMGUI_WINDOW_HARD_MIN_SIZE 16
 
@@ -77,6 +81,36 @@ end
 
 #IMGUI_DEFINE struct_def(_name) MT[_name] = {} MT[_name].__index = MT[_name]
 
+--- @param size float
+function ImGui.GetRoundedFontSize(size) return ImRound(size) end
+
+function ImCharIsBlankA(c) return c == chr' ' or c == chr '\t' end
+
+--- @enum ImGuiNavLayer
+ImGuiNavLayer = {
+    Main  = 0,
+    Menu  = 1,
+    COUNT = 2
+}
+
+-- TODO: ImGuiItemFlagsPrivate_
+ImGuiItemFlags_NoFocus = bit.lshift(1, 17)
+
+--- @enum ImDrawTextFlags
+ImDrawTextFlags = {
+    None           = 0,
+    CpuFineClip    = bit.lshift(1, 0),
+    WrapKeepBlanks = bit.lshift(1, 1),
+    StopOnNewLine  = bit.lshift(1, 2)
+}
+
+--- @enum ImWcharClass
+ImWcharClass = {
+    Blank = 0,
+    Punct = 1,
+    Other = 2
+}
+
 --- ImVec1
 --
 struct_def("ImVec1")
@@ -86,14 +120,16 @@ local function ImVec1(x) return setmetatable({x = x or 0}, MT.ImVec1) end
 function MT.ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
 function MT.ImVec1:copy() return ImVec1(self.x) end
 
---- struct IMGUI_API ImRect
-struct_def("ImRect")
+--- @class ImRect
+MT.ImRect = {}
+MT.ImRect.__index = MT.ImRect
 
 function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 function MT.ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
 function MT.ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
 function MT.ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
 function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
+function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
 
 local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, MT.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, MT.ImRect) end
 
@@ -153,39 +189,56 @@ local function ImDrawListSharedData()
 end
 
 --- @class ImFontAtlasBuilder
-struct_def("ImFontAtlasBuilder")
+--- @field PackContext              stbrp_context
+--- @field PackNodes                ImVector<stbrp_node>
+--- @field Rects                    ImVector<ImTextureRect>
+--- @field RectsIndex               ImVector<ImFontAtlasRectEntry>
+--- @field TempBuffer               ImSlice
+--- @field RectsIndexFreeListStart  int
+--- @field RectsPackedCount         int
+--- @field RectsPackedSurface       int
+--- @field RectsDiscardedCount      int
+--- @field RectsDiscardedSurface    int
+--- @field FrameCount               int
+--- @field MaxRectSize              ImVec2
+--- @field MaxRectBounds            ImVec2
+--- @field LockDisableResize        bool
+--- @field PreloadedAllGlyphsRanges bool
+--- @field BakedPool                ImVector<ImFontBaked, 32>
+--- @field BakedMap                 ImGuiStorage
+--- @field BakedDiscardedCount      int
+--- @field PackIdMouseCursors       ImFontAtlasRectId
+--- @field PackIdLinesTexData       ImFontAtlasRectId
+MT.ImFontAtlasBuilder = {}
+MT.ImFontAtlasBuilder.__index = MT.ImFontAtlasBuilder
 
-local function ImFontAtlasBuilder()
-    local this = setmetatable({
-        PackContext              = stbrp.context(), -- struct stbrp_context_opaque { char data[80]; };
-        PackNodes                = ImVector(),
-        Rects                    = ImVector(),
-        RectsIndex               = ImVector(),
-        TempBuffer               = IM_SLICE(), -- ImVector()
-        RectsIndexFreeListStart  = nil,
-        RectsPackedCount         = nil,
-        RectsPackedSurface       = nil,
-        RectsDiscardedCount      = nil,
-        RectsDiscardedSurface    = nil,
-        FrameCount               = nil,
-        MaxRectSize              = nil,
-        MaxRectBounds            = nil,
-        LockDisableResize        = nil,
-        PreloadedAllGlyphsRanges = nil,
+--- @return ImFontAtlasBuilder
+function ImFontAtlasBuilder()
+    --- @type ImFontAtlasBuilder
+    local this = setmetatable({}, MT.ImFontAtlasBuilder)
 
-        BakedPool           = ImVector(), -- ImStableVector<ImFontBaked,32>
-        BakedMap            = nil,
-        BakedDiscardedCount = nil,
+    this.PackContext              = stbrp.context() -- struct stbrp_context_opaque { char data[80]; };
+    this.PackNodes                = ImVector()
+    this.Rects                    = ImVector()
+    this.RectsIndex               = ImVector()
+    this.TempBuffer               = IM_SLICE() -- ImVector()
+    this.RectsIndexFreeListStart  = 0
+    this.RectsPackedCount         = 0
+    this.RectsPackedSurface       = 0
+    this.RectsDiscardedCount      = 0
+    this.RectsDiscardedSurface    = 0
+    this.FrameCount               = 0
+    this.MaxRectSize              = ImVec2()
+    this.MaxRectBounds            = ImVec2()
+    this.LockDisableResize        = false
+    this.PreloadedAllGlyphsRanges = false
 
-        PackIDMouseCursors = nil,
-        PackIDLinesTexData = nil
-    }, MT.ImFontAtlasBuilder)
+    this.BakedPool           = ImVector() -- ImStableVector<ImFontBaked,32>
+    this.BakedMap            = ImGuiStorage()
+    this.BakedDiscardedCount = 0
 
-    this.FrameCount = 0
-    this.RectsIndexFreeListStart = 0
-
-    this.PackIdLinesTexData = -1
     this.PackIdMouseCursors = -1
+    this.PackIdLinesTexData = -1
 
     return this
 end
@@ -227,10 +280,13 @@ function ImGuiStyle()
 
         Colors = {},
 
-        WindowMinSize = ImVec2(60, 60),
+        WindowMinSize = ImVec2(64, 64),
+        WindowTitleAlign = ImVec2(0.0,0.5),
+        WindowMenuButtonPosition = ImGuiDir.Left,
 
         FrameBorderSize = 1,
         ItemSpacing = ImVec2(8, 4),
+        ItemInnerSpacing = ImVec2(4, 4),
 
         CircleTessellationMaxError = 0.30,
 
@@ -367,7 +423,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         -- WantCaptureKeyboardNextFrame = -1,
         -- WantTextInputNextFrame = -1
 
-        MouseCursor = "arrow"
+        MouseCursor = "arrow",
+
+        CurrentItemFlags = ImGuiItemFlags_None
     }
 
     if shared_font_atlas == nil then
@@ -562,27 +620,45 @@ local function ImGuiViewportP()
 end
 
 --- @class ImFontLoader
-struct_def("ImFontLoader")
+--- @field Name                       string
+--- @field LoaderInit?                function(atlas: ImFontAtlas): bool
+--- @field LoaderShutdown?            function(atlas: ImFontAtlas)
+--- @field FontSrcInit?               function(atlas: ImFontAtlas, src: ImFontConfig): bool
+--- @field FontSrcDestroy?            function(atlas: ImFontAtlas, src: ImFontConfig)
+--- @field FontSrcContainsGlyph?      function(atlas: ImFontAtlas, src: ImFontConfig, codepoint: ImWchar): bool
+--- @field FontBakedInit?             function(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any): bool
+--- @field FontBakedDestroy?          function(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
+--- @field FontBakedLoadGlyph         function(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph: ImFontGlyph, out_advance_x: float_ptr): bool
+--- @field FontBakedSrcLoaderDataSize unsigned_int
+MT.ImFontLoader = {}
+MT.ImFontLoader.__index = MT.ImFontLoader
 
 --- @return ImFontLoader
 --- @nodiscard
 local function ImFontLoader()
-    return setmetatable({
-        Name                 = nil,
-        LoaderInit           = nil,
-        LoaderShutdown       = nil,
-        FontSrcInit          = nil,
-        FontSrcDestroy       = nil,
-        FontSrcContainsGlyph = nil,
-        FontBakedInit        = nil,
-        FontBakedDestroy     = nil,
-        FontBakedLoadGlyph   = nil,
+    --- @type ImFontLoader
+    local this = setmetatable({}, MT.ImFontLoader)
 
-        FontBakedSrcLoaderDataSize = nil
-    }, MT.ImFontLoader)
+    this.Name                 = nil
+    this.LoaderInit           = nil
+    this.LoaderShutdown       = nil
+    this.FontSrcInit          = nil
+    this.FontSrcDestroy       = nil
+    this.FontSrcContainsGlyph = nil
+    this.FontBakedInit        = nil
+    this.FontBakedDestroy     = nil
+    this.FontBakedLoadGlyph   = nil
+
+    this.FontBakedSrcLoaderDataSize = 0
+
+    return this
 end
 
-local function ImFontAtlasRectEntry()
+--- @class ImFontAtlasRectEntry
+
+--- @return ImFontAtlasRectEntry
+--- @nodiscard
+function ImFontAtlasRectEntry()
     return {
         TargetIndex = 0,
         Generation  = 0,

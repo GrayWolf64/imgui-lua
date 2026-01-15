@@ -10,6 +10,9 @@ local function chr(_c) return string.byte(_c) end
 FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
 FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
 
+IM_FONTGLYPH_INDEX_UNUSED    = 0xFFFF
+IM_FONTGLYPH_INDEX_NOT_FOUND = 0xFFFE
+
 --- Original ImGui pixel art!
 FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE(string.ToTable(
     "..-         -XXXXXXX-    X    -           X           -XXXXXXX          -          XXXXXXX-     XX          - XX       XX " ..
@@ -80,12 +83,12 @@ local ImFontAtlasBuildUpdateLinesTexData
 local ImFontAtlasBuildUpdateBasicTexData
 local ImFontAtlasBuildSetupFontLoader
 local ImFontAtlasBuildDestroy
-local ImFontAtlasUpdateDrawListsSharedData
 local ImFontAtlasFontSourceInit
 local ImFontAtlasFontSourceAddToFont
 local ImFontAtlasFontDestroySourceData
 local ImFontAtlasFontDestroyOutput
 local ImFontAtlasBuildSetupFontSpecialGlyphs
+local ImFontAtlasBuildSetupFontBakedFallback
 
 function MT.ImFontAtlas:Clear()
     local backup_renderer_has_textures = self.RendererHasTextures
@@ -145,7 +148,7 @@ function MT.ImFontAtlas:ClearFonts()
     end
 end
 
-local function ImFontAtlasTextureBlockCopy(src_tex, src_x, src_y, dst_tex, dst_x, dst_y, w, h)
+function ImFontAtlasTextureBlockCopy(src_tex, src_x, src_y, dst_tex, dst_x, dst_y, w, h)
     IM_ASSERT(src_tex.Pixels ~= nil and dst_tex.Pixels ~= nil)
     IM_ASSERT(src_tex.Format == dst_tex.Format)
     IM_ASSERT(src_x >= 0 and src_x + w <= src_tex.Width)
@@ -157,6 +160,36 @@ local function ImFontAtlasTextureBlockCopy(src_tex, src_x, src_y, dst_tex, dst_x
         for i = 0, w - 1 do
             IM_SLICE_COPY(dst_tex:GetPixelsAt(dst_x, dst_y + y), src_tex:GetPixelsAt(src_x, src_y + y), w)
         end
+    end
+end
+
+--- @param atlas ImFontAtlas
+--- @param tex   ImTextureData
+--- @param x     int
+--- @param y     int
+--- @param w     int
+--- @param h     int
+function ImFontAtlasTextureBlockQueueUpload(atlas, tex, x, y, w, h)
+    IM_ASSERT(tex.Status ~= ImTextureStatus.WantDestroy and tex.Status ~= ImTextureStatus.Destroyed)
+    IM_ASSERT(x >= 0 and x <= 0xFFFF and y >= 0 and y <= 0xFFFF and w >= 0 and x + w <= 0x10000 and h >= 0 and y + h <= 0x10000)
+    -- IM_UNUSED(atlas)
+
+    local req = ImTextureRect(x, y, w, h) -- (unsigned short)
+    local new_x1 = ImMax(tex.UpdateRect.w == 0 and 0 or tex.UpdateRect.x + tex.UpdateRect.w, req.x + req.w)
+    local new_y1 = ImMax(tex.UpdateRect.h == 0 and 0 or tex.UpdateRect.y + tex.UpdateRect.h, req.y + req.h)
+    tex.UpdateRect.x = ImMin(tex.UpdateRect.x, req.x)
+    tex.UpdateRect.y = ImMin(tex.UpdateRect.y, req.y)
+    tex.UpdateRect.w = (new_x1 - tex.UpdateRect.x) -- (unsigned short)
+    tex.UpdateRect.h = (new_y1 - tex.UpdateRect.y) -- (unsigned short)
+    tex.UsedRect.x = ImMin(tex.UsedRect.x, req.x)
+    tex.UsedRect.y = ImMin(tex.UsedRect.y, req.y)
+    tex.UsedRect.w = (ImMax(tex.UsedRect.x + tex.UsedRect.w, req.x + req.w) - tex.UsedRect.x) -- (unsigned short)
+    tex.UsedRect.h = (ImMax(tex.UsedRect.y + tex.UsedRect.h, req.y + req.h) - tex.UsedRect.y) -- (unsigned short)
+    atlas.TexIsBuilt = false
+
+    if (tex.Status == ImTextureStatus.OK or tex.Status == ImTextureStatus.WantUpdates) then
+        tex.Status = ImTextureStatus.WantUpdates
+        tex.Updates:push_back(req)
     end
 end
 
@@ -362,14 +395,17 @@ function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry)
     end
 end
 
+--- @param atlas ImFontAtlas
+--- @param id    ImFontAtlasRectId
+--- @return ImTextureRect
 function ImFontAtlasPackGetRect(atlas, id)
     IM_ASSERT(id ~= ImFontAtlasRectId_Invalid)
-    local index_idx = ImFontAtlasRectId_GetIndex(id) + 1 -- XXX: 1 based indexing
+    local index_idx = ImFontAtlasRectId_GetIndex(id) + 1 -- TODO: indexing validation
     local builder = atlas.Builder
     local index_entry = builder.RectsIndex:at(index_idx)
     IM_ASSERT(index_entry.Generation == ImFontAtlasRectId_GetGeneration(id))
     IM_ASSERT(index_entry.IsUsed)
-    return builder.Rects:at(index_entry.TargetIndex)
+    return builder.Rects.Data[index_entry.TargetIndex]
 end
 
 function ImFontAtlasPackGetRectSafe(atlas, id)
@@ -377,7 +413,7 @@ function ImFontAtlasPackGetRectSafe(atlas, id)
         return nil
     end
 
-    local index_idx = ImFontAtlasRectId_GetIndex(id) + 1 -- XXX: 1 based indexing
+    local index_idx = ImFontAtlasRectId_GetIndex(id) + 1 -- TODO: indexing validation
     if atlas.Builder == nil then
         ImFontAtlasBuildInit(atlas)
     end
@@ -392,6 +428,40 @@ function ImFontAtlasPackGetRectSafe(atlas, id)
     return builder.Rects:at(index_entry.TargetIndex)
 end
 
+--- @param src       ImFontConfig
+--- @param codepoint ImWchar
+--- @return bool
+function ImFontAtlasBuildAcceptCodepointForSource(src, codepoint)
+    local exclude_list = src.GlyphExcludeRanges
+    if exclude_list then
+        local i = 1
+        while exclude_list[i] ~= 0 do
+            if codepoint >= exclude_list[i] and codepoint <= exclude_list[i + 1] then
+                return false
+            end
+
+            i = i + 2
+        end
+    end
+
+    return true
+end
+
+--- @param baked    ImFontBaked
+--- @param new_size int
+function ImFontBaked_BuildGrowIndex(baked, new_size)
+    IM_ASSERT(baked.IndexAdvanceX.Size == baked.IndexLookup.Size)
+    if (new_size <= baked.IndexLookup.Size) then
+        return
+    end
+    baked.IndexAdvanceX:resize(new_size, -1.0)
+    baked.IndexLookup:resize(new_size, IM_FONTGLYPH_INDEX_UNUSED)
+end
+
+--- @class ImGui_ImplStbTrueType_FontSrcData
+
+--- @return ImGui_ImplStbTrueType_FontSrcData
+--- @nodiscard
 local function ImGui_ImplStbTrueType_FontSrcData()
     return {
         FontInfo    = stbtt.fontinfo(),
@@ -401,6 +471,8 @@ end
 
 local function ImGui_ImplStbTrueType_FontSrcInit(atlas, src)
     -- IM_UNUSED(atlas)
+
+    --- @type ImGui_ImplStbTrueType_FontSrcData?
     local bd_font_data = ImGui_ImplStbTrueType_FontSrcData()
     IM_ASSERT(src.FontLoaderData == nil)
 
@@ -460,7 +532,15 @@ local function ImGui_ImplStbTrueType_FontBakedInit(atlas, src, baked)
     return true
 end
 
-local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, codepoint, out_glyph, out_advance_x) -- FIXME: out_advance_x is a size = 1 table
+--- @param atlas         ImFontAtlas
+--- @param src           ImFontConfig
+--- @param baked         ImFontBaked
+--- @param _             any
+--- @param codepoint     ImWchar
+--- @param out_glyph     ImFontGlyph
+--- @param out_advance_x float_ptr
+--- @return bool
+local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, codepoint, out_glyph, out_advance_x)
     local bd_font_data = src.FontLoaderData
     IM_ASSERT(bd_font_data ~= nil)
     local glyph_index = stbtt.FindGlyphIndex(bd_font_data.FontInfo, codepoint)
@@ -543,6 +623,96 @@ local function ImFontAtlasGetFontLoaderForStbTruetype()
     loader.FontBakedLoadGlyph   = ImGui_ImplStbTrueType_FontBakedLoadGlyph
 
     return loader
+end
+
+--- @param atlas ImFontAtlas
+--- @param baked ImFontBaked
+function ImFontAtlasBuildSetupFontBakedBlanks(atlas, baked)
+    local space_glyph = baked:FindGlyphNoFallback(chr' ')
+    if space_glyph ~= nil then
+        space_glyph.Visible = false
+    end
+
+    if baked:FindGlyphNoFallback(chr'\t') == nil and space_glyph ~= nil then
+        local tab_glyph = ImFontGlyph()
+        tab_glyph.Codepoint = chr'\t'
+        tab_glyph.AdvanceX = space_glyph.AdvanceX * IM_TABSIZE
+        ImFontAtlasBakedAddFontGlyph(atlas, baked, nil, tab_glyph)
+    end
+end
+
+--- @param atlas                   ImFontAtlas
+--- @param font                    ImFont
+--- @param font_size               float
+--- @param font_rasterizer_density float
+--- @param baked_id                ImGuiID
+--- @return ImFontBaked?
+function ImFontAtlasBakedAdd(atlas, font, font_size, font_rasterizer_density, baked_id)
+    -- IMGUI_DEBUG_LOG_FONT("[font] Created baked %.2fpx\n", font_size)
+    local baked = atlas.Builder.BakedPool:push_back(ImFontBaked())
+
+    baked.Size              = font_size
+    baked.RasterizerDensity = font_rasterizer_density
+    baked.BakedId           = baked_id
+    baked.OwnerFont         = font
+    baked.LastUsedFrame     = atlas.Builder.FrameCount
+
+    local loader_data_size = 0
+    for _, src in font.Sources:iter() do
+        local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
+        loader_data_size = loader_data_size + loader.FontBakedSrcLoaderDataSize
+    end
+    -- baked.FontLoaderDatas = (loader_data_size > 0) and IM_ALLOC(loader_data_size) or nil
+    -- local loader_data_p = baked->FontLoaderDatas
+    for _, src in font.Sources:iter() do
+        local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
+        if (loader.FontBakedInit) then
+            loader.FontBakedInit(atlas, src, baked--[[, loader_data_p--]])
+        end
+        -- loader_data_p += loader->FontBakedSrcLoaderDataSize
+    end
+
+    ImFontAtlasBuildSetupFontBakedBlanks(atlas, baked)
+    return baked
+end
+
+--- @param atlas                   ImFontAtlas
+--- @param font                    ImFont
+--- @param font_size               float
+--- @param font_rasterizer_density float
+--- @return ImFontBaked?
+function ImFontAtlasBakedGetClosestMatch(atlas, font, font_size, font_rasterizer_density)
+    local builder = atlas.Builder
+
+    for step_n = 0, 1 do
+        local closest_larger_match
+        local closest_smaller_match
+        for baked_n = 1, builder.BakedPool.Size do
+            local baked = builder.BakedPool:at(baked_n)
+            if (baked.OwnerFont ~= font or baked.WantDestroy) then
+                continue
+            end
+            if (step_n == 0 and baked.RasterizerDensity ~= font_rasterizer_density) then
+                continue
+            end
+            if (baked.Size > font_size and (closest_larger_match == nil or baked.Size < closest_larger_match.Size)) then
+                closest_larger_match = baked
+            end
+            if (baked.Size < font_size and (closest_smaller_match == nil or baked.Size > closest_smaller_match.Size)) then
+                closest_smaller_match = baked
+            end
+        end
+        if (closest_larger_match) then
+            if (closest_smaller_match == nil or (closest_larger_match.Size >= font_size * 2.0 and closest_smaller_match.Size > font_size * 0.5)) then
+                return closest_larger_match
+            end
+        end
+        if (closest_smaller_match) then
+            return closest_smaller_match
+        end
+    end
+
+    return nil
 end
 
 function ImFontAtlasBakedDiscard(atlas, font, baked)
@@ -683,6 +853,70 @@ function ImFontAtlasBuildSetupFontSpecialGlyphs(atlas, font, src)
         font.EllipsisChar = 0x0085
         font.EllipsisAutoBake = true
     end
+end
+
+--- @param atlas ImFontAtlas
+--- @param baked ImFontBaked
+--- @return ImFontGlyph?
+function ImFontAtlasBuildSetupFontBakedEllipsis(atlas, baked)
+    local font = baked.OwnerFont
+    IM_ASSERT(font.EllipsisChar ~= 0)
+
+    local dot_glyph = baked:FindGlyphNoFallback(chr'.')
+    if (dot_glyph == nil) then
+        dot_glyph = baked:FindGlyphNoFallback(0xFF0E)
+    end
+    if (dot_glyph == nil) then
+        return nil
+    end
+    local dot_r_id = dot_glyph.PackId
+    local dot_r = ImFontAtlasPackGetRect(atlas, dot_r_id)
+    local dot_spacing = 1
+    local dot_step = (dot_glyph.X1 - dot_glyph.X0) + dot_spacing
+
+    local pack_id = ImFontAtlasPackAddRect(atlas, (dot_r.w * 3 + dot_spacing * 2), dot_r.h)
+    local r = ImFontAtlasPackGetRect(atlas, pack_id)
+
+    local glyph = ImFontGlyph()
+    glyph.Codepoint = font.EllipsisChar
+    glyph.AdvanceX = ImMax(dot_glyph.AdvanceX, dot_glyph.X0 + dot_step * 3.0 - dot_spacing)
+    glyph.X0 = dot_glyph.X0
+    glyph.Y0 = dot_glyph.Y0
+    glyph.X1 = dot_glyph.X0 + dot_step * 3 - dot_spacing
+    glyph.Y1 = dot_glyph.Y1
+    glyph.Visible = true
+    glyph.PackId = pack_id
+    glyph = ImFontAtlasBakedAddFontGlyph(atlas, baked, nil, glyph)
+    dot_glyph = nil
+
+    dot_r = ImFontAtlasPackGetRect(atlas, dot_r_id)
+    local tex = atlas.TexData
+    for n = 0, 2 do
+        ImFontAtlasTextureBlockCopy(tex, dot_r.x, dot_r.y, tex, r.x + (dot_r.w + dot_spacing) * n, r.y, dot_r.w, dot_r.h)
+    end
+    ImFontAtlasTextureBlockQueueUpload(atlas, tex, r.x, r.y, r.w, r.h)
+
+    return glyph
+end
+
+--- @param baked ImFontBaked
+function ImFontAtlasBuildSetupFontBakedFallback(baked)
+    IM_ASSERT(baked.FallbackGlyphIndex == 0)
+    IM_ASSERT(baked.FallbackAdvanceX == 0.0)
+    local font = baked.OwnerFont
+    local fallback_glyph, fallback_glyph_index
+    if (font.FallbackChar ~= 0) then
+        fallback_glyph = baked:FindGlyphNoFallback(font.FallbackChar)
+    end
+    if (fallback_glyph == nil) then
+        local space_glyph = baked:FindGlyphNoFallback(chr' ')
+        local glyph = ImFontGlyph()
+        glyph.Codepoint = 0
+        glyph.AdvanceX = space_glyph and space_glyph.AdvanceX or ImRound(baked.Size * 0.40)
+        fallback_glyph, fallback_glyph_index = ImFontAtlasBakedAddFontGlyph(font.OwnerAtlas, baked, nil, glyph)
+    end
+    baked.FallbackGlyphIndex = fallback_glyph_index
+    baked.FallbackAdvanceX = fallback_glyph.AdvanceX
 end
 
 function ImFontAtlasBuildSetupFontLoader(atlas, font_loader)
@@ -850,7 +1084,7 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
         local uv0 = ImVec2((r.x + pad_left - 1), (r.y + y)) * atlas.TexUvScale
         local uv1 = ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)) * atlas.TexUvScale
         local half_v = (uv0.y + uv1.y) * 0.5
-        atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v) -- XXX: index
+        atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v) -- TODO: indexing validation
     end
 end
 
@@ -1040,26 +1274,251 @@ function MT.ImFontBaked:ClearOutputData()
     self.MetricsTotalSurface = 0
 end
 
+--- @param c ImWchar
+--- @return ImFontGlyph?
+function MT.ImFontBaked:FindGlyphNoFallback(c) -- TODO: indexing validation
+    if c < self.IndexLookup.Size then -- IM_LIKELY
+        local i = IndexLookup.Data[c + 1]
+        if i == IM_FONTGLYPH_INDEX_NOT_FOUND then
+            return nil
+        end
+        if i == IM_FONTGLYPH_INDEX_UNUSED then
+            return self.Glyphs.Data[i + 1]
+        end
+    end
+
+    self.LoadNoFallback = true
+    local glyph = ImFontBaked_BuildLoadGlyph(self, c, nil)
+    self.LoadNoFallback = false
+    return glyph
+end
+
 function MT.ImFont:ClearOutputData()
     local atlas = self.OwnerAtlas
     if atlas ~= nil then
         ImFontAtlasFontDiscardBakes(atlas, self, 0)
     end
 
+    for i = 1, (IM_UNICODE_CODEPOINT_MAX + 1) / 8192 / 8 do self.Used8kPagesMap[i] = 0 end
     self.LastBaked = nil
 end
 
+--- @param font_id            ImGuiID
+--- @param baked_size         float
+--- @param rasterizer_density float
+--- @return ImGuiID
+function ImFontAtlasBakedGetId(font_id, baked_size, rasterizer_density)
+    local hashed_data = {font_id, baked_size, rasterizer_density}
+    return ImHashData(hashed_data)
+end
+
+--- @param atlas                   ImFontAtlas
+--- @param font                    ImFont
+--- @param font_size               float
+--- @param font_rasterizer_density float
+--- @return ImFontBaked?
+function ImFontAtlasBakedGetOrAdd(atlas, font, font_size, font_rasterizer_density)
+    IM_ASSERT(font_size > 0.0 and font_rasterizer_density > 0.0)
+    local baked_id = ImFontAtlasBakedGetId(font.FontId, font_size, font_rasterizer_density)
+    local builder = atlas.Builder
+    local baked = builder.BakedMap:GetVoidPtrRef(baked_id)
+    if baked ~= nil then
+        IM_ASSERT(baked.Size == font_size and baked.OwnerFont == font and baked.BakedId == baked_id)
+
+        return baked
+    end
+
+    if (bit.band(font.Flags, ImFontFlags.LockBakedSizes) ~= 0 or atlas.Locked) then
+        baked = ImFontAtlasBakedGetClosestMatch(atlas, font, font_size, font_rasterizer_density)
+        if baked ~= nil then
+            return baked
+        end
+        if atlas.Locked then
+            IM_ASSERT(not atlas.Locked, "Cannot use dynamic font size with a locked ImFontAtlas!")
+            return nil
+        end
+    end
+
+    baked = ImFontAtlasBakedAdd(atlas, font, font_size, font_rasterizer_density, baked_id)
+    builder.BakedMap:SetVoidPtr(baked_id, baked)
+
+    return baked
+end
+
+--- @param atlas    ImFontAtlas
+--- @param baked    ImFontBaked
+--- @param src?     ImFontConfig
+--- @param in_glyph ImFontGlyph
+--- @return ImFontGlyph, int
+function ImFontAtlasBakedAddFontGlyph(atlas, baked, src, in_glyph)
+    local glyph_idx = baked.Glyphs.Size + 1
+    baked.Glyphs:push_back(in_glyph)
+    local glyph = baked.Glyphs.Data[glyph_idx]
+    IM_ASSERT(baked.Glyphs.Size < 0xFFFE)
+
+    if (glyph.PackId ~= ImFontAtlasRectId_Invalid) then
+        local r = ImFontAtlasPackGetRect(atlas, glyph.PackId)
+        IM_ASSERT(glyph.U0 == 0.0 and glyph.V0 == 0.0 and glyph.U1 == 0.0 and glyph.V1 == 0.0)
+        glyph.U0 = (r.x) * atlas.TexUvScale.x
+        glyph.V0 = (r.y) * atlas.TexUvScale.y
+        glyph.U1 = (r.x + r.w) * atlas.TexUvScale.x
+        glyph.V1 = (r.y + r.h) * atlas.TexUvScale.y
+        baked.MetricsTotalSurface = baked.MetricsTotalSurface + r.w * r.h
+    end
+
+    if (src ~= nil) then
+        local ref_size = baked.OwnerFont.Sources:at(1).SizePixels
+        local offsets_scale = (ref_size ~= 0.0) and (baked.Size / ref_size) or 1.0
+        local advance_x = ImClamp(glyph.AdvanceX, src.GlyphMinAdvanceX * offsets_scale, src.GlyphMaxAdvanceX * offsets_scale)
+        if (advance_x ~= glyph.AdvanceX) then
+            local char_off_x = src.PixelSnapH and ImTrunc((advance_x - glyph.AdvanceX) * 0.5) or (advance_x - glyph.AdvanceX) * 0.5
+            glyph.X0 = glyph.X0 + char_off_x
+            glyph.X1 = glyph.X1 + char_off_x
+        end
+
+        if (src.PixelSnapH) then
+            advance_x = ImRound(advance_x)
+        end
+
+        glyph.AdvanceX = advance_x + src.GlyphExtraAdvanceX
+    end
+    if (glyph.Colored) then
+        atlas.TexData.UseColors  = true
+        atlas.TexPixelsUseColors = true
+    end
+
+    local codepoint = glyph.Codepoint
+    ImFontBaked_BuildGrowIndex(baked, codepoint + 1)
+    baked.IndexAdvanceX[codepoint + 1] = glyph.AdvanceX -- TODO: indexing validation
+    baked.IndexLookup[codepoint + 1] = glyph_idx -- (ImU16)
+    local page_n = codepoint / 8192
+    baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1] = bit.bor(baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1], bit.lshift(1, bit.band(page_n, 7))) -- TODO: indexing validation
+
+    return glyph, glyph_idx
+end
+
+--- @param size    float
+--- @param density float?
+--- @return ImFontBaked?
+function MT.ImFont:GetFontBaked(size, density)
+    if not density then density = -1.0 end
+
+    --- @type ImFontBaked?
+    local baked = self.LastBaked
+
+    size = ImGui.GetRoundedFontSize(size)
+
+    if density < 0.0 then
+        density = self.CurrentRasterizerDensity
+    end
+    if baked and baked.Size == size and baked.RasterizerDensity == density then
+        return baked
+    end
+
+    local atlas = self.OwnerAtlas
+    local builder = atlas.Builder
+    baked = ImFontAtlasBakedGetOrAdd(atlas, self, size, density)
+    if baked == nil then
+        return nil
+    end
+    baked.LastUsedFrame = builder.FrameCount
+    self.LastBaked = baked
+
+    return baked
+end
+
 --- @param atlas ImFontAtlas
---- @param font ImFont
---- @param c ImWchar
+--- @param font  ImFont
+--- @param c     ImWchar
 --- @return ImWchar
-local function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
+--- @nodiscard
+function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
     -- IM_UNUSED(atlas)
     if font.RemapPairs.Data.Size ~= 0 then
         return font.RemapPairs:GetInt(c, c)
     end
 
     return c
+end
+
+--- @param baked                ImFontBaked
+--- @param codepoint            ImWchar
+--- @param only_load_advance_x? float_ptr
+--- @return ImFontGlyph?, int?
+function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
+    local font = baked.OwnerFont
+    local atlas = font.OwnerAtlas
+    if atlas.Locked or bit.band(font.Flags, ImFontFlags.NoLoadGlyphs) ~= 0 then
+        if baked.FallbackGlyphIndex == 0 and baked.LoadNoFallback == false then
+            ImFontAtlasBuildSetupFontBakedFallback(baked)
+        end
+
+        return nil
+    end
+
+    local src_codepoint = codepoint
+    codepoint = ImFontAtlas_FontHookRemapCodepoint(atlas, font, codepoint)
+
+    if (codepoint == font.EllipsisChar and font.EllipsisAutoBake) then
+        local glyph = ImFontAtlasBuildSetupFontBakedEllipsis(atlas, baked)
+        if (glyph) then
+            return glyph
+        end
+    end
+
+    -- local loader_user_data_p = baked.FontLoaderDatas
+    local src_n = 1
+    for _, src in font.Sources:iter() do
+        local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
+
+        if (not src.GlyphExcludeRanges or ImFontAtlasBuildAcceptCodepointForSource(src, codepoint)) then
+            if only_load_advance_x == nil then
+                local glyph_buf
+                if loader.FontBakedLoadGlyph(atlas, src, baked, loader_user_data_p, codepoint, glyph_buf, nil) then
+                    glyph_buf.Codepoint = src_codepoint
+                    glyph_buf.SourceIdx = src_n
+                    return ImFontAtlasBakedAddFontGlyph(atlas, baked, src, glyph_buf)
+                end
+            else
+                if (loader.FontBakedLoadGlyph(atlas, src, baked, loader_user_data_p, codepoint, nil, only_load_advance_x)) then
+                    ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, only_load_advance_x)
+
+                    return nil
+                end
+            end
+        end
+
+        -- loader_user_data_p = loader_user_data_p + loader.FontBakedSrcLoaderDataSize
+        src_n = src_n + 1
+    end
+
+    if (baked.LoadNoFallback) then
+        return nil
+    end
+    if (baked.FallbackGlyphIndex == 0) then
+        ImFontAtlasBuildSetupFontBakedFallback(baked)
+    end
+
+    ImFontBaked_BuildGrowIndex(baked, codepoint + 1);
+    baked.IndexAdvanceX.Data[codepoint + 1] = baked.FallbackAdvanceX -- TODO: indexing validation
+    baked.IndexLookup.Data[codepoint + 1] = IM_FONTGLYPH_INDEX_NOT_FOUND
+
+    return nil
+end
+
+--- @param baked ImFontBaked
+--- @param codepoint ImWchar
+--- @return float
+function ImFontBaked_BuildLoadGlyphAdvanceX(baked, codepoint)
+    if (baked.Size >= IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE) or baked.LoadNoRenderOnLayout then
+        --- @type float_ptr
+        local only_advance_x = {0.0}
+        local glyph = ImFontBaked_BuildLoadGlyph(baked, codepoint, only_advance_x)
+        return glyph and glyph.AdvanceX or only_advance_x[1]
+    else
+        local glyph = ImFontBaked_BuildLoadGlyph(baked, codepoint, nil)
+        return glyph and glyph.AdvanceX or baked.FallbackAdvanceX
+    end
 end
 
 --- @param c ImWchar
@@ -1075,6 +1534,302 @@ function MT.ImFont:IsGlyphInFont(c)
     end
 
     return false
+end
+
+function BuildLoadGlyphGetAdvanceOrFallback(baked, codepoint)
+    return ImFontBaked_BuildLoadGlyphAdvanceX(baked, codepoint)
+end
+
+--- @param text       string
+--- @param text_begin int
+--- @param text_end   int
+--- @param flags      ImDrawTextFlags
+--- @return int
+function ImTextCalcWordWrapNextLineStart(text, text_begin, text_end, flags)
+    local pos = text_begin
+
+    if bit.band(flags, ImDrawTextFlags.WrapKeepBlanks) == 0 then
+        while pos < text_end and ImCharIsBlankA(string.byte(text, pos)) do
+            pos = pos + 1
+        end
+    end
+
+    if pos < text_end and string.byte(text, pos) == chr'\n' then
+        pos = pos + 1
+    end
+
+    return pos
+end
+
+--- @param bits          ImU32[]
+--- @param codepoint_min unsigned_int
+--- @param codepoint_end unsigned_int
+--- @param char_class    ImWcharClass
+function ImTextClassifierClear(bits, codepoint_min, codepoint_end, char_class)
+    for c = codepoint_min, codepoint_end - 1 do
+        ImTextClassifierSetCharClass(bits, codepoint_min, codepoint_end, char_class, c)
+    end
+end
+
+--- @param bits          ImU32[]
+--- @param codepoint_min unsigned_int
+--- @param codepoint_end unsigned_int
+--- @param char_class    ImWcharClass
+--- @param c             unsigned_int
+function ImTextClassifierSetCharClass(bits, codepoint_min, codepoint_end, char_class, c)
+    IM_ASSERT(c >= codepoint_min and c < codepoint_end)
+    -- IM_UNUSED(codepoint_end)
+    c = c - codepoint_min
+    local shift = bit.lshift(bit.band(c, 15), 1)
+    bits[bit.rshift(c, 4) + 1] = bit.bor(bit.band(bits[bit.rshift(c, 4) + 1], bit.bnot(bit.lshift(0x03, shift))), bit.lshift(char_class, shift))
+end
+
+function ImTextClassifierSetCharClassFromStr(bits, codepoint_min, codepoint_end, char_class, s)
+    local s_end = #s + 1
+    local pos = 1
+    while (pos < s_end) do
+        local wanted, c = ImTextCharFromUtf8(s, pos, s_end)
+        pos = pos + wanted
+        ImTextClassifierSetCharClass(bits, codepoint_min, codepoint_end, char_class, c)
+    end
+end
+
+function ImTextClassifierGet(_BITS, _CHAR_OFFSET)
+    return bit.band(bit.rshift(_BITS[bit.rshift(_CHAR_OFFSET, 4) + 1], bit.lshift(bit.band(_CHAR_OFFSET, 15), 1)), 0x03)
+end
+
+local g_CharClassifierIsSeparator_0000_007f = {} for i = 1, 128 / 16 do g_CharClassifierIsSeparator_0000_007f[i] = 0 end
+local g_CharClassifierIsSeparator_3000_300f = {} for i = 1, 16 / 16 do g_CharClassifierIsSeparator_3000_300f[i] = 0 end
+
+function ImTextInitClassifiers()
+    if (ImTextClassifierGet(g_CharClassifierIsSeparator_0000_007f, chr',') ~= 0) then
+        return
+    end
+
+    ImTextClassifierClear(g_CharClassifierIsSeparator_0000_007f, 0, 128, ImWcharClass.Other)
+    ImTextClassifierSetCharClassFromStr(g_CharClassifierIsSeparator_0000_007f, 0, 128, ImWcharClass.Blank, " \t")
+    ImTextClassifierSetCharClassFromStr(g_CharClassifierIsSeparator_0000_007f, 0, 128, ImWcharClass.Punct, ".,;!?\"")
+
+    ImTextClassifierClear(g_CharClassifierIsSeparator_3000_300f, 0x3000, 0x300F, ImWcharClass.Other)
+    ImTextClassifierSetCharClass(g_CharClassifierIsSeparator_3000_300f, 0x3000, 0x300F, ImWcharClass.Blank, 0x3000)
+    ImTextClassifierSetCharClass(g_CharClassifierIsSeparator_3000_300f, 0x3000, 0x300F, ImWcharClass.Punct, 0x3001)
+    ImTextClassifierSetCharClass(g_CharClassifierIsSeparator_3000_300f, 0x3000, 0x300F, ImWcharClass.Punct, 0x3002)
+end
+
+--- @param font       ImFont
+--- @param size       float
+--- @param text       string
+--- @param pos        int
+--- @param text_end   int
+--- @param wrap_width float
+--- @param flags      ImDrawTextFlags
+--- @return int
+function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_width, flags)
+    local baked = font:GetFontBaked(size)
+    local scale = size / baked.Size
+
+    local line_width = 0.0
+    local blank_width = 0.0
+    wrap_width = wrap_width / scale
+
+    local s = pos
+    IM_ASSERT(text_end ~= nil)
+
+    local prev_type = ImWcharClass.Other
+    local keep_blanks = bit.band(flags, ImDrawTextFlags.WrapKeepBlanks) ~= 0
+
+    local span_end = s
+    local span_width = 0.0
+
+    while s < text_end do
+        --- @type unsigned_int
+        local c = string.byte(text, s)
+        local next_s
+        if c < 0x80 then
+            next_s = s + 1
+        else
+            local wanted, out_char = ImTextCharFromUtf8(text, s, text_end)
+            c = out_char
+            next_s = s + wanted
+        end
+
+        if c < 32 then
+            if c == chr'\n' then
+                return s
+            end
+            if c == chr'\r' then
+                s = next_s
+
+                continue
+            end
+        end
+
+        local char_width = (c < baked.IndexAdvanceX.Size) and baked.IndexAdvanceX.Data[c + 1] or -1.0 -- TODO: indexing validation
+        if char_width < 0.0 then
+            char_width = BuildLoadGlyphGetAdvanceOrFallback(baked, c)
+        end
+
+        local curr_type
+        if c < 128 then
+            curr_type = ImTextClassifierGet(g_CharClassifierIsSeparator_0000_007f, c)
+        elseif (c >= 0x3000 and c < 0x3010) then
+            curr_type = ImTextClassifierGet(g_CharClassifierIsSeparator_3000_300f, bit.band(c, 15))
+        else
+            curr_type = ImWcharClass.Other
+        end
+
+        if curr_type == ImWcharClass.Blank then
+            if (prev_type ~= ImWcharClass.Blank and not keep_blanks) then
+                span_end = s
+                line_width = line_width + span_width
+                span_width = 0.0
+            end
+
+            blank_width = blank_width + char_width
+        else
+            if (prev_type == ImWcharClass.Punct and curr_type ~= ImWcharClass.Punct and not (c >= chr'0' and c <= chr'9')) then
+                span_end = s
+                line_width = line_width + (span_width + blank_width)
+                blank_width = 0.0
+                span_width = 0.0
+            elseif (prev_type == ImWcharClass.Blank and keep_blanks) then
+                span_end = s
+                line_width = line_width + (span_width + blank_width)
+                blank_width = 0.0
+                span_width = 0.0
+            end
+
+            span_width = span_width + char_width
+        end
+
+        if (span_width + blank_width + line_width > wrap_width) then
+            if span_width + blank_width > wrap_width then
+                break
+            end
+
+            return span_end
+        end
+
+        prev_type = curr_type
+        s = next_s
+    end
+
+    if s == pos and s < text_end then
+        local bytes = ImTextCountUtf8BytesFromChar(text, s, text_end)
+
+        return s + bytes
+    end
+
+    return s
+end
+
+--- @param font             ImFont
+--- @param size             float
+--- @param max_width        float
+--- @param wrap_width       float
+--- @param text             string
+--- @param text_begin       int
+--- @param text_end_display int?
+--- @param text_end         int?
+--- @param flags            ImDrawTextFlags
+--- @return ImVec2, int, ImVec2
+function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begin, text_end_display, text_end, flags)
+    if not text_end then
+        text_end = #text + 1
+    end
+    if not text_end_display then
+        text_end_display = text_end
+    end
+
+    local baked = font:GetFontBaked(size)
+    local line_height = size
+    local scale = line_height / baked.Size
+
+    local text_size = ImVec2()
+    local line_width = 0.0
+
+    local word_wrap_enabled = (wrap_width > 0.0)
+    local word_wrap_eol
+
+    local s = text_begin
+    while s < text_end_display do
+        if word_wrap_enabled then
+            if not word_wrap_eol then
+                word_wrap_eol = ImFontCalcWordWrapPositionEx(font, size, text, s, text_end, wrap_width - line_width, flags)
+            end
+
+            if s >= word_wrap_eol then
+                if text_size.x < line_width then
+                    text_size.x = line_width
+                end
+                text_size.y = text_size.y + line_height
+                line_width = 0.0
+                s = ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
+                if bit.band(flags, ImDrawTextFlags_StopOnNewLine) ~= 0 then
+                    break
+                end
+                word_wrap_eol = nil
+
+                continue
+            end
+        end
+
+        local prev_s = s
+        local c = string.byte(text, s)
+        if c < 0x80 then
+            s = s + 1
+        else
+            local wanted, out_char = ImTextCharFromUtf8(text, s, text_end)
+            c = out_char
+            s = s + wanted
+        end
+
+        if c == chr'\n' then
+            text_size.x = ImMax(text_size.x, line_width)
+            text_size.y = text_size.y + line_height
+            line_width = 0.0
+            if bit.band(flags, ImDrawTextFlags.StopOnNewLine) ~= 0 then
+                break
+            end
+
+            continue
+        end
+
+        if c == '\r' then
+            continue
+        end
+
+        local char_width = (c < baked.IndexAdvanceX.Size) and baked.IndexAdvanceX.Data[c + 1] or -1.0 -- TODO: indexing validation
+        if (char_width < 0.0) then
+            char_width = BuildLoadGlyphGetAdvanceOrFallback(baked, c)
+        end
+        char_width = char_width * scale
+
+        if (line_width + char_width >= max_width) then
+            s = prev_s
+            break
+        end
+
+        line_width = line_width + char_width
+    end
+
+    if (text_size.x < line_width) then
+        text_size.x = line_width
+    end
+
+    local out_offset = ImVec2(line_width, text_size.y + line_height)
+
+    if (line_width > 0 or text_size.y == 0.0) then
+        text_size.y = text_size.y + line_height
+    end
+
+    local out_remaining = s
+
+    return text_size, out_remaining, out_offset
+end
+
+function MT.ImFont:CalcTextSizeA(size, max_width, wrap_width, text, text_begin, text_end)
+    return ImFontCalcTextSizeEx(self, size, max_width, wrap_width, text, text_begin, text_end, text_end, ImDrawTextFlags.None)
 end
 
 function MT.ImFontAtlas:AddFont(font_cfg_in)
@@ -1116,7 +1871,8 @@ function MT.ImFontAtlas:AddFont(font_cfg_in)
     ImFontAtlasBuildUpdatePointers(self)
 
     if font_cfg.GlyphExcludeRanges ~= nil then
-        local size = #font_cfg.GlyphExcludeRanges
+        local size = 0
+        for _, v in ipairs(font_cfg.GlyphExcludeRanges) do if v == 0 then break end size = size + 1 end
         IM_ASSERT(bit.band(size, 1) == 0, "GlyphExcludeRanges[] size must be multiple of two!")
         IM_ASSERT(size <= 64, "GlyphExcludeRanges[] size must be small!")
     end
@@ -1389,6 +2145,10 @@ function MT.ImDrawList:_PopUnusedDrawCmd()
 
         self.CmdBuffer:pop_back()
     end
+end
+
+function MT.ImDrawList:_OnChangedTexture()
+    -- TODO: 
 end
 
 function MT.ImDrawList:_OnChangedVtxOffset()
@@ -1923,7 +2683,7 @@ function MT.ImDrawList:PathRect(a, b, rounding, flags)
 end
 
 function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
-    if col.a == 0 then return end -- TODO: pack color?
+    if col.w == 0 then return end -- TODO: pack color?
 
     if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask) == ImDrawFlags_RoundCornersNone) then
         self:PrimReserve(6, 4)
@@ -1935,7 +2695,7 @@ function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
 end
 
 function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
-    if col.a == 0 then return end
+    if col.w == 0 then return end
     if bit.band(self.Flags, ImDrawListFlags_AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
     else
@@ -1946,7 +2706,7 @@ function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
 end
 
 function MT.ImDrawList:AddLine(p1, p2, col, thickness)
-    if col.a == 0 then return end
+    if col.w == 0 then return end
 
     self:PathLineTo(p1 + ImVec2(0.5, 0.5))
     self:PathLineTo(p2 + ImVec2(0.5, 0.5))
@@ -1954,7 +2714,7 @@ function MT.ImDrawList:AddLine(p1, p2, col, thickness)
 end
 
 function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
-    if col.a == 0 then return end
+    if col.w == 0 then return end
 
     self:PathLineTo(p1)
     self:PathLineTo(p2)
@@ -1962,8 +2722,29 @@ function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
     self:PathFillConvex(col)
 end
 
-function MT.ImDrawList:AddText(text, font, pos, color)
-    -- TODO: 
+function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text_end, wrap_width, cpu_fine_clip_rect)
+    if col.w == 0 then return end
+
+    if text_begin == text_end then
+        return
+    end
+
+    if font == nil then
+        font = self._Data.Font
+    end
+    if font_size == 0.0 then
+        font_size = self._Data.FontSize
+    end
+
+    local clip_rect = self._CmdHeader.ClipRect
+    if (cpu_fine_clip_rect) then
+        clip_rect.x = ImMax(clip_rect.x, cpu_fine_clip_rect.x)
+        clip_rect.y = ImMax(clip_rect.y, cpu_fine_clip_rect.y)
+        clip_rect.z = ImMin(clip_rect.z, cpu_fine_clip_rect.z)
+        clip_rect.w = ImMin(clip_rect.w, cpu_fine_clip_rect.w)
+    end
+
+    font:RenderText(self, font_size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, (cpu_fine_clip_rect ~= nil) and ImDrawTextFlags.CpuFineClip or ImDrawTextFlags.None)
 end
 
 function MT.ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
@@ -1972,7 +2753,7 @@ function MT.ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
     local need_clipping = text_width > w or text_height > h
 
     -- TODO: clipping
-    self:AddText(text, font, pos, color)
+    -- self:AddText(text, font, pos, color)
 end
 
 function MT.ImDrawList:_CalcCircleAutoSegmentCount(radius)
@@ -2003,6 +2784,15 @@ function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_
     self._ClipRectStack:push_back(cr)
     self._CmdHeader.ClipRect = cr
     -- _OnChangedClipRect()
+end
+
+function MT.ImDrawList:_SetTexture(tex_ref)
+    if (self._CmdHeader.TexRef == tex_ref) then
+        return
+    end
+    self._CmdHeader.TexRef = tex_ref
+    self._TextureStack.Data[self._TextureStack.Size] = tex_ref
+    self:_OnChangedTexture()
 end
 
 --- void ImDrawList::_PathArcToFastEx
@@ -2162,6 +2952,10 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
 
         self:_PathArcToN(center, radius, a_min, a_max, arc_segment_count)
     end
+end
+
+function MT.ImFont:RenderText()
+    -- TODO: 
 end
 
 --- @param draw_list ImDrawList

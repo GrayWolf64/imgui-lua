@@ -96,6 +96,26 @@ function MT.ImGuiStorage:GetInt(key, default_val)
     return self.Data.Data[it].val
 end
 
+--- @param key ImGuiID
+--- @param default_val int
+function MT.ImGuiStorage:GetVoidPtrRef(key, default_val)
+    local it = self:ImLowerBound(1, self.Data.Size, key)
+    if it > self.Data.Size or self.Data.Data[it].key ~= key then
+        self.Data:insert(it, ImGuiStoragePair(key, default_val))
+    end
+
+    return self.Data.Data[it].val
+end
+
+function MT.ImGuiStorage:SetVoidPtr(key, val)
+    local it = self:ImLowerBound(1, self.Data.Size, key)
+    if it > self.Data.Size or self.Data.Data[it].key ~= key then
+        self.Data:insert(it, ImGuiStoragePair(key, val))
+    else
+        self.Data.Data[it].val = val
+    end
+end
+
 #IMGUI_INCLUDE "imgui_internal.lua"
 
 local ImResizeGripDef = {
@@ -103,12 +123,40 @@ local ImResizeGripDef = {
     {CornerPos = ImVec2(0, 1), InnerDir = ImVec2( 1, -1), AngleMin12 = 3, AngleMax12 = 6} -- Bottom left
 }
 
---- Use FNV1a, as one ImGui FIXME suggested
-local function ImHashStr(str)
+--- @param data table
+--- @param seed int?
+--- @return int
+function ImHashData(data, seed)
+    seed = seed or 0
+
     local FNV_OFFSET_BASIS = 0x811C9DC5
     local FNV_PRIME = 0x01000193
 
-    local hash = FNV_OFFSET_BASIS
+    local hash = bit.bxor(FNV_OFFSET_BASIS, seed)
+
+    local _data
+    for i = 1, #data do
+        _data = data[i]
+        hash = bit.bxor(hash, _data)
+        hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
+    end
+
+    assert(hash ~= 0, "ImHashData = 0!")
+
+    return hash
+end
+
+-- Use FNV1a, as one ImGui FIXME suggested
+--- @param str string
+--- @param seed int?
+--- @return int
+function ImHashStr(str, seed)
+    seed = seed or 0
+
+    local FNV_OFFSET_BASIS = 0x811C9DC5
+    local FNV_PRIME = 0x01000193
+
+    local hash = bit.bxor(FNV_OFFSET_BASIS, seed)
 
     local byte
     for i = 1, #str do
@@ -117,9 +165,67 @@ local function ImHashStr(str)
         hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
     end
 
-    assert(hash ~= 0, "ImHash = 0!")
+    assert(hash ~= 0, "ImHashStr = 0!")
 
     return hash
+end
+
+--- @param in_text     string
+--- @param pos         int
+--- @param in_text_end int
+--- @return int, int
+function ImTextCharFromUtf8(in_text, pos, in_text_end)
+    local lengths = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 4, 0}
+    local masks   = {0x00, 0x7f, 0x1f, 0x0f, 0x07}
+    local mins    = {0x400000, 0, 0x80, 0x800, 0x10000}
+    local shiftc  = {0, 18, 12, 6, 0}
+    local shifte  = {0, 6, 4, 2, 0}
+
+    local len = lengths[bit.rshift(string.byte(in_text, pos), 3) + 1]
+    local wanted = len > 0 and len or 1
+
+    if in_text_end == nil then
+        in_text_end = pos + wanted
+    end
+
+    local s = {0, 0, 0, 0}
+    s[1] = (pos     < in_text_end) and string.byte(in_text, pos)     or 0
+    s[2] = (pos + 1 < in_text_end) and string.byte(in_text, pos + 1) or 0
+    s[3] = (pos + 2 < in_text_end) and string.byte(in_text, pos + 2) or 0
+    s[4] = (pos + 3 < in_text_end) and string.byte(in_text, pos + 3) or 0
+
+    local out_char
+    out_char = bit.lshift(bit.band(s[1], masks[len + 1]), 18)
+    out_char = bit.bor(out_char, bit.lshift(bit.band(s[2], 0x3f), 12))
+    out_char = bit.bor(out_char, bit.lshift(bit.band(s[3], 0x3f),  6))
+    out_char = bit.bor(out_char, bit.lshift(bit.band(s[4], 0x3f),  0))
+    out_char = bit.rshift(out_char, shiftc[len + 1])
+
+    local e = 0
+    e = bit.lshift((out_char < mins[len + 1]) and 1 or 0, 6)
+    e = bit.bor(e, bit.lshift((bit.rshift(out_char, 11) == 0x1b) and 1 or 0, 7))
+    e = bit.bor(e, bit.lshift((out_char > IM_UNICODE_CODEPOINT_MAX) and 1 or 0, 8))
+    e = bit.bor(e, bit.rshift(bit.band(s[2], 0xc0), 2))
+    e = bit.bor(e, bit.rshift(bit.band(s[3], 0xc0), 4))
+    e = bit.bor(e, bit.rshift(s[4]                , 6))
+    e = bit.bxor(e, 0x2a)
+    e = bit.rshift(e, shifte[len + 1])
+
+    if e ~= 0 then
+        wanted = ImMin(wanted, (s[1] ~= 0 and 1 or 0) + (s[2] ~= 0 and 1 or 0) + (s[3] ~= 0 and 1 or 0) + (s[4] ~= 0 and 1 or 0))
+        out_char = IM_UNICODE_CODEPOINT_INVALID
+    end
+
+    return wanted, out_char
+end
+
+--- @param in_text     string
+--- @param pos         int
+--- @param in_text_end int
+--- @return int
+function ImTextCountUtf8BytesFromChar(in_text, pos, in_text_end)
+    local bytes, unused = ImTextCharFromUtf8(in_text, pos, in_text_end)
+    return bytes
 end
 
 #IMGUI_INCLUDE "imgui_draw.lua"
@@ -127,40 +233,55 @@ end
 --- void ImGui::UpdateCurrentFontSize
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     local g = GImGui
+    local window = g.CurrentWindow
 
-    local final_size
-    if restore_font_size_after_scaling > 0 then
-        final_size = restore_font_size_after_scaling
-    else
-        final_size = 0
-    end
+    g.Style.FontSizeBase = g.FontSizeBase
 
-    if final_size == 0 then
+    -- if (window ~= nil and window.SkipItems) then
+    --     local table = g.CurrentTable
+    --     if (table == nil or (table.CurrentColumn ~= -1 and table.Columns[table.CurrentColumn].IsSkipItems == false)) then
+    --         return
+    --     end
+    -- end
+
+    local final_size = (restore_font_size_after_scaling > 0.0) and restore_font_size_after_scaling or 0.0
+    if final_size == 0.0 then
         final_size = g.FontSizeBase
 
         final_size = final_size * g.Style.FontScaleMain
+        final_size = final_size * g.Style.FontScaleDpi
     end
 
-    final_size = ImRound(final_size)
-    final_size = ImClamp(final_size, 4, IMGUI_FONT_SIZE_MAX)
-
+    final_size = ImGui.GetRoundedFontSize(final_size)
+    final_size = ImClamp(final_size, 4.0, IMGUI_FONT_SIZE_MAX)
+    if (g.Font ~= nil and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) ~= 0) then
+        g.Font.CurrentRasterizerDensity = g.FontRasterizerDensity
+    end
     g.FontSize = final_size
-
-    --local font_data_new = FontCopy(ImFontAtlas.Fonts[g.Font])
-
-    --font_data_new.size = final_size
-
-    --local font_new = ImFontAtlas:AddFont(font_data_new)
-    -- TODO: 
+    g.FontBaked = (g.Font ~= nil and window ~= nil) and g.Font:GetFontBaked(final_size) or nil
+    g.FontBakedScale = (g.Font ~= nil and window ~= nil) and (g.FontSize / g.FontBaked.Size) or 0.0
+    g.DrawListSharedData.FontSize = g.FontSize
+    g.DrawListSharedData.FontScale = g.FontBakedScale
 end
 
 --- void ImGui::SetCurrentFont
-local function SetCurrentFont(font_name, font_size_before_scaling, font_size_after_scaling)
+local function SetCurrentFont(font, font_size_before_scaling, font_size_after_scaling)
     local g = GImGui
 
-    g.Font = font_name
+    g.Font = font
     g.FontSizeBase = font_size_before_scaling
-    ImGui.UpdateCurrentFontSize(font_size_after_scaling) -- TODO: investigate
+    ImGui.UpdateCurrentFontSize(font_size_after_scaling)
+
+    if font ~= nil then
+        IM_ASSERT(font and font:IsLoaded())
+        local atlas = font.OwnerAtlas
+        g.DrawListSharedData.FontAtlas = atlas
+        g.DrawListSharedData.Font = font
+        ImFontAtlasUpdateDrawListsSharedData(atlas)
+        if (g.CurrentWindow ~= nil) then
+            g.CurrentWindow.DrawList:_SetTexture(atlas.TexRef)
+        end
+    end
 end
 
 function ImGui.PushFont(font, font_size_base) -- FIXME: checks not implemented?
@@ -731,6 +852,73 @@ function ImGui.CalcWrapWidthForPos(pos, wrap_pos_x)
     -- end
 end
 
+--- @param text string
+--- @param text_end int?
+function ImGui.FindRenderedTextEnd(text, text_end)
+    local text_display_end = 1
+    if not text_end then
+        text_end = #text + 1
+    end
+    while (text_display_end < text_end and text_display_end <= #text and (string.sub(text, text_display_end, text_display_end) ~= "#" or string.sub(text, text_display_end + 1, text_display_end + 1) ~= "#")) do
+        text_display_end = text_display_end + 1
+    end
+
+    return text_display_end
+end
+
+--- @param draw_list          ImDrawList
+--- @param pos_min            ImVec2
+--- @param pos_max            ImVec2
+--- @param text               string
+--- @param text_display_end   int
+--- @param text_size_if_known ImVec2
+--- @param align              ImVec2
+--- @param clip_rect          ImRect
+local function RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
+    local pos = pos_min
+    local text_size = text_size_if_known and text_size_if_known or ImGui.CalcTextSize(text, text_display_end, false, 0.0)
+
+    local clip_min = clip_rect and clip_rect.Min or pos_min
+    local clip_max = clip_rect and clip_rect.Max or pos_max
+    local need_clipping = (pos.x + text_size.x >= clip_max.x) or (pos.y + text_size.y >= clip_max.y)
+    if (clip_rect) then
+        need_clipping = need_clipping or ((pos.x < clip_min.x) or (pos.y < clip_min.y))
+    end
+
+    if (align.x > 0.0) then pos.x = ImMax(pos.x, pos.x + (pos_max.x - pos.x - text_size.x) * align.x) end
+    if (align.y > 0.0) then pos.y = ImMax(pos.y, pos.y + (pos_max.y - pos.y - text_size.y) * align.y) end
+
+    local g = GImGui
+    if (need_clipping) then -- TODO: GetColorU32(ImGuiCol_Text)
+        local fine_clip_rect = ImVec4(clip_min.x, clip_min.y, clip_max.x, clip_max.y)
+        draw_list:AddText(nil, 0.0, pos, g.Style.Colors.Text, text, text_begin, text_display_end, 0.0, fine_clip_rect)
+    else
+        draw_list:AddText(nil, 0.0, pos, g.Style.Colors.Text, text, text_begin, text_display_end, 0.0, nil)
+    end
+end
+
+--- @param pos_min            ImVec2
+--- @param pos_max            ImVec2
+--- @param text               string
+--- @param text_end?          int
+--- @param text_size_if_known ImVec2
+--- @param align              ImVec2
+--- @param clip_rect          ImRect
+function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, text_size_if_known, align, clip_rect)
+    local text_display_end = ImGui.FindRenderedTextEnd(text, text_end)
+    local text_len = text_display_end - 1 -- TODO: need text_begin?
+
+    if text_len == 0 then
+        return
+    end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+    RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
+    -- if (g.LogEnabled)
+    --     LogRenderedText(&pos_min, text, text_display_end);
+end
+
 --- ImGui::RenderMouseCursor
 
 --- ImGui::RenderFrame
@@ -790,37 +978,79 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 end
 
 --- ImGui::RenderWindowTitleBarContents
-local function RenderWindowTitleBarContents(window, p_open)
+local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
     local g = GImGui
+    local style = g.Style
+    local flags = window.Flags
+
+    local has_close_button = (p_open ~= nil)
+    local has_collapse_button = bit.band(flags, ImGuiWindowFlags_NoCollapse) == 0 and (style.WindowMenuButtonPosition ~= ImGuiDir.None)
+
+    local item_flags_backup = g.CurrentItemFlags
+    g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags_NoNavDefaultFocus)
+    window.DC.NavLayerCurrent = ImGuiNavLayer.Menu
 
     local pad_l = g.Style.FramePadding.x
     local pad_r = g.Style.FramePadding.x
-    local button_size = g.FontSize
-
-    local collapse_button_size = button_size -- TODO: impl has_close_button and etc. based
-    local collapse_button_pos = ImVec2(window.Pos.x + pad_l, window.Pos.y + g.Style.FramePadding.y)
-
-    local close_button_size = button_size
-    local close_button_pos = ImVec2(window.Pos.x + window.Size.x - button_size - pad_r, window.Pos.y + g.Style.FramePadding.y)
-
-    if ImGui.CollapseButton(GetID("#COLLAPSE"), collapse_button_pos) then
-        window.Collapsed = not window.Collapsed
+    local button_sz = g.FontSize
+    local close_button_pos
+    local collapse_button_pos
+    if has_close_button then
+        close_button_pos = ImVec2(title_bar_rect.Max.x - pad_r - button_sz, title_bar_rect.Min.y + style.FramePadding.y)
+        pad_r = pad_r + button_sz + style.ItemInnerSpacing.x
+    end
+    if has_collapse_button and style.WindowMenuButtonPosition == ImGuiDir.Right then
+        collapse_button_pos = ImVec2(title_bar_rect.Max.x - pad_r - button_sz, title_bar_rect.Min.y + style.FramePadding.y)
+        pad_r = pad_r + button_sz + style.ItemInnerSpacing.x
+    end
+    if has_collapse_button and style.WindowMenuButtonPosition == ImGuiDir.Left then
+        collapse_button_pos = ImVec2(title_bar_rect.Min.x + pad_l, title_bar_rect.Min.y + style.FramePadding.y)
+        pad_l = pad_l + button_sz + style.ItemInnerSpacing.x
     end
 
-    if ImGui.CloseButton(GetID("#CLOSE"), close_button_pos) then
-        p_open[1] = false
-        window.Hidden = true -- TODO: temporary hidden set
+    if has_collapse_button then
+        if ImGui.CollapseButton(GetID("#COLLAPSE"), collapse_button_pos) then
+            window.Collapsed = not window.Collapsed
+        end
     end
 
-    -- FIXME:
-    -- Title text
-    -- surface.SetFont(g.Font) -- TODO: layouting
-    -- local _, text_h = surface.GetTextSize(window.Name)
-    -- local text_clip_width = window.Size.x - window.TitleBarHeight - close_button_size - collapse_button_size
-    -- window.DrawList:RenderTextClipped(window.Name, g.Font,
-    --     ImVec2(window.Pos.x + window.TitleBarHeight, window.Pos.y + (window.TitleBarHeight - text_h) / 1.3),
-    --     g.Style.Colors.Text,
-    --     text_clip_width, window.Size.y)
+    if has_close_button then
+        local backup_item_flags = g.CurrentItemFlags
+        g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags_NoFocus)
+        if ImGui.CloseButton(GetID("#CLOSE"), close_button_pos) then
+            p_open[1] = false
+            window.Hidden = true -- TODO: temporary hidden set
+        end
+        g.CurrentItemFlags = backup_item_flags
+    end
+
+    window.DC.NavLayerCurrent = ImGuiNavLayer.Main
+    g.CurrentItemFlags = item_flags_backup
+
+    local marker_size_x = (bit.band(flags, ImGuiWindowFlags_UnsavedDocument) ~= 0) and (button_sz * 0.80) or 0.0
+    local text_size = ImGui.CalcTextSize(name, nil, true) + ImVec2(marker_size_x, 0.0)
+
+    if (pad_l > style.FramePadding.x) then
+        pad_l = pad_l + g.Style.ItemInnerSpacing.x
+    end
+    if (pad_r > style.FramePadding.x) then
+        pad_r = pad_r + g.Style.ItemInnerSpacing.x
+    end
+    if (style.WindowTitleAlign.x > 0.0 and style.WindowTitleAlign.x < 1.0) then
+        local centerness = ImSaturate(1.0 - ImFabs(style.WindowTitleAlign.x - 0.5) * 2.0)
+        local pad_extend = ImMin(ImMax(pad_l, pad_r), title_bar_rect:GetWidth() - pad_l - pad_r - text_size.x)
+        pad_l = ImMax(pad_l, pad_extend * centerness)
+        pad_r = ImMax(pad_r, pad_extend * centerness)
+    end
+
+    local layout_r = ImRect(title_bar_rect.Min.x + pad_l, title_bar_rect.Min.y, title_bar_rect.Max.x - pad_r, title_bar_rect.Max.y)
+    local clip_r = ImRect(layout_r.Min.x, layout_r.Min.y, ImMin(layout_r.Max.x + g.Style.ItemInnerSpacing.x, title_bar_rect.Max.x), layout_r.Max.y)
+
+    -- if bit.band(flags, ImGuiWindowFlags_UnsavedDocument) ~= 0 then
+    -- TODO: 
+    -- end
+
+    ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, 1, nil, text_size, style.WindowTitleAlign, clip_r)
 end
 
 --- static void SetCurrentWindow
@@ -1014,7 +1244,7 @@ function ImGui.Begin(name, p_open, flags)
 
     RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, resize_grip_col, resize_grip_draw_size)
 
-    RenderWindowTitleBarContents(window, p_open)
+    RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
 
     return not window.Collapsed
 end
@@ -1368,6 +1598,35 @@ function ImGui.Render()
         g.IO.MetricsRenderVertices = g.IO.MetricsRenderVertices + draw_data.TotalVtxCount
         g.IO.MetricsRenderIndices = g.IO.MetricsRenderIndices + draw_data.TotalIdxCount
     end
+end
+
+--- @param text string
+--- @param text_end int? Exclusive upper bound
+--- @param hide_text_after_double_hash bool
+--- @param wrap_width float?
+--- @return ImVec2
+function ImGui.CalcTextSize(text, text_end, hide_text_after_double_hash, wrap_width)
+    if not wrap_width then wrap_width = -1.0 end
+
+    local g = GImGui
+
+    local text_display_end
+    if hide_text_after_double_hash then
+        text_display_end = ImGui.FindRenderedTextEnd(text, text_end)
+    else
+        text_display_end = text_end
+    end
+
+    local font = g.Font
+    local font_size = g.FontSize
+    if text == "" or (text_end and text_end <= 1) then
+        return ImVec2(0.0, font_size)
+    end
+    local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, 1, text_display_end, nil)
+
+    text_size.x = ImTrunc(text_size.x + 0.99999)
+
+    return text_size
 end
 
 function ImGui.GetDrawData()
