@@ -287,11 +287,12 @@ end
 function ImGui.PushFont(font, font_size_base) -- FIXME: checks not implemented?
     local g = GImGui
 
-    if not font or font == "" then
+    if font == nil then
         font = g.Font
     end
-    -- IM_ASSERT(font != NULL)
-    -- IM_ASSERT(font_size_base >= 0.0f)
+
+    IM_ASSERT(font ~= NULL)
+    IM_ASSERT(font_size_base >= 0.0)
 
     g.FontStack:push_back({
         Font = font,
@@ -303,7 +304,7 @@ function ImGui.PushFont(font, font_size_base) -- FIXME: checks not implemented?
         font_size_base = g.FontSizeBase
     end
 
-    SetCurrentFont(font, font_size_base, 0)
+    SetCurrentFont(font, font_size_base, 0.0)
 end
 
 function ImGui.PopFont()
@@ -906,7 +907,7 @@ end
 --- @param clip_rect          ImRect
 function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, text_size_if_known, align, clip_rect)
     local text_display_end = ImGui.FindRenderedTextEnd(text, text_end)
-    local text_len = text_display_end - 1 -- TODO: need text_begin?
+    local text_len = text_display_end - text_begin
 
     if text_len == 0 then
         return
@@ -1238,6 +1239,11 @@ function ImGui.Begin(name, p_open, flags)
     end
     local resize_grip_draw_size = ImTrunc(ImMax(g.FontSize * 1.10, g.Style.WindowRounding + 1.0 + g.FontSize * 0.2));
 
+    -- FIXME:
+    -- IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer[1].ElemCount == 0)
+    -- window.DrawList:PushTexture(g.Font.OwnerAtlas.TexRef)
+    -- ImGui.PushClipRect(host_rect.Min, host_rect.Max, false)
+
     local title_bar_rect = window:TitleBarRect()
 
     local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
@@ -1375,6 +1381,14 @@ local function InitViewportDrawData(viewport)
     draw_data.TotalIdxCount = 0
     draw_data.DisplayPos = viewport.Pos
     draw_data.DisplaySize = viewport.Size
+end
+
+function ImGui.PushClipRect(clip_rect_min, clip_rect_max, intersect_with_current_clip_rect)
+    -- TODO:
+end
+
+function ImGui.PopClipRect()
+    -- TODO: 
 end
 
 local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)

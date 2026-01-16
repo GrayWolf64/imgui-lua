@@ -160,6 +160,7 @@ function MT.ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y
 function MT.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
 function MT.ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif isnumber(other) then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
 function MT.ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
+function MT.ImVec4:copy() return ImVec4(self.x, self.y, self.z, self.w) end
 
 -- TODO: use asserts, no return nil
 -- TODO: complete the impl of resize...
@@ -182,8 +183,22 @@ function MT.ImVector:erase_unsorted(index) if index < 1 or index > self.Size the
 function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
 function MT.ImVector:reserve() return end
 function MT.ImVector:reserve_discard() return end
-function MT.ImVector:shrink() return end
-function MT.ImVector:resize(new_size, v) self.Size = new_size end
+function MT.ImVector:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
+function MT.ImVector:resize(new_size, v)
+    local old_size = self.Size
+
+    if new_size > old_size then
+        for i = old_size + 1, new_size do
+            self.Data[i] = v
+        end
+    elseif new_size < old_size then
+        for i = new_size + 1, old_size do
+            self.Data[i] = nil
+        end
+    end
+
+    self.Size = new_size
+end
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
 function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end return false end end
 function MT.ImVector:insert(pos, value) if pos < 1 or pos > self.Size + 1 then return nil end --[[if self.Size == self.Capacity then self:reserve(self:_grow_capacity(self.Size + 1)) end--]] for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
@@ -353,7 +368,7 @@ end
 --- @field RasterizerDensity    float
 --- @field IndexLookup          ImVector<ImU16>
 --- @field Glyphs               ImVector<ImFontGlyph>
---- @field FallbackGlyphIndex   int                   This starts from 0, not -1!
+--- @field FallbackGlyphIndex   int                   This initial value is 0, not -1!
 --- @field Ascent               float
 --- @field Descent              float
 --- @field MetricsTotalSurface  unsigned_int
@@ -440,7 +455,7 @@ end
 
 --- @class ImFontConfig
 --- @field Name                 string
---- @field FontData             any
+--- @field FontData             ImSlice
 --- @field FontDataSize         int
 --- @field FontDataOwnedByAtlas bool
 --- @field MergeMode            bool
@@ -463,7 +478,7 @@ end
 --- @field Flags                ImFontFlags
 --- @field DstFont              ImFont
 --- @field FontLoader           ImFontLoader
---- @field FontLoaderData       any
+--- @field FontLoaderData       ImGui_ImplStbTrueType_FontSrcData|
 MT.ImFontConfig = {}
 MT.ImFontConfig.__index = MT.ImFontConfig
 
@@ -624,8 +639,8 @@ end
 --- @nodiscard
 function ImFontGlyph()
     return {
-        Colored   = 0,
-        Visible   = 0,
+        Colored   = false,
+        Visible   = false,
         SourceIdx = 0,
         Codepoint = 0,
         AdvanceX  = 0,

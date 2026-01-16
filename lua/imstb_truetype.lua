@@ -31,8 +31,8 @@ local stbtt_FindGlyphIndex
 --
 
 --- @class stbtt_slice
---- @field data table
---- @field offset integer
+--- @field data   table
+--- @field offset int
 
 --- @param p stbtt_slice
 --- @param n integer
@@ -136,6 +136,10 @@ local function stbtt__buf()
     }
 end
 
+--- @class stbtt_fontinfo
+--- @field data stbtt_slice
+
+--- @return stbtt_fontinfo
 function stbtt_fontinfo()
     return {
         data      = nil,
@@ -642,6 +646,8 @@ local function stbtt_InitFont_internal(info, data, fontstart)
     return true
 end
 
+--- @param info              stbtt_fontinfo
+--- @param unicode_codepoint int
 function stbtt_FindGlyphIndex(info, unicode_codepoint)
     local data = info.data
     local index_map = info.index_map
@@ -2712,6 +2718,9 @@ function stbtt_GetFontOffsetForIndex(data, index)
     return stbtt_GetFontOffsetForIndex_internal(data, index)
 end
 
+--- @param info stbtt_fontinfo
+--- @param data stbtt_slice
+--- @param offset int
 function stbtt_InitFont(info, data, offset)
     return stbtt_InitFont_internal(info, data, offset)
 end

@@ -62,6 +62,16 @@ end
 
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
+--- @return int?
+function ImMemchr(str, char, start_pos)
+    local start = start_pos or 1
+    if start < 1 then start = 1 end
+
+    local pos = string.find(str, char, start, true)
+
+    return pos
+end
+
 IMGUI_FONT_SIZE_MAX                                = 512.0
 IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE = 128.0
 
