@@ -2378,9 +2378,9 @@ local function stbtt__tesselate_cubic(points, num_points, x0, y0, x1, y1, x2, y2
     return num_points
 end
 
---- @return stbtt__point[], integer?, integer[]?
+--- @return stbtt__point[]?, integer?, integer[]?
 local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
-    local points = {}
+    local points = nil
     local num_points = 0
 
     local objspace_flatness_squared = objspace_flatness * objspace_flatness
@@ -2395,7 +2395,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
     end
 
     local num_contours = n
-    if n == 0 then return points end
+    if n == 0 then return end
 
     local contour_lengths = {} -- size = n
 
@@ -2403,6 +2403,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
     for pass = 0, 1 do
         local x, y = 0, 0
         if pass == 1 then
+            points = {}
             for i = 1, num_points do points[i] = stbtt__point() end
         end
         num_points = 0
