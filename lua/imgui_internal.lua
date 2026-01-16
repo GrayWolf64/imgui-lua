@@ -87,7 +87,7 @@ IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE = 128.0
 #IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(_N, _MAXERROR) ((_MAXERROR) / (1 - ImCos(IM_PI / ImMax(_N, IM_PI))))
 #IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  ((1 - ImCos(IM_PI / ImMax((_N), IM_PI))) / (_RAD))
 
-#IMGUI_DEFINE IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end
+function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
 #IMGUI_DEFINE struct_def(_name) MT[_name] = {} MT[_name].__index = MT[_name]
 
@@ -318,7 +318,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         Style = ImGuiStyle(),
 
         Config = nil,
-        Initialized = true,
+        Initialized = false,
 
         Windows = ImVector(), -- Windows sorted in display order, back to front
         WindowsByID = {}, -- Map window's ID to window ref
@@ -385,7 +385,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         NavWindow = nil,
 
-        FrameCount = 0,
+        FrameCount = -1,
 
         FrameCountEnded = -1,
         FrameCountRendered = -1,
@@ -413,6 +413,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         Font = nil, -- Currently bound *FontName* to be used with surface.SetFont
         FontSize = 18,
         FontSizeBase = 18,
+
+        FontRasterizerDensity = 1.0,
 
         FontAtlases = ImVector(),
 

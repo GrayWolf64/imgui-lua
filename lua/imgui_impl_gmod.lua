@@ -52,6 +52,8 @@ end
 local ImGui_ImplGMOD_Data = ImGui_ImplGMOD_Data or nil
 
 local function ImGui_ImplGMOD_Init()
+    local io = ImGui.GetIO()
+
     ImGui_ImplGMOD_Data = {
         Window = nil,
         Time = 0
@@ -61,6 +63,8 @@ local function ImGui_ImplGMOD_Init()
 
     local main_viewport = ImGui.GetMainViewport()
     main_viewport.PlatformHandle = GDummyPanel
+
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
 end
 
 local function ImGui_ImplGMOD_Shutdown()

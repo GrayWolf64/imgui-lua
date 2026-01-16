@@ -148,6 +148,33 @@ function MT.ImFontAtlas:ClearFonts()
     end
 end
 
+function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
+    IM_ASSERT(atlas.Builder == nil or atlas.Builder.FrameCount < frame_count)
+    atlas.RendererHasTextures = renderer_has_textures
+
+    if (atlas.RendererHasTextures) then
+        atlas.TexIsBuilt = true
+        if (atlas.Builder == nil) then
+            ImFontAtlasBuildMain(atlas)
+        end
+    end
+
+    if (not atlas.RendererHasTextures) then
+        IM_ASSERT_USER_ERROR(atlas.TexIsBuilt, "Backend does not support ImGuiBackendFlags_RendererHasTextures, and font atlas is not built! Update backend OR make sure you called ImGui_ImplXXXX_NewFrame() function for renderer backend, which should call io.Fonts->GetTexDataAsRGBA32() / GetTexDataAsAlpha8().")
+    end
+    if (atlas.TexIsBuilt and atlas.Builder.PreloadedAllGlyphsRanges) then
+        IM_ASSERT_USER_ERROR(atlas.RendererHasTextures == false, "Called ImFontAtlas::Build() before ImGuiBackendFlags_RendererHasTextures got set! With new backends: you don't need to call Build().")
+    end
+
+    local builder = atlas.Builder
+    builder.FrameCount = frame_count
+    for _, font in atlas.Fonts:iter() do
+        font.LastBaked = nil
+    end
+
+    -- TODO: 
+end
+
 function ImFontAtlasTextureBlockCopy(src_tex, src_x, src_y, dst_tex, dst_x, dst_y, w, h)
     IM_ASSERT(src_tex.Pixels ~= nil and dst_tex.Pixels ~= nil)
     IM_ASSERT(src_tex.Format == dst_tex.Format)
@@ -224,6 +251,11 @@ local function ImFontAtlasBuildDiscardBakes(atlas, unused_frames)
         end
         ImFontAtlasBakedDiscard(atlas, baked.OwnerFont, baked)
     end
+end
+
+function ImFontAtlasAddDrawListSharedData(atlas, data)
+    IM_ASSERT(not atlas.DrawListSharedDatas:contains(data))
+    atlas.DrawListSharedDatas:push_back(data)
 end
 
 local function ImFontAtlasTextureRepack(atlas, w, h)
@@ -1852,7 +1884,7 @@ end
 function MT.ImFontAtlas:AddFont(font_cfg_in)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
     IM_ASSERT((font_cfg_in.FontData ~= nil and font_cfg_in.FontDataSize > 0) or (font_cfg_in.FontLoader ~= nil))
-    --IM_ASSERT(font_cfg_in.SizePixels > 0.0, "Is ImFontConfig struct correctly initialized?")
+    IM_ASSERT(font_cfg_in.SizePixels > 0.0, "Is ImFontConfig struct correctly initialized?")
     IM_ASSERT(font_cfg_in.RasterizerDensity > 0.0, "Is ImFontConfig struct correctly initialized?")
 
     if font_cfg_in.GlyphOffset.x ~= 0.0 or font_cfg_in.GlyphOffset.y ~= 0.0 or

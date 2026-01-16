@@ -572,7 +572,7 @@ function ImFontAtlas()
     this.TexData             = nil
 
     this.TexList             = ImVector()
-    this.Locked              = nil
+    this.Locked              = false
     this.RendererHasTextures = false
     this.TexPixelsUseColors  = nil
     this.TexUvScale          = nil
@@ -588,7 +588,7 @@ function ImFontAtlas()
     this.FontLoaderName      = nil
     this.FontLoaderData      = nil
     this.FontLoaderFlags     = nil
-    this.RefCount            = nil
+    this.RefCount            = 0
     this.OwnerContext        = nil
 
     this.TexRef._TexID       = ImTextureID_Invalid

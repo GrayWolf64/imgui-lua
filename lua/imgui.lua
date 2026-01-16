@@ -318,17 +318,23 @@ function ImGui.PopFont()
     g.FontStack:pop_back()
 end
 
---- @return ImFont
-function ImGui.GetDefaultFont()
+function ImGui.UpdateTexturesNewFrame()
     local g = GImGui
-    local atlas = g.IO.Fonts
-    if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
-        ImFontAtlasBuildMain(atlas)
+    local has_textures = bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) ~= 0
+    for _, atlas in g.FontAtlases:iter() do
+        if (atlas.OwnerContext == g) then
+            ImFontAtlasUpdateNewFrame(atlas, g.FrameCount, has_textures)
+        else
+            IM_ASSERT(atlas.Builder ~= nil and atlas.Builder.FrameCount ~= -1)
+            IM_ASSERT(atlas.RendererHasTextures == has_textures)
+        end
     end
-    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
 end
 
---- void ImGui::UpdateFontsNewFrame
+function ImGui.UpdateTexturesEndFrame()
+    -- TODO: 
+end
+
 function ImGui.UpdateFontsNewFrame() -- TODO: investigate
     local g = GImGui
     if (bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) == 0) then
@@ -361,6 +367,30 @@ function ImGui.UpdateFontsEndFrame()
     ImGui.PopFont()
 end
 
+--- @return ImFont
+function ImGui.GetDefaultFont()
+    local g = GImGui
+    local atlas = g.IO.Fonts
+    if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
+        ImFontAtlasBuildMain(atlas)
+    end
+    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
+end
+
+--- @param atlas ImFontAtlas
+function ImGui.RegisterFontAtlas(atlas)
+    local g = GImGui
+    if (g.FontAtlases.Size == 0) then
+        IM_ASSERT(atlas == g.IO.Fonts)
+    end
+    atlas.RefCount = atlas.RefCount + 1
+    g.FontAtlases:push_back(atlas)
+    ImFontAtlasAddDrawListSharedData(atlas, g.DrawListSharedData)
+    for _, tex in atlas.TexList:iter() do
+        tex.RefCount = atlas.RefCount
+    end
+end
+
 local DefaultConfig = {
     WindowSize = {w = 500, h = 480},
     WindowPos = {x = 60, y = 60}
@@ -379,10 +409,17 @@ end
 --- void ImGui::Initialize()
 function ImGui.Initialize()
     local g = GImGui
+    IM_ASSERT(not g.Initialized and not g.SettingsLoaded)
 
     local viewport = ImGuiViewportP()
     viewport.ID = IMGUI_VIEWPORT_DEFAULT_ID
     g.Viewports:push_back(viewport)
+
+    local atlas = g.IO.Fonts
+    g.DrawListSharedData.Context = g
+    ImGui.RegisterFontAtlas(atlas)
+
+    g.Initialized = true
 end
 
 --- @param shared_font_atlas? ImFontAtlas
@@ -1520,6 +1557,8 @@ function ImGui.NewFrame()
 
     ImGui.UpdateViewportsNewFrame()
 
+    ImGui.UpdateTexturesNewFrame()
+
     SetupDrawListSharedData()
     ImGui.UpdateFontsNewFrame()
 
@@ -1565,6 +1604,10 @@ function ImGui.EndFrame()
     ImGui.UpdateFontsEndFrame()
 
     ImGui.UpdateMouseMovingWindowEndFrame()
+
+    for _, atlas in g.FontAtlases:iter() do
+        atlas.Locked = false
+    end
 end
 
 function ImGui.Render()
@@ -1572,7 +1615,7 @@ function ImGui.Render()
     IM_ASSERT(g.Initialized)
 
     if g.FrameCountEnded ~= g.FrameCount then
-        EndFrame()
+        ImGui.EndFrame()
     end
     if g.FrameCountRendered == g.FrameCount then return end
     g.FrameCountRendered = g.FrameCount
