@@ -579,8 +579,9 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
     IM_ASSERT(bd_font_data ~= nil)
     local glyph_index = stbtt.FindGlyphIndex(bd_font_data.FontInfo, codepoint)
     if (glyph_index == 0) then
+        debug.Trace()
         return false
-    end
+    end -- FIXME: 
 
     local oversample_h, oversample_v = ImFontAtlasBuildGetOversampleFactors(src, baked)
     local scale_for_layout = bd_font_data.ScaleFactor * baked.Size
@@ -620,7 +621,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
         local bitmap_pixels = builder.TempBuffer
         IM_SLICE_FILL(bitmap_pixels, 0, w * h * 1)
 
-        local sub_x, sub_y = stbtt_MakeGlyphBitmapSubpixelPrefilter(bd_font_data.FontInfo, bitmap_pixels, w, h, w,
+        local sub_x, sub_y = stbtt.MakeGlyphBitmapSubpixelPrefilter(bd_font_data.FontInfo, bitmap_pixels, w, h, w,
             scale_for_raster_x, scale_for_raster_y, 0, 0, oversample_h, oversample_v, glyph_index)
 
         local ref_size = baked.OwnerFont.Sources:at(1).SizePixels
@@ -2002,7 +2003,7 @@ function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_templ
 end
 
 function GetDefaultFontDataProggyClean()
-    return ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
+    return ImFileLoadToMemory("resource/fonts/Roboto-Regular.ttf", "rb") -- FIXME:
 end
 
 --- @param font_cfg_template ImFontConfig
@@ -2123,7 +2124,7 @@ function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
     if draw_list.CmdBuffer.Size == 1 and draw_list.CmdBuffer.Data[1].ElemCount == 0 and draw_list.CmdBuffer[1].UserCallback == nil then
         return
     end
-
+    print(draw_list._VtxCurrentIdx, draw_list.VtxBuffer.Size, draw_list._VtxWritePtr, draw_list.IdxBuffer.Size, draw_list._IdxWritePtr)
     IM_ASSERT(draw_list.VtxBuffer.Size == 0 or draw_list._VtxWritePtr == draw_list.VtxBuffer.Size + 1)
     IM_ASSERT(draw_list.IdxBuffer.Size == 0 or draw_list._IdxWritePtr == draw_list.IdxBuffer.Size + 1)
     if (bit.band(draw_list.Flags, ImDrawListFlags_AllowVtxOffset) == 0) then
@@ -2351,6 +2352,10 @@ function MT.ImDrawList:PrimUnreserve(idx_count, vtx_count)
     draw_cmd.ElemCount = draw_cmd.ElemCount - idx_count
     self.VtxBuffer:shrink(self.VtxBuffer.Size - vtx_count)
     self.IdxBuffer:shrink(self.IdxBuffer.Size - idx_count)
+
+    self._VtxWritePtr = self.VtxBuffer.Size + 1
+    self._IdxWritePtr = self.IdxBuffer.Size + 1
+    self._VtxCurrentIdx = self.VtxBuffer.Size + 1 -- FIXME: Is this correct?
 end
 
 function MT.ImDrawList:PrimRect(a, c, col)
@@ -2438,7 +2443,7 @@ function MT.ImDrawList:PrimRectUV(a, c, uv_a, uv_c, col)
 end
 
 --- void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32 col, ImDrawFlags flags, float thickness)
---
+-- TODO: fix this
 function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     if points_count < 2 or col.a == 0 then
         return
@@ -2697,6 +2702,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local vtx_count = count * 4
         self:PrimReserve(idx_count, vtx_count)
 
+        local base_idx = self._VtxCurrentIdx
         for i1 = 1, count do
             local i2 = (i1 == points_count) and 1 or i1 + 1
             local p1 = points[i1]
@@ -2738,16 +2744,18 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 
             -- Add indices for two triangles
             local idx_write_ptr = self._IdxWritePtr
-            self.IdxBuffer.Data[idx_write_ptr] = self._VtxCurrentIdx
-            self.IdxBuffer.Data[idx_write_ptr + 1] = self._VtxCurrentIdx + 1
-            self.IdxBuffer.Data[idx_write_ptr + 2] = self._VtxCurrentIdx + 2
-            self.IdxBuffer.Data[idx_write_ptr + 3] = self._VtxCurrentIdx
-            self.IdxBuffer.Data[idx_write_ptr + 4] = self._VtxCurrentIdx + 2
-            self.IdxBuffer.Data[idx_write_ptr + 5] = self._VtxCurrentIdx + 3
+            self.IdxBuffer.Data[idx_write_ptr] = base_idx
+            self.IdxBuffer.Data[idx_write_ptr + 1] = base_idx + 1
+            self.IdxBuffer.Data[idx_write_ptr + 2] = base_idx + 2
+            self.IdxBuffer.Data[idx_write_ptr + 3] = base_idx
+            self.IdxBuffer.Data[idx_write_ptr + 4] = base_idx + 2
+            self.IdxBuffer.Data[idx_write_ptr + 5] = base_idx + 3
             self._IdxWritePtr = idx_write_ptr + 6
 
-            self._VtxCurrentIdx = self._VtxCurrentIdx + 4
+            base_idx = base_idx + 4
         end
+
+        self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
     end
 end
 
@@ -3070,7 +3078,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     local x = ImTrunc(pos.x)
     local y = ImTrunc(pos.y)
     if y > clip_rect.w then
-        -- return -- FIXME: this has early outed
+        -- return -- FIXME: Initialize Clipping
     end
 
     --- @type int
@@ -3171,7 +3179,6 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         end
 
         local glyph = baked:FindGlyph(c)
-        -- FIXME: all glyphs are Visible = false
 
         local char_width = glyph.AdvanceX * scale
         if glyph.Visible then
@@ -3179,7 +3186,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
             local x2 = x + glyph.X1 * scale
             local y1 = y + glyph.Y0 * scale
             local y2 = y + glyph.Y1 * scale
-            if x1 <= clip_rect.z and x2 >= clip_rect.x then
+            -- if x1 <= clip_rect.z and x2 >= clip_rect.x then
                 local u1 = glyph.U0
                 local v1 = glyph.V0
                 local u2 = glyph.U1
@@ -3212,7 +3219,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                 local glyph_col = glyph.Colored and color_untinted or col
 
                 draw_list:PrimRectUV(ImVec2(x1, y1), ImVec2(x2, y2), ImVec2(u1, v1), ImVec2(u2, v2), glyph_col)
-            end
+            -- end
         end
 
         x = x + char_width

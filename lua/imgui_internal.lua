@@ -24,7 +24,7 @@ local stbtt
 
 IM_TABSIZE = 4
 
-#IMGUI_DEFINE FLT_MAX math.huge
+FLT_MAX = math.huge
 #IMGUI_DEFINE IM_PI   math.pi
 #IMGUI_DEFINE ImAbs   math.abs
 #IMGUI_DEFINE ImFabs  math.abs

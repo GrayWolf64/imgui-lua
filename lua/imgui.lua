@@ -1088,7 +1088,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open
     -- TODO: 
     -- end
 
-    -- ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, 1, nil, text_size, style.WindowTitleAlign, clip_r)
+    ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, 1, nil, text_size, style.WindowTitleAlign, clip_r)
 end
 
 --- static void SetCurrentWindow

@@ -95,38 +95,31 @@ local function ImGui_ImplGMOD_NewFrame()
     end
 end
 
---- TEMPORARY
 local function ImGui_ImplGMOD_RenderDrawData(draw_data)
-    local global_vtx_offset = 0
     local global_idx_offset = 0
+    local global_vtx_offset = 0
     for _, draw_list in draw_data.CmdLists:iter() do
-        for cmd_i = 1, draw_list.CmdBuffer.Size do
-            local pcmd = draw_list.CmdBuffer.Data[cmd_i]
-
+        for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.ElemCount > 0 then
-                local start_idx = pcmd.IdxOffset + global_idx_offset + 1
-                local end_idx = start_idx + pcmd.ElemCount - 1
+                for i = 0, pcmd.ElemCount - 1, 3 do
+                    local idx0 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 1 + i]
+                    local idx1 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 2 + i]
+                    local idx2 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 3 + i]
 
-                for i = start_idx, end_idx - 2, 3 do
-                    local idx1 = draw_list.IdxBuffer.Data[i]
-                    local idx2 = draw_list.IdxBuffer.Data[i + 1]
-                    local idx3 = draw_list.IdxBuffer.Data[i + 2]
+                    -- FIXME: 
+                    if not idx0 then print("idx 0 == nil!") continue end
 
-                    local vtx_idx1 = idx1 + global_vtx_offset
-                    local vtx_idx2 = idx2 + global_vtx_offset
-                    local vtx_idx3 = idx3 + global_vtx_offset
+                    local vtx0 = draw_list.VtxBuffer.Data[global_vtx_offset + idx0]
+                    local vtx1 = draw_list.VtxBuffer.Data[global_vtx_offset + idx1]
+                    local vtx2 = draw_list.VtxBuffer.Data[global_vtx_offset + idx2]
 
-                    local vtx1 = draw_list.VtxBuffer.Data[vtx_idx1]
-                    local vtx2 = draw_list.VtxBuffer.Data[vtx_idx2]
-                    local vtx3 = draw_list.VtxBuffer.Data[vtx_idx3]
-
-                    local col = vtx1.col
-                    surface.SetTexture(0) -- draw.NoTexture gives me invisible grips
-                    surface.SetDrawColor(col.x * 255 + 0.5, col.y * 255 + 0.5, col.z * 255 + 0.5, col.w * 255 + 0.5) -- TODO: is this correct?
+                    local col = vtx0.col
+                    surface.SetTexture(0)
+                    surface.SetDrawColor(col.x * 255, col.y * 255, col.z * 255, col.w * 255)
                     surface.DrawPoly({
+                        {x = vtx0.pos.x, y = vtx0.pos.y},
                         {x = vtx1.pos.x, y = vtx1.pos.y},
-                        {x = vtx2.pos.x, y = vtx2.pos.y},
-                        {x = vtx3.pos.x, y = vtx3.pos.y}
+                        {x = vtx2.pos.x, y = vtx2.pos.y}
                     })
                 end
             end
