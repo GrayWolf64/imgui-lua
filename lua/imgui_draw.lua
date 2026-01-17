@@ -375,6 +375,9 @@ function ImFontAtlasAddDrawListSharedData(atlas, data)
     atlas.DrawListSharedDatas:push_back(data)
 end
 
+--- @param atlas ImFontAtlas
+--- @param w     int
+--- @param h     int
 local function ImFontAtlasTextureRepack(atlas, w, h)
     local builder = atlas.Builder
     atlas.LockDisableResize = true
@@ -382,24 +385,26 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
     local old_tex = atlas.TexData
     local new_tex = ImFontAtlasTextureAdd(atlas, w, h)
     new_tex.UseColors = old_tex.UseColors
-    -- IMGUI_DEBUG_LOG_FONT("[font] Texture #%03d: resize+repack %dx%d => Texture #%03d: %dx%d\n", old_tex->UniqueID, old_tex->Width, old_tex->Height, new_tex->UniqueID, new_tex->Width, new_tex->Height);
+
+    IMGUI_DEBUG_LOG_FONT("[font] Texture #%03d: resize+repack %dx%d => Texture #%03d: %dx%d", old_tex.UniqueID, old_tex.Width, old_tex.Height, new_tex.UniqueID, new_tex.Width, new_tex.Height)
 
     ImFontAtlasPackInit(atlas)
     local old_rects = ImVector()
-    local old_index = builder.RectsIndex
+    local old_index = builder.RectsIndex:copy()
     old_rects:swap(builder.Rects)
 
     for _, index_entry in builder.RectsIndex:iter() do
         if index_entry.IsUsed == false then
             continue
         end
-        local old_r = old_rects:at(index_entry.TargetIndex)
+        local old_r = old_rects:at(index_entry.TargetIndex + 1)
         if (old_r.w == 0 and old_r.h == 0) then
             continue
         end
         local new_r_id = ImFontAtlasPackAddRect(atlas, old_r.w, old_r.h, index_entry)
         if new_r_id == ImFontAtlasRectId_Invalid then
-            -- IMGUI_DEBUG_LOG_FONT("[font] Texture #%03d: resize failed. Will grow.\n", new_tex->UniqueID);
+            IMGUI_DEBUG_LOG_FONT("[font] Texture #%03d: resize failed. Will grow.", new_tex.UniqueID)
+
             new_tex.WantDestroyNextFrame = true
             builder.Rects:swap(old_rects)
             builder.RectsIndex = old_index
@@ -408,7 +413,9 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
 
             return
         end
-        -- IM_ASSERT(ImFontAtlasRectId_GetIndex(new_r_id) == builder->RectsIndex.index_from_ptr(&index_entry))
+
+        IM_ASSERT(ImFontAtlasRectId_GetIndex(new_r_id) == builder.RectsIndex:index_from_ptr(index_entry))
+
         local new_r = ImFontAtlasPackGetRect(atlas, new_r_id)
         ImFontAtlasTextureBlockCopy(old_tex, old_r.x, old_r.y, new_tex, new_r.x, new_r.y, new_r.w, new_r.h)
     end
@@ -438,6 +445,10 @@ end
 
 function ImFontAtlasTextureGrow(atlas, old_tex_w, old_tex_h)
     local builder = atlas.Builder
+
+    old_tex_w = old_tex_w or -1
+    old_tex_h = old_tex_h or -1
+
     if (old_tex_w == -1) then
         old_tex_w = atlas.TexData.Width
     end
@@ -463,6 +474,7 @@ function ImFontAtlasTextureGrow(atlas, old_tex_w, old_tex_h)
     ImFontAtlasTextureRepack(atlas, new_tex_w, new_tex_h)
 end
 
+--- @param atlas ImFontAtlas
 local function ImFontAtlasTextureMakeSpace(atlas)
     local builder = atlas.Builder
     ImFontAtlasBuildDiscardBakes(atlas, 2)
@@ -474,24 +486,19 @@ local function ImFontAtlasTextureMakeSpace(atlas)
     end
 end
 
-local function ImFontAtlasPackReuseRectEntry(atlas, index_entry)
-    IM_ASSERT(index_entry.IsUsed)
-    index_entry.TargetIndex = atlas.Builder.Rects.Size
-    local index_idx = atlas.Builder.RectsIndex.index_from_ptr(index_entry) -- FIXME: 
-    return ImFontAtlasRectId_Make(index_idx, index_entry.Generation)
-end
-
+--- @param atlas    ImFontAtlas
+--- @param rect_idx ImFontAtlasRectId
 local function ImFontAtlasPackAllocRectEntry(atlas, rect_idx)
     local builder = atlas.Builder
     local index_idx, index_entry
-    if builder.RectsIndexFreeListStart <= 0 then
+    if builder.RectsIndexFreeListStart < 0 then
         builder.RectsIndex:resize(builder.RectsIndex.Size + 1)
-        index_idx = builder.RectsIndex.Size
+        index_idx = builder.RectsIndex.Size - 1
         index_entry = ImFontAtlasRectEntry()
-        builder.RectsIndex:push_back(index_entry)
+        builder.RectsIndex.Data[builder.RectsIndex.Size] = index_entry
     else
         index_idx = builder.RectsIndexFreeListStart
-        index_entry = builder.RectsIndex:at(index_idx)
+        index_entry = builder.RectsIndex:at(index_idx + 1)
         IM_ASSERT(index_entry.IsUsed == false and index_entry.Generation > 0)
         builder.RectsIndexFreeListStart = index_entry.TargetIndex
     end
@@ -500,6 +507,43 @@ local function ImFontAtlasPackAllocRectEntry(atlas, rect_idx)
     index_entry.IsUsed = true
 
     return ImFontAtlasRectId_Make(index_idx, index_entry.Generation)
+end
+
+--- @param atlas       ImFontAtlas
+--- @param index_entry ImFontAtlasRectEntry
+local function ImFontAtlasPackReuseRectEntry(atlas, index_entry)
+    IM_ASSERT(index_entry.IsUsed)
+    index_entry.TargetIndex = atlas.Builder.Rects.Size - 1
+    local index_idx = atlas.Builder.RectsIndex:index_from_ptr(index_entry)
+    return ImFontAtlasRectId_Make(index_idx, index_entry.Generation)
+end
+
+--- @param atlas ImFontAtlas
+--- @param id    ImFontAtlasRectId
+function ImFontAtlasPackDiscardRect(atlas, id)
+    IM_ASSERT(id ~= ImFontAtlasRectId_Invalid)
+
+    local rect = ImFontAtlasPackGetRect(atlas, id)
+    if (rect == nil) then
+        return
+    end
+
+    local builder = atlas.Builder
+    local index_idx = ImFontAtlasRectId_GetIndex(id)
+    local index_entry = builder.RectsIndex:at(index_idx + 1) -- TODO: indexing validation
+    IM_ASSERT(index_entry.IsUsed and index_entry.TargetIndex >= 0)
+    index_entry.IsUsed = false
+    index_entry.TargetIndex = builder.RectsIndexFreeListStart
+    index_entry.Generation = index_entry.Generation + 1
+    if (index_entry.Generation == 0) then
+        index_entry.Generation = index_entry.Generation + 1
+    end
+
+    local pack_padding = atlas.TexGlyphPadding
+    builder.RectsIndexFreeListStart = index_idx
+    builder.RectsDiscardedCount = builder.RectsDiscardedCount + 1
+    builder.RectsDiscardedSurface = builder.RectsDiscardedSurface + ((rect.w + pack_padding) * (rect.h + pack_padding))
+    rect.w = 0 rect.h = 0
 end
 
 function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry)
@@ -524,7 +568,8 @@ function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry)
         end
 
         if (attempts_remaining == 0 or builder.LockDisableResize) then
-            -- IMGUI_DEBUG_LOG_FONT("[font] Failed packing %dx%d rectangle. Returning fallback.\n", w, h)
+            IMGUI_DEBUG_LOG_FONT("[font] Failed packing %dx%d rectangle. Returning fallback.", w, h)
+
             return ImFontAtlasRectId_Invalid
         end
 
@@ -540,7 +585,7 @@ function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry)
     if (overwrite_entry ~= nil) then
         return ImFontAtlasPackReuseRectEntry(atlas, overwrite_entry)
     else
-        return ImFontAtlasPackAllocRectEntry(atlas, builder.Rects.Size)
+        return ImFontAtlasPackAllocRectEntry(atlas, builder.Rects.Size - 1)
     end
 end
 
@@ -549,32 +594,35 @@ end
 --- @return ImTextureRect
 function ImFontAtlasPackGetRect(atlas, id)
     IM_ASSERT(id ~= ImFontAtlasRectId_Invalid)
-    local index_idx = ImFontAtlasRectId_GetIndex(id) + 1 -- TODO: indexing validation
+    local index_idx = ImFontAtlasRectId_GetIndex(id)
     local builder = atlas.Builder
-    local index_entry = builder.RectsIndex:at(index_idx)
+    local index_entry = builder.RectsIndex:at(index_idx + 1) -- TODO: indexing validation
     IM_ASSERT(index_entry.Generation == ImFontAtlasRectId_GetGeneration(id))
     IM_ASSERT(index_entry.IsUsed)
-    return builder.Rects.Data[index_entry.TargetIndex]
+    --- @type ImTextureRect
+    return builder.Rects:at(index_entry.TargetIndex + 1) -- TODO: indexing validation
 end
 
+--- @param atlas ImFontAtlas
+--- @param id    ImFontAtlasRectId
 function ImFontAtlasPackGetRectSafe(atlas, id)
     if id == ImFontAtlasRectId_Invalid then
         return nil
     end
 
-    local index_idx = ImFontAtlasRectId_GetIndex(id) + 1 -- TODO: indexing validation
+    local index_idx = ImFontAtlasRectId_GetIndex(id)
     if atlas.Builder == nil then
         ImFontAtlasBuildInit(atlas)
     end
     local builder = atlas.Builder
-    if index_idx > builder.RectsIndex.Size then
+    if index_idx >= builder.RectsIndex.Size then
         return nil
     end
-    local index_entry = builder.RectsIndex:at(index_idx)
+    local index_entry = builder.RectsIndex:at(index_idx + 1) -- TODO: indexing validation
     if (index_entry.Generation ~= ImFontAtlasRectId_GetGeneration(id) or not index_entry.IsUsed) then
         return nil
     end
-    return builder.Rects:at(index_entry.TargetIndex)
+    return builder.Rects:at(index_entry.TargetIndex + 1) -- TODO: indexing validation
 end
 
 --- @param src       ImFontConfig
@@ -696,9 +744,8 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
     IM_ASSERT(bd_font_data ~= nil)
     local glyph_index = stbtt.FindGlyphIndex(bd_font_data.FontInfo, codepoint)
     if (glyph_index == 0) then
-        debug.Trace()
         return false
-    end -- FIXME: 
+    end
 
     local oversample_h, oversample_v = ImFontAtlasBuildGetOversampleFactors(src, baked)
     local scale_for_layout = bd_font_data.ScaleFactor * baked.Size
@@ -871,8 +918,8 @@ function ImFontAtlasBakedDiscard(atlas, font, baked)
     local builder = atlas.Builder
 
     for _, glyph in baked.Glyphs:iter() do
-        if glyph.PackID ~= ImFontAtlasRectId_Invalid then
-            ImFontAtlasPackDiscardRect(atlas, glyph.PackID)
+        if glyph.PackId ~= ImFontAtlasRectId_Invalid then
+            ImFontAtlasPackDiscardRect(atlas, glyph.PackId)
         end
     end
 
@@ -889,7 +936,7 @@ function ImFontAtlasBakedDiscard(atlas, font, baked)
     end
 
     builder.BakedDiscardedCount = builder.BakedDiscardedCount + 1
-    builder:ClearOutputData()
+    baked:ClearOutputData()
     baked.WantDestroy = true
     font.LastBaked = nil
 end
@@ -1161,22 +1208,71 @@ function ImFontAtlasTextureAdd(atlas, w, h)
     return new_tex
 end
 
-local function ImFontAtlasBuildClear(atlas)
-    return
+--- @param atlas ImFontAtlas
+--- @return ImVec2
+function ImFontAtlasTextureGetSizeEstimate(atlas)
+    local min_w = ImUpperPowerOfTwo(atlas.TexMinWidth)
+    local min_h = ImUpperPowerOfTwo(atlas.TexMinHeight)
+    if (atlas.Builder == nil or atlas.TexData == nil or atlas.TexData.Status == ImTextureStatus.WantDestroy) then
+        return ImVec2(min_w, min_h) -- ImVec2i
+    end
+
+    local builder = atlas.Builder
+    min_w = ImMax(ImUpperPowerOfTwo(builder.MaxRectSize.x), min_w)
+    min_h = ImMax(ImUpperPowerOfTwo(builder.MaxRectSize.y), min_h)
+    local surface_approx = builder.RectsPackedSurface - builder.RectsDiscardedSurface
+    local surface_sqrt = ImFloor(ImSqrt(surface_approx))
+
+    local new_tex_w
+    local new_tex_h
+    if (min_w >= min_h) then
+        new_tex_w = ImMax(min_w, ImUpperPowerOfTwo(surface_sqrt))
+        new_tex_h = ImMax(min_h, ImFloor((surface_approx + new_tex_w - 1) / new_tex_w))
+        if (bit.band(atlas.Flags, ImFontAtlasFlags.NoPowerOfTwoHeight) == 0) then
+            new_tex_h = ImUpperPowerOfTwo(new_tex_h)
+        end
+    else
+        new_tex_h = ImMax(min_h, ImUpperPowerOfTwo(surface_sqrt))
+        if (bit.band(atlas.Flags, ImFontAtlasFlags.NoPowerOfTwoHeight) == 0) then
+            new_tex_h = ImUpperPowerOfTwo(new_tex_h)
+        end
+        new_tex_w = ImMax(min_w, ImFloor((surface_approx + new_tex_h - 1) / new_tex_h))
+    end
+
+    IM_ASSERT(ImIsPowerOfTwo(new_tex_w) and ImIsPowerOfTwo(new_tex_h))
+    return ImVec2(new_tex_w, new_tex_h) -- ImVec2i
 end
 
+--- @param atlas ImFontAtlas
+local function ImFontAtlasBuildClear(atlas)
+    local new_tex_size = ImFontAtlasTextureGetSizeEstimate(atlas) -- ImVec2i
+    ImFontAtlasBuildDestroy(atlas)
+    ImFontAtlasTextureAdd(atlas, new_tex_size.x, new_tex_size.y)
+    ImFontAtlasBuildInit(atlas)
+    for _, src in atlas.Sources:iter() do
+        ImFontAtlasFontSourceInit(atlas, src)
+    end
+    for _, font in atlas.Fonts:iter() do
+        for _, src in font.Sources:iter() do
+            ImFontAtlasFontSourceAddToFont(atlas, font, src)
+        end
+    end
+end
+
+--- @param atlas ImFontAtlas
 function ImFontAtlasPackInit(atlas)
     local tex = atlas.TexData
     local builder = atlas.Builder
 
     local pack_node_count = ImFloor(tex.Width / 2)
     builder.PackNodes:resize(pack_node_count)
+    for i = 1, builder.PackNodes.Size do builder.PackNodes.Data[i] = stbrp.node() end
 
     stbrp.init_target(builder.PackContext, tex.Width, tex.Height, builder.PackNodes.Data, builder.PackNodes.Size)
     builder.RectsPackedCount = 0
     builder.RectsPackedSurface = 0
-    builder.MaxRectSize = ImVec2(0, 0)
-    builder.MaxRectBounds = ImVec2(0, 0)
+    builder.MaxRectSize = ImVec2(0, 0) -- ImVec2i
+    builder.MaxRectBounds = ImVec2(0, 0) -- ImVec2i
 end
 
 -- TODO: validate

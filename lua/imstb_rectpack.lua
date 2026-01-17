@@ -20,59 +20,59 @@ local STBRP__INIT_skyline = 1
 --- @alias stbrp_coord integer
 
 --- @class stbrp_rect
---- @field id integer
---- @field w stbrp_coord
---- @field h stbrp_coord
---- @field x stbrp_coord
---- @field y stbrp_coord
+--- @field id         integer
+--- @field w          stbrp_coord
+--- @field h          stbrp_coord
+--- @field x          stbrp_coord
+--- @field y          stbrp_coord
 --- @field was_packed boolean
 
 --- @return stbrp_rect
 local function stbrp_rect()
     return {
-        id         = nil,
-        w          = nil,
-        h          = nil,
-        x          = nil,
-        y          = nil,
-        was_packed = nil
+        id         = 0,
+        w          = 0,
+        h          = 0,
+        x          = 0,
+        y          = 0,
+        was_packed = false
     }
 end
 
 --- @class stbrp_node
---- @field x stbrp_coord
---- @field y stbrp_coord
+--- @field x    stbrp_coord
+--- @field y    stbrp_coord
 --- @field next stbrp_node
 
 --- @return stbrp_node
 local function stbrp_node()
     return {
-        x    = nil,
-        y    = nil,
+        x    = 0,
+        y    = 0,
         next = nil
     }
 end
 
 --- @class stbrp_context
---- @field width integer
---- @field height integer
---- @field align integer
---- @field init_mode integer
---- @field heuristic integer
---- @field num_nodes integer
+--- @field width       integer
+--- @field height      integer
+--- @field align       integer
+--- @field init_mode   integer
+--- @field heuristic   integer
+--- @field num_nodes   integer
 --- @field active_head stbrp_node
---- @field free_head stbrp_node
---- @field extra stbrp_node[]
+--- @field free_head   stbrp_node
+--- @field extra       stbrp_node[]
 
 --- @return stbrp_context
 local function stbrp_context()
     return {
-        width     = nil,
-        height    = nil,
-        align     = nil,
-        init_mode = nil,
-        heuristic = nil,
-        num_nodes = nil,
+        width     = 0,
+        height    = 0,
+        align     = 0,
+        init_mode = 0,
+        heuristic = 0,
+        num_nodes = 0,
 
         active_head = nil,
         free_head   = nil,
@@ -81,15 +81,15 @@ local function stbrp_context()
 end
 
 --- @class stbrp__findresult
---- @field x integer
---- @field y integer
+--- @field x         integer
+--- @field y         integer
 --- @field prev_link stbrp_node
 
 --- @return stbrp__findresult
 local function stbrp__findresult()
     return {
-        x         = nil,
-        y         = nil,
+        x         = 0,
+        y         = 0,
         prev_link = nil
     }
 end

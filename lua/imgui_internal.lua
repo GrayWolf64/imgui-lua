@@ -43,11 +43,11 @@ FLT_MAX = math.huge
 #IMGUI_DEFINE IM_ROUNDUP_TO_EVEN(n) (ImCeil((n) / 2) * 2)
 #IMGUI_DEFINE ImRsqrt(x)            (1 / ImSqrt(x))
 
-local function ImIsPowerOfTwo(v)
+function ImIsPowerOfTwo(v)
     return (v ~= 0) and (bit.band(v, (v - 1)) == 0)
 end
 
-local function ImUpperPowerOfTwo(v)
+function ImUpperPowerOfTwo(v)
     if v <= 0 then return 0 end
     if v <= 1 then return 1 end
 
@@ -88,6 +88,8 @@ IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE = 128.0
 #IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  ((1 - ImCos(IM_PI / ImMax((_N), IM_PI))) / (_RAD))
 
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
+
+function IMGUI_DEBUG_LOG_FONT(_str, ...) print(string.format(_str, ...)) end
 
 #IMGUI_DEFINE struct_def(_name) MT[_name] = {} MT[_name].__index = MT[_name]
 
@@ -232,7 +234,7 @@ function ImFontAtlasBuilder()
     this.Rects                    = ImVector()
     this.RectsIndex               = ImVector()
     this.TempBuffer               = IM_SLICE() -- ImVector()
-    this.RectsIndexFreeListStart  = 0
+    this.RectsIndexFreeListStart  = -1
     this.RectsPackedCount         = 0
     this.RectsPackedSurface       = 0
     this.RectsDiscardedCount      = 0
@@ -667,6 +669,9 @@ local function ImFontLoader()
 end
 
 --- @class ImFontAtlasRectEntry
+--- @field TargetIndex int          # 0-based! When IsUsed = true, TargetIndex = this rect's index in Rects; IsUsed = false, TargetIndex = the next unused RectsIndex entry's index
+--- @field Generation  unsigned_int # How many times this entry is reused
+--- @field IsUsed      bool
 
 --- @return ImFontAtlasRectEntry
 --- @nodiscard
@@ -682,17 +687,17 @@ local ImFontAtlasRectId_IndexMask_       = 0x0007FFFF
 local ImFontAtlasRectId_GenerationMask_  = 0x3FF00000
 local ImFontAtlasRectId_GenerationShift_ = 20
 
---- @param id ImFontAtlasRectId
---- @return int
+--- @param id ImFontAtlasRectId # Expects 0-based!
+--- @return int                 # 0-based!
 function ImFontAtlasRectId_GetIndex(id) return bit.band(id, ImFontAtlasRectId_IndexMask_) end
 
---- @param id ImFontAtlasRectId
+--- @param id ImFontAtlasRectId # Expects 0-based!
 --- @return unsigned_int
 function ImFontAtlasRectId_GetGeneration(id) return bit.rshift(bit.band(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
 
---- @param index_idx int
+--- @param index_idx int      # Expects 0-based!
 --- @param gen_idx int
---- @return ImFontAtlasRectId
+--- @return ImFontAtlasRectId # 0-based!
 function ImFontAtlasRectId_Make(index_idx, gen_idx)
     IM_ASSERT(index_idx >= 0 and index_idx <= ImFontAtlasRectId_IndexMask_ and gen_idx <= bit.rshift(ImFontAtlasRectId_GenerationMask_, ImFontAtlasRectId_GenerationShift_))
     return bit.bor(index_idx, bit.lshift(gen_idx, ImFontAtlasRectId_GenerationShift_))

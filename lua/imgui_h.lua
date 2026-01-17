@@ -163,11 +163,14 @@ function MT.ImVec4:__eq(other) return self.x == other.x and self.y == other.y an
 function MT.ImVec4:copy() return ImVec4(self.x, self.y, self.z, self.w) end
 
 -- TODO: use asserts, no return nil
--- TODO: complete the impl of resize...
 --- A compact ImVector clone
 --- @class ImVector
 MT.ImVector = {}
 MT.ImVector.__index = MT.ImVector
+
+--- @return ImVector
+--- @nodiscard
+function ImVector() return setmetatable({Data = {}, Size = 0}, MT.ImVector) end
 
 function MT.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value return value end
 function MT.ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
@@ -178,34 +181,39 @@ function MT.ImVector:back() if self.Size == 0 then return nil end return self.Da
 function MT.ImVector:erase(i) if i < 1 or i > self.Size then return nil end local removed = table.remove(self.Data, i) self.Size = self.Size - 1 return removed end
 function MT.ImVector:at(i) if i < 1 or i > self.Size then return nil end return self.Data[i] end
 function MT.ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
-function MT.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return 0 end
+function MT.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end
 function MT.ImVector:erase_unsorted(index) if index < 1 or index > self.Size then return false end local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
-function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx > 0 then return self:erase_unsorted(idx) end return false end
+function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx then return self:erase_unsorted(idx) end return false end
 function MT.ImVector:reserve() return end
 function MT.ImVector:reserve_discard() return end
 function MT.ImVector:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
-function MT.ImVector:resize(new_size, v)
-    local old_size = self.Size
-
-    if new_size > old_size then
-        for i = old_size + 1, new_size do
-            self.Data[i] = v
-        end
-    elseif new_size < old_size then
-        for i = new_size + 1, old_size do
-            self.Data[i] = nil
-        end
-    end
-
-    self.Size = new_size
-end
+function MT.ImVector:resize(new_size, v) local old_size = self.Size if new_size > old_size then for i = old_size + 1, new_size do self.Data[i] = v end elseif new_size < old_size then for i = new_size + 1, old_size do self.Data[i] = nil end end self.Size = new_size end
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
 function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end return false end end
 function MT.ImVector:insert(pos, value) if pos < 1 or pos > self.Size + 1 then return nil end --[[if self.Size == self.Capacity then self:reserve(self:_grow_capacity(self.Size + 1)) end--]] for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
+function MT.ImVector:copy() local other = ImVector() other.Size = self.Size for i = 1, self.Size do other.Data[i] = self.Data[i] end return other end
 
---- @return ImVector
---- @nodiscard
-function ImVector() return setmetatable({Data = {}, Size = 0}, MT.ImVector) end
+--- @return int # 0-based index
+function MT.ImVector:index_from_ptr(p)
+    local data = self.Data
+    local size = self.Size
+    local mid = bit.rshift(size, 1)
+
+    for i = size, mid + 1, -1 do
+        if data[i] == p then
+            return i - 1
+        end
+    end
+
+    for i = mid, 1, -1 do
+        if data[i] == p then
+            return i - 1
+        end
+    end
+
+    --- @diagnostic disable-next-line
+    assert(false, "index_from_ptr failed!")
+end
 
 --- @class ImDrawCmd
 MT.ImDrawCmd = {}

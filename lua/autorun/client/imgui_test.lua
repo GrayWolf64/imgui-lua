@@ -14,7 +14,8 @@ hook.Add("PostRender", "ImGuiTest", function()
     ImGui.NewFrame()
 
     -- Temporary test, cool timed scaling
-    -- ImGui.PushFont(nil, math.max(15, math.abs(90 * math.sin(SysTime()))))
+    -- it will sometimes "out of texture memory" since too many unique sizes
+    -- ImGui.PushFont(nil, math.max(20, math.abs(100 * math.sin(SysTime()))))
 
     local window1_open = {true}
     ImGui.Begin("Hello World!", window1_open)
