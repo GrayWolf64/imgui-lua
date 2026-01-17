@@ -541,7 +541,6 @@ end
 --- @field TexMaxWidth         int
 --- @field TexMaxHeight        int
 --- @field TexRef              ImTextureRef
---- @field TexID               ImTextureRef
 --- @field TexData             ImTextureData
 --- @field TexList             ImVector<ImTextureData>
 --- @field Locked              bool
@@ -580,7 +579,6 @@ function ImFontAtlas()
     this.TexMaxHeight        = 8192
 
     this.TexRef              = ImTextureRef()
-    this.TexID               = nil
 
     this.TexData             = nil
 
@@ -603,8 +601,6 @@ function ImFontAtlas()
     this.FontLoaderFlags     = nil
     this.RefCount            = 0
     this.OwnerContext        = nil
-
-    this.TexRef._TexID       = ImTextureID_Invalid
 
     return this
 end
