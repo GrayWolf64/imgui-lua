@@ -665,6 +665,59 @@ function ImFontGlyph()
     }
 end
 
+--- @class ImGuiIO
+
+--- @return ImGuiIO
+function ImGuiIO()
+    return {
+        BackendFlags = 0,
+
+        MousePos = ImVec2(),
+        IsMouseDown = input.IsMouseDown,
+
+        --- Just support 2 buttons now, L & R
+        MouseDown             = {false, false},
+        MouseClicked          = {false, false},
+        MouseReleased         = {false, false},
+        MouseDownDuration     = {-1, -1},
+        MouseDownDurationPrev = {-1, -1},
+
+        MouseDownOwned = {nil, nil},
+
+        MouseClickedTime = {nil, nil},
+        MouseReleasedTime = {nil, nil},
+
+        MouseClickedPos = {ImVec2(), ImVec2()},
+
+        WantCaptureMouse = nil,
+        -- WantCaptureKeyboard = nil,
+        -- WantTextInput = nil,
+
+        DeltaTime = 1 / 60,
+        Framerate = 0,
+
+        MetricsRenderWindows = 0,
+
+        Fonts = ImFontAtlas()
+    }
+end
+
+--- @class ImGuiPlatformIO
+
+--- @return ImGuiPlatformIO
+function ImGuiPlatformIO()
+    return {
+        Renderer_TextureMaxWidth = 0,
+        Renderer_TextureMaxHeight = 0,
+
+        Renderer_RenderState = nil,
+
+        Textures = ImVector(),
+
+        Platform_LocaleDecimalPoint = '.'
+    }
+end
+
 --- @class ImGuiStoragePair
 --- @field key ImGuiID
 --- @field val int|float|any

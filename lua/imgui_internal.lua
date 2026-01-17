@@ -330,37 +330,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         CurrentWindowStack = ImVector(),
         CurrentWindow = nil,
 
-        IO = { -- TODO: make IO independent?
-            BackendFlags = 0,
-
-            MousePos = ImVec2(),
-            IsMouseDown = input.IsMouseDown,
-
-            --- Just support 2 buttons now, L & R
-            MouseDown             = {false, false},
-            MouseClicked          = {false, false},
-            MouseReleased         = {false, false},
-            MouseDownDuration     = {-1, -1},
-            MouseDownDurationPrev = {-1, -1},
-
-            MouseDownOwned = {nil, nil},
-
-            MouseClickedTime = {nil, nil},
-            MouseReleasedTime = {nil, nil},
-
-            MouseClickedPos = {ImVec2(), ImVec2()},
-
-            WantCaptureMouse = nil,
-            -- WantCaptureKeyboard = nil,
-            -- WantTextInput = nil,
-
-            DeltaTime = 1 / 60,
-            Framerate = 0,
-
-            MetricsRenderWindows = 0,
-
-            Fonts = ImFontAtlas()
-        },
+        IO = ImGuiIO(),
+        PlatformIO = ImGuiPlatformIO(),
 
         MovingWindow = nil,
         ActiveIDClickOffset = ImVec2(),
@@ -439,7 +410,10 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         MouseCursor = "arrow",
 
-        CurrentItemFlags = ImGuiItemFlags_None
+        CurrentItemFlags = ImGuiItemFlags_None,
+
+        -- Extensions
+        UserTextures = ImVector()
     }
 
     if shared_font_atlas == nil then

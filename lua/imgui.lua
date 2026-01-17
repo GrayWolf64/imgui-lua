@@ -332,10 +332,20 @@ function ImGui.UpdateTexturesNewFrame()
 end
 
 function ImGui.UpdateTexturesEndFrame()
-    -- TODO: 
+    local g = GImGui
+    g.PlatformIO.Textures:resize(0)
+    for _, atlas in g.FontAtlases:iter() do
+        for _, tex in atlas.TexList:iter() do
+            tex.RefCount = atlas.RefCount
+            g.PlatformIO.Textures:push_back(tex)
+        end
+    end
+    for _, tex in g.UserTextures:iter() do
+        g.PlatformIO.Textures:push_back(tex)
+    end
 end
 
-function ImGui.UpdateFontsNewFrame() -- TODO: investigate
+function ImGui.UpdateFontsNewFrame()
     local g = GImGui
     if (bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) == 0) then
         for _, atlas in g.FontAtlases:iter() do
@@ -1590,7 +1600,7 @@ function ImGui.NewFrame()
 
     ImGui.UpdateMouseMovingWindowNewFrame()
 
-    g.MouseCursor = "arrow"
+    g.MouseCursor = "arrow" -- TODO:
 
     g.CurrentWindowStack:resize(0)
 end
@@ -1604,6 +1614,8 @@ function ImGui.EndFrame()
     ImGui.UpdateFontsEndFrame()
 
     ImGui.UpdateMouseMovingWindowEndFrame()
+
+    ImGui.UpdateTexturesEndFrame()
 
     for _, atlas in g.FontAtlases:iter() do
         atlas.Locked = false
