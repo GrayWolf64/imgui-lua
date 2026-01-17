@@ -343,10 +343,15 @@ function ImTextureData()
     return this
 end
 
+-- TODO: return a new slice?
 function MT.ImTextureData:GetPixelsAt(x, y)
-    self.Pixels.offset = self.Pixels.offset + (x + y * self.Width) * self.BytesPerPixel
+    self.Pixels.offset = (x + y * self.Width) * self.BytesPerPixel
     return self.Pixels
 end
+
+function MT.ImTextureData:GetPitch() return self.Width * self.BytesPerPixel end
+function MT.ImTextureData:GetTexID() return self.TexID end
+function MT.ImTextureData:SetTexID(tex_id) self.TexID = tex_id end
 
 --- @class ImTextureRef
 MT.ImTextureRef = {}

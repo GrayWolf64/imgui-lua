@@ -697,3 +697,43 @@ function ImFontAtlasRectId_Make(index_idx, gen_idx)
     IM_ASSERT(index_idx >= 0 and index_idx <= ImFontAtlasRectId_IndexMask_ and gen_idx <= bit.rshift(ImFontAtlasRectId_GenerationMask_, ImFontAtlasRectId_GenerationShift_))
     return bit.bor(index_idx, bit.lshift(gen_idx, ImFontAtlasRectId_GenerationShift_))
 end
+
+--- @class ImFontAtlasPostProcessData
+--- @field FontAtlas ImFontAtlas
+--- @field Font      ImFont
+--- @field FontSrc   ImFontConfig
+--- @field FontBaked ImFontBaked
+--- @field Glyph     ImFontGlyph
+--- @field Pixels    ImSlice
+--- @field Format    ImTextureFormat
+--- @field Pitch     int
+--- @field Width     int
+--- @field Height    int
+
+--- @param atlas      ImFontAtlas
+--- @param font       ImFont
+--- @param font_src   ImFontConfig
+--- @param font_baked ImFontBaked
+--- @param glyph      ImFontGlyph
+--- @param pixels     ImSlice
+--- @param format     ImTextureFormat
+--- @param pitch      int
+--- @param width      int
+--- @param height     int
+--- @return ImFontAtlasPostProcessData
+--- @nodiscard
+function ImFontAtlasPostProcessData(atlas, font, font_src, font_baked, glyph, pixels, format, pitch, width, height)
+    return {
+        FontAtlas = atlas,
+        Font      = font,
+        FontSrc   = font_src,
+        FontBaked = font_baked,
+        Glyph     = glyph,
+
+        Pixels = pixels,
+        Format = format,
+        Pitch  = pitch,
+        Width  = width,
+        Height = height,
+    }
+end
