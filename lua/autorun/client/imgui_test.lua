@@ -20,7 +20,7 @@ hook.Add("PostRender", "ImGuiTest", function()
     local window1_open = {true}
     ImGui.Begin("Hello World!", window1_open)
     ImGui.End()
-    print(ImGui.GetIO().Fonts.TexRef._TexID)
+    print("g.Fonts TexRef._TexID:", ImGui.GetIO().Fonts.TexRef._TexID)
 
     -- ImGui.PopFont()
 

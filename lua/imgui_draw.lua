@@ -1216,13 +1216,23 @@ function ImFontAtlasBuildSetupFontLoader(atlas, font_loader)
 end
 
 local function ImFontAtlasBuildUpdateRendererHasTexturesFromContext(atlas)
-    return
+    for _, shared_data in atlas.DrawListSharedDatas:iter() do
+        local imgui_ctx = shared_data.Context
+        if (imgui_ctx) then
+            atlas.RendererHasTextures = bit.band(imgui_ctx.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) ~= 0
+
+            break
+        end
+    end
 end
 
 local function ImFontAtlasBuildUpdatePointers(atlas)
-    return
+    return -- UNNECESSARY
 end
 
+--- @param atlas   ImFontAtlas
+--- @param old_tex ImTextureRef
+--- @param new_tex ImTextureRef
 local function ImFontAtlasUpdateDrawListsTextures(atlas, old_tex, new_tex)
     for _, shared_data in atlas.DrawListSharedDatas:iter() do
         if (shared_data.Context and not shared_data.Context.WithinFrameScope) then
@@ -2510,19 +2520,37 @@ function MT.ImDrawList:_PopUnusedDrawCmd()
 end
 
 function MT.ImDrawList:_OnChangedTexture()
-    -- TODO: 
+    IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
+    local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    if curr_cmd.ElemCount ~= 0 and curr_cmd.TexRef ~= self._CmdHeader.TexRef then
+        self:AddDrawCmd()
+
+        return
+    end
+
+    if curr_cmd.UserCallback ~= nil then
+        return
+    end
+
+    -- local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
+    -- if curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil then
+    --     self.CmdBuffer:pop_back()
+
+    --     return
+    -- end
+    curr_cmd.TexRef = self._CmdHeader.TexRef
 end
 
 function MT.ImDrawList:_OnChangedVtxOffset()
     self._VtxCurrentIdx = 1
-    -- IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
+    IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
 
     local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
     if curr_cmd.ElemCount ~= 0 then
         self:AddDrawCmd()
         return
     end
-    -- IM_ASSERT(curr_cmd->UserCallback == NULL)
+    IM_ASSERT(curr_cmd.UserCallback == nil)
     curr_cmd.VtxOffset = self._CmdHeader.VtxOffset
 end
 
@@ -3199,6 +3227,10 @@ function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_
     self._ClipRectStack:push_back(cr)
     self._CmdHeader.ClipRect = cr
     -- _OnChangedClipRect()
+end
+
+function MT.ImDrawList:PushTexture(tex_ref)
+    error("NOT IMPLEMENTED", 2)
 end
 
 function MT.ImDrawList:_SetTexture(tex_ref)

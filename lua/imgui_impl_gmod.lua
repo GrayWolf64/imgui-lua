@@ -106,6 +106,7 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     local idx1 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 2 + i]
                     local idx2 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 3 + i]
 
+                    print("pcmd TexRef:", pcmd:GetTexID())
                     -- FIXME: 
                     if not idx0 then print("idx 0 == nil!") continue end
 

@@ -1222,11 +1222,16 @@ function ImGui.SetWindowViewport(window, viewport)
 end
 
 -- `p_open` will be set to false when the close button is pressed.
+--- @param name    string
+--- @param p_open  bool_ptr
+--- @param flags?  ImGuiWindowFlags
+--- @return bool
 function ImGui.Begin(name, p_open, flags)
     local g = GImGui
 
-    if name == nil or name == "" then return false end
-    -- IM_ASSERT(g.FrameCountEnded != g.FrameCount)
+    IM_ASSERT(name ~= nil and name ~= "")
+    IM_ASSERT(g.WithinFrameScope)
+    IM_ASSERT(g.FrameCountEnded ~= g.FrameCount)
 
     local window = ImGui.FindWindowByName(name)
     local window_just_created = (window == nil)
@@ -1438,9 +1443,12 @@ function ImGui.PopClipRect()
     -- TODO: 
 end
 
+--- @param viewport      ImGuiViewportP
+--- @param drawlist_no   size_t         # background(1), foreground(2)
+--- @param drawlist_name string
 local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
     local g = GImGui
-
+    IM_ASSERT(drawlist_no <= 2) -- IM_COUNTOF(viewport->BgFgDrawLists)
     local draw_list = viewport.BgFgDrawLists[drawlist_no]
     if draw_list == nil then
         draw_list = ImDrawList(g.DrawListSharedData)
@@ -1450,6 +1458,7 @@ local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
 
     if viewport.BgFgDrawListsLastFrame[drawlist_no] ~= g.FrameCount then
         draw_list:_ResetForNewFrame()
+        draw_list:PushTexture(g.IO.Fonts.TexRef)
         draw_list:PushClipRect(viewport.Pos, viewport.Pos + viewport.Size, false)
         viewport.BgFgDrawListsLastFrame[drawlist_no] = g.FrameCount
     end
@@ -1572,6 +1581,8 @@ function ImGui.NewFrame()
     SetupDrawListSharedData()
     ImGui.UpdateFontsNewFrame()
 
+    g.WithinFrameScope = true
+
     for _, viewport in g.Viewports:iter() do
         viewport.DrawDataP.Valid = false
     end
@@ -1608,8 +1619,16 @@ end
 function ImGui.EndFrame()
     local g = GImGui
 
-    if g.FrameCountEnded == g.FrameCount then return end
+    if g.FrameCountEnded == g.FrameCount then
+        return
+    end
+    if not g.WithinFrameScope then
+        IM_ASSERT_USER_ERROR(g.WithinFrameScope, "Forgot to call ImGui::NewFrame()?")
 
+        return
+    end
+
+    g.WithinFrameScope = false
     g.FrameCountEnded = g.FrameCount
     ImGui.UpdateFontsEndFrame()
 

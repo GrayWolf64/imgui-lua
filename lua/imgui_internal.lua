@@ -321,6 +321,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         Config = nil,
         Initialized = false,
+        WithinFrameScope = false,
 
         Windows = ImVector(), -- Windows sorted in display order, back to front
         WindowsByID = {}, -- Map window's ID to window ref

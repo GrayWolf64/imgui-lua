@@ -8,6 +8,8 @@
 --- @alias int            integer
 --- @alias unsigned_short integer
 
+--- @alias size_t unsigned_int
+
 --- @alias char integer
 
 --- @alias ImWchar16 unsigned_short
@@ -34,12 +36,15 @@ local MT = {}
 --- @param _MSG string?
 function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
 
+IM_ASSERT_PARANOID = IM_ASSERT
+
 ----------------------------------------------------------------
 -- [SECTION] C POINTER / ARRAY LIKE OPERATIONS SUPPORT
 ----------------------------------------------------------------
 
 -- TODO: try to reduce its usage
 --- @alias float_ptr table<float, 1>
+--- @alias bool_ptr table<bool, 1>
 
 --- @class ImSlice
 --- @field data table
@@ -223,11 +228,25 @@ MT.ImDrawCmd.__index = MT.ImDrawCmd
 --- @nodiscard
 function ImDrawCmd()
     return setmetatable({
-        ClipRect = ImVec4(),
-        VtxOffset = 0,
-        IdxOffset = 0,
-        ElemCount = 0
-    }, MT.ImDrawCmd) -- TODO: callback
+        ClipRect               = ImVec4(),
+        TexRef                 = nil, -- TODO: validate
+        VtxOffset              = 0,
+        IdxOffset              = 0,
+        ElemCount              = 0,
+        UserCallback           = nil,
+        UserCallbackData       = nil,
+        UserCallbackDataSize   = 0,
+        UserCallbackDataOffset = 0
+    }, MT.ImDrawCmd)
+end
+
+--- @return ImTextureID
+function MT.ImDrawCmd:GetTexID()
+    local tex_id = (self.TexRef._TexData) and self.TexRef._TexData.TexID or self.TexRef._TexID
+    if self.TexRef._TexData ~= nil then
+        IM_ASSERT(tex_id ~= ImTextureID_Invalid, "ImDrawCmd is referring to ImTextureData that wasn't uploaded to graphics system. Backend must call ImTextureData::SetTexID() after handling ImTextureStatus_WantCreate request!")
+    end
+    return tex_id
 end
 
 --- @class ImDrawVert
@@ -250,7 +269,8 @@ MT.ImDrawCmdHeader.__index = MT.ImDrawCmdHeader
 --- @nodiscard
 function ImDrawCmdHeader()
     return setmetatable({
-        ClipRect = ImVec4(),
+        ClipRect  = ImVec4(),
+        TexRef    = ImTextureRef(), -- TODO: validate
         VtxOffset = 0
     }, MT.ImDrawCmdHeader)
 end
@@ -265,16 +285,16 @@ function ImDrawList(data)
         CmdBuffer = ImVector(),
         IdxBuffer = ImVector(),
         VtxBuffer = ImVector(),
-        Flags = 0,
+        Flags     = 0,
 
-        _VtxCurrentIdx = 1, -- TODO: validate
-        _Data = data, -- ImDrawListSharedData*, Pointer to shared draw data (you can use ImGui:GetDrawListSharedData() to get the one from current ImGui context)
-        _VtxWritePtr = 1,
-        _IdxWritePtr = 1,
-        _Path = ImVector(),
-        _CmdHeader = ImDrawCmdHeader(),
+        _VtxCurrentIdx = 1,    -- TODO: validate
+        _Data          = data, -- ImDrawListSharedData*, Pointer to shared draw data (you can use ImGui:GetDrawListSharedData() to get the one from current ImGui context)
+        _VtxWritePtr   = 1,
+        _IdxWritePtr   = 1,
+        _Path          = ImVector(),
+        _CmdHeader     = ImDrawCmdHeader(),
         _ClipRectStack = ImVector(),
-        _TextureStack = ImVector(),
+        _TextureStack  = ImVector(),
 
         _FringeScale = 0
     }, MT.ImDrawList)
@@ -359,7 +379,12 @@ end
 
 function MT.ImTextureData:GetPitch() return self.Width * self.BytesPerPixel end
 function MT.ImTextureData:GetTexID() return self.TexID end
+
+--- @param tex_id ImTextureID
 function MT.ImTextureData:SetTexID(tex_id) self.TexID = tex_id end
+
+--- @param status ImTextureStatus
+function MT.ImTextureData:SetStatus(status) self.Status = status if status == ImTextureStatus.Destroyed and not self.WantDestroyNextFrame then self.Status = ImTextureStatus.WantCreate end end
 
 --- @class ImTextureRef
 MT.ImTextureRef = {}
