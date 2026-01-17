@@ -702,6 +702,34 @@ function ImGuiIO()
     }
 end
 
+--- @class ImGuiViewport
+MT.ImGuiViewport = {}
+MT.ImGuiViewport.__index = MT.ImGuiViewport
+
+function MT.ImGuiViewport:GetCenter()
+    return ImVec2(self.Pos.x + self.Size.x * 0.5, self.Pos.y + self.Size.y * 0.5)
+end
+
+function MT.ImGuiViewport:GetWorkCenter()
+    return ImVec2(self.WorkPos.x + self.WorkSize.x * 0.5, self.WorkPos.y + self.WorkSize.y * 0.5)
+end
+
+--- @return ImGuiViewport
+--- @nodiscard
+function ImGuiViewport()
+    return setmetatable({
+        ID       = 0,
+        Flags    = 0,
+        Pos      = ImVec2(),
+        Size     = ImVec2(),
+        WorkPos  = ImVec2(),
+        WorkSize = ImVec2(),
+
+        PlatformHandle = nil,
+        PlatformHandleRaw = nil
+    }, MT.ImGuiViewport)
+end
+
 --- @class ImGuiPlatformIO
 
 --- @return ImGuiPlatformIO
