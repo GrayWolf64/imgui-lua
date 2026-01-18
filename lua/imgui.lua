@@ -1413,13 +1413,12 @@ end
 --- static void SetupDrawListSharedData()
 local function SetupDrawListSharedData()
     local g = GImGui
-
+    -- TODO: 
     g.DrawListSharedData:SetCircleTessellationMaxError(g.Style.CircleTessellationMaxError)
 end
--- TODO: Have to be careful that e.g. every drawlist can have a pointer to shareddata(the same) of the context
 
 local function InitViewportDrawData(viewport)
-    local g = GImGui
+    local io = ImGui.GetIO()
     local draw_data = viewport.DrawDataP
 
     viewport.DrawDataBuilder.Layers[1] = draw_data.CmdLists
@@ -1427,12 +1426,15 @@ local function InitViewportDrawData(viewport)
     viewport.DrawDataBuilder.Layers[1]:resize(0)
     viewport.DrawDataBuilder.Layers[2]:resize(0)
 
-    draw_data.Valid = true
-    draw_data.CmdListsCount = 0
-    draw_data.TotalVtxCount = 0
-    draw_data.TotalIdxCount = 0
-    draw_data.DisplayPos = viewport.Pos
-    draw_data.DisplaySize = viewport.Size
+    draw_data.Valid            = true
+    draw_data.CmdListsCount    = 0
+    draw_data.TotalVtxCount    = 0
+    draw_data.TotalIdxCount    = 0
+    draw_data.DisplayPos       = viewport.Pos
+    draw_data.DisplaySize      = viewport.Size
+    draw_data.FramebufferScale = io.DisplayFramebufferScale
+    draw_data.OwnerViewport    = viewport
+    draw_data.Textures         = ImGui.GetPlatformIO().Textures
 end
 
 function ImGui.PushClipRect(clip_rect_min, clip_rect_max, intersect_with_current_clip_rect)
@@ -1725,9 +1727,9 @@ end
 
 --- void ImGui::Shutdown()
 
---- Exposure
---
 function ImGui.GetIO() return GImGui.IO end
+
+function ImGui.GetPlatformIO() return GImGui.PlatformIO end
 
 function ImGui.GetStyle()
     IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?")

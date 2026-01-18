@@ -239,7 +239,7 @@ function ImFontAtlasBuilder()
     this.RectsPackedSurface       = 0
     this.RectsDiscardedCount      = 0
     this.RectsDiscardedSurface    = 0
-    this.FrameCount               = 0
+    this.FrameCount               = -1
     this.MaxRectSize              = ImVec2()
     this.MaxRectBounds            = ImVec2()
     this.LockDisableResize        = false
@@ -417,6 +417,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         UserTextures = ImVector()
     }
 
+    this.IO.Fonts = (shared_font_atlas ~= nil) and shared_font_atlas or ImFontAtlas()
     if shared_font_atlas == nil then
         this.IO.Fonts.OwnerContext = this
     end

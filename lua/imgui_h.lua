@@ -256,7 +256,7 @@ end
 function ImDrawVert()
     return {
         pos = ImVec2(),
-        uv  = nil,
+        uv  = ImVec2(),
         col = nil
     }
 end
@@ -270,7 +270,7 @@ MT.ImDrawCmdHeader.__index = MT.ImDrawCmdHeader
 function ImDrawCmdHeader()
     return setmetatable({
         ClipRect  = ImVec4(),
-        TexRef    = ImTextureRef(), -- TODO: validate
+        TexRef    = nil,
         VtxOffset = 0
     }, MT.ImDrawCmdHeader)
 end
@@ -279,9 +279,11 @@ end
 MT.ImDrawList = {}
 MT.ImDrawList.__index = MT.ImDrawList
 
+--- @param data? ImDrawListSharedData
 --- @return ImDrawList
 function ImDrawList(data)
-    return setmetatable({
+    --- @type ImDrawList
+    local this = setmetatable({
         CmdBuffer = ImVector(),
         IdxBuffer = ImVector(),
         VtxBuffer = ImVector(),
@@ -298,6 +300,11 @@ function ImDrawList(data)
 
         _FringeScale = 0
     }, MT.ImDrawList)
+
+    -- GLUA: Keep Reference
+    if data then this._CmdHeader.TexRef = data.FontAtlas.TexRef end
+
+    return this
 end
 
 --- @class ImDrawData
@@ -384,7 +391,7 @@ function MT.ImTextureData:GetTexID() return self.TexID end
 function MT.ImTextureData:SetTexID(tex_id) self.TexID = tex_id end
 
 --- @param status ImTextureStatus
-function MT.ImTextureData:SetStatus(status) self.Status = status if status == ImTextureStatus.Destroyed and not self.WantDestroyNextFrame then self.Status = ImTextureStatus.WantCreate end end
+function MT.ImTextureData:SetStatus(status) self.Status = status if (status == ImTextureStatus.Destroyed and not self.WantDestroyNextFrame) then self.Status = ImTextureStatus.WantCreate end end
 
 --- @class ImTextureRef
 MT.ImTextureRef = {}
@@ -719,7 +726,10 @@ function ImGuiIO()
 
         MetricsRenderWindows = 0,
 
-        Fonts = ImFontAtlas()
+        Fonts = nil,
+
+        BackendPlatformUserData = nil,
+        BackendRendererUserData = nil
     }
 end
 

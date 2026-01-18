@@ -1603,8 +1603,8 @@ function MT.ImTextureData:Create(format, w, h)
     self.UsedRect.y = 0
     self.UsedRect.w = 0
     self.UsedRect.h = 0
-    self.UpdateRect.x = -1
-    self.UpdateRect.y = -1
+    self.UpdateRect.x = 65535
+    self.UpdateRect.y = 65535
     self.UpdateRect.w = 0
     self.UpdateRect.h = 0
 end
@@ -2480,19 +2480,33 @@ function MT.ImDrawList:_SetDrawListSharedData(data)
     if self._Data ~= nil then
         self._Data.DrawLists:push_back(self)
     end
+
+    -- GLUA: Keep Reference
+    if data then self._CmdHeader.TexRef = data.FontAtlas.TexRef end
 end
 
 function MT.ImDrawList:_ResetForNewFrame()
     self.CmdBuffer:resize(0)
     self.IdxBuffer:resize(0)
     self.VtxBuffer:resize(0)
+
+    -- GLUA: Keep Reference
+    local tex_ref = self._CmdHeader.TexRef
+    self._CmdHeader = ImDrawCmdHeader()
+    self._CmdHeader.TexRef = tex_ref
+
     self._VtxCurrentIdx = 1
     self._VtxWritePtr = 1
     self._IdxWritePtr = 1
     self._ClipRectStack:resize(0)
     self._TextureStack:resize(0)
     self._Path:resize(0)
-    self.CmdBuffer:push_back(ImDrawCmd())
+
+    -- GLUA: Keep Reference
+    local draw_cmd = ImDrawCmd()
+    draw_cmd.TexRef = tex_ref
+    self.CmdBuffer:push_back(draw_cmd)
+
     self._FringeScale = self._Data.InitialFringeScale
 end
 
@@ -2692,14 +2706,13 @@ function MT.ImDrawList:PrimUnreserve(idx_count, vtx_count)
 end
 
 function MT.ImDrawList:PrimRect(a, c, col)
-    local b = ImVec2(c.x, a.y)
-    local d = ImVec2(a.x, c.y)
+    local b = ImVec2(c.x, a.y) local d = ImVec2(a.x, c.y)
+    local uv = self._Data.TexUvWhitePixel
 
-    -- TODO: uv
     local idx = self._VtxCurrentIdx
 
     local idx_write_ptr = self._IdxWritePtr
-    self.IdxBuffer.Data[idx_write_ptr] = idx
+    self.IdxBuffer.Data[idx_write_ptr + 0] = idx
     self.IdxBuffer.Data[idx_write_ptr + 1] = idx + 1
     self.IdxBuffer.Data[idx_write_ptr + 2] = idx + 2
 
@@ -2708,20 +2721,24 @@ function MT.ImDrawList:PrimRect(a, c, col)
     self.IdxBuffer.Data[idx_write_ptr + 5] = idx + 3
 
     local vtx_write_ptr = self._VtxWritePtr
-    self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr].pos = a
-    self.VtxBuffer.Data[vtx_write_ptr].col = col
+    self.VtxBuffer.Data[vtx_write_ptr + 0] = ImDrawVert()
+    self.VtxBuffer.Data[vtx_write_ptr + 0].pos = a
+    self.VtxBuffer.Data[vtx_write_ptr + 0].uv = uv
+    self.VtxBuffer.Data[vtx_write_ptr + 0].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
     self.VtxBuffer.Data[vtx_write_ptr + 1].pos = b
+    self.VtxBuffer.Data[vtx_write_ptr + 1].uv = uv
     self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
     self.VtxBuffer.Data[vtx_write_ptr + 2].pos = c
+    self.VtxBuffer.Data[vtx_write_ptr + 2].uv = uv
     self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 3] = ImDrawVert()
     self.VtxBuffer.Data[vtx_write_ptr + 3].pos = d
+    self.VtxBuffer.Data[vtx_write_ptr + 3].uv = uv
     self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
 
     self._VtxWritePtr = vtx_write_ptr + 4
