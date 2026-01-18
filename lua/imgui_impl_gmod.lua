@@ -235,8 +235,32 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
             ["$vertexalpha"] = 1
         })
 
+        render_target_material:SetInt("$flags", bit.bor(render_target_material:GetInt("$flags"), 32768))
+
         backend_tex.RenderTarget = render_target
         backend_tex.Material = render_target_material
+
+        render.PushRenderTarget(backend_tex.RenderTarget)
+
+        cam.Start2D()
+
+        for y = 0, tex.Height - 1 do
+            local row = tex:GetPixelsAt(0, y)
+            for x = 0, tex.Width - 1 do
+                local pixelOffset = x * 4
+                local r = IM_SLICE_GET(row, pixelOffset + 0)
+                local g = IM_SLICE_GET(row, pixelOffset + 1)
+                local b = IM_SLICE_GET(row, pixelOffset + 2)
+                local a = IM_SLICE_GET(row, pixelOffset + 3)
+
+                surface.SetDrawColor(r, g, b, a)
+                surface.DrawRect(x, y, 1, 1)
+            end
+        end
+
+        cam.End2D()
+
+        render.PopRenderTarget()
 
         tex:SetTexID(backend_tex.Handle)
         tex.BackendUserData = backend_tex
@@ -247,10 +271,10 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         local backend_tex = tex.BackendUserData
         IM_ASSERT(tex.Format == ImTextureFormat.RGBA32)
 
-        local upload_x = (tex.Status == ImTextureStatus.WantCreate) and 0 or tex.UpdateRect.x
-        local upload_y = (tex.Status == ImTextureStatus.WantCreate) and 0 or tex.UpdateRect.y
-        local upload_w = (tex.Status == ImTextureStatus.WantCreate) and tex.Width  or tex.UpdateRect.w
-        local upload_h = (tex.Status == ImTextureStatus.WantCreate) and tex.Height or tex.UpdateRect.h
+        local upload_x = tex.UpdateRect.x
+        local upload_y = tex.UpdateRect.y
+        local upload_w = tex.UpdateRect.w
+        local upload_h = tex.UpdateRect.h
 
         render.PushRenderTarget(backend_tex.RenderTarget)
 
@@ -259,13 +283,13 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         for y = upload_y, upload_y + upload_h - 1 do
             local row = tex:GetPixelsAt(upload_x, y)
             for x = upload_x, upload_x + upload_w - 1 do
-                local pixelOffset = row.offset + (x - upload_x) * 4
-                surface.SetDrawColor(
-                    IM_SLICE_GET(row, pixelOffset),
-                    IM_SLICE_GET(row, pixelOffset + 1),
-                    IM_SLICE_GET(row, pixelOffset + 2),
-                    IM_SLICE_GET(row, pixelOffset + 3)
-                )
+                local pixelOffset = (x - upload_x) * 4
+                local r = IM_SLICE_GET(row, pixelOffset + 0)
+                local g = IM_SLICE_GET(row, pixelOffset + 1)
+                local b = IM_SLICE_GET(row, pixelOffset + 2)
+                local a = IM_SLICE_GET(row, pixelOffset + 3)
+
+                surface.SetDrawColor(r, g, b, a)
                 surface.DrawRect(x, y, 1, 1)
             end
         end
