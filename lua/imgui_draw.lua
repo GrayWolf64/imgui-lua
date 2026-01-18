@@ -2671,10 +2671,11 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col) -- TODO: c
         self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
     end
 end
-
+local c1 = 0
 --- TODO: LIMIT: 65536 for imesh, 4096 for drawpoly
 function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
-    -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0)
+    IM_ASSERT_PARANOID(idx_count >= 0 and vtx_count >= 0)
+
     if self._VtxCurrentIdx + vtx_count >= 4096 then
         self._CmdHeader.VtxOffset = self.VtxBuffer.Size + 1
         self:_OnChangedVtxOffset()
@@ -2682,6 +2683,13 @@ function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
 
     local draw_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
     draw_cmd.ElemCount = draw_cmd.ElemCount + idx_count
+
+    if draw_cmd.ElemCount % 3 ~= 0 then
+        if c1 == 0 then
+            ErrorNoHaltWithStack()
+            c1 = c1 + 1
+        end
+    end
 
     local vtx_buffer_old_size = self.VtxBuffer.Size
     self.VtxBuffer:resize(vtx_buffer_old_size + vtx_count)
@@ -2691,12 +2699,18 @@ function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     self.IdxBuffer:resize(idx_buffer_old_size + idx_count)
     self._IdxWritePtr = idx_buffer_old_size + 1
 end
-
+local c2 = 0
 function MT.ImDrawList:PrimUnreserve(idx_count, vtx_count)
-    -- IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0);
+    IM_ASSERT_PARANOID(idx_count >= 0 and vtx_count >= 0)
 
     local draw_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
     draw_cmd.ElemCount = draw_cmd.ElemCount - idx_count
+    if draw_cmd.ElemCount % 3 ~= 0 then
+        if c2 == 0 then
+            ErrorNoHaltWithStack()
+            c2 = c2 + 1
+        end
+    end
     self.VtxBuffer:shrink(self.VtxBuffer.Size - vtx_count)
     self.IdxBuffer:shrink(self.IdxBuffer.Size - idx_count)
 
@@ -3478,9 +3492,12 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
 
     local vtx_count_max = (text_end - s) * 4
     local idx_count_max = (text_end - s) * 6
+    local idx_expected_size = draw_list.IdxBuffer.Size + idx_count_max
     draw_list:PrimReserve(idx_count_max, vtx_count_max)
     local vtx_write = draw_list._VtxWritePtr
     local idx_write = draw_list._IdxWritePtr
+    local vtx_index = draw_list._VtxCurrentIdx
+    local cmd_count = draw_list.CmdBuffer.Size
     local cpu_fine_clip = bit.band(flags, ImDrawTextFlags.CpuFineClip) ~= 0
 
     local color_untinted = col:copy()
@@ -3572,20 +3589,29 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
 
                 local glyph_col = glyph.Colored and color_untinted or col
 
-                draw_list:PrimRectUV(ImVec2(x1, y1), ImVec2(x2, y2), ImVec2(u1, v1), ImVec2(u2, v2), glyph_col)
+                do
+                    draw_list.VtxBuffer.Data[vtx_write + 0] = ImDrawVert(); draw_list.VtxBuffer.Data[vtx_write + 0].pos.x = x1; draw_list.VtxBuffer.Data[vtx_write + 0].pos.y = y1; draw_list.VtxBuffer.Data[vtx_write + 0].col = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 0].uv.x = u1; draw_list.VtxBuffer.Data[vtx_write + 0].uv.y = v1;
+                    draw_list.VtxBuffer.Data[vtx_write + 1] = ImDrawVert(); draw_list.VtxBuffer.Data[vtx_write + 1].pos.x = x2; draw_list.VtxBuffer.Data[vtx_write + 1].pos.y = y1; draw_list.VtxBuffer.Data[vtx_write + 1].col = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 1].uv.x = u2; draw_list.VtxBuffer.Data[vtx_write + 1].uv.y = v1;
+                    draw_list.VtxBuffer.Data[vtx_write + 2] = ImDrawVert(); draw_list.VtxBuffer.Data[vtx_write + 2].pos.x = x2; draw_list.VtxBuffer.Data[vtx_write + 2].pos.y = y2; draw_list.VtxBuffer.Data[vtx_write + 2].col = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 2].uv.x = u2; draw_list.VtxBuffer.Data[vtx_write + 2].uv.y = v2;
+                    draw_list.VtxBuffer.Data[vtx_write + 3] = ImDrawVert(); draw_list.VtxBuffer.Data[vtx_write + 3].pos.x = x1; draw_list.VtxBuffer.Data[vtx_write + 3].pos.y = y2; draw_list.VtxBuffer.Data[vtx_write + 3].col = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 3].uv.x = u1; draw_list.VtxBuffer.Data[vtx_write + 3].uv.y = v2;
+                    draw_list.IdxBuffer.Data[idx_write + 0] = vtx_index; draw_list.IdxBuffer.Data[idx_write + 1] = vtx_index + 1; draw_list.IdxBuffer.Data[idx_write + 2] = vtx_index + 2;
+                    draw_list.IdxBuffer.Data[idx_write + 3] = vtx_index; draw_list.IdxBuffer.Data[idx_write + 4] = vtx_index + 2; draw_list.IdxBuffer.Data[idx_write + 5] = vtx_index + 3;
+                    vtx_write = vtx_write + 4
+                    vtx_index = vtx_index + 4
+                    idx_write = idx_write + 6
+                end
             -- end
         end
 
         x = x + char_width
     end
 
-    local vtx_used = draw_list._VtxWritePtr - vtx_write
-    local idx_used = draw_list._IdxWritePtr - idx_write
-    local vtx_unused = vtx_count_max - vtx_used
-    local idx_unused = idx_count_max - idx_used
-    if vtx_unused > 0 or idx_unused > 0 then
-        draw_list:PrimUnreserve(vtx_unused, idx_unused)
-    end
+    draw_list.VtxBuffer.Size = vtx_write - 1
+    draw_list.IdxBuffer.Size = idx_write - 1
+    draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ElemCount = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ElemCount - (idx_expected_size - draw_list.IdxBuffer.Size)
+    draw_list._VtxWritePtr = vtx_write
+    draw_list._IdxWritePtr = idx_write
+    draw_list._VtxCurrentIdx = vtx_index
 end
 
 --- @param draw_list ImDrawList

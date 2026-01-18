@@ -154,9 +154,6 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     local idx1 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 2 + i]
                     local idx2 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 3 + i]
 
-                    -- FIXME: indexing puzzle
-                    if not idx0 then print("idx 0 == nil!") continue end
-
                     local vtx0 = draw_list.VtxBuffer.Data[global_vtx_offset + idx0]
                     local vtx1 = draw_list.VtxBuffer.Data[global_vtx_offset + idx1]
                     local vtx2 = draw_list.VtxBuffer.Data[global_vtx_offset + idx2]
@@ -232,7 +229,8 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
             ["$basetexture"] = render_target:GetName(),
             ["$translucent"] = 1,
             ["$vertexcolor"] = 1,
-            ["$vertexalpha"] = 1
+            ["$vertexalpha"] = 1,
+            ["$ignorez"] = 1
         })
 
         render_target_material:SetInt("$flags", bit.bor(render_target_material:GetInt("$flags"), 32768))
