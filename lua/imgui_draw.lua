@@ -532,7 +532,7 @@ function ImFontAtlasTextureGrow(atlas, old_tex_w, old_tex_h)
     local new_tex_w = (old_tex_h <= old_tex_w) and old_tex_w or old_tex_w * 2
     local new_tex_h = (old_tex_h <= old_tex_w) and old_tex_h * 2 or old_tex_h
 
-    local int pack_padding = atlas.TexGlyphPadding
+    local pack_padding = atlas.TexGlyphPadding
     new_tex_w = ImMax(new_tex_w, ImUpperPowerOfTwo(builder.MaxRectSize.x + pack_padding))
     new_tex_h = ImMax(new_tex_h, ImUpperPowerOfTwo(builder.MaxRectSize.y + pack_padding))
     new_tex_w = ImClamp(new_tex_w, atlas.TexMinWidth, atlas.TexMaxWidth)
@@ -633,7 +633,7 @@ function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry)
         stbrp.pack_rects(builder.PackContext, {pack_r}, 1)
         r.x = pack_r.x -- (unsigned short)
         r.y = pack_r.y -- (unsigned short)
-        if pack_r.was_packed then
+        if pack_r.was_packed == 1 then
             break
         end
 

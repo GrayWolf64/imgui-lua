@@ -25,7 +25,7 @@ local STBRP__INIT_skyline = 1
 --- @field h          stbrp_coord
 --- @field x          stbrp_coord
 --- @field y          stbrp_coord
---- @field was_packed boolean
+--- @field was_packed int
 
 --- @return stbrp_rect
 local function stbrp_rect()
@@ -35,7 +35,7 @@ local function stbrp_rect()
         h          = 0,
         x          = 0,
         y          = 0,
-        was_packed = false
+        was_packed = 0
     }
 end
 
@@ -90,7 +90,7 @@ local function stbrp__findresult()
     return {
         x         = 0,
         y         = 0,
-        prev_link = nil
+        prev_link = nil -- FIXME: 
     }
 end
 
@@ -353,12 +353,12 @@ end
 --- @param context stbrp_context
 --- @param rects stbrp_rect[]
 --- @param num_rects integer
---- @return boolean
+--- @return int
 function stbrp_pack_rects(context, rects, num_rects)
-    local all_rects_packed = true
+    local all_rects_packed = 1
 
     for i = 1, num_rects do
-        rects[i].was_packed = ((i - 1) ~= 0)
+        rects[i].was_packed = (i - 1)
     end
 
     STBRP_SORT(rects, rect_height_compare)
@@ -382,9 +382,9 @@ function stbrp_pack_rects(context, rects, num_rects)
     STBRP_SORT(rects, rect_original_order)
 
     for i = 1, num_rects do
-        rects[i].was_packed = not (rects[i].x == STBRP__MAXVAL and rects[i].y == STBRP__MAXVAL)
-        if not rects[i].was_packed then
-            all_rects_packed = false
+        rects[i].was_packed = (rects[i].x == STBRP__MAXVAL and rects[i].y == STBRP__MAXVAL) and 0 or 1
+        if rects[i].was_packed == 0 then
+            all_rects_packed = 0
         end
     end
 

@@ -168,6 +168,9 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                         {x = vtx1.pos.x, y = vtx1.pos.y, u = vtx1.uv.x, v = vtx1.uv.y},
                         {x = vtx2.pos.x, y = vtx2.pos.y, u = vtx2.uv.x, v = vtx2.uv.y}
                     })
+
+                    -- Display the atlas on my screen
+                    render.DrawTextureToScreenRect(bd.TextureRegistry[tex_id].Material:GetTexture("$basetexture"), 10, 10, bd.TextureRegistry[tex_id].Width, bd.TextureRegistry[tex_id].Height)
                 end
             end
         end
@@ -230,8 +233,6 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
             ["$ignorez"] = 1
         })
 
-        render_target_material:SetInt("$flags", bit.bor(render_target_material:GetInt("$flags"), 32768))
-
         backend_tex.RenderTarget = render_target
         backend_tex.Material = render_target_material
 
@@ -279,6 +280,7 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         local upload_w = tex.UpdateRect.w
         local upload_h = tex.UpdateRect.h
 
+        -- FIXME: the w and h can be different so need to create a new RT
         render.PushRenderTarget(backend_tex.RenderTarget)
 
         render.OverrideAlphaWriteEnable(true, true)
