@@ -160,11 +160,8 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
                     local col = vtx0.col
                     local tex_id = pcmd:GetTexID()
-                    if tex_id then
-                        surface.SetMaterial(bd.TextureRegistry[tex_id].Material)
-                    else
-                        surface.SetTexture(0)
-                    end
+
+                    surface.SetMaterial(bd.TextureRegistry[tex_id].Material)
                     surface.SetDrawColor(col.x * 255, col.y * 255, col.z * 255, col.w * 255)
                     surface.DrawPoly({
                         {x = vtx0.pos.x, y = vtx0.pos.y, u = vtx0.uv.x, v = vtx0.uv.y},
@@ -240,6 +237,8 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         render.PushRenderTarget(backend_tex.RenderTarget)
 
+        render.Clear(0, 0, 0, 0, true, true)
+
         cam.Start2D()
 
         for y = 0, tex.Height - 1 do
@@ -275,6 +274,8 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         local upload_h = tex.UpdateRect.h
 
         render.PushRenderTarget(backend_tex.RenderTarget)
+
+        render.Clear(0, 0, 0, 0, true, true)
 
         cam.Start2D()
 

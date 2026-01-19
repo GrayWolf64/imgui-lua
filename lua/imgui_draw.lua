@@ -198,7 +198,8 @@ function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
         builder.BakedDiscardedCount = 0
     end
 
-    for tex_n = 1, atlas.TexList.Size do
+    local tex_n = 1
+    while tex_n <= atlas.TexList.Size do
         local tex = atlas.TexList.Data[tex_n]
         local remove_from_list = false
         if tex.Status == ImTextureStatus.OK then
@@ -239,6 +240,8 @@ function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
             atlas.TexList:erase(tex_n)
             tex_n = tex_n - 1
         end
+
+        tex_n = tex_n + 1
     end
 end
 
@@ -1241,7 +1244,7 @@ local function ImFontAtlasUpdateDrawListsTextures(atlas, old_tex, new_tex)
 
         for _, draw_list in shared_data.DrawLists:iter() do
             if (draw_list.CmdBuffer.Size > 0 and draw_list._CmdHeader.TexRef == old_tex) then
-                draw_list._SetTexture(new_tex)
+                draw_list:_SetTexture(new_tex)
             end
 
             for _, stacked_tex in draw_list._TextureStack:iter() do
@@ -2510,6 +2513,24 @@ function MT.ImDrawList:_ResetForNewFrame()
     self._FringeScale = self._Data.InitialFringeScale
 end
 
+function MT.ImDrawList:_ClearFreeMemory()
+    self.CmdBuffer:clear()
+    self.IdxBuffer:clear()
+    self.VtxBuffer:clear()
+
+    self.Flags = ImDrawListFlags_None
+
+    self._VtxCurrentIdx = 1
+    self._VtxWritePtr = 1
+    self._IdxWritePtr = 1
+
+    self._ClipRectStack:clear()
+    self._TextureStack:clear()
+    -- self._CallbacksDataBuf:clear()
+    self._Path:clear()
+    -- self._Splitter.ClearFreeMemory()
+end
+
 function MT.ImDrawList:AddDrawCmd()
     local draw_cmd = ImDrawCmd()
 
@@ -2671,7 +2692,24 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col) -- TODO: c
         self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
     end
 end
-local c1 = 0
+
+function MT.ImDrawList:PushTexture(tex_ref)
+    error("NOT IMPLEMENTED", 2)
+end
+
+function MT.ImDrawList:PopTexture()
+    error("NOT IMPLEMENTED", 2)
+end
+
+function MT.ImDrawList:_SetTexture(tex_ref)
+    if (self._CmdHeader.TexRef == tex_ref) then
+        return
+    end
+    self._CmdHeader.TexRef = tex_ref
+    self._TextureStack.Data[self._TextureStack.Size] = tex_ref
+    self:_OnChangedTexture()
+end
+
 --- TODO: LIMIT: 65536 for imesh, 4096 for drawpoly
 function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     IM_ASSERT_PARANOID(idx_count >= 0 and vtx_count >= 0)
@@ -2684,13 +2722,6 @@ function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     local draw_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
     draw_cmd.ElemCount = draw_cmd.ElemCount + idx_count
 
-    if draw_cmd.ElemCount % 3 ~= 0 then
-        if c1 == 0 then
-            ErrorNoHaltWithStack()
-            c1 = c1 + 1
-        end
-    end
-
     local vtx_buffer_old_size = self.VtxBuffer.Size
     self.VtxBuffer:resize(vtx_buffer_old_size + vtx_count)
     self._VtxWritePtr = vtx_buffer_old_size + 1
@@ -2699,24 +2730,18 @@ function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     self.IdxBuffer:resize(idx_buffer_old_size + idx_count)
     self._IdxWritePtr = idx_buffer_old_size + 1
 end
-local c2 = 0
+
 function MT.ImDrawList:PrimUnreserve(idx_count, vtx_count)
     IM_ASSERT_PARANOID(idx_count >= 0 and vtx_count >= 0)
 
     local draw_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
     draw_cmd.ElemCount = draw_cmd.ElemCount - idx_count
-    if draw_cmd.ElemCount % 3 ~= 0 then
-        if c2 == 0 then
-            ErrorNoHaltWithStack()
-            c2 = c2 + 1
-        end
-    end
+
     self.VtxBuffer:shrink(self.VtxBuffer.Size - vtx_count)
     self.IdxBuffer:shrink(self.IdxBuffer.Size - idx_count)
 
     self._VtxWritePtr = self.VtxBuffer.Size + 1
     self._IdxWritePtr = self.IdxBuffer.Size + 1
-    self._VtxCurrentIdx = self.VtxBuffer.Size + 1 -- FIXME: Is this correct?
 end
 
 function MT.ImDrawList:PrimRect(a, c, col)
@@ -3258,19 +3283,6 @@ function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_
     self._ClipRectStack:push_back(cr)
     self._CmdHeader.ClipRect = cr
     -- _OnChangedClipRect()
-end
-
-function MT.ImDrawList:PushTexture(tex_ref)
-    error("NOT IMPLEMENTED", 2)
-end
-
-function MT.ImDrawList:_SetTexture(tex_ref)
-    if (self._CmdHeader.TexRef == tex_ref) then
-        return
-    end
-    self._CmdHeader.TexRef = tex_ref
-    self._TextureStack.Data[self._TextureStack.Size] = tex_ref
-    self:_OnChangedTexture()
 end
 
 --- void ImDrawList::_PathArcToFastEx
