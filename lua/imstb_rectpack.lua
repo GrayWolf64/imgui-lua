@@ -83,6 +83,7 @@ local function stbrp_context()
     }
 end
 
+-- GLUA: Simulate stbrp_node **prev_link usage
 --- @class stbrp__doubleptr
 --- @field obj table
 --- @field key string

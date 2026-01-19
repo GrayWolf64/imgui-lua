@@ -142,6 +142,17 @@ function MT.ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Ma
 function MT.ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
 function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
 function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
+function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
+
+function MT.ImRect:ClipWith(r)
+    self.Min.x = ImMax(self.Min.x, r.Min.x) self.Min.y = ImMax(self.Min.y, r.Min.y)
+    self.Max.x = ImMin(self.Max.x, r.Max.x) self.Max.y = ImMin(self.Max.y, r.Max.y)
+end
+
+function MT.ImRect:ClipWithFull(r)
+    self.Min.x = ImClamp(self.Min.x, r.Min.x, r.Max.x) self.Min.y = ImClamp(self.Min.y, r.Min.y, r.Max.y)
+    self.Max.x = ImClamp(self.Max.x, r.Min.x, r.Max.x) self.Max.y = ImClamp(self.Max.y, r.Min.y, r.Max.y)
+end
 
 local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, MT.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, MT.ImRect) end
 
@@ -290,6 +301,8 @@ function ImGuiStyle()
         WindowRounding = 0,
         WindowBorderSize = 1,
 
+        PopupBorderSize = 1.0,
+
         Colors = {},
 
         WindowMinSize = ImVec2(64, 64),
@@ -426,7 +439,12 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 end
 
 --- @class ImGuiWindow
-struct_def("ImGuiWindow")
+MT.ImGuiWindow = {}
+MT.ImGuiWindow.__index = MT.ImGuiWindow
+
+function MT.ImGuiWindow:Rect()
+    return ImRect(self.Pos.x, self.Pos.y, self.Pos.x + self.Size.x, self.Pos.y + self.Size.y)
+end
 
 function MT.ImGuiWindow:TitleBarRect()
     return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
@@ -449,8 +467,6 @@ local function ImGuiWindow(ctx, name)
         Size = nil, -- Current size (==SizeFull or collapsed title bar size)
         SizeFull = nil,
 
-        TitleBarHeight = 0,
-
         Active = false,
         WasActive = false,
 
@@ -468,6 +484,12 @@ local function ImGuiWindow(ctx, name)
 
         WindowRounding = 0,
         WindowBorderSize = 1,
+
+        TitleBarHeight = 0, MenuBarHeight = 0,
+
+        DecoOuterSizeX1 = 0, DecoOuterSizeY1 = 0,
+        DecoOuterSizeX2 = 0, DecoOuterSizeY2 = 0,
+        DecoInnerSizeX1 = 0, DecoInnerSizeY1 = 0,
 
         HasCloseButton = true,
 
@@ -504,9 +526,16 @@ local function ImGuiWindow(ctx, name)
             TextWrapPos = 0
         },
 
+        OuterRectClipped = nil,
+        InnerRect        = ImRect(),
+        InnerClipRect    = ImRect(),
+        WorkRect         = nil,
+
         ClipRect = ImRect(),
 
-        LastFrameActive = -1
+        LastFrameActive = -1,
+
+        WriteAccessed = false
     }
 
     this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)

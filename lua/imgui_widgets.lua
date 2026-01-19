@@ -41,7 +41,7 @@ function ImGui.CloseButton(id, pos)
     local pressed, hovered = ImGui.ButtonBehavior(id, bb)
 
     if hovered then
-        window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered, 0, 0) -- TODO: 0 rounding
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered)
     end
 
     --- DrawLine draws lines of different thickness, why? Antialiasing
@@ -67,7 +67,7 @@ function ImGui.CollapseButton(id, pos)
     local pressed, hovered = ImGui.ButtonBehavior(id, bb)
 
     if hovered then
-        window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered, 0, 0) -- TODO: 0 rounding
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered)
     end
 
     if window.Collapsed then

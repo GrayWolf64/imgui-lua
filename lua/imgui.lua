@@ -1227,7 +1227,10 @@ end
 --- @param flags?  ImGuiWindowFlags
 --- @return bool
 function ImGui.Begin(name, p_open, flags)
+    if not flags then flags = 0 end
+
     local g = GImGui
+    local style = g.Style
 
     IM_ASSERT(name ~= nil and name ~= "")
     IM_ASSERT(g.WithinFrameScope)
@@ -1256,53 +1259,110 @@ function ImGui.Begin(name, p_open, flags)
         window.HasCloseButton = (p_open[1] ~= nil)
         window.ClipRect = ImVec4(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX)
 
+        window.IDStack:resize(1) -- FIXME: our GetID relies on table.concat, which requires the contents cleared
+        window.IDStack:clear_delete()
+
         window.DrawList:_ResetForNewFrame()
 
         local viewport = ImGui.GetMainViewport()
         ImGui.SetWindowViewport(window, viewport)
         SetCurrentWindow(window)
 
-        -- TODO: if (flags & ImGuiWindowFlagsChildWindow)
-        --     window->WindowBorderSize = style.ChildBorderSize;
-        -- else
-        --     window->WindowBorderSize = ((flags & (ImGuiWindowFlagsPopup | ImGuiWindowFlagsTooltip)) && !(flags & ImGuiWindowFlagsModal)) ? style.PopupBorderSize : style.WindowBorderSize;
+        if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
+            window.WindowBorderSize = style.ChildBorderSize
+        else
+            window.WindowBorderSize = (bit.band(flags, bit.bor(ImGuiWindowFlags_Popup, ImGuiWindowFlags_Tooltip)) ~= 0 and bit.band(flags, ImGuiWindowFlags_Modal) == 0) and style.PopupBorderSize or style.WindowBorderSize
+        end
+        window.WindowPadding = style.WindowPadding
+        -- if ((flags & ImGuiWindowFlags_ChildWindow) && !(flags & ImGuiWindowFlags_Popup) && !(window->ChildFlags & ImGuiChildFlags_AlwaysUseWindowPadding) && window->WindowBorderSize == 0.0f)
+        -- window->WindowPadding = ImVec2(0.0f, (flags & ImGuiWindowFlags_MenuBar) ? style.WindowPadding.y : 0.0f);
+
+        window.TitleBarHeight = (bit.band(flags, ImGuiWindowFlags_NoTitleBar) ~= 0) and 0 or g.FontSize + g.Style.FramePadding.y * 2
+
+        -- const ImVec2 scrollbar_sizes_from_last_frame = window->ScrollbarSizes;
+        -- window->DecoOuterSizeX1 = 0.0f;
+        -- window->DecoOuterSizeX2 = 0.0f;
+        -- window->DecoOuterSizeY1 = window->TitleBarHeight + window->MenuBarHeight;
+        -- window->DecoOuterSizeY2 = 0.0f;
+        -- window->ScrollbarSizes = ImVec2(0.0f, 0.0f);
+
+        -- window.SizeFull = CalcWindowSizeAfterConstraint(window, window.SizeFull)
+        window.Size = (window.Collapsed and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0) and window:TitleBarRect():GetSize() or window.SizeFull
+
+        local viewport_rect = viewport:GetMainRect()
+        local viewport_work_rect = viewport:GetWorkRect()
+
+        -- window->Pos = ImTrunc(window->Pos)
+
+        window.WindowRounding = bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and style.ChildRounding or (bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 and bit.band(flags, ImGuiWindowFlags_Modal) == 0) and style.PopupRounding or style.WindowRounding
+
+        local handle_borders_and_resize_grips = true
+        if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and window.ParentWindow.SkipItems then
+            handle_borders_and_resize_grips = false
+        end
+
+        local resize_grip_col = {}
+        local resize_grip_draw_size = ImTrunc(ImMax(g.FontSize * 1.10, g.Style.WindowRounding + 1.0 + g.FontSize * 0.2))
+        if handle_borders_and_resize_grips and not window.Collapsed then
+            UpdateWindowManualResize(window, resize_grip_col)
+        end
+
+        local host_rect = (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Popup) == 0 and not window_is_child_tooltip) and parent_window.ClipRect or viewport_rect
+        local outer_rect = window:Rect()
+        local title_bar_rect = window:TitleBarRect()
+        window.OuterRectClipped = outer_rect
+        window.OuterRectClipped:ClipWith(host_rect)
+
+        window.InnerRect.Min.x = window.Pos.x + window.DecoOuterSizeX1
+        window.InnerRect.Min.y = window.Pos.y + window.DecoOuterSizeY1
+        window.InnerRect.Max.x = window.Pos.x + window.Size.x - window.DecoOuterSizeX2
+        window.InnerRect.Max.y = window.Pos.y + window.Size.y - window.DecoOuterSizeY2
+
+        local top_border_size = ((bit.band(flags, ImGuiWindowFlags_MenuBar) ~= 0 or bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0) and style.FrameBorderSize or window.WindowBorderSize)
+
+        window.InnerClipRect.Min.x = ImFloor(0.5 + window.InnerRect.Min.x + window.WindowBorderSize * 0.5)
+        window.InnerClipRect.Min.y = ImFloor(0.5 + window.InnerRect.Min.y + top_border_size * 0.5)
+        window.InnerClipRect.Max.x = ImFloor(window.InnerRect.Max.x - window.WindowBorderSize * 0.5)
+        window.InnerClipRect.Max.y = ImFloor(window.InnerRect.Max.y - window.WindowBorderSize * 0.5)
+        window.InnerClipRect:ClipWithFull(host_rect)
+
+        -- TODO: SCROLL
+
+        IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer.Data[1].ElemCount == 0)
+        window.DrawList:PushTexture(g.Font.OwnerAtlas.TexRef)
+        ImGui.PushClipRect(host_rect.Min, host_rect.Max, false)
+
+        local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
+
+        RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, resize_grip_col, resize_grip_draw_size)
+
+        RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
+    else
+        -- if (window->SkipRefresh)
+        --     SetWindowActiveForSkipRefresh(window);
+
+        SetCurrentWindow(window)
+        -- SetLastItemDataForWindow(window, window->TitleBarRect());
     end
 
-    local window_id = window.ID
+    if (not window.SkipRefresh) then
+        ImGui.PushClipRect(window.InnerClipRect.Min, window.InnerClipRect.Max, true)
+    end
 
-    window.IDStack:clear_delete()
+    window.WriteAccessed = false
+    -- window->BeginCount++;
+    -- g.NextWindowData.ClearFlags();
+
+    local window_id = window.ID
 
     PushID(window_id)
     window.MoveID = GetID("#MOVE") -- TODO: investigate
 
     g.CurrentWindowStack:push_back(window)
 
-    window.TitleBarHeight = g.FontSize + g.Style.FramePadding.y * 2
-
-    if window.Collapsed then
-        window.Size.y = window.TitleBarHeight
-    else
-        window.Size.y = window.SizeFull.y
-    end
-
-    local resize_grip_col = {} -- TODO: change this
-    if not window.Collapsed then
-        UpdateWindowManualResize(window, resize_grip_col)
-    end
-    local resize_grip_draw_size = ImTrunc(ImMax(g.FontSize * 1.10, g.Style.WindowRounding + 1.0 + g.FontSize * 0.2));
-
-    -- FIXME:
-    -- IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer[1].ElemCount == 0)
-    -- window.DrawList:PushTexture(g.Font.OwnerAtlas.TexRef)
-    -- ImGui.PushClipRect(host_rect.Min, host_rect.Max, false)
-
-    local title_bar_rect = window:TitleBarRect()
-
-    local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
-
-    RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, resize_grip_col, resize_grip_draw_size)
-
-    RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
+    -- TODO: window_is_child_tooltip
+    -- TODO: parent_window
+    -- TODO: innercliprect
 
     return not window.Collapsed
 end
@@ -1437,12 +1497,26 @@ local function InitViewportDrawData(viewport)
     draw_data.Textures         = ImGui.GetPlatformIO().Textures
 end
 
+--- @return ImGuiWindow
+function ImGui.GetCurrentWindow()
+    local g = GImGui
+    g.CurrentWindow.WriteAccessed = true
+    return g.CurrentWindow
+end
+
+--- @param clip_rect_min                    ImVec2
+--- @param clip_rect_max                    ImVec2
+--- @param intersect_with_current_clip_rect bool
 function ImGui.PushClipRect(clip_rect_min, clip_rect_max, intersect_with_current_clip_rect)
-    -- TODO:
+    local window = ImGui.GetCurrentWindow()
+    window.DrawList:PushClipRect(clip_rect_min, clip_rect_max, intersect_with_current_clip_rect)
+    window.ClipRect = window.DrawList._ClipRectStack:back()
 end
 
 function ImGui.PopClipRect()
-    -- TODO: 
+    local window = ImGui.GetCurrentWindow()
+    window.DrawList:PopClipRect()
+    window.ClipRect = window.DrawList._ClipRectStack:back()
 end
 
 --- @param viewport      ImGuiViewportP

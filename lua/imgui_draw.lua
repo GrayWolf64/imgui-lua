@@ -2554,6 +2554,28 @@ function MT.ImDrawList:_PopUnusedDrawCmd()
     end
 end
 
+function MT.ImDrawList:_OnChangedClipRect()
+    IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
+    local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    if (curr_cmd.ElemCount ~= 0 and self._CmdHeader.ClipRect ~= curr_cmd.ClipRect) then
+        self:AddDrawCmd()
+
+        return
+    end
+
+    IM_ASSERT(curr_cmd.UserCallback == nil)
+
+    -- TODO: 
+    -- local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
+    -- if (curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil) then
+    --     self.CmdBuffer.pop_back()
+
+    --     return
+    -- end
+
+    curr_cmd.ClipRect = self._CmdHeader.ClipRect
+end
+
 function MT.ImDrawList:_OnChangedTexture()
     IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
     local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
@@ -2567,12 +2589,14 @@ function MT.ImDrawList:_OnChangedTexture()
         return
     end
 
+    -- TODO: 
     -- local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
     -- if curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil then
     --     self.CmdBuffer:pop_back()
 
     --     return
     -- end
+
     curr_cmd.TexRef = self._CmdHeader.TexRef
 end
 
@@ -2694,11 +2718,18 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col) -- TODO: c
 end
 
 function MT.ImDrawList:PushTexture(tex_ref)
-    error("NOT IMPLEMENTED", 2)
+    self._TextureStack:push_back(tex_ref)
+    self._CmdHeader.TexRef = tex_ref
+    if (tex_ref._TexData ~= nil) then
+        IM_ASSERT(tex_ref._TexData.WantDestroyNextFrame == false)
+    end
+    self:_OnChangedTexture()
 end
 
 function MT.ImDrawList:PopTexture()
-    error("NOT IMPLEMENTED", 2)
+    self._TextureStack:pop_back()
+    self._CmdHeader.TexRef = (self._TextureStack.Size == 0) and ImTextureRef() or self._TextureStack.Data[self._TextureStack.Size]
+    self:_OnChangedTexture()
 end
 
 function MT.ImDrawList:_SetTexture(tex_ref)
@@ -3149,7 +3180,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 end
 
 local function FixRectCornerFlags(flags)
-    -- IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
+    IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
 
     if (bit.band(flags, ImDrawFlags_RoundCornersMask) == 0) then
         flags = bit.bor(flags, ImDrawFlags_RoundCornersAll)
@@ -3182,6 +3213,9 @@ function MT.ImDrawList:PathRect(a, b, rounding, flags)
 end
 
 function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
+    if not rounding then rounding = 0.0 end
+    if not flags    then flags    = 0   end
+
     if col.w == 0 then return end -- TODO: pack color?
 
     if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask) == ImDrawFlags_RoundCornersNone) then
@@ -3282,7 +3316,7 @@ function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_
 
     self._ClipRectStack:push_back(cr)
     self._CmdHeader.ClipRect = cr
-    -- _OnChangedClipRect()
+    self:_OnChangedClipRect()
 end
 
 --- void ImDrawList::_PathArcToFastEx
@@ -3458,7 +3492,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     local x = ImTrunc(pos.x)
     local y = ImTrunc(pos.y)
     if y > clip_rect.w then
-        -- return -- FIXME: Initialize Clipping
+        return
     end
 
     --- @type int
@@ -3569,7 +3603,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
             local x2 = x + glyph.X1 * scale
             local y1 = y + glyph.Y0 * scale
             local y2 = y + glyph.Y1 * scale
-            -- if x1 <= clip_rect.z and x2 >= clip_rect.x then
+            if x1 <= clip_rect.z and x2 >= clip_rect.x then
                 local u1 = glyph.U0
                 local v1 = glyph.V0
                 local u2 = glyph.U1
@@ -3612,7 +3646,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                     vtx_index = vtx_index + 4
                     idx_write = idx_write + 6
                 end
-            -- end
+            end
         end
 
         x = x + char_width

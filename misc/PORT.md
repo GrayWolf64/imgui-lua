@@ -13,6 +13,7 @@ local CValue do
 end
 
 --- imstb_truetype compliant table example
+--- This is no longer used
 local function CArray(size, init)
     assert(type(size) == "number" and size > 0 and size % 1 == 0, "array size must be a positive integer!")
 
@@ -30,5 +31,7 @@ local function CArray(size, init)
     return arr
 end
 ```
+
+Search for "GLUA:" to see (G)Lua specific changes!
 
 This is overall a painful experience, but I learnt a lot.
