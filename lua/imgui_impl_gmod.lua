@@ -237,7 +237,11 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         render.PushRenderTarget(backend_tex.RenderTarget)
 
-        render.Clear(0, 0, 0, 0, true, true)
+        -- https://wiki.facepunch.com/gmod/render.PushRenderTarget
+        -- This is probably a hack to use proper alpha channel with RTs
+        render.OverrideAlphaWriteEnable(true, true)
+        render.ClearDepth()
+        render.Clear(0, 0, 0, 0)
 
         cam.Start2D()
 
@@ -257,6 +261,8 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         cam.End2D()
 
+        render.OverrideAlphaWriteEnable(false, false)
+
         render.PopRenderTarget()
 
         tex:SetTexID(backend_tex.Handle)
@@ -275,7 +281,9 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         render.PushRenderTarget(backend_tex.RenderTarget)
 
-        render.Clear(0, 0, 0, 0, true, true)
+        render.OverrideAlphaWriteEnable(true, true)
+        render.ClearDepth()
+        render.Clear(0, 0, 0, 0)
 
         cam.Start2D()
 
@@ -294,6 +302,8 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         end
 
         cam.End2D()
+
+        render.OverrideAlphaWriteEnable(false, false)
 
         render.PopRenderTarget()
 
