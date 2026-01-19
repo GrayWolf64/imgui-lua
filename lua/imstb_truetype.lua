@@ -682,8 +682,8 @@ function stbtt_FindGlyphIndex(info, unicode_codepoint)
             return 0
         end
 
-        if unicode_codepoint >= ttUSHORT(ptr_add(data, search + searchRange * 2)) then
-            search = search + searchRange * 2
+        if unicode_codepoint >= ttUSHORT(ptr_add(data, search + rangeShift * 2)) then
+            search = search + rangeShift * 2
         end
 
         search = search - 2

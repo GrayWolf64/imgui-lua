@@ -2321,7 +2321,7 @@ function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_templ
 end
 
 function GetDefaultFontDataProggyClean()
-    return ImFileLoadToMemory("resource/fonts/Roboto-Regular.ttf", "rb") -- FIXME: This fails for ProggyClean.ttf. Glyph.Visible = false in the first place. check ttf format
+    return ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
 end
 
 --- @param font_cfg_template ImFontConfig
