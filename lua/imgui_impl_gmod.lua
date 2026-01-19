@@ -158,19 +158,31 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     local vtx1 = draw_list.VtxBuffer.Data[global_vtx_offset + idx1]
                     local vtx2 = draw_list.VtxBuffer.Data[global_vtx_offset + idx2]
 
-                    local col = vtx0.col
                     local tex_id = pcmd:GetTexID()
 
-                    surface.SetMaterial(bd.TextureRegistry[tex_id].Material)
-                    surface.SetDrawColor(col.x * 255, col.y * 255, col.z * 255, col.w * 255)
-                    surface.DrawPoly({
-                        {x = vtx0.pos.x, y = vtx0.pos.y, u = vtx0.uv.x, v = vtx0.uv.y},
-                        {x = vtx1.pos.x, y = vtx1.pos.y, u = vtx1.uv.x, v = vtx1.uv.y},
-                        {x = vtx2.pos.x, y = vtx2.pos.y, u = vtx2.uv.x, v = vtx2.uv.y}
-                    })
+                    render.SetMaterial(bd.TextureRegistry[tex_id].Material)
+
+                    mesh.Begin(MATERIAL_TRIANGLES, 1)
+
+                    mesh.Position(vtx0.pos.x, vtx0.pos.y, 0)
+                    mesh.TexCoord(0, vtx0.uv.x, vtx0.uv.y)
+                    mesh.Color(vtx0.col.x * 255, vtx0.col.y * 255, vtx0.col.z * 255, vtx0.col.w * 255)
+                    mesh.AdvanceVertex()
+
+                    mesh.Position(vtx1.pos.x, vtx1.pos.y, 0)
+                    mesh.TexCoord(0, vtx1.uv.x, vtx1.uv.y)
+                    mesh.Color(vtx1.col.x * 255, vtx1.col.y * 255, vtx1.col.z * 255, vtx1.col.w * 255)
+                    mesh.AdvanceVertex()
+
+                    mesh.Position(vtx2.pos.x, vtx2.pos.y, 0)
+                    mesh.TexCoord(0, vtx2.uv.x, vtx2.uv.y)
+                    mesh.Color(vtx2.col.x * 255, vtx2.col.y * 255, vtx2.col.z * 255, vtx2.col.w * 255)
+                    mesh.AdvanceVertex()
+
+                    mesh.End()
 
                     -- Display the atlas on my screen
-                    render.DrawTextureToScreenRect(bd.TextureRegistry[tex_id].Material:GetTexture("$basetexture"), 10, 10, bd.TextureRegistry[tex_id].Width, bd.TextureRegistry[tex_id].Height)
+                    -- render.DrawTextureToScreenRect(bd.TextureRegistry[tex_id].Material:GetTexture("$basetexture"), 10, 10, bd.TextureRegistry[tex_id].Width, bd.TextureRegistry[tex_id].Height)
                 end
             end
         end
