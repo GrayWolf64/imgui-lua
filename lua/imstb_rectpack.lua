@@ -28,6 +28,7 @@ local STBRP__INIT_skyline = 1
 --- @field was_packed int
 
 --- @return stbrp_rect
+--- @nodiscard
 local function stbrp_rect()
     return {
         id         = 0,
@@ -45,6 +46,7 @@ end
 --- @field next stbrp_node
 
 --- @return stbrp_node
+--- @nodiscard
 local function stbrp_node()
     return {
         x    = 0,
@@ -65,6 +67,7 @@ end
 --- @field extra       stbrp_node[]
 
 --- @return stbrp_context
+--- @nodiscard
 local function stbrp_context()
     return {
         width     = 0,
@@ -80,17 +83,31 @@ local function stbrp_context()
     }
 end
 
+--- @class stbrp__doubleptr
+--- @field obj table
+--- @field key string
+
+--- @return stbrp__doubleptr
+--- @nodiscard
+--- @package
+local function stbrp__doubleptr(_obj, _key)
+    return {
+        obj = _obj,
+        key = _key,
+    }
+end
+
 --- @class stbrp__findresult
---- @field x         integer
---- @field y         integer
---- @field prev_link stbrp_node
+--- @field x          integer
+--- @field y          integer
+--- @field prev_link? stbrp__doubleptr
 
 --- @return stbrp__findresult
 local function stbrp__findresult()
     return {
         x         = 0,
         y         = 0,
-        prev_link = nil -- FIXME: 
+        prev_link = nil
     }
 end
 
@@ -201,10 +218,10 @@ end
 --- @return stbrp__findresult
 local function stbrp__skyline_find_best_pos(c, width, height)
     local best_waste = bit.lshift(1, 30)
-    local best_x
+    local best_x = 0
     local best_y = bit.lshift(1, 30)
     local fr = stbrp__findresult()
-    local prev, node, tail, best
+    local best_prev_link = nil
 
     width = width + c.align - 1
     width = width - width % c.align
@@ -217,66 +234,73 @@ local function stbrp__skyline_find_best_pos(c, width, height)
         return fr
     end
 
-    node = c.active_head
-    prev = c.active_head
+    local prev_link = stbrp__doubleptr(c, "active_head")
+    local node = c.active_head
+
     while (node.x + width <= c.width) do
-        local y, waste
-        y, waste = stbrp__skyline_find_min_y(c, node, node.x, width)
+        local y, waste = stbrp__skyline_find_min_y(c, node, node.x, width)
+
         if c.heuristic == STBRP_HEURISTIC_Skyline.BL_sortHeight then
             if y < best_y then
                 best_y = y
-                best = prev
+                best_prev_link = prev_link
+                best_x = node.x
             end
         else
             if y + height <= c.height then
                 if y < best_y or (y == best_y and waste < best_waste) then
                     best_y = y
                     best_waste = waste
-                    best = prev
+                    best_prev_link = prev_link
+                    best_x = node.x
                 end
             end
         end
 
-        prev = node.next
+        prev_link = stbrp__doubleptr(node, "next")
         node = node.next
     end
 
-    best_x = (best == nil) and 0 or best.x
-
     if c.heuristic == STBRP_HEURISTIC_Skyline.BF_sortHeight then
-        tail = c.active_head
-        node = c.active_head
-        prev = c.active_head
+        local tail = c.active_head
+        local node_scan = c.active_head
+        local prev_link_scan = stbrp__doubleptr(c, "active_head")
 
-        while tail.x < width do
+        while tail and tail.x < width do
             tail = tail.next
         end
+
         while tail do
             local xpos = tail.x - width
-            local y, waste
             STBRP_ASSERT(xpos >= 0)
 
-            while node.next.x <= xpos do
-                prev = node.next
-                node = node.next
+            while node_scan.next and node_scan.next.x <= xpos do
+                prev_link_scan = stbrp__doubleptr(node_scan, "next")
+                node_scan = node_scan.next
             end
-            STBRP_ASSERT(node.next.x > xpos and node.x <= xpos)
-            y, waste = stbrp__skyline_find_min_y(c, node, xpos, width)
-            if y + height <= c.height then
-                if y <= best_y then
-                    if y < best_y or waste < best_waste or (waste == best_waste and xpos < best_x) then
-                        best_x = xpos
-                        best_y = y
-                        best_waste = waste
-                        best = prev
+
+            if node_scan then
+                STBRP_ASSERT(node_scan.next.x > xpos and node_scan.x <= xpos)
+
+                local y, waste = stbrp__skyline_find_min_y(c, node_scan, xpos, width)
+
+                if y + height <= c.height then
+                    if y <= best_y then
+                        if y < best_y or waste < best_waste or (waste == best_waste and xpos < best_x) then
+                            best_x = xpos
+                            best_y = y
+                            best_waste = waste
+                            best_prev_link = prev_link_scan
+                        end
                     end
                 end
             end
+
             tail = tail.next
         end
     end
 
-    fr.prev_link = best
+    fr.prev_link = best_prev_link
     fr.x = best_x
     fr.y = best_y
     return fr
@@ -288,26 +312,25 @@ end
 --- @return stbrp__findresult
 local function stbrp__skyline_pack_rectangle(context, width, height)
     local res = stbrp__skyline_find_best_pos(context, width, height)
-    local node, cur
 
     if res.prev_link == nil or res.y + height > context.height or context.free_head == nil then
         res.prev_link = nil
         return res
     end
 
-    node = context.free_head
+    local node = context.free_head
     node.x = res.x
     node.y = res.y + height
-
     context.free_head = node.next
 
-    cur = res.prev_link
+    local cur = res.prev_link.obj[res.prev_link.key]
+
     if cur.x < res.x then
         local next = cur.next
         cur.next = node
         cur = next
     else
-        res.prev_link = node
+        res.prev_link.obj[res.prev_link.key] = node
     end
 
     while cur.next and cur.next.x <= res.x + width do
@@ -322,8 +345,6 @@ local function stbrp__skyline_pack_rectangle(context, width, height)
     if cur.x < res.x + width then
         cur.x = res.x + width
     end
-
-    -- _DEBUG
 
     return res
 end
