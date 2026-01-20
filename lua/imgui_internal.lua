@@ -100,7 +100,8 @@ function IMGUI_DEBUG_LOG_FONT(_str, ...) print(string.format(_str, ...)) end
 #IMGUI_DEFINE struct_def(_name) MT[_name] = {} MT[_name].__index = MT[_name]
 
 --- @param size float
-function ImGui.GetRoundedFontSize(size) return ImRound(size) end
+--- @return float
+function ImGui.GetRoundedFontSize(size) return IM_ROUND(size) end
 
 function ImCharIsBlankA(c) return c == chr' ' or c == chr '\t' end
 

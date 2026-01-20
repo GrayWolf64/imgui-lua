@@ -68,6 +68,9 @@ function IM_SLICE_SET(p, i, v) p.data[p.offset + i + 1] = v end
 --- @param n integer?
 function IM_SLICE_INC(p, n) p.offset = p.offset + (n or 1) end
 
+--- @param p ImSlice
+function IM_SLICE_RESET(p) p.offset = 0 end
+
 --- @param _dst ImSlice
 --- @param _src ImSlice
 --- @param _cnt integer
@@ -378,10 +381,14 @@ function ImTextureData()
     return this
 end
 
--- TODO: return a new slice?
+--- @param x int
+--- @param y int
+--- @return ImSlice
+--- @nodiscard
 function MT.ImTextureData:GetPixelsAt(x, y)
-    self.Pixels.offset = (x + y * self.Width) * self.BytesPerPixel
-    return self.Pixels
+    local pixels = IM_SLICE(self.Pixels.data)
+    IM_SLICE_INC(pixels, (x + y * self.Width) * self.BytesPerPixel)
+    return pixels
 end
 
 function MT.ImTextureData:GetPitch() return self.Width * self.BytesPerPixel end

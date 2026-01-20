@@ -1480,6 +1480,9 @@ function ImFontAtlasBuildRenderBitmapFromString(atlas, x, y, w, h, in_str, in_ma
             IM_SLICE_INC(in_str, w)
         end
     end
+
+    -- We have changed the offset of in_str, now change it back to 0
+    IM_SLICE_RESET(in_str)
 end
 
 --- @param atlas ImFontAtlas
