@@ -1013,6 +1013,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
     local window_border_size = window.WindowBorderSize
 
     if window.Collapsed then
+        -- TODO: 
         RenderFrame(title_bar_rect.Min, title_bar_rect.Max, g.Style.Colors.TitleBgCollapsed, true, 0)
     else
         -- Title bar
@@ -1028,8 +1029,8 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
             local inner_dir = ImResizeGripDef[i].InnerDir
             local corner = window.Pos + ImResizeGripDef[i].CornerPos * window.Size
             local border_inner = IM_ROUND(window_border_size * 0.5)
-            window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 1) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
-            window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 1) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
+            window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
+            window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
             window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImResizeGripDef[i].AngleMin12, ImResizeGripDef[i].AngleMax12)
             window.DrawList:PathFillConvex(col)
         end

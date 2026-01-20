@@ -3693,6 +3693,8 @@ function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
         a = ImVec2( 0.750,  0.000) * r
         b = ImVec2(-0.750,  0.866) * r
         c = ImVec2(-0.750, -0.866) * r
+    elseif dir == ImGuiDir.None or dir == ImGuiDir.COUNT then
+        IM_ASSERT(false)
     end
 
     draw_list:AddTriangleFilled(center + a, center + b, center + c, color)
