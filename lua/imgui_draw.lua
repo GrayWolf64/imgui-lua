@@ -1376,8 +1376,12 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
     for n = 0, IM_DRAWLIST_TEX_LINES_WIDTH_MAX do
         local y = n
         local line_width = n
-        local pad_left = (r.w - line_width) / 2
+
+        --- @type int # If not floored, will cause black and purple horizontal stripes appearing on the right of the arrow(triangle) in the upper-left most area of the atlas
+        local pad_left = math.floor((r.w - line_width) / 2)
+        --- @type int
         local pad_right = r.w - (pad_left + line_width)
+
         IM_ASSERT(pad_left + line_width + pad_right == r.w and y < r.h)
 
         if (add_and_draw and tex.Format == ImTextureFormat.Alpha8) then

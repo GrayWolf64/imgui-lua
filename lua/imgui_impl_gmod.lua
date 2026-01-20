@@ -180,6 +180,10 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     mesh.AdvanceVertex()
 
                     mesh.End()
+
+                    -- draw.SimpleText("1", "DebugFixed", vtx0.pos.x, vtx0.pos.y, color_white)
+                    -- draw.SimpleText("2", "DebugFixed", vtx1.pos.x, vtx1.pos.y, color_white)
+                    -- draw.SimpleText("3", "DebugFixed", vtx2.pos.x, vtx2.pos.y, color_white)
                 end
             end
         end
