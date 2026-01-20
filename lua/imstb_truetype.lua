@@ -1042,12 +1042,12 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                     local v = comp_verts[i]
                     local x = v.x
                     local y = v.y
-                    v.x = m * (mtx[1] * x + mtx[3] * y + mtx[5])
-                    v.y = n * (mtx[2] * x + mtx[4] * y + mtx[6])
+                    v.x = stbtt_int16(m * (mtx[1] * x + mtx[3] * y + mtx[5]))
+                    v.y = stbtt_int16(n * (mtx[2] * x + mtx[4] * y + mtx[6]))
                     x = v.cx
                     y = v.cy
-                    v.cx = m * (mtx[1] * x + mtx[3] * y + mtx[5])
-                    v.cy = n * (mtx[2] * x + mtx[4] * y + mtx[6])
+                    v.cx = stbtt_int16(m * (mtx[1] * x + mtx[3] * y + mtx[5]))
+                    v.cy = stbtt_int16(n * (mtx[2] * x + mtx[4] * y + mtx[6]))
                 end
 
                 -- append vertices
@@ -1463,6 +1463,7 @@ function stbtt__GetGlyphInfoT2(info, glyph_index) -- const stbtt_fontinfo *info,
     return ((r ~= 0) and c.num_vertices or 0), x0, y0, x1, y1
 end
 
+--- @return int?, table?
 function stbtt_GetGlyphShape(info, glyph_index)
     if info.cff.size == 0 then
         return stbtt__GetGlyphShapeTT(info, glyph_index)
