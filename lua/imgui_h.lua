@@ -475,7 +475,7 @@ end
 --- @field FallbackChar             ImWchar
 --- @field Used8kPagesMap           ImU8[]
 --- @field EllipsisAutoBake         bool
---- @field RemapPairs               any
+--- @field RemapPairs               table<ImGuiID, any>    # GLUA: No ImGuiStorage
 --- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
@@ -499,7 +499,7 @@ function ImFont()
     this.FallbackChar     = 0
     this.Used8kPagesMap   = {}
     this.EllipsisAutoBake = false
-    this.RemapPairs       = ImGuiStorage()
+    this.RemapPairs       = {}
     this.Scale            = 0
 
     return this
@@ -791,32 +791,6 @@ function ImGuiPlatformIO()
 
         Platform_LocaleDecimalPoint = '.'
     }
-end
-
---- @class ImGuiStoragePair
---- @field key ImGuiID
---- @field val int|float|any
-
---- @param _key ImGuiID
---- @param _val int|float|any
---- @return ImGuiStoragePair
-function ImGuiStoragePair(_key, _val)
-    return {key = _key, val = _val}
-end
-
---- @class ImGuiStorage
---- @field Data ImVector<ImGuiStoragePair>
-MT.ImGuiStorage = {}
-MT.ImGuiStorage.__index = MT.ImGuiStorage
-
---- @return ImGuiStorage
-function ImGuiStorage()
-    --- @type ImGuiStorage
-    local this = setmetatable({}, MT.ImGuiStorage)
-
-    this.Data = ImVector()
-
-    return this
 end
 
 --- @enum ImGuiDir

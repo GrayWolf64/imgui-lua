@@ -189,7 +189,7 @@ function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
                 continue
             end
             builder.BakedPool.Data[dst_n - 1] = p_src
-            builder.BakedMap:SetVoidPtr(p_src.BakedId, p_src)
+            builder.BakedMap[p_src.BakedId] = p_src
         end
 
         IM_ASSERT(dst_n - 1 + builder.BakedDiscardedCount == builder.BakedPool.Size)
@@ -1694,7 +1694,7 @@ function ImFontAtlasBakedGetOrAdd(atlas, font, font_size, font_rasterizer_densit
     IM_ASSERT(font_size > 0.0 and font_rasterizer_density > 0.0)
     local baked_id = ImFontAtlasBakedGetId(font.FontId, font_size, font_rasterizer_density)
     local builder = atlas.Builder
-    local baked = builder.BakedMap:GetVoidPtrRef(baked_id)
+    local baked = builder.BakedMap[baked_id]
     if baked ~= nil then
         IM_ASSERT(baked.Size == font_size and baked.OwnerFont == font and baked.BakedId == baked_id)
 
@@ -1713,7 +1713,7 @@ function ImFontAtlasBakedGetOrAdd(atlas, font, font_size, font_rasterizer_densit
     end
 
     baked = ImFontAtlasBakedAdd(atlas, font, font_size, font_rasterizer_density, baked_id)
-    builder.BakedMap:SetVoidPtr(baked_id, baked)
+    builder.BakedMap[baked_id] = baked
 
     return baked
 end
@@ -1811,8 +1811,9 @@ end
 --- @nodiscard
 function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
     -- IM_UNUSED(atlas)
-    if font.RemapPairs.Data.Size ~= 0 then
-        return font.RemapPairs:GetInt(c, c)
+    if #font.RemapPairs > 0 then
+        local ret = font.RemapPairs[c]
+        return (ret ~= nil) and ret or c
     end
 
     return c

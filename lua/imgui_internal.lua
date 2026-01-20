@@ -237,8 +237,8 @@ end
 --- @field MaxRectBounds            ImVec2
 --- @field LockDisableResize        bool
 --- @field PreloadedAllGlyphsRanges bool
---- @field BakedPool                ImVector<ImFontBaked, 32>
---- @field BakedMap                 ImGuiStorage
+--- @field BakedPool                ImVector<ImFontBaked>
+--- @field BakedMap                 table<ImGuiID, any>            # GLUA: No ImGuiStorage
 --- @field BakedDiscardedCount      int
 --- @field PackIdMouseCursors       ImFontAtlasRectId
 --- @field PackIdLinesTexData       ImFontAtlasRectId
@@ -267,7 +267,7 @@ function ImFontAtlasBuilder()
     this.PreloadedAllGlyphsRanges = false
 
     this.BakedPool           = ImVector() -- ImStableVector<ImFontBaked,32>
-    this.BakedMap            = ImGuiStorage()
+    this.BakedMap            = {}
     this.BakedDiscardedCount = 0
 
     this.PackIdMouseCursors = -1
