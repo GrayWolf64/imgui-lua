@@ -1121,11 +1121,18 @@ local function SetCurrentWindow(window)
     local g = GImGui
     g.CurrentWindow = window
 
+    g.CurrentDpiScale = 1.0
+
     if window then
         local backup_skip_items = window.SkipItems
         window.SkipItems = false
 
-        ImGui.UpdateCurrentFontSize(0)
+        if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) ~= 0 then
+            local viewport = window.Viewport
+            g.FontRasterizerDensity = (viewport.FramebufferScale.x ~= 0.0) and viewport.FramebufferScale.x or g.IO.DisplayFramebufferScale.x
+        end
+
+        ImGui.UpdateCurrentFontSize(0.0)
 
         window.SkipItems = backup_skip_items
     end
@@ -1636,8 +1643,11 @@ function ImGui.UpdateViewportsNewFrame()
     IM_ASSERT(g.Viewports.Size == 1)
 
     local main_viewport = g.Viewports:at(1)
+    main_viewport.Flags = bit.bor(ImGuiViewportFlags_IsPlatformWindow, ImGuiViewportFlags_OwnedByApp)
     main_viewport.Pos = ImVec2(0, 0)
     main_viewport.Size = g.IO.DisplaySize
+    main_viewport.FramebufferScale = g.IO.DisplayFramebufferScale
+    IM_ASSERT(main_viewport.FramebufferScale.x > 0.0 and main_viewport.FramebufferScale.y > 0.0)
 
     for _, viewport in g.Viewports:iter() do
         viewport.WorkInsetMin = viewport.BuildWorkInsetMin

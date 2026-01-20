@@ -404,9 +404,10 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         Viewports = ImVector(),
 
-        Font = nil, -- Currently bound *FontName* to be used with surface.SetFont
-        FontSize = 18,
-        FontSizeBase = 18,
+        Font = nil,
+        FontSize = 0.0,
+        FontSizeBase = 0.0,
+        CurrentDpiScale = 0.0,
 
         FontRasterizerDensity = 1.0,
 

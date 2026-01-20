@@ -195,7 +195,7 @@ function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(valu
 function MT.ImVector:reserve() return end
 function MT.ImVector:reserve_discard() return end
 function MT.ImVector:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
-function MT.ImVector:resize(new_size, v) local old_size = self.Size if new_size > old_size then for i = old_size + 1, new_size do self.Data[i] = v end elseif new_size < old_size then for i = new_size + 1, old_size do self.Data[i] = nil end end self.Size = new_size end
+function MT.ImVector:resize(new_size, v) local old_size = self.Size if new_size > old_size then for i = old_size + 1, new_size do self.Data[i] = v end end self.Size = new_size end
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
 function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end return false end end
 function MT.ImVector:insert(pos, value) if pos < 1 or pos > self.Size + 1 then return nil end --[[if self.Size == self.Capacity then self:reserve(self:_grow_capacity(self.Size + 1)) end--]] for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
@@ -707,6 +707,10 @@ function ImGuiIO()
     return {
         BackendFlags = 0,
 
+        DeltaTime = 1.0 / 60.0,
+
+        DisplayFramebufferScale = ImVec2(1.0, 1.0),
+
         MousePos = ImVec2(),
         IsMouseDown = input.IsMouseDown,
 
@@ -728,7 +732,6 @@ function ImGuiIO()
         -- WantCaptureKeyboard = nil,
         -- WantTextInput = nil,
 
-        DeltaTime = 1 / 60,
         Framerate = 0,
 
         MetricsRenderWindows = 0,
@@ -739,6 +742,12 @@ function ImGuiIO()
         BackendRendererUserData = nil
     }
 end
+
+--- @alias ImGuiViewportFlags int
+ImGuiViewportFlags_None              = 0
+ImGuiViewportFlags_IsPlatformWindow  = bit.lshift(1, 0)
+ImGuiViewportFlags_IsPlatformMonitor = bit.lshift(1, 1)
+ImGuiViewportFlags_OwnedByApp        = bit.lshift(1, 2)
 
 --- @class ImGuiViewport
 MT.ImGuiViewport = {}
