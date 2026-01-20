@@ -100,6 +100,8 @@ local STBTT_memcpy = function() error("memcpy() not allowed!", 2) end
 
 local function STBTT__NOTUSED(_) return end
 
+local function STBTT_NOT_IMPLEMENTED() error("NOT IMPLEMENTED", 2) end
+
 local function stbtt_int32(value)
     return bit.band(value, 0xFFFFFFFF) - (bit.band(value, 0x80000000) ~= 0 and 0x100000000 or 0)
 end
@@ -346,12 +348,12 @@ end
 local function stbtt__buf_get16(b) return stbtt__buf_get(b, 2) end
 local function stbtt__buf_get32(b) return stbtt__buf_get(b, 4) end
 
-local function stbtt__buf_range(b, o, s)
+local function stbtt__buf_range(b, o, s) print(1)
     local r = stbtt__new_buf(nil, 0)
     if (o < 0 or s < 0 or o > b.size or s > (b.size - o)) then
         return r
     end
-    r.data = b.data + o
+    r.data = b.data + o -- FIXME: This should be changed to slice
     r.size = s
     return r
 end
@@ -794,15 +796,7 @@ local function stbtt_GetCodepointBox(info, codepoint)
 end
 
 local function stbtt_IsGlyphEmpty(info, glyph_index)
-    if info.cff.size ~= 0 then
-        return stbtt__GetGlyphInfoT2(info, glyph_index) == 0
-    end
-
-    local g = stbtt__GetGlyfOffset(info, glyph_index)
-    if g < 0 then return 1 end
-
-    local numberOfContours = ttSHORT(info.data + g)
-    return numberOfContours == 0
+    STBTT_NOT_IMPLEMENTED()
 end
 
 local function stbtt__close_shape(vertices, num_vertices, was_off, start_off, sx, sy, scx, scy, cx, cy)
@@ -983,7 +977,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
         num_vertices = stbtt__close_shape(vertices, num_vertices, was_off, start_off, sx, sy, scx, scy, cx, cy)
     elseif numberOfContours < 0 then
         local more = 1
-        local comp = data + g + 10
+        local comp = ptr_add(data, g + 10)
         num_vertices = 0
 
         while more ~= 0 do
@@ -1789,10 +1783,9 @@ function stbtt_GetFontVMetrics(info) -- const stbtt_fontinfo *info, int *ascent,
     return ascent, descent, lineGap
 end
 
---- Unused in ImGui
---
--- function stbtt_GetFontVMetricsOS2(info)
--- end
+function stbtt_GetFontVMetricsOS2(info)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 local function stbtt_GetFontBoundingBox(info)
     local x0 = ttSHORT(ptr_add(info.data, info.head + 36))
@@ -1814,30 +1807,16 @@ local function stbtt_ScaleForMappingEmToPixels(info, pixels)
 end
 
 local function stbtt_FindSVGDoc(info, gl)
-    local data = info.data
-    local svg_doc_list = data + stbtt__get_svg(info)
-
-    local numEntries = ttUSHORT(svg_doc_list)
-    local svg_docs = svg_doc_list + 2
-
-    for i = 0, numEntries - 1 do
-        local svg_doc = svg_docs + (12 * i)
-        if gl >= ttUSHORT(svg_doc) and gl <= ttUSHORT(ptr_add(svg_doc, 2)) then
-            return svg_doc
-        end
-    end
-    return 0
+    STBTT_NOT_IMPLEMENTED()
 end
 
---- Unused in ImGui
---
--- local function stbtt_GetGlyphSVG(info, gl)
--- end
+local function stbtt_GetGlyphSVG(info, gl)
+    STBTT_NOT_IMPLEMENTED()
+end
 
---- Unused in ImGui
---
--- local function stbtt_GetCodepointSVG(info, unicode_codepoint)
--- end
+local function stbtt_GetCodepointSVG(info, unicode_codepoint)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 ------------------------------------
 --- antialiasing software rasterizer
@@ -2463,14 +2442,13 @@ local function stbtt_Rasterize(result, flatness_in_pixels, vertices, num_verts, 
     end
 end
 
---- Unused in ImGui
---
--- local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, glyph)
--- end
+local function stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, shift_x, shift_y, glyph)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt_GetGlyphBitmap(info, scale_x, scale_y, glyph)
---     return stbtt_GetGlyphBitmapSubpixel(info, scale_x, scale_y, 0.0, 0.0, glyph)
--- end
+local function stbtt_GetGlyphBitmap(info, scale_x, scale_y, glyph)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 local function stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, glyph)
     local num_verts, vertices = stbtt_GetGlyphShape(info, glyph)
@@ -2491,50 +2469,46 @@ local function stbtt_MakeGlyphBitmap(info, output, out_w, out_h, out_stride, sca
     stbtt_MakeGlyphBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, 0.0, 0.0, glyph)
 end
 
--- local function stbtt_MakeCodepointBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, codepoint)
---     return stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, stbtt_FindGlyphIndex(info, codepoint))
--- end
+local function stbtt_MakeCodepointBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, oversample_x, oversample_y, codepoint)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt_MakeCodepointBitmap(info, output, out_w, out_h, out_stride, scale_x, scale_y, codepoint)
---     stbtt_MakeCodepointBitmapSubpixel(info, output, out_w, out_h, out_stride, scale_x, scale_y, 0.0, 0.0, codepoint)
--- end
+local function stbtt_MakeCodepointBitmap(info, output, out_w, out_h, out_stride, scale_x, scale_y, codepoint)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 ------------------------------------------------------------
 --- bitmap baking
 --- "This is SUPER-CRAPPY packing to keep source code small"
 --
 
---- Unused in ImGui, and involves pointer arithmetics
---
--- local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
--- end
+local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt_BakeFontBitmap(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
--- end
+local function stbtt_BakeFontBitmap(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
+    STBTT_NOT_IMPLEMENTED()
+end
 
---- Unused in ImGui, and involves pointer arithmetics
---
--- local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, opengl_fillrule)
--- end
+local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, opengl_fillrule)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 -----------------
 --- bitmap baking
 --
 
---- Unused in ImGui
---
--- local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, alloc_context)
--- end
+local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, alloc_context)
+    STBTT_NOT_IMPLEMENTED()
+end
 
---- Unused in ImGui
---
--- local function stbtt_PackSetOversampling(spc, h_oversample, v_oversample)
--- end
+local function stbtt_PackSetOversampling(spc, h_oversample, v_oversample)
+    STBTT_NOT_IMPLEMENTED()
+end
 
---- Unused in ImGui
---
--- local function stbtt_PackSetSkipMissingCodepoints(spc, skip)
--- end
+local function stbtt_PackSetSkipMissingCodepoints(spc, skip)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 local STBTT__OVER_MASK = STBTT_MAX_OVERSAMPLE - 1
 
@@ -2593,10 +2567,9 @@ local function stbtt__oversample_shift(oversample)
     return -(oversample - 1) / (2.0 * oversample)
 end
 
---- Unused in ImGui, and involves pointer arithmetics
---
--- local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, rects)
--- end
+local function stbtt_PackFontRangesGatherRects(spc, info, ranges, num_ranges, rects)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_stride, scale_x, scale_y, shift_x, shift_y, prefilter_x, prefilter_y, glyph)
     stbtt_MakeGlyphBitmapSubpixel(info, output, out_w - (prefilter_x - 1), out_h - (prefilter_y - 1), out_stride, scale_x, scale_y, shift_x, shift_y, glyph)
@@ -2615,25 +2588,21 @@ function stbtt_MakeGlyphBitmapSubpixelPrefilter(info, output, out_w, out_h, out_
     return sub_x, sub_y
 end
 
---- Unused in ImGui, and involves pointer arithmetics
---
--- function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rects)
--- end
+function stbtt_PackFontRangesRenderIntoRects(spc, info, ranges, num_ranges, rects)
+    STBTT_NOT_IMPLEMENTED()
+end
 
---- Unused in ImGui, and involves pointer arithmetics
---
--- function stbtt_PackFontRangesPackRects(spc, rects, num_rects)
--- end
+function stbtt_PackFontRangesPackRects(spc, rects, num_rects)
+    STBTT_NOT_IMPLEMENTED()
+end
 
---- Unused in ImGui
---
--- function stbtt_PackFontRanges(spc, fontdata, font_index, ranges, num_ranges)
--- end
+function stbtt_PackFontRanges(spc, fontdata, font_index, ranges, num_ranges)
+    STBTT_NOT_IMPLEMENTED()
+end
 
---- Unused in ImGui
---
--- function stbtt_PackFontRange(spc, fontdata, font_index, font_size, first_unicode_codepoint_in_range, num_chars_in_range, chardata_for_range)
--- end
+function stbtt_PackFontRange(spc, fontdata, font_index, font_size, first_unicode_codepoint_in_range, num_chars_in_range, chardata_for_range)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 function stbtt_GetScaledFontVMetrics(fontdata, index, size)
     local scale
@@ -2651,34 +2620,8 @@ function stbtt_GetScaledFontVMetrics(fontdata, index, size)
 end
 
 function stbtt_GetPackedQuad(chardata, pw, ph, char_index, xpos, ypos, q, align_to_integer)
-    local ipw = 1.0 / pw
-    local iph = 1.0 / ph
-    local b = chardata + char_index
-
-    if align_to_integer ~= 0 then
-        local x = STBTT_ifloor((xpos + b.xoff) + 0.5)
-        local y = STBTT_ifloor((ypos + b.yoff) + 0.5)
-        q.x0 = x
-        q.y0 = y
-        q.x1 = x + b.xoff2 - b.xoff
-        q.y1 = y + b.yoff2 - b.yoff
-    else
-        q.x0 = xpos + b.xoff
-        q.y0 = ypos + b.yoff
-        q.x1 = xpos + b.xoff2
-        q.y1 = ypos + b.yoff2
-    end
-
-    q.s0 = b.x0 * ipw
-    q.t0 = b.y0 * iph
-    q.s1 = b.x1 * ipw
-    q.t1 = b.y1 * iph
-
-    xpos = xpos + b.xadvance
-
-    return xpos
+    STBTT_NOT_IMPLEMENTED()
 end
-
 
 -------------------
 --- sdf computation
@@ -2687,28 +2630,33 @@ end
 -- local STBTT_min = math.min
 -- local STBTT_max = math.max
 
--- local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
--- end
+local function stbtt__ray_intersect_bezier(orig, ray, q0, q1, q2, hits)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function equal(a, b)
---     return a[1] == b[1] and a[2] == b[2]
--- end
+local function equal(a, b)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt__compute_crossings_x(x, y, nverts, verts)
--- end
+local function stbtt__compute_crossings_x(x, y, nverts, verts)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt__cuberoot(x)
--- end
+local function stbtt__cuberoot(x)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt__solve_cubic(a, b, c, r)
--- end
+local function stbtt__solve_cubic(a, b, c, r)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixel_dist_scale)
--- end
+local function stbtt_GetGlyphSDF(info, scale, glyph, padding, onedge_value, pixel_dist_scale)
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_value, pixel_dist_scale)
---     return stbtt_GetGlyphSDF(info, scale, stbtt_FindGlyphIndex(info, codepoint), padding, onedge_value, pixel_dist_scale)
--- end
+local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_value, pixel_dist_scale)
+    STBTT_NOT_IMPLEMENTED()
+end
 
 -----------------------------------------------------
 --- font name matching -- recommended not to use this

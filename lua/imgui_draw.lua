@@ -917,7 +917,8 @@ end
 --- @param baked_id                ImGuiID
 --- @return ImFontBaked?
 function ImFontAtlasBakedAdd(atlas, font, font_size, font_rasterizer_density, baked_id)
-    -- IMGUI_DEBUG_LOG_FONT("[font] Created baked %.2fpx\n", font_size)
+    IMGUI_DEBUG_LOG_FONT("[font] Created baked %.2fpx", font_size)
+
     local baked = atlas.Builder.BakedPool:push_back(ImFontBaked())
 
     baked.Size              = font_size

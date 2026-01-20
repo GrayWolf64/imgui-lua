@@ -5,6 +5,8 @@ ImGui.CreateContext()
 
 ImGui_ImplGMOD.Init()
 
+local size = 30
+
 --- TODO: can i actually switch different hooks dynamically to achieve our windows rendered under and above the game ui or derma?
 hook.Add("PostRender", "ImGuiTest", function()
     cam.Start2D()
@@ -13,8 +15,11 @@ hook.Add("PostRender", "ImGuiTest", function()
 
     ImGui.NewFrame()
 
+    if size == 100 then size = 30 end
+    size = size + 1
+
     -- FIXME: bouncing text
-    ImGui.PushFont(nil, math.max(20, math.abs(100 * math.sin(SysTime()/5)))) -- math.max(20, math.abs(100 * math.sin(SysTime())))
+    ImGui.PushFont(nil, size) -- math.max(20, math.abs(100 * math.sin(SysTime())))
 
     local window1_open = {true}
     ImGui.Begin("Hello World!", window1_open)
