@@ -191,7 +191,7 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
     -- Display the atlas on my screen
     local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
     if atlas_tex then
-        render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), 10, 10, atlas_tex.Width, atlas_tex.Height)
+        render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), ScrW() - atlas_tex.Width - 10, 10, atlas_tex.Width, atlas_tex.Height)
     end
 end
 
@@ -216,7 +216,7 @@ end
 --- @param tex ImTextureData
 function ImGui_ImplGMOD_UpdateTexture(tex)
     local bd = ImGui_ImplGMOD_GetBackendData()
-
+print(tex.Status)
     if tex.Status == ImTextureStatus.WantCreate then
         IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil)
         IM_ASSERT(tex.Format == ImTextureFormat.RGBA32)
@@ -297,31 +297,37 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         render.PushRenderTarget(backend_tex.RenderTarget)
 
+
+
+        local x, y, w, h = tex.UpdateRect.x, tex.UpdateRect.y, tex.UpdateRect.w, tex.UpdateRect.h
+        render.SetScissorRect(x, y, x + w, y + h, true)
         render.OverrideAlphaWriteEnable(true, true)
-        render.OverrideBlend(true, BLEND_ONE, BLEND_ZERO, BLENDFUNC_ADD)
         render.ClearDepth()
+        render.Clear(0, 0, 0, 0)
 
         cam.Start2D()
 
-        for y = upload_y, upload_y + upload_h - 1 do
-            local row = tex:GetPixelsAt(upload_x, y)
-            for x = upload_x, upload_x + upload_w - 1 do
-                local pixelOffset = (x - upload_x) * 4
-                local r = IM_SLICE_GET(row, pixelOffset + 0)
-                local g = IM_SLICE_GET(row, pixelOffset + 1)
-                local b = IM_SLICE_GET(row, pixelOffset + 2)
-                local a = IM_SLICE_GET(row, pixelOffset + 3)
+        for _, r in ipairs(tex.Updates.Data) do
+            for y = r.y, r.y + r.h - 1 do
+                local row = tex:GetPixelsAt(r.x, y)
 
-                surface.SetDrawColor(r, g, b, a)
-                surface.DrawRect(x, y, 1, 1)
+                for x_offset = 0, r.w - 1 do
+                    local pixel_offset = x_offset * 4
+                    local r_byte = IM_SLICE_GET(row, pixel_offset + 0)
+                    local g_byte = IM_SLICE_GET(row, pixel_offset + 1)
+                    local b_byte = IM_SLICE_GET(row, pixel_offset + 2)
+                    local a_byte = IM_SLICE_GET(row, pixel_offset + 3)
+
+                    surface.SetDrawColor(r_byte, g_byte, b_byte, a_byte)
+                    surface.DrawRect(r.x + x_offset, y, 1, 1)
+                end
             end
         end
 
         cam.End2D()
 
-        render.OverrideBlend(false)
         render.OverrideAlphaWriteEnable(false, false)
-
+        render.SetScissorRect(0, 0, 0, 0, false)
         render.PopRenderTarget()
 
         tex:SetStatus(ImTextureStatus.OK)

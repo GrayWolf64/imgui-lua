@@ -15,14 +15,14 @@ hook.Add("PostRender", "ImGuiTest", function()
 
     ImGui.NewFrame()
 
-    if size == 100 then size = 30 end
+    if size == 200 then size = 30 end
     size = size + 1
 
     -- FIXME: bouncing text
     ImGui.PushFont(nil, size) -- math.max(20, math.abs(100 * math.sin(SysTime())))
 
     local window1_open = {true}
-    ImGui.Begin("Hello World!", window1_open)
+    ImGui.Begin("A", window1_open)
     ImGui.End()
 
     ImGui.PopFont()

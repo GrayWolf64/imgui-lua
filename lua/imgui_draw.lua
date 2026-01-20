@@ -1771,8 +1771,27 @@ function ImFontAtlasBakedAddFontGlyph(atlas, baked, src, in_glyph)
     return glyph, glyph_idx
 end
 
+--- @param atlas     ImFontAtlas
+--- @param baked     ImFontBaked
+--- @param src?      ImFontConfig
+--- @param codepoint ImWchar
+--- @param advance_x float
 function ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, advance_x)
-    error("NOT IMPLEMENTED", 2)
+    -- IM_UNUSED(atlas)
+    if (src ~= nil) then
+        local ref_size = baked.OwnerFont.Sources:at(1).SizePixels
+        local offsets_scale = (ref_size ~= 0.0) and (baked.Size / ref_size) or 1.0
+        advance_x = ImClamp(advance_x, src.GlyphMinAdvanceX * offsets_scale, src.GlyphMaxAdvanceX * offsets_scale)
+
+        if (src.PixelSnapH) then
+            advance_x = IM_ROUND(advance_x)
+        end
+
+        advance_x = advance_x + src.GlyphExtraAdvanceX
+    end
+
+    ImFontBaked_BuildGrowIndex(baked, codepoint + 1)
+    baked.IndexAdvanceX.Data[codepoint + 1] = advance_x
 end
 
 --- @param size    float
@@ -1862,7 +1881,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
                 end
             else
                 if (loader.FontBakedLoadGlyph(atlas, src, baked, loader_user_data_p, codepoint, nil, only_load_advance_x)) then
-                    ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, only_load_advance_x)
+                    ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, only_load_advance_x[1])
 
                     return nil
                 end

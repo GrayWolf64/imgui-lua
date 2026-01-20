@@ -348,7 +348,7 @@ end
 local function stbtt__buf_get16(b) return stbtt__buf_get(b, 2) end
 local function stbtt__buf_get32(b) return stbtt__buf_get(b, 4) end
 
-local function stbtt__buf_range(b, o, s) print(1)
+local function stbtt__buf_range(b, o, s)
     local r = stbtt__new_buf(nil, 0)
     if (o < 0 or s < 0 or o > b.size or s > (b.size - o)) then
         return r
