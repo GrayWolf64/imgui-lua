@@ -184,6 +184,9 @@ function MT.ImDrawList:PathFillConvex(col)
 end
 
 function MT.ImDrawList:PathStroke(col, flags, thickness)
+    if not flags     then flags     = 0   end
+    if not thickness then thickness = 1.0 end
+
     self:AddPolyline(self._Path.Data, self._Path.Size, col, flags, thickness)
     self._Path.Size = 0
 end

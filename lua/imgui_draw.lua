@@ -1170,7 +1170,7 @@ end
 
 --- @param baked ImFontBaked
 function ImFontAtlasBuildSetupFontBakedFallback(baked)
-    IM_ASSERT(baked.FallbackGlyphIndex == 0)
+    IM_ASSERT(baked.FallbackGlyphIndex == -1)
     IM_ASSERT(baked.FallbackAdvanceX == 0.0)
     local font = baked.OwnerFont
     local fallback_glyph, fallback_glyph_index
@@ -1247,9 +1247,9 @@ local function ImFontAtlasUpdateDrawListsTextures(atlas, old_tex, new_tex)
                 draw_list:_SetTexture(new_tex)
             end
 
-            for _, stacked_tex in draw_list._TextureStack:iter() do
+            for i, stacked_tex in draw_list._TextureStack:iter() do
                 if (stacked_tex == old_tex) then
-                    stacked_tex = new_tex
+                    draw_list._TextureStack.Data[i] = new_tex
                 end
             end
         end
@@ -1624,7 +1624,7 @@ function MT.ImFontBaked:ClearOutputData()
     self.Glyphs:clear()
     self.IndexAdvanceX:clear()
     self.IndexLookup:clear()
-    self.FallbackGlyphIndex = 0
+    self.FallbackGlyphIndex = -1
     self.Ascent = 0.0
     self.Descent = 0.0
     self.MetricsTotalSurface = 0
@@ -1826,7 +1826,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     local font = baked.OwnerFont
     local atlas = font.OwnerAtlas
     if atlas.Locked or bit.band(font.Flags, ImFontFlags.NoLoadGlyphs) ~= 0 then
-        if baked.FallbackGlyphIndex == 0 and baked.LoadNoFallback == false then
+        if baked.FallbackGlyphIndex == -1 and baked.LoadNoFallback == false then
             ImFontAtlasBuildSetupFontBakedFallback(baked)
         end
 
@@ -1874,7 +1874,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     if (baked.LoadNoFallback) then
         return nil
     end
-    if (baked.FallbackGlyphIndex == 0) then
+    if (baked.FallbackGlyphIndex == -1) then
         ImFontAtlasBuildSetupFontBakedFallback(baked)
     end
 
@@ -2239,6 +2239,7 @@ function MT.ImFontAtlas:AddFont(font_cfg_in)
     else
         IM_ASSERT(self.Fonts.Size > 0, "Cannot use MergeMode for the first font")
         font = (font_cfg_in.DstFont ~= nil) and font_cfg_in.DstFont or self.Fonts:back()
+        ImFontAtlasFontDiscardBakes(self, font, 0)
     end
 
     self.Sources:push_back(font_cfg_in)
@@ -3200,6 +3201,9 @@ local function FixRectCornerFlags(flags)
 end
 
 function MT.ImDrawList:PathRect(a, b, rounding, flags)
+    if not rounding then rounding = 0.0 end
+    if not flags    then flags    = 0   end
+
     if rounding >= 0.5 then
         flags = FixRectCornerFlags(flags)
         rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags_RoundCornersTop) == ImDrawFlags_RoundCornersTop) or (bit.band(flags, ImDrawFlags_RoundCornersBottom) == ImDrawFlags_RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
@@ -3265,6 +3269,15 @@ function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
     self:PathFillConvex(col)
 end
 
+--- @param font                ImFont
+--- @param font_size           float
+--- @param pos                 ImVec2
+--- @param col                 ImVec4
+--- @param text                string
+--- @param text_begin          int
+--- @param text_end            int
+--- @param wrap_width          float
+--- @param cpu_fine_clip_rect? ImVec4
 function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text_end, wrap_width, cpu_fine_clip_rect)
     if col.w == 0 then return end
 

@@ -928,17 +928,19 @@ function ImGui.FindRenderedTextEnd(text, text_end)
     return text_display_end
 end
 
---- @param draw_list          ImDrawList
---- @param pos_min            ImVec2
---- @param pos_max            ImVec2
---- @param text               string
---- @param text_display_end   int
---- @param text_size_if_known ImVec2
---- @param align              ImVec2
---- @param clip_rect          ImRect
+--- @param draw_list           ImDrawList
+--- @param pos_min             ImVec2
+--- @param pos_max             ImVec2
+--- @param text                string
+--- @param text_display_end    int
+--- @param text_size_if_known? ImVec2
+--- @param align?              ImVec2
+--- @param clip_rect?          ImRect
 local function RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
+    if not align then align = ImVec2(0, 0) end
+
     local pos = pos_min
-    local text_size = text_size_if_known and text_size_if_known or ImGui.CalcTextSize(text, text_display_end, false, 0.0)
+    local text_size = text_size_if_known or ImGui.CalcTextSize(text, text_display_end, false, 0.0)
 
     local clip_min = clip_rect and clip_rect.Min or pos_min
     local clip_max = clip_rect and clip_rect.Max or pos_max
@@ -964,9 +966,11 @@ end
 --- @param text               string
 --- @param text_end?          int
 --- @param text_size_if_known ImVec2
---- @param align              ImVec2
---- @param clip_rect          ImRect
+--- @param align?             ImVec2
+--- @param clip_rect?         ImRect
 function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, text_size_if_known, align, clip_rect)
+    if not align then align = ImVec2(0, 0) end
+
     local text_display_end = ImGui.FindRenderedTextEnd(text, text_end)
     local text_len = text_display_end - text_begin
 

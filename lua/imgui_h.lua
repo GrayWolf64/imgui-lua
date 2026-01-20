@@ -398,7 +398,7 @@ function MT.ImTextureData:GetTexID() return self.TexID end
 function MT.ImTextureData:SetTexID(tex_id) self.TexID = tex_id end
 
 --- @param status ImTextureStatus
-function MT.ImTextureData:SetStatus(status) self.Status = status if (status == ImTextureStatus.Destroyed and not self.WantDestroyNextFrame) then self.Status = ImTextureStatus.WantCreate end end
+function MT.ImTextureData:SetStatus(status) self.Status = status if (status == ImTextureStatus.Destroyed and not self.WantDestroyNextFrame and self.Pixels ~= nil) then self.Status = ImTextureStatus.WantCreate end end
 
 --- @class ImTextureRef
 MT.ImTextureRef = {}
@@ -420,7 +420,7 @@ end
 --- @field RasterizerDensity    float
 --- @field IndexLookup          ImVector<ImU16>
 --- @field Glyphs               ImVector<ImFontGlyph>
---- @field FallbackGlyphIndex   int                   This initial value is 0, not -1!
+--- @field FallbackGlyphIndex   int                   # Initial value = -1
 --- @field Ascent               float
 --- @field Descent              float
 --- @field MetricsTotalSurface  unsigned_int
@@ -447,7 +447,7 @@ function ImFontBaked()
 
     this.IndexLookup        = ImVector()
     this.Glyphs             = ImVector()
-    this.FallbackGlyphIndex = 0
+    this.FallbackGlyphIndex = -1
 
     this.Ascent               = 0
     this.Descent              = 0
