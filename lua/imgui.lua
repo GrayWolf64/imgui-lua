@@ -284,14 +284,14 @@ local function SetCurrentFont(font, font_size_before_scaling, font_size_after_sc
     end
 end
 
-function ImGui.PushFont(font, font_size_base) -- FIXME: checks not implemented?
+function ImGui.PushFont(font, font_size_base)
     local g = GImGui
 
     if font == nil then
         font = g.Font
     end
 
-    IM_ASSERT(font ~= NULL)
+    IM_ASSERT(font ~= nil)
     IM_ASSERT(font_size_base >= 0.0)
 
     g.FontStack:push_back({
@@ -300,7 +300,7 @@ function ImGui.PushFont(font, font_size_base) -- FIXME: checks not implemented?
         FontSizeAfterScaling = g.FontSize
     }) -- TODO: ImFontStackData
 
-    if font_size_base == 0 then
+    if font_size_base == 0.0 then
         font_size_base = g.FontSizeBase
     end
 
@@ -310,7 +310,11 @@ end
 function ImGui.PopFont()
     local g = GImGui
 
-    if g.FontStack:empty() then return end
+    if (g.FontStack.Size <= 0) then
+        IM_ASSERT_USER_ERROR(0, "Calling PopFont() too many times!")
+
+        return
+    end
 
     local font_stack_data = g.FontStack:back()
     SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, font_stack_data.FontSizeAfterScaling)
@@ -760,7 +764,7 @@ end
 --- static ImVec2 CalcWindowSizeAfterConstraint
 local function CalcWindowSizeAfterConstraint(window, size_desired)
     local size_min = CalcWindowMinSize(window)
-
+    -- TODO: 
     return ImVec2(
         ImMax(size_desired.x, size_min.x),
         ImMax(size_desired.y, size_min.y)
@@ -793,14 +797,24 @@ local function CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
     return out_pos, size_constrained
 end
 
+-- TODO: 
 --- static int ImGui::UpdateWindowManualResize
 local function UpdateWindowManualResize(window, resize_grip_col)
     local g = GImGui
+    local flags = window.Flags
 
-    if window.WasActive == false then return end
+    if (bit.band(flags, ImGuiWindowFlags_NoResize) ~= 0 or window.AutoFitFramesX > 0 or window.AutoFitFramesY > 0) then
+        return false
+    end
+    if (bit.band(flags, ImGuiWindowFlags_AlwaysAutoResize) ~= 0 and bit.band(window.ChildFlags, bit.bor(ImGuiChildFlags_ResizeX, ImGuiChildFlags_ResizeY)) == 0) then
+        return false
+    end
+    if window.WasActive == false then
+        return
+    end
 
-    local grip_draw_size = ImTrunc(ImMax(g.FontSize * 1.35, g.Style.WindowRounding + 1.0 + g.FontSize * 0.2))
-    local grip_hover_inner_size = ImTrunc(grip_draw_size * 0.75)
+    local grip_draw_size = IM_TRUNC(ImMax(g.FontSize * 1.35, g.Style.WindowRounding + 1.0 + g.FontSize * 0.2))
+    local grip_hover_inner_size = IM_TRUNC(grip_draw_size * 0.75)
     local grip_hover_outer_size = g.WindowsBorderHoverPadding + 1
 
     PushID("#RESIZE")
@@ -1013,7 +1027,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
             local inner_dir = ImResizeGripDef[i].InnerDir
             local corner = window.Pos + ImResizeGripDef[i].CornerPos * window.Size
-            local border_inner = ImRound(window_border_size * 0.5)
+            local border_inner = IM_ROUND(window_border_size * 0.5)
             window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 1) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
             window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 1) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
             window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImResizeGripDef[i].AngleMin12, ImResizeGripDef[i].AngleMax12)
@@ -1280,10 +1294,10 @@ function ImGui.Begin(name, p_open, flags)
         window.TitleBarHeight = (bit.band(flags, ImGuiWindowFlags_NoTitleBar) ~= 0) and 0 or g.FontSize + g.Style.FramePadding.y * 2
 
         -- const ImVec2 scrollbar_sizes_from_last_frame = window->ScrollbarSizes;
-        -- window->DecoOuterSizeX1 = 0.0f;
-        -- window->DecoOuterSizeX2 = 0.0f;
-        -- window->DecoOuterSizeY1 = window->TitleBarHeight + window->MenuBarHeight;
-        -- window->DecoOuterSizeY2 = 0.0f;
+        window.DecoOuterSizeX1 = 0.0
+        window.DecoOuterSizeX2 = 0.0
+        window.DecoOuterSizeY1 = window.TitleBarHeight + window.MenuBarHeight
+        window.DecoOuterSizeY2 = 0.0
         -- window->ScrollbarSizes = ImVec2(0.0f, 0.0f);
 
         -- window.SizeFull = CalcWindowSizeAfterConstraint(window, window.SizeFull)
@@ -1292,9 +1306,17 @@ function ImGui.Begin(name, p_open, flags)
         local viewport_rect = viewport:GetMainRect()
         local viewport_work_rect = viewport:GetWorkRect()
 
-        -- window->Pos = ImTrunc(window->Pos)
+        window.Pos.x = ImTrunc(window.Pos.x) window.Pos.y = ImTrunc(window.Pos.y)
 
-        window.WindowRounding = bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and style.ChildRounding or (bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 and bit.band(flags, ImGuiWindowFlags_Modal) == 0) and style.PopupRounding or style.WindowRounding
+        if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
+            window.WindowRounding = style.ChildRounding
+        else
+            if (bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 and bit.band(flags, ImGuiWindowFlags_Modal) == 0) then
+                window.WindowRounding = style.PopupRounding
+            else
+                window.WindowRounding = style.WindowRounding
+            end
+        end
 
         local handle_borders_and_resize_grips = true
         if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and window.ParentWindow.SkipItems then
@@ -1362,7 +1384,6 @@ function ImGui.Begin(name, p_open, flags)
 
     -- TODO: window_is_child_tooltip
     -- TODO: parent_window
-    -- TODO: innercliprect
 
     return not window.Collapsed
 end
@@ -1788,7 +1809,7 @@ function ImGui.CalcTextSize(text, text_end, hide_text_after_double_hash, wrap_wi
     end
     local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, 1, text_display_end, nil)
 
-    text_size.x = ImTrunc(text_size.x + 0.99999)
+    text_size.x = IM_TRUNC(text_size.x + 0.99999)
 
     return text_size
 end

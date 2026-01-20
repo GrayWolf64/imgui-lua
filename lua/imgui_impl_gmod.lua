@@ -180,15 +180,18 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     mesh.AdvanceVertex()
 
                     mesh.End()
-
-                    -- Display the atlas on my screen
-                    -- render.DrawTextureToScreenRect(bd.TextureRegistry[tex_id].Material:GetTexture("$basetexture"), 10, 10, bd.TextureRegistry[tex_id].Width, bd.TextureRegistry[tex_id].Height)
                 end
             end
         end
 
         global_idx_offset = global_idx_offset + draw_list.IdxBuffer.Size
         global_vtx_offset = global_vtx_offset + draw_list.VtxBuffer.Size
+    end
+
+    -- Display the atlas on my screen
+    local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
+    if atlas_tex then
+        render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), 10, 10, atlas_tex.Width, atlas_tex.Height)
     end
 end
 
@@ -292,12 +295,11 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         local upload_w = tex.UpdateRect.w
         local upload_h = tex.UpdateRect.h
 
-        -- FIXME: the w and h can be different so need to create a new RT
         render.PushRenderTarget(backend_tex.RenderTarget)
 
         render.OverrideAlphaWriteEnable(true, true)
+        render.OverrideBlend(true, BLEND_ONE, BLEND_ZERO, BLENDFUNC_ADD)
         render.ClearDepth()
-        render.Clear(0, 0, 0, 0)
 
         cam.Start2D()
 
@@ -317,6 +319,7 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         cam.End2D()
 
+        render.OverrideBlend(false)
         render.OverrideAlphaWriteEnable(false, false)
 
         render.PopRenderTarget()

@@ -30,7 +30,6 @@ FLT_MAX = math.huge
 #IMGUI_DEFINE ImFabs  math.abs
 #IMGUI_DEFINE ImMin   math.min
 #IMGUI_DEFINE ImMax   math.max
-#IMGUI_DEFINE ImFloor math.floor
 #IMGUI_DEFINE ImRound math.Round
 #IMGUI_DEFINE ImCeil  math.ceil
 #IMGUI_DEFINE ImSin   math.sin
@@ -39,9 +38,16 @@ FLT_MAX = math.huge
 #IMGUI_DEFINE ImSqrt  math.sqrt
 #IMGUI_DEFINE ImLerp(a, b, t)       ((a) + ((b) - (a)) * (t))
 #IMGUI_DEFINE ImClamp(v, min, max)  ImMin(ImMax((v), (min)), (max))
-#IMGUI_DEFINE ImTrunc(f)            ImFloor((f) + 0.5)
+
+function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
+
 #IMGUI_DEFINE IM_ROUNDUP_TO_EVEN(n) (ImCeil((n) / 2) * 2)
 #IMGUI_DEFINE ImRsqrt(x)            (1 / ImSqrt(x))
+
+function IM_TRUNC(VAL) return math.floor(VAL) end -- Positive values only!
+function IM_ROUND(VAL) return math.floor(VAL + 0.5) end
+
+function ImFloor(f) if f >= 0 or math.floor(f) == f then return math.floor(f) else return math.floor(f) - 1 end end
 
 function ImIsPowerOfTwo(v)
     return (v ~= 0) and (bit.band(v, (v - 1)) == 0)
@@ -490,6 +496,8 @@ local function ImGuiWindow(ctx, name)
         DecoOuterSizeX1 = 0, DecoOuterSizeY1 = 0,
         DecoOuterSizeX2 = 0, DecoOuterSizeY2 = 0,
         DecoInnerSizeX1 = 0, DecoInnerSizeY1 = 0,
+
+        AutoFitFramesX = -1, AutoFitFramesY = -1,
 
         HasCloseButton = true,
 

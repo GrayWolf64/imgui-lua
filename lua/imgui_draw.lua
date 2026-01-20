@@ -863,7 +863,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
         local font_off_x = ImFloor(src.GlyphOffset.x * offsets_scale + 0.5)
         local font_off_y = ImFloor(src.GlyphOffset.y * offsets_scale + 0.5)
         font_off_x = font_off_x + sub_x
-        font_off_y = font_off_y + (sub_y + ImRound(baked.Ascent))
+        font_off_y = font_off_y + (sub_y + IM_ROUND(baked.Ascent))
         local recip_h = 1.0 / (oversample_h * rasterizer_density)
         local recip_v = 1.0 / (oversample_v * rasterizer_density)
 
@@ -1181,7 +1181,7 @@ function ImFontAtlasBuildSetupFontBakedFallback(baked)
         local space_glyph = baked:FindGlyphNoFallback(chr' ')
         local glyph = ImFontGlyph()
         glyph.Codepoint = 0
-        glyph.AdvanceX = space_glyph and space_glyph.AdvanceX or ImRound(baked.Size * 0.40)
+        glyph.AdvanceX = space_glyph and space_glyph.AdvanceX or IM_ROUND(baked.Size * 0.40)
         fallback_glyph, fallback_glyph_index = ImFontAtlasBakedAddFontGlyph(font.OwnerAtlas, baked, nil, glyph)
     end
     baked.FallbackGlyphIndex = fallback_glyph_index
@@ -1743,7 +1743,7 @@ function ImFontAtlasBakedAddFontGlyph(atlas, baked, src, in_glyph)
         end
 
         if (src.PixelSnapH) then
-            advance_x = ImRound(advance_x)
+            advance_x = IM_ROUND(advance_x)
         end
 
         glyph.AdvanceX = advance_x + src.GlyphExtraAdvanceX
@@ -1761,6 +1761,10 @@ function ImFontAtlasBakedAddFontGlyph(atlas, baked, src, in_glyph)
     baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1] = bit.bor(baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1], bit.lshift(1, bit.band(page_n, 7))) -- TODO: indexing validation
 
     return glyph, glyph_idx
+end
+
+function ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, advance_x)
+    error("NOT IMPLEMENTED", 2)
 end
 
 --- @param size    float
@@ -2885,17 +2889,16 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local fractional_thickness = thickness - integer_thickness
 
         -- Do we want to draw this line using a texture?
-        local use_texture = bit.band(self.Flags, ImDrawListFlags_AntiAliasedLinesUseTex) ~= 0
-                        and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX
-                        and fractional_thickness <= 0.00001
-                        and AA_SIZE == 1.0
+        local use_texture = bit.band(self.Flags, ImDrawListFlags_AntiAliasedLinesUseTex) ~= 0 and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX and fractional_thickness <= 0.00001 and AA_SIZE == 1.0
+
+        IM_ASSERT_PARANOID((not use_texture) or bit.band(self._Data.Font.OwnerAtlas.Flags, ImFontAtlasFlags_NoBakedLines) == 0)
 
         local idx_count = use_texture and (count * 6) or (thick_line and count * 18 or count * 12)
         local vtx_count = use_texture and (points_count * 2) or (thick_line and points_count * 4 or points_count * 3)
         self:PrimReserve(idx_count, vtx_count)
 
         -- Temporary buffer
-        local temp_buffer_size = points_count * (use_texture or not thick_line and 3 or 5)
+        local temp_buffer_size = points_count * ((use_texture or not thick_line) and 3 or 5)
         self._Data.TempBuffer:reserve_discard(temp_buffer_size)
         local temp_normals = self._Data.TempBuffer.Data
         local temp_points = {}  -- Will be calculated
@@ -3489,8 +3492,8 @@ end
 --- @param wrap_width float
 --- @param flags      ImDrawTextFlags
 function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, flags)
-    local x = ImTrunc(pos.x)
-    local y = ImTrunc(pos.y)
+    local x = IM_TRUNC(pos.x)
+    local y = IM_TRUNC(pos.y)
     if y > clip_rect.w then
         return
     end

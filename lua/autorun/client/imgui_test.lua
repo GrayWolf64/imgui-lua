@@ -13,7 +13,7 @@ hook.Add("PostRender", "ImGuiTest", function()
 
     ImGui.NewFrame()
 
-    ImGui.PushFont(nil, 64)
+    ImGui.PushFont(nil, 30) -- math.max(20, math.abs(100 * math.sin(SysTime())))
 
     local window1_open = {true}
     ImGui.Begin("Hello World!", window1_open)
