@@ -3333,15 +3333,6 @@ function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text
     font:RenderText(self, font_size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, (cpu_fine_clip_rect ~= nil) and ImDrawTextFlags.CpuFineClip or ImDrawTextFlags.None)
 end
 
-function MT.ImDrawList:RenderTextClipped(text, font, pos, color, w, h)
-    surface.SetFont(font)
-    local text_width, text_height = surface.GetTextSize(text)
-    local need_clipping = text_width > w or text_height > h
-
-    -- TODO: 
-    -- self:AddText(text, font, pos, color)
-end
-
 function MT.ImDrawList:_CalcCircleAutoSegmentCount(radius)
     local radius_idx = ImFloor(radius + 0.999999)
 

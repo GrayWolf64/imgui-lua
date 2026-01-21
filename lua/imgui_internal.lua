@@ -13,12 +13,6 @@ local SysTime = SysTime
 local GetMouseX = gui.MouseX
 local GetMouseY = gui.MouseY
 
-local surface = surface
-local render  = render
-local draw    = draw
-local bit     = bit
-local math    = math
-
 local stbrp
 local stbtt
 

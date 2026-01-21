@@ -10,6 +10,9 @@ local FONT_DEFAULT_SIZE_BASE = 20
 
 IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 
+local math = math
+local bit  = bit
+
 ----------------------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ----------------------------------------------------------------

@@ -3,6 +3,10 @@
 -- TODO: investigate: this dummy panel is actually a valid viewport? Derma panels can be fake viewports?
 -- TODO: currently the renderer and platform are in the same backend structure, separate them
 
+local cam     = cam
+local render  = render
+local surface = surface
+
 local ImGui_ImplGMOD_DestroyTexture
 local ImGui_ImplGMOD_UpdateTexture
 
