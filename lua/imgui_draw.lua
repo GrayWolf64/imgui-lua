@@ -450,7 +450,7 @@ end
 --- @param h     int
 local function ImFontAtlasTextureRepack(atlas, w, h)
     local builder = atlas.Builder
-    atlas.LockDisableResize = true
+    builder.LockDisableResize = true
 
     local old_tex = atlas.TexData
     local new_tex = ImFontAtlasTextureAdd(atlas, w, h)

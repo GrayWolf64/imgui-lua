@@ -191,6 +191,9 @@ function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
 
         final_size = final_size * g.Style.FontScaleMain
         final_size = final_size * g.Style.FontScaleDpi
+        if window ~= nil then
+            final_size = final_size * window.FontWindowScale
+        end
     end
 
     final_size = ImGui.GetRoundedFontSize(final_size)
@@ -1253,7 +1256,7 @@ function ImGui.Begin(name, p_open, flags)
         window.DecoOuterSizeY2 = 0.0
         -- window->ScrollbarSizes = ImVec2(0.0f, 0.0f);
 
-        -- window.SizeFull = CalcWindowSizeAfterConstraint(window, window.SizeFull)
+        window.SizeFull = CalcWindowSizeAfterConstraint(window, window.SizeFull)
         window.Size = (window.Collapsed and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0) and window:TitleBarRect():GetSize() or window.SizeFull
 
         local viewport_rect = viewport:GetMainRect()

@@ -548,7 +548,10 @@ local function ImGuiWindow(ctx, name)
 
         LastFrameActive = -1,
 
-        WriteAccessed = false
+        WriteAccessed = false,
+
+        FontWindowScale = 1.0,
+        FontWindowScaleParents = 1.0
     }
 
     this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)
