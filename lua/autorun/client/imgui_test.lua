@@ -21,9 +21,9 @@ hook.Add("PostRender", "ImGuiTest", function()
 
     ImGui.PopFont()
 
-    -- local window2_open = {true}
-    -- ImGui.Begin("ImGui Demo", window2_open)
-    -- ImGui.End()
+    local window2_open = {true}
+    ImGui.Begin("ImGui Demo", window2_open)
+    ImGui.End()
 
     ImGui.EndFrame()
 

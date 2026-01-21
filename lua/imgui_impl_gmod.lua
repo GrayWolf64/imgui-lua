@@ -148,19 +148,17 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
         end
     end
 
-    local global_idx_offset = 0
-    local global_vtx_offset = 0
     for _, draw_list in draw_data.CmdLists:iter() do
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.ElemCount > 0 then
                 for i = 0, pcmd.ElemCount - 1, 3 do
-                    local idx0 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 1 + i]
-                    local idx1 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 2 + i]
-                    local idx2 = draw_list.IdxBuffer.Data[global_idx_offset + pcmd.IdxOffset + 3 + i]
+                    local idx0 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 1 + i]
+                    local idx1 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 2 + i]
+                    local idx2 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 3 + i]
 
-                    local vtx0 = draw_list.VtxBuffer.Data[global_vtx_offset + idx0]
-                    local vtx1 = draw_list.VtxBuffer.Data[global_vtx_offset + idx1]
-                    local vtx2 = draw_list.VtxBuffer.Data[global_vtx_offset + idx2]
+                    local vtx0 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx0]
+                    local vtx1 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx1]
+                    local vtx2 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx2]
 
                     local tex_id = pcmd:GetTexID()
 
@@ -187,9 +185,6 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 end
             end
         end
-
-        global_idx_offset = global_idx_offset + draw_list.IdxBuffer.Size
-        global_vtx_offset = global_vtx_offset + draw_list.VtxBuffer.Size
     end
 
     -- Display the atlas on my screen
@@ -304,7 +299,7 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         render.SetScissorRect(update_x, update_y, update_x + update_w, update_y + update_h, true)
 
-        for _, r in ipairs(tex.Updates.Data) do
+        for _, r in tex.Updates:iter() do
             for y = r.y, r.y + r.h - 1 do
                 local row = tex:GetPixelsAt(r.x, y)
 
