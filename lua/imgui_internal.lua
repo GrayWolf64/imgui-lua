@@ -118,6 +118,12 @@ ImDrawTextFlags = {
     StopOnNewLine  = bit.lshift(1, 2)
 }
 
+--- @enum ImGuiTextFlags
+ImGuiTextFlags = {
+    None                          = 0,
+    NoWidthForLargeClippedText    = bit.lshift(1, 0)
+}
+
 --- @enum ImWcharClass
 ImWcharClass = {
     Blank = 0,
@@ -351,6 +357,10 @@ ImGuiNextWindowDataFlags_HasWindowFlags     = bit.lshift(1, 8)
 ImGuiNextWindowDataFlags_HasChildFlags      = bit.lshift(1, 9)
 ImGuiNextWindowDataFlags_HasRefreshPolicy   = bit.lshift(1, 10)
 
+--- @alias ImGuiLayoutType int
+ImGuiLayoutType_Horizontal = 0
+ImGuiLayoutType_Vertical   = 1
+
 --- @class ImGuiStyle
 
 --- @return ImGuiStyle
@@ -549,6 +559,8 @@ local function ImGuiWindow(ctx, name)
         DecoOuterSizeX1 = 0, DecoOuterSizeY1 = 0,
         DecoOuterSizeX2 = 0, DecoOuterSizeY2 = 0,
         DecoInnerSizeX1 = 0, DecoInnerSizeY1 = 0,
+
+        Scroll = ImVec2(),
 
         AutoFitFramesX = -1, AutoFitFramesY = -1,
 

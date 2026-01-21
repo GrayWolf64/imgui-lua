@@ -503,8 +503,41 @@ local function ItemSize(size, text_baseline_y)
     window.DC.IsSameLine = false
 
     --- Horizontal layout mode
-    -- if (window->DC.LayoutType == ImGuiLayoutType_Horizontal)
-    -- SameLine();
+    if (window.DC.LayoutType == ImGuiLayoutType_Horizontal) then
+        ImGui.SameLine()
+    end
+end
+
+--- @param offset_from_start_x float?
+--- @param spacing_w           float?
+function ImGui.SameLine(offset_from_start_x, spacing_w)
+    if offset_from_start_x == nil then offset_from_start_x =  0.0 end
+    if spacing_w           == nil then spacing_w           = -1.0 end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    if window.SkipItems then
+        return
+    end
+
+    if offset_from_start_x ~= 0.0 then
+        if spacing_w < 0.0 then spacing_w = 0.0 end
+        window.DC.CursorPos.x = window.Pos.x - window.Scroll.x + offset_from_start_x + spacing_w + window.DC.GroupOffset.x + window.DC.ColumnsOffset.x
+        window.DC.CursorPos.y = window.DC.CursorPosPrevLine.y
+    else
+        if spacing_w < 0.0 then spacing_w = g.Style.ItemSpacing.x end
+        window.DC.CursorPos.x = window.DC.CursorPosPrevLine.x + spacing_w
+        window.DC.CursorPos.y = window.DC.CursorPosPrevLine.y
+    end
+    window.DC.CurrLineSize = window.DC.PrevLineSize
+    window.DC.CurrLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
+    window.DC.IsSameLine = true
+end
+
+function ImGui.GetTextLineHeight()
+    local g = GImGui
+    return g.FontSize
 end
 
 --- bool ImGui::IsItemActive()
@@ -657,7 +690,9 @@ function ImGui.ItemHoverable(id, bb)
     return true
 end
 
---- bool ImGui::IsClippedEx
+--- @param bb ImRect
+--- @param id ImGuiID
+--- @return bool
 function ImGui.IsClippedEx(bb, id)
     local g = GImGui
     local window = g.CurrentWindow
@@ -862,16 +897,24 @@ local function UpdateWindowManualResize(window, resize_grip_col)
 end
 
 --- TODO: AutoFit -> ScrollBar() -> Text()
---- float ImGui::CalcWrapWidthForPos
+
+--- @param pos        ImVec2
+--- @param wrap_pos_x float
+--- @return float
 function ImGui.CalcWrapWidthForPos(pos, wrap_pos_x)
-    if wrap_pos_x < 0 then return 0 end
+    if wrap_pos_x < 0.0 then
+        return 0.0
+    end
 
     local g = GImGui
     local window = g.CurrentWindow
+    if wrap_pos_x == 0.0 then
+        wrap_pos_x = window.WorkRect.Max.x
+    elseif wrap_pos_x > 0.0 then
+        wrap_pos_x = wrap_pos_x + window.Pos.x - window.Scroll.x
+    end
 
-    -- if wrap_pos_x == 0 then
-    --     wrap_pos_x = 
-    -- end
+    return ImMax(wrap_pos_x - pos.x, 1.0)
 end
 
 --- @param text string
@@ -886,6 +929,51 @@ function ImGui.FindRenderedTextEnd(text, text_end)
     end
 
     return text_display_end
+end
+
+--- void ImGui::RenderText
+--- @param pos ImVec2
+--- @param text string
+--- @param text_end int?
+--- @param hide_text_after_hash bool?
+function ImGui.RenderText(pos, text, text_end, hide_text_after_hash)
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    -- Hide anything after a '##' string
+    local text_display_end
+    if hide_text_after_hash then
+        text_display_end = ImGui.FindRenderedTextEnd(text, text_end)
+    else
+        if text_end == nil then
+            text_end = #text + 1
+        end
+        text_display_end = text_end
+    end
+
+    if text ~= "" and text_display_end > 1 then
+        window.DrawList:AddText(g.Font, g.FontSize, pos, g.Style.Colors.Text, text, 1, text_display_end, 0.0)
+        if g.LogEnabled then
+            -- LogRenderedText(&pos, text, text_display_end);
+        end
+    end
+end
+
+--- @param pos        ImVec2
+--- @param text       string
+--- @param text_end   int?
+--- @param wrap_width float
+function ImGui.RenderTextWrapped(pos, text, text_end, wrap_width)
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    if text_end == nil then
+        text_end = #text + 1
+    end
+
+    if text ~= "" then -- TODO: GetColorU32(ImGuiCol_Text)
+        window.DrawList:AddText(g.Font, g.FontSize, pos, g.Style.Colors.Text, text, 1, text_end, wrap_width)
+    end
 end
 
 --- @param draw_list           ImDrawList
@@ -1794,13 +1882,14 @@ function ImGui.Render()
     end
 end
 
---- @param text string
---- @param text_end int? Exclusive upper bound
---- @param hide_text_after_double_hash bool
---- @param wrap_width float?
+--- @param text                         string
+--- @param text_end?                    int    # Exclusive upper bound
+--- @param hide_text_after_double_hash? bool
+--- @param wrap_width?                  float
 --- @return ImVec2
 function ImGui.CalcTextSize(text, text_end, hide_text_after_double_hash, wrap_width)
-    if not wrap_width then wrap_width = -1.0 end
+    if hide_text_after_double_hash == nil then hide_text_after_double_hash = false end
+    if wrap_width                  == nil then wrap_width                  = -1.0  end
 
     local g = GImGui
 
