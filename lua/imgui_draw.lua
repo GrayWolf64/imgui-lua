@@ -985,6 +985,9 @@ function ImFontAtlasBakedGetClosestMatch(atlas, font, font_size, font_rasterizer
     return nil
 end
 
+--- @param atlas ImFontAtlas
+--- @param font  ImFont
+--- @param baked ImFontBaked
 function ImFontAtlasBakedDiscard(atlas, font, baked)
     local builder = atlas.Builder
 
@@ -1006,6 +1009,7 @@ function ImFontAtlasBakedDiscard(atlas, font, baked)
         baked.FontLoaderDatas = nil
     end
 
+    builder.BakedMap[baked.BakedId] = nil
     builder.BakedDiscardedCount = builder.BakedDiscardedCount + 1
     baked:ClearOutputData()
     baked.WantDestroy = true
@@ -1231,7 +1235,12 @@ local function ImFontAtlasBuildUpdateRendererHasTexturesFromContext(atlas)
 end
 
 local function ImFontAtlasBuildUpdatePointers(atlas)
-    return -- UNNECESSARY
+    -- for _, font in atlas.Fonts:iter() do
+    --     font.Sources:resize(0)
+    -- end
+    -- for _, src in atlas.Sources:iter() do
+    --     src.DstFont.Sources:push_back(src)
+    -- end
 end
 
 --- @param atlas   ImFontAtlas
