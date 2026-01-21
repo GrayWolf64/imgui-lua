@@ -886,6 +886,13 @@ ImFontFlags = {
     LockBakedSizes = bit.lshift(1, 3)
 }
 
+--- @alias ImGuiCond int
+ImGuiCond_None          = 0
+ImGuiCond_Always        = bit.lshift(1, 0)
+ImGuiCond_Once          = bit.lshift(1, 1)
+ImGuiCond_FirstUseEver  = bit.lshift(1, 2)
+ImGuiCond_Appearing     = bit.lshift(1, 3)
+
 --- @enum ImGuiBackendFlags
 ImGuiBackendFlags = {
     None                  = 0,

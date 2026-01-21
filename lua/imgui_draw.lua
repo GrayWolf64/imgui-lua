@@ -3372,6 +3372,12 @@ function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_
     self:_OnChangedClipRect()
 end
 
+function MT.ImDrawList:PopClipRect()
+    self._ClipRectStack:pop_back()
+    self._CmdHeader.ClipRect = (self._ClipRectStack.Size == 0) and self._Data.ClipRectFullscreen or self._ClipRectStack.Data[self._ClipRectStack.Size]
+    self:_OnChangedClipRect()
+end
+
 --- void ImDrawList::_PathArcToFastEx
 function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
     if radius < 0.5 then

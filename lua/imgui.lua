@@ -994,7 +994,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open
     local style = g.Style
     local flags = window.Flags
 
-    local has_close_button = (p_open ~= nil)
+    local has_close_button = ((p_open ~= nil) and (p_open[1] ~= nil) or true)
     local has_collapse_button = bit.band(flags, ImGuiWindowFlags_NoCollapse) == 0 and (style.WindowMenuButtonPosition ~= ImGuiDir.None)
 
     local item_flags_backup = g.CurrentItemFlags
@@ -1086,8 +1086,7 @@ local function SetCurrentWindow(window)
     end
 end
 
---- void ImGui::SetWindowPos
-local function SetWindowPos(window, pos)
+function ImGui.SetWindowPos(window, pos)
     local old_pos = window.Pos:copy()
 
     window.Pos.x = ImTrunc(pos.x)
@@ -1101,6 +1100,16 @@ local function SetWindowPos(window, pos)
     window.DC.CursorMaxPos = window.DC.CursorMaxPos + offset
     window.DC.IdealMaxPos = window.DC.IdealMaxPos + offset
     window.DC.CursorStartPos = window.DC.CursorStartPos + offset
+end
+
+--- @param size ImVec2
+--- @param cond ImGuiCond
+function ImGui.SetNextWindowSize(size, cond)
+    local g = GImGui
+    IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
+    g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize)
+    g.NextWindowData.SizeVal = size
+    g.NextWindowData.SizeCond = (cond ~= 0) and cond or ImGuiCond_Always
 end
 
 --- void ImGui::StartMouseMovingWindow
@@ -1124,7 +1133,7 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
         ImGui.KeepAliveID(g.ActiveID)
 
         if g.IO.MouseDown[1] then
-            SetWindowPos(window, g.IO.MousePos - g.ActiveIDClickOffset)
+            ImGui.SetWindowPos(window, g.IO.MousePos - g.ActiveIDClickOffset)
 
             ImGui.FocusWindow(g.MovingWindow)
         else
@@ -1192,12 +1201,12 @@ function ImGui.SetWindowViewport(window, viewport)
 end
 
 -- `p_open` will be set to false when the close button is pressed.
---- @param name    string
---- @param p_open  bool_ptr
---- @param flags?  ImGuiWindowFlags
+--- @param name     string
+--- @param p_open?  bool_ptr
+--- @param flags?   ImGuiWindowFlags
 --- @return bool
 function ImGui.Begin(name, p_open, flags)
-    if not flags then flags = 0 end
+    if not flags  then flags = 0 end
 
     local g = GImGui
     local style = g.Style
@@ -1214,6 +1223,8 @@ function ImGui.Begin(name, p_open, flags)
 
     local current_frame = g.FrameCount
     local first_begin_of_the_frame = (window.LastFrameActive ~= current_frame)
+    window.IsFallbackWindow = (g.CurrentWindowStack.Size == 0 and g.WithinFrameScopeWithImplicitWindow)
+
     local window_just_activated_by_user = (window.LastFrameActive < (current_frame - 1))
 
     if first_begin_of_the_frame then
@@ -1226,7 +1237,7 @@ function ImGui.Begin(name, p_open, flags)
 
     if first_begin_of_the_frame and not window.SkipRefresh then
         window.Active = true
-        window.HasCloseButton = (p_open[1] ~= nil)
+        window.HasCloseButton = ((p_open ~= nil) and (p_open[1] ~= nil) or true)
         window.ClipRect = ImVec4(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX)
 
         window.IDStack:resize(1) -- FIXME: our GetID relies on table.concat, which requires the contents cleared
@@ -1346,14 +1357,25 @@ end
 
 function ImGui.End()
     local g = GImGui
-
     local window = g.CurrentWindow
-    if not window then return end
 
-    PopID()
+    if (g.CurrentWindowStack.Size <= 1 and g.WithinFrameScopeWithImplicitWindow) then
+        IM_ASSERT_USER_ERROR(g.CurrentWindowStack.Size > 1, "Calling End() too many times!")
+
+        return
+    end
+
+    if not window.SkipRefresh then
+        ImGui.PopClipRect()
+    end
+
+    if (window.SkipRefresh) then
+        IM_ASSERT(window.DrawList == nil)
+        window.DrawList = window.DrawListInst
+    end
+
     g.CurrentWindowStack:pop_back()
-
-    SetCurrentWindow(g.CurrentWindowStack:back())
+    SetCurrentWindow((g.CurrentWindowStack.Size == 0) and nil or g.CurrentWindowStack:back())
 end
 
 local function FindHoveredWindowEx()
@@ -1450,6 +1472,7 @@ end
 --- static void SetupDrawListSharedData()
 local function SetupDrawListSharedData()
     local g = GImGui
+    local virtual_space = ImRect(FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX)
     -- TODO: 
     g.DrawListSharedData:SetCircleTessellationMaxError(g.Style.CircleTessellationMaxError)
 end
@@ -1607,11 +1630,10 @@ function ImGui.UpdateViewportsNewFrame()
 end
 
 function ImGui.NewFrame()
+    IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?")
     local g = GImGui
 
     g.Time = g.Time + g.IO.DeltaTime
-
-    if not g or not g.Initialized then return end
 
     g.FrameCount = g.FrameCount + 1
 
@@ -1644,7 +1666,7 @@ function ImGui.NewFrame()
     end
 
     g.HoveredID = 0
-    g.HoveredWindow = nil
+    g.HoveredWindow = nil -- TODO: is this correct?
 
     if (g.ActiveID ~= 0 and g.ActiveIDIsAlive ~= g.ActiveID and g.ActiveIDPreviousFrame == g.ActiveID) then
         print("NewFrame(): ClearActiveID() because it isn't marked alive anymore!")
@@ -1658,9 +1680,12 @@ function ImGui.NewFrame()
 
     ImGui.UpdateMouseInputs()
 
+    -- TODO: GC
+
     for _, window in g.Windows:iter() do
         window.WasActive = window.Active
         window.Active = false
+        window.WriteAccessed = false
     end
 
     ImGui.UpdateHoveredWindowAndCaptureFlags()
@@ -1668,8 +1693,16 @@ function ImGui.NewFrame()
     ImGui.UpdateMouseMovingWindowNewFrame()
 
     g.MouseCursor = "arrow" -- TODO:
+    g.WantCaptureMouseNextFrame = -1
+    g.WantCaptureKeyboardNextFrame = -1
+    g.WantTextInputNextFrame = -1
 
     g.CurrentWindowStack:resize(0)
+
+    g.WithinFrameScopeWithImplicitWindow = true
+    ImGui.SetNextWindowSize(ImVec2(400, 400), ImGuiCond_FirstUseEver)
+    ImGui.Begin("Debug##Default")
+    IM_ASSERT(g.CurrentWindow.IsFallbackWindow == true)
 end
 
 function ImGui.EndFrame()
@@ -1683,6 +1716,12 @@ function ImGui.EndFrame()
 
         return
     end
+
+    g.WithinFrameScopeWithImplicitWindow = false
+    if (g.CurrentWindow and not g.CurrentWindow.WriteAccessed) then
+        g.CurrentWindow.Active = false
+    end
+    ImGui.End()
 
     g.WithinFrameScope = false
     g.FrameCountEnded = g.FrameCount

@@ -197,8 +197,11 @@ struct_def("ImDrawListSharedData")
 local function ImDrawListSharedData()
     local this = setmetatable({
         TexUvWhitePixel = nil,
+        TexUvLines = nil,
+        FontAtlas = nil,
 
         InitialFringeScale = 1,
+        ClipRectFullscreen = nil,
 
         CircleSegmentMaxError = 0,
 
@@ -293,6 +296,66 @@ function ImFontStackData(font, font_size_before_scaling, font_size_after_scaling
     }
 end
 
+--- @class ImGuiLastItemData
+
+--- @return ImGuiLastItemData
+--- @nodiscard
+function ImGuiLastItemData()
+    return {
+        ID          = 0,
+        ItemFlags   = 0,
+        StatusFlags = 0,
+        Rect        = ImRect(),
+        NavRect     = ImRect(),
+
+        DisplayRect = ImRect(),
+        ClipRect    = ImRect(),
+        Shortcut    = 0
+    }
+end
+
+--- @class ImGuiNextWindowData
+
+--- @return ImGuiNextWindowData
+--- @nodiscard
+function ImGuiNextWindowData()
+    return {
+        HasFlags = 0,
+
+        PosCond              = 0,
+        SizeCond             = 0,
+        CollapsedCond        = 0,
+        PosVal               = nil,
+        PosPivotVal          = nil,
+        SizeVal              = nil,
+        ContentSizeVal       = nil,
+        ScrollVal            = nil,
+        WindowFlags          = nil,
+        ChildFlags           = nil,
+        CollapsedVal         = nil,
+        SizeConstraintRect   = nil,
+        SizeCallback         = nil,
+        SizeCallbackUserData = nil,
+        BgAlphaVal           = nil,
+        MenuBarOffsetMinVal  = nil,
+        RefreshFlagsVal      = nil
+    }
+end
+
+--- @alias ImGuiNextWindowDataFlags int
+ImGuiNextWindowDataFlags_None               = 0
+ImGuiNextWindowDataFlags_HasPos             = bit.lshift(1, 0)
+ImGuiNextWindowDataFlags_HasSize            = bit.lshift(1, 1)
+ImGuiNextWindowDataFlags_HasContentSize     = bit.lshift(1, 2)
+ImGuiNextWindowDataFlags_HasCollapsed       = bit.lshift(1, 3)
+ImGuiNextWindowDataFlags_HasSizeConstraint  = bit.lshift(1, 4)
+ImGuiNextWindowDataFlags_HasFocus           = bit.lshift(1, 5)
+ImGuiNextWindowDataFlags_HasBgAlpha         = bit.lshift(1, 6)
+ImGuiNextWindowDataFlags_HasScroll          = bit.lshift(1, 7)
+ImGuiNextWindowDataFlags_HasWindowFlags     = bit.lshift(1, 8)
+ImGuiNextWindowDataFlags_HasChildFlags      = bit.lshift(1, 9)
+ImGuiNextWindowDataFlags_HasRefreshPolicy   = bit.lshift(1, 10)
+
 --- @class ImGuiStyle
 
 --- @return ImGuiStyle
@@ -345,6 +408,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         Config = nil,
         Initialized = false,
         WithinFrameScope = false,
+        WithinFrameScopeWithImplicitWindow = false,
 
         Windows = ImVector(), -- Windows sorted in display order, back to front
         WindowsByID = {}, -- Map window's ID to window ref
@@ -389,21 +453,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         Time = 0,
 
-        NextItemData = {
-
-        },
-
-        LastItemData = {
-            ID = 0,
-            ItemFlags = 0,
-            StatusFlags = 0,
-
-            Rect        = ImRect(),
-            NavRect     = ImRect(),
-            DisplayRect = ImRect(),
-            ClipRect    = ImRect()
-            -- Shortcut = 
-        },
+        NextItemData = nil,
+        LastItemData = ImGuiLastItemData(),
+        NextWindowData = ImGuiNextWindowData(),
 
         Viewports = ImVector(),
 
@@ -488,6 +540,7 @@ local function ImGuiWindow(ctx, name)
         SkipRefresh = false,
 
         Hidden = false,
+        IsFallbackWindow = false,
 
         HiddenFramesCanSkipItems = 0,
         HiddenFramesCannotSkipItems = 0,
@@ -509,7 +562,8 @@ local function ImGuiWindow(ctx, name)
         ScrollbarX = false,
         ScrollbarY = false,
 
-        DrawList = ImDrawList(),
+        DrawList = nil,
+        DrawListInst = ImDrawList(),
 
         IDStack = ImVector(),
 
@@ -553,6 +607,8 @@ local function ImGuiWindow(ctx, name)
         FontWindowScale = 1.0,
         FontWindowScaleParents = 1.0
     }
+
+    this.DrawList = this.DrawListInst
 
     this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)
 
