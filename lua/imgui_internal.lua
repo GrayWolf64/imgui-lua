@@ -94,6 +94,7 @@ IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE = 128.0
 #IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  ((1 - ImCos(IM_PI / ImMax((_N), IM_PI))) / (_RAD))
 
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
+function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
 function IMGUI_DEBUG_LOG_FONT(_str, ...) print(string.format(_str, ...)) end
 
@@ -612,7 +613,13 @@ local function ImGuiWindow(ctx, name)
 
     this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)
 
-    return setmetatable(this, MT.ImGuiWindow)
+    setmetatable(this, MT.ImGuiWindow)
+
+    this.ID = ImHashStr(name) -- ImHashData expects a table containing only numbers
+    this.IDStack:push_back(this.ID)
+    this.MoveID = this:GetID("#MOVE")
+
+    return this
 end
 
 --- @class ImDrawDataBuilder

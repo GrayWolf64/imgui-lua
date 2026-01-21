@@ -398,10 +398,10 @@ end
 
 -- end
 
+--- @param name string
+--- @return ImGuiWindow
 local function CreateNewWindow(name)
     local g = GImGui
-
-    if not g then return end
 
     local window_id = ImHashStr(name)
 
@@ -593,28 +593,27 @@ function ImGui.ClearActiveID()
     ImGui.SetActiveID(0, nil)
 end
 
-local function PushID(str_id)
-    local window = GImGui.CurrentWindow
-    if not window then return end
-
-    window.IDStack:push_back(str_id)
+--- @param str_id string
+function ImGui.PushID(str_id)
+    local g = GImGui
+    local window = g.CurrentWindow
+    local id = window:GetID(str_id)
+    window.IDStack:push_back(id)
 end
 
-local function PopID()
+function ImGui.PopID()
     local window = GImGui.CurrentWindow
-    if not window then return end
-
+    IM_ASSERT_USER_ERROR_RET(window.IDStack.Size > 1, "Calling PopID() too many times!")
     window.IDStack:pop_back()
 end
 
-local table_concat = table.concat
-local function GetID(str_id)
-    local window = GImGui.CurrentWindow
-    if not window then return end
+--- @param str string
+--- @return ImGuiID
+function MT.ImGuiWindow:GetID(str)
+    local seed = self.IDStack:back()
+    local id = ImHashStr(str, seed)
 
-    local full_string = table_concat(window.IDStack.Data, "#") .. "#" .. (str_id or "") -- FIXME: no Data
-
-    return ImHashStr(full_string)
+    return id
 end
 
 local function IsMouseHoveringRect(r_min, r_max)
@@ -741,8 +740,8 @@ local function CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
     return out_pos, size_constrained
 end
 
--- TODO: 
---- static int ImGui::UpdateWindowManualResize
+--- @param window          ImGuiWindow
+--- @param resize_grip_col table
 local function UpdateWindowManualResize(window, resize_grip_col)
     local g = GImGui
     local flags = window.Flags
@@ -761,7 +760,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
     local grip_hover_inner_size = IM_TRUNC(grip_draw_size * 0.75)
     local grip_hover_outer_size = g.WindowsBorderHoverPadding + 1
 
-    PushID("#RESIZE")
+    ImGui.PushID("#RESIZE")
 
     local pos_target = ImVec2(FLT_MAX, FLT_MAX)
     local size_target = ImVec2(FLT_MAX, FLT_MAX)
@@ -782,7 +781,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
         if resize_rect.Min.x > resize_rect.Max.x then resize_rect.Min.x, resize_rect.Max.x = resize_rect.Max.x, resize_rect.Min.x end
         if resize_rect.Min.y > resize_rect.Max.y then resize_rect.Min.y, resize_rect.Max.y = resize_rect.Max.y, resize_rect.Min.y end
 
-        local resize_grip_id = GetID(i)
+        local resize_grip_id = window:GetID(tostring(i))
 
         ItemAdd(resize_rect, resize_grip_id)
         local pressed, hovered, held = ImGui.ButtonBehavior(resize_grip_id, resize_rect)
@@ -842,7 +841,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
         window.Pos.y = ImFloor(pos_target.y)
     end
 
-    PopID()
+    ImGui.PopID()
 end
 
 --- TODO: AutoFit -> ScrollBar() -> Text()
@@ -1020,7 +1019,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open
     end
 
     if has_collapse_button then
-        if ImGui.CollapseButton(GetID("#COLLAPSE"), collapse_button_pos) then
+        if ImGui.CollapseButton(window:GetID("#COLLAPSE"), collapse_button_pos) then
             window.Collapsed = not window.Collapsed
         end
     end
@@ -1028,7 +1027,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open
     if has_close_button then
         local backup_item_flags = g.CurrentItemFlags
         g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags_NoFocus)
-        if ImGui.CloseButton(GetID("#CLOSE"), close_button_pos) then
+        if ImGui.CloseButton(window:GetID("#CLOSE"), close_button_pos) then
             p_open[1] = false
             window.Hidden = true -- TODO: temporary hidden set
         end
@@ -1218,7 +1217,7 @@ function ImGui.Begin(name, p_open, flags)
     local window = ImGui.FindWindowByName(name)
     local window_just_created = (window == nil)
     if window_just_created then
-        window = CreateNewWindow(name)
+        window = CreateNewWindow(name) --- @cast window ImGuiWindow
     end
 
     local current_frame = g.FrameCount
@@ -1236,12 +1235,13 @@ function ImGui.Begin(name, p_open, flags)
     g.CurrentWindow = nil
 
     if first_begin_of_the_frame and not window.SkipRefresh then
+        local window_is_child_tooltip = (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0)
+
         window.Active = true
         window.HasCloseButton = ((p_open ~= nil) and (p_open[1] ~= nil) or true)
         window.ClipRect = ImVec4(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX)
 
-        window.IDStack:resize(1) -- FIXME: our GetID relies on table.concat, which requires the contents cleared
-        window.IDStack:clear_delete()
+        window.IDStack:resize(1)
 
         window.DrawList:_ResetForNewFrame()
 
@@ -1342,14 +1342,8 @@ function ImGui.Begin(name, p_open, flags)
     -- window->BeginCount++;
     -- g.NextWindowData.ClearFlags();
 
-    local window_id = window.ID
-
-    PushID(window_id)
-    window.MoveID = GetID("#MOVE") -- TODO: investigate
-
     g.CurrentWindowStack:push_back(window)
 
-    -- TODO: window_is_child_tooltip
     -- TODO: parent_window
 
     return not window.Collapsed
