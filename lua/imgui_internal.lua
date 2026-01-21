@@ -375,6 +375,7 @@ function ImGuiStyle()
         Alpha = 1.0,
 
         FramePadding = ImVec2(4, 3),
+        WindowPadding = ImVec2(8, 8),
 
         WindowRounding = 0,
         WindowBorderSize = 1,
@@ -562,6 +563,9 @@ local function ImGuiWindow(ctx, name)
 
         Scroll = ImVec2(),
 
+        ContentSize = ImVec2(),
+        ContentSizeExplicit = ImVec2(),
+
         AutoFitFramesX = -1, AutoFitFramesY = -1,
 
         HasCloseButton = true,
@@ -603,7 +607,8 @@ local function ImGuiWindow(ctx, name)
         OuterRectClipped = nil,
         InnerRect        = ImRect(),
         InnerClipRect    = ImRect(),
-        WorkRect         = nil,
+        WorkRect         = ImRect(),
+        ParentWorkRect   = ImRect(),
 
         ClipRect = ImRect(),
 

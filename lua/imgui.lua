@@ -440,7 +440,7 @@ function ImGui.KeepAliveID(id)
 end
 
 --- bool ImGui::ItemAdd
-local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
+function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     local g = GImGui
     local window = g.CurrentWindow
 
@@ -466,7 +466,7 @@ local function ItemAdd(bb, id, nav_bb_arg, extra_flags)
     -- local is_rect_visible = Overlaps(bb, window.ClipRect)
 end
 
-local function ItemSize(size, text_baseline_y)
+function ImGui.ItemSize(size, text_baseline_y)
     local g = GImGui
     local window = g.CurrentWindow
 
@@ -835,7 +835,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
 
         local resize_grip_id = window:GetID(tostring(i))
 
-        ItemAdd(resize_rect, resize_grip_id)
+        ImGui.ItemAdd(resize_rect, resize_grip_id)
         local pressed, hovered, held = ImGui.ButtonBehavior(resize_grip_id, resize_rect)
 
         if hovered or held then
@@ -1411,6 +1411,33 @@ function ImGui.Begin(name, p_open, flags)
         window.InnerRect.Min.y = window.Pos.y + window.DecoOuterSizeY1
         window.InnerRect.Max.x = window.Pos.x + window.Size.x - window.DecoOuterSizeX2
         window.InnerRect.Max.y = window.Pos.y + window.Size.y - window.DecoOuterSizeY2
+
+        local allow_scrollbar_x = (bit.band(flags, ImGuiWindowFlags_NoScrollbar) == 0) and (bit.band(flags, ImGuiWindowFlags_HorizontalScrollbar) ~= 0)
+        local allow_scrollbar_y = (bit.band(flags, ImGuiWindowFlags_NoScrollbar) == 0)
+
+        local work_rect_size_x
+        if window.ContentSizeExplicit.x ~= 0.0 then
+            work_rect_size_x = window.ContentSizeExplicit.x
+        else
+            local content_size_x = allow_scrollbar_x and (window.ContentSize and window.ContentSize.x or 0.0) or 0.0
+            local window_size_x = window.Size.x - window.WindowPadding.x * 2.0 - (window.DecoOuterSizeX1 + window.DecoOuterSizeX2)
+            work_rect_size_x = ImMax(content_size_x, window_size_x)
+        end
+
+        local work_rect_size_y
+        if window.ContentSizeExplicit.y ~= 0.0 then
+            work_rect_size_y = window.ContentSizeExplicit.y
+        else
+            local content_size_y = allow_scrollbar_y and (window.ContentSize and window.ContentSize.y or 0.0) or 0.0
+            local window_size_y = window.Size.y - window.WindowPadding.y * 2.0 - (window.DecoOuterSizeY1 + window.DecoOuterSizeY2)
+            work_rect_size_y = ImMax(content_size_y, window_size_y)
+        end
+
+        window.WorkRect.Min.x = ImTrunc(window.InnerRect.Min.x - window.Scroll.x + ImMax(window.WindowPadding.x, window.WindowBorderSize))
+        window.WorkRect.Min.y = ImTrunc(window.InnerRect.Min.y - window.Scroll.y + ImMax(window.WindowPadding.y, window.WindowBorderSize))
+        window.WorkRect.Max.x = window.WorkRect.Min.x + work_rect_size_x
+        window.WorkRect.Max.y = window.WorkRect.Min.y + work_rect_size_y
+        window.ParentWorkRect = window.WorkRect
 
         local top_border_size = ((bit.band(flags, ImGuiWindowFlags_MenuBar) ~= 0 or bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0) and style.FrameBorderSize or window.WindowBorderSize)
 

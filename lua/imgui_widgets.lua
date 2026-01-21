@@ -36,7 +36,7 @@ function ImGui.CloseButton(id, pos)
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
 
-    local is_clipped = not ItemAdd(bb, id)
+    local is_clipped = not ImGui.ItemAdd(bb, id)
 
     local pressed, hovered = ImGui.ButtonBehavior(id, bb)
 
@@ -62,7 +62,7 @@ function ImGui.CollapseButton(id, pos)
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
 
-    local is_clipped = not ItemAdd(bb, id)
+    local is_clipped = not ImGui.ItemAdd(bb, id)
 
     local pressed, hovered = ImGui.ButtonBehavior(id, bb)
 
