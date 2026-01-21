@@ -189,10 +189,10 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
     end
 
     -- Display the atlas on my screen
-    local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
-    if atlas_tex then
-        render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), ScrW() - atlas_tex.Width - 10, 10, atlas_tex.Width, atlas_tex.Height)
-    end
+    -- local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
+    -- if atlas_tex then
+    --     render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), ScrW() - atlas_tex.Width - 10, 10, atlas_tex.Width, atlas_tex.Height)
+    -- end
 end
 
 --- @param tex ImTextureData
@@ -216,7 +216,7 @@ end
 --- @param tex ImTextureData
 function ImGui_ImplGMOD_UpdateTexture(tex)
     local bd = ImGui_ImplGMOD_GetBackendData()
-print(tex.Status)
+
     if tex.Status == ImTextureStatus.WantCreate then
         IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil)
         IM_ASSERT(tex.Format == ImTextureFormat.RGBA32)
@@ -290,22 +290,15 @@ print(tex.Status)
         local backend_tex = tex.BackendUserData
         IM_ASSERT(tex.Format == ImTextureFormat.RGBA32)
 
-        local upload_x = tex.UpdateRect.x
-        local upload_y = tex.UpdateRect.y
-        local upload_w = tex.UpdateRect.w
-        local upload_h = tex.UpdateRect.h
-
         render.PushRenderTarget(backend_tex.RenderTarget)
 
-
-
-        local x, y, w, h = tex.UpdateRect.x, tex.UpdateRect.y, tex.UpdateRect.w, tex.UpdateRect.h
-        render.SetScissorRect(x, y, x + w, y + h, true)
+        local update_x, update_y, update_w, update_h = tex.UpdateRect.x, tex.UpdateRect.y, tex.UpdateRect.w, tex.UpdateRect.h
         render.OverrideAlphaWriteEnable(true, true)
         render.ClearDepth()
-        render.Clear(0, 0, 0, 0)
 
         cam.Start2D()
+
+        render.SetScissorRect(update_x, update_y, update_x + update_w, update_y + update_h, true)
 
         for _, r in ipairs(tex.Updates.Data) do
             for y = r.y, r.y + r.h - 1 do
@@ -324,10 +317,11 @@ print(tex.Status)
             end
         end
 
+        render.SetScissorRect(0, 0, 0, 0, false)
+
         cam.End2D()
 
         render.OverrideAlphaWriteEnable(false, false)
-        render.SetScissorRect(0, 0, 0, 0, false)
         render.PopRenderTarget()
 
         tex:SetStatus(ImTextureStatus.OK)
