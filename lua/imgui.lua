@@ -415,7 +415,7 @@ local function CreateNewWindow(name)
     window.Size = ImVec2(g.Config.WindowSize.w, g.Config.WindowSize.h) -- TODO: Don't use this Config thing
     window.SizeFull = ImVec2(g.Config.WindowSize.w, g.Config.WindowSize.h)
 
-    g.WindowsByID[window_id] = window
+    g.WindowsById[window_id] = window
 
     g.Windows:push_back(window)
 
@@ -430,8 +430,8 @@ end
 function ImGui.KeepAliveID(id)
     local g = GImGui
 
-    if g.ActiveID == id then
-        g.ActiveIDIsAlive = id
+    if g.ActiveId == id then
+        g.ActiveIdIsAlive = id
     end
 
     if g.DeactivatedItemData.ID == id then
@@ -511,8 +511,8 @@ end
 local function IsItemActive()
     local g = GImGui
 
-    if g.ActiveID ~= 0 then
-        return g.ActiveID == g.LastItemData.ID
+    if g.ActiveId ~= 0 then
+        return g.ActiveId == g.LastItemData.ID
     end
 
     return false
@@ -570,25 +570,25 @@ end
 function ImGui.SetActiveID(id, window)
     local g = GImGui
 
-    if g.ActiveID ~= 0 then
-        g.DeactivatedItemData.ID = g.ActiveID
+    if g.ActiveId ~= 0 then
+        g.DeactivatedItemData.ID = g.ActiveId
         -- g.DeactivatedItemData.ElapseFrame =
         -- g.DeactivatedItemData.HasBeenEditedBefore =
-        g.DeactivatedItemData.IsAlive = (g.ActiveIDIsAlive == g.ActiveID)
+        g.DeactivatedItemData.IsAlive = (g.ActiveIdIsAlive == g.ActiveId)
 
-        if g.MovingWindow and (g.ActiveID == g.MovingWindow.MoveID) then
+        if g.MovingWindow and (g.ActiveId == g.MovingWindow.MoveID) then
             print("SetActiveID() cancel MovingWindow")
             StopMouseMovingWindow()
         end
     end
 
-    g.ActiveIDIsJustActivated = (g.ActiveID ~= id)
+    g.ActiveIdIsJustActivated = (g.ActiveId ~= id)
 
-    g.ActiveID = id
+    g.ActiveId = id
     g.ActiveIDWindow = window
 
     if id ~= 0 then
-        g.ActiveIDIsAlive = id
+        g.ActiveIdIsAlive = id
     end
 end
 
@@ -629,7 +629,7 @@ end
 local function SetHoveredID(id)
     local g = GImGui
 
-    g.HoveredID = id
+    g.HoveredId = id
 end
 
 --- bool ImGui::ItemHoverable
@@ -646,7 +646,7 @@ function ImGui.ItemHoverable(id, bb)
         return false
     end
 
-    if g.HoveredID ~= 0 and g.HoveredID ~= id then
+    if g.HoveredId ~= 0 and g.HoveredId ~= id then
         return false
     end
 
@@ -655,6 +655,20 @@ function ImGui.ItemHoverable(id, bb)
     end
 
     return true
+end
+
+--- bool ImGui::IsClippedEx
+function ImGui.IsClippedEx(bb, id)
+    local g = GImGui
+    local window = g.CurrentWindow
+    if not bb:Overlaps(window.ClipRect) then
+        if id == 0 or (id ~= g.ActiveId and id ~= g.ActiveIdPreviousFrame and id ~= g.NavId and id ~= g.NavActivateId) then
+            if not g.ItemUnclipByLog then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 --- bool ImGui::IsMouseDown
@@ -1132,7 +1146,7 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
     local window = g.MovingWindow
 
     if window then
-        ImGui.KeepAliveID(g.ActiveID)
+        ImGui.KeepAliveID(g.ActiveId)
 
         if g.IO.MouseDown[1] then
             ImGui.SetWindowPos(window, g.IO.MousePos - g.ActiveIDClickOffset)
@@ -1143,8 +1157,8 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
             ImGui.ClearActiveID()
         end
     else
-        if (g.ActiveIDWindow and g.ActiveIDWindow.MoveID == g.ActiveID) then
-            ImGui.KeepAliveID(g.ActiveID)
+        if (g.ActiveIDWindow and g.ActiveIDWindow.MoveID == g.ActiveId) then
+            ImGui.KeepAliveID(g.ActiveId)
 
             if g.IO.MouseDown[1] then
                 ImGui.ClearActiveID()
@@ -1162,7 +1176,7 @@ end
 function ImGui.UpdateMouseMovingWindowEndFrame()
     local g = GImGui
 
-    if g.ActiveID ~= 0 or g.HoveredID ~= 0 then return end
+    if g.ActiveId ~= 0 or g.HoveredId ~= 0 then return end
 
     local hovered_window = g.HoveredWindow
 
@@ -1182,7 +1196,7 @@ function ImGui.FindWindowByID(id)
 
     if not g then return end
 
-    return g.WindowsByID[id]
+    return g.WindowsById[id]
 end
 
 --- ImGui::FindWindowByName
@@ -1662,18 +1676,18 @@ function ImGui.NewFrame()
         viewport.DrawDataP.Valid = false
     end
 
-    g.HoveredID = 0
+    g.HoveredId = 0
     g.HoveredWindow = nil -- TODO: is this correct?
 
-    if (g.ActiveID ~= 0 and g.ActiveIDIsAlive ~= g.ActiveID and g.ActiveIDPreviousFrame == g.ActiveID) then
+    if (g.ActiveId ~= 0 and g.ActiveIdIsAlive ~= g.ActiveId and g.ActiveIdPreviousFrame == g.ActiveId) then
         print("NewFrame(): ClearActiveID() because it isn't marked alive anymore!")
 
         ImGui.ClearActiveID()
     end
 
-    g.ActiveIDPreviousFrame = g.ActiveID
-    g.ActiveIDIsAlive = 0
-    g.ActiveIDIsJustActivated = false
+    g.ActiveIdPreviousFrame = g.ActiveId
+    g.ActiveIdIsAlive = 0
+    g.ActiveIdIsJustActivated = false
 
     ImGui.UpdateMouseInputs()
 

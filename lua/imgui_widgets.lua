@@ -14,8 +14,8 @@ function ImGui.ButtonBehavior(button_id, bb)
     end
 
     local held = false
-    if g.ActiveID == button_id then
-        if g.ActiveIDIsJustActivated then
+    if g.ActiveId == button_id then
+        if g.ActiveIdIsJustActivated then
             g.ActiveIDClickOffset = io.MousePos - bb.Min
         end
 

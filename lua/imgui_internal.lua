@@ -141,7 +141,7 @@ MT.ImRect.__index = MT.ImRect
 function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 function MT.ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
 function MT.ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
-function MT.ImRect:overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
+function MT.ImRect:Overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
 function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
 function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
 function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
@@ -406,7 +406,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         WithinFrameScopeWithImplicitWindow = false,
 
         Windows = ImVector(), -- Windows sorted in display order, back to front
-        WindowsByID = {}, -- Map window's ID to window ref
+        WindowsById = {}, -- Map window's ID to window ref
 
         WindowsBorderHoverPadding = 0,
 
@@ -421,14 +421,14 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         HoveredWindow = nil,
 
-        ActiveID = 0, -- Active widget
+        ActiveId = 0, -- Active widget
         ActiveIDWindow = nil, -- Active window
 
-        ActiveIDIsJustActivated = false,
+        ActiveIdIsJustActivated = false,
 
-        ActiveIDIsAlive = nil,
+        ActiveIdIsAlive = nil,
 
-        ActiveIDPreviousFrame = 0,
+        ActiveIdPreviousFrame = 0,
 
         DeactivatedItemData = {
             ID = 0,
@@ -437,7 +437,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
             IsAlive = false
         },
 
-        HoveredID = 0,
+        HoveredId = 0,
 
         NavWindow = nil,
 
