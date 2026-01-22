@@ -576,7 +576,10 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         CurrentItemFlags = ImGuiItemFlags_None,
 
         -- Extensions
-        UserTextures = ImVector()
+        UserTextures = ImVector(),
+
+        -- Settings
+        SettingsWindows = ImVector()
     }
 
     this.IO.Fonts = (shared_font_atlas ~= nil) and shared_font_atlas or ImFontAtlas()
@@ -585,6 +588,35 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
     end
 
     return this
+end
+
+--- @class ImGuiWindowSettings
+--- @field ID           int     # Window ID
+--- @field Pos          ImVec2  # Window position
+--- @field Size         ImVec2  # Window size
+--- @field Collapsed    bool    # Whether window is collapsed
+--- @field IsChild      bool    # Whether window is a child window
+--- @field WantApply    bool    # Set when loaded from .ini data
+--- @field WantDelete   bool    # Set to invalidate/delete the settings entry
+--- @field Name         string  # Window name
+MT.ImGuiWindowSettings = {}
+MT.ImGuiWindowSettings.__index = MT.ImGuiWindowSettings
+
+function ImGuiWindowSettings()
+    return setmetatable({
+        ID           = 0,
+        Pos          = ImVec2(0, 0),
+        Size         = ImVec2(0, 0),
+        Collapsed    = false,
+        IsChild      = false,
+        WantApply    = false,
+        WantDelete   = false,
+        Name         = "",
+    }, MT.ImGuiWindowSettings)
+end
+
+function MT.ImGuiWindowSettings:GetName()
+    return self.Name
 end
 
 --- @class ImGuiWindow
@@ -692,8 +724,15 @@ local function ImGuiWindow(ctx, name)
         ContentSizeExplicit = ImVec2(),
 
         AutoFitFramesX = -1, AutoFitFramesY = -1,
+        AutoFitOnlyGrows = false,
 
         HasCloseButton = true,
+
+        -- Window settings
+        SetWindowPosAllowFlags = 0,
+        SetWindowSizeAllowFlags = 0,
+        SetWindowCollapsedAllowFlags = 0,
+        SettingsOffset = -1,
 
         ScrollbarX = false,
         ScrollbarY = false,

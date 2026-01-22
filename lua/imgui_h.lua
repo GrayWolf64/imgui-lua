@@ -225,6 +225,13 @@ function MT.ImVector:index_from_ptr(p)
     assert(false, "index_from_ptr failed!")
 end
 
+function MT.ImVector:ptr_from_offset(offset)
+    if offset < 0 or offset >= self.Size then
+        return nil
+    end
+    return self.Data[offset + 1]
+end
+
 --- @class ImDrawCmd
 MT.ImDrawCmd = {}
 MT.ImDrawCmd.__index = MT.ImDrawCmd

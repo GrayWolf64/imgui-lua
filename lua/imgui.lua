@@ -406,9 +406,95 @@ end
 
 -- end
 
+--- @param window ImGuiWindow
+--- @return any
+function ImGui.FindWindowSettingsByWindow(window)
+    local g = GImGui
+    if window.SettingsOffset ~= -1 then
+        return g.SettingsWindows:ptr_from_offset(window.SettingsOffset)
+    end
+    return ImGui.FindWindowSettingsByID(window.ID)
+end
+
+--- @param id ImGuiID
+--- @return any
+function ImGui.FindWindowSettingsByID(id)
+    local g = GImGui
+    for _, settings in g.SettingsWindows:iter() do
+        if settings.ID == id and not settings.WantDelete then
+            return settings
+        end
+    end
+    return nil
+end
+
+--- @param window ImGuiWindow
+--- @param cond ImGuiCond
+--- @param allow bool
+local function SetWindowConditionAllowFlags(window, cond, allow)
+    if allow then
+        window.SetWindowPosAllowFlags = bit.bor(window.SetWindowPosAllowFlags, cond)
+        window.SetWindowSizeAllowFlags = bit.bor(window.SetWindowSizeAllowFlags, cond)
+        window.SetWindowCollapsedAllowFlags = bit.bor(window.SetWindowCollapsedAllowFlags, cond)
+    else
+        window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(cond))
+        window.SetWindowSizeAllowFlags = bit.band(window.SetWindowSizeAllowFlags, bit.bnot(cond))
+        window.SetWindowCollapsedAllowFlags = bit.band(window.SetWindowCollapsedAllowFlags, bit.bnot(cond))
+    end
+end
+
+--- @param window ImGuiWindow
+--- @param settings ImGuiWindowSettings
+local function ApplyWindowSettings(window, settings)
+    window.Pos = ImVec2(ImTrunc(settings.Pos.x), ImTrunc(settings.Pos.y))
+    if settings.Size.x > 0 and settings.Size.y > 0 then
+        local size = ImVec2(ImTrunc(settings.Size.x), ImTrunc(settings.Size.y))
+        window.Size = size
+        window.SizeFull = size
+    end
+    window.Collapsed = settings.Collapsed
+end
+
+--- @param window ImGuiWindow
+--- @param settings ImGuiWindowSettings
+local function InitOrLoadWindowSettings(window, settings)
+    -- Initial window state with e.g. default/arbitrary window position
+    -- Use SetNextWindowPos() with the appropriate condition flag to change the initial position of a window.
+    local main_viewport = ImGui.GetMainViewport()
+    window.Pos = ImVec2(main_viewport.Pos.x + 60, main_viewport.Pos.y + 60)
+    window.SizeFull = ImVec2(0, 0)
+    window.Size = window.SizeFull
+    window.SetWindowPosAllowFlags = bit.bor(ImGuiCond_Always, ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)
+    window.SetWindowSizeAllowFlags = window.SetWindowPosAllowFlags
+    window.SetWindowCollapsedAllowFlags = window.SetWindowPosAllowFlags
+
+    if settings ~= nil then
+        SetWindowConditionAllowFlags(window, ImGuiCond_FirstUseEver, false)
+        ApplyWindowSettings(window, settings)
+    end
+    window.DC.CursorStartPos = ImVec2(window.Pos.x, window.Pos.y) -- So first call to CalcWindowContentSizes() doesn't return crazy values
+    window.DC.CursorMaxPos = window.DC.CursorStartPos
+    window.DC.IdealMaxPos = window.DC.CursorStartPos
+
+    if bit.band(window.Flags, ImGuiWindowFlags_AlwaysAutoResize) ~= 0 then
+        window.AutoFitFramesX = 2
+        window.AutoFitFramesY = 2
+        window.AutoFitOnlyGrows = false
+    else
+        if window.Size.x <= 0.0 then
+            window.AutoFitFramesX = 2
+        end
+        if window.Size.y <= 0.0 then
+            window.AutoFitFramesY = 2
+        end
+        window.AutoFitOnlyGrows = (window.AutoFitFramesX > 0) or (window.AutoFitFramesY > 0)
+    end
+end
+
 --- @param name string
+--- @param flags ImGuiWindowFlags
 --- @return ImGuiWindow
-local function CreateNewWindow(name)
+local function CreateNewWindow(name, flags)
     local g = GImGui
 
     local window_id = ImHashStr(name)
@@ -416,20 +502,24 @@ local function CreateNewWindow(name)
     local window = ImGuiWindow(g, name)
 
     window.ID = window_id
-    window.Pos = ImVec2(g.Config.WindowPos.x, g.Config.WindowPos.y)
-    window.Size = ImVec2(g.Config.WindowSize.w, g.Config.WindowSize.h) -- TODO: Don't use this Config thing
-    window.SizeFull = ImVec2(g.Config.WindowSize.w, g.Config.WindowSize.h)
+    window.Flags = flags
 
     g.WindowsById[window_id] = window
+
+    local settings = nil
+    if bit.band(window.Flags, ImGuiWindowFlags_NoSavedSettings) == 0 then
+        settings = ImGui.FindWindowSettingsByWindow(window)
+        if settings ~= nil then
+            window.SettingsOffset = g.SettingsWindows:index_from_ptr(settings)
+        end
+    end
+
+    InitOrLoadWindowSettings(window, settings)
 
     g.Windows:push_back(window)
 
     return window
 end
-
---- void ImGui::PushClipRect
-
---- void ImGui::PopClipRect
 
 --- void ImGui::KeepAliveID(ImGuiID id)
 function ImGui.KeepAliveID(id)
@@ -1357,7 +1447,7 @@ function ImGui.Begin(name, p_open, flags)
     local window = ImGui.FindWindowByName(name)
     local window_just_created = (window == nil)
     if window_just_created then
-        window = CreateNewWindow(name) --- @cast window ImGuiWindow
+        window = CreateNewWindow(name, flags) --- @cast window ImGuiWindow
     end
 
     local current_frame = g.FrameCount
@@ -1447,6 +1537,18 @@ function ImGui.Begin(name, p_open, flags)
         window.InnerRect.Max.x = window.Pos.x + window.Size.x - window.DecoOuterSizeX2
         window.InnerRect.Max.y = window.Pos.y + window.Size.y - window.DecoOuterSizeY2
 
+        local top_border_size = ((bit.band(flags, ImGuiWindowFlags_MenuBar) ~= 0 or bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0) and style.FrameBorderSize or window.WindowBorderSize)
+
+        window.InnerClipRect.Min.x = ImFloor(0.5 + window.InnerRect.Min.x + window.WindowBorderSize * 0.5)
+        window.InnerClipRect.Min.y = ImFloor(0.5 + window.InnerRect.Min.y + top_border_size * 0.5)
+        window.InnerClipRect.Max.x = ImFloor(window.InnerRect.Max.x - window.WindowBorderSize * 0.5)
+        window.InnerClipRect.Max.y = ImFloor(window.InnerRect.Max.y - window.WindowBorderSize * 0.5)
+        window.InnerClipRect:ClipWithFull(host_rect)
+
+        IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer.Data[1].ElemCount == 0)
+        window.DrawList:PushTexture(g.Font.OwnerAtlas.TexRef)
+        ImGui.PushClipRect(host_rect.Min, host_rect.Max, false)
+
         local allow_scrollbar_x = (bit.band(flags, ImGuiWindowFlags_NoScrollbar) == 0) and (bit.band(flags, ImGuiWindowFlags_HorizontalScrollbar) ~= 0)
         local allow_scrollbar_y = (bit.band(flags, ImGuiWindowFlags_NoScrollbar) == 0)
 
@@ -1508,19 +1610,14 @@ function ImGui.Begin(name, p_open, flags)
         window.DC.IsSetPos = false
         window.DC.TextWrapPos = -1.0
 
-        local top_border_size = ((bit.band(flags, ImGuiWindowFlags_MenuBar) ~= 0 or bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0) and style.FrameBorderSize or window.WindowBorderSize)
-
-        window.InnerClipRect.Min.x = ImFloor(0.5 + window.InnerRect.Min.x + window.WindowBorderSize * 0.5)
-        window.InnerClipRect.Min.y = ImFloor(0.5 + window.InnerRect.Min.y + top_border_size * 0.5)
-        window.InnerClipRect.Max.x = ImFloor(window.InnerRect.Max.x - window.WindowBorderSize * 0.5)
-        window.InnerClipRect.Max.y = ImFloor(window.InnerRect.Max.y - window.WindowBorderSize * 0.5)
-        window.InnerClipRect:ClipWithFull(host_rect)
+        if window.AutoFitFramesX > 0 then
+            window.AutoFitFramesX = window.AutoFitFramesX - 1
+        end
+        if window.AutoFitFramesY > 0 then
+            window.AutoFitFramesY = window.AutoFitFramesY - 1
+        end
 
         -- TODO: SCROLL
-
-        IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer.Data[1].ElemCount == 0)
-        window.DrawList:PushTexture(g.Font.OwnerAtlas.TexRef)
-        ImGui.PushClipRect(host_rect.Min, host_rect.Max, false)
 
         local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
 
