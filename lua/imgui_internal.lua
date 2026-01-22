@@ -35,6 +35,7 @@ FLT_MAX = math.huge
 #IMGUI_DEFINE ImClamp(v, min, max)  ImMin(ImMax((v), (min)), (max))
 
 function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
+function ImTrunc64(f) return ImTrunc(f) end
 
 #IMGUI_DEFINE IM_ROUNDUP_TO_EVEN(n) (ImCeil((n) / 2) * 2)
 #IMGUI_DEFINE ImRsqrt(x)            (1 / ImSqrt(x))
@@ -721,6 +722,7 @@ local function ImGuiWindow(ctx, name)
         Scroll = ImVec2(),
 
         ContentSize = ImVec2(),
+        ContentSizeIdeal = ImVec2(),
         ContentSizeExplicit = ImVec2(),
 
         AutoFitFramesX = -1, AutoFitFramesY = -1,

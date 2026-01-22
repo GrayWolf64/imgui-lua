@@ -891,6 +891,30 @@ local function CalcWindowSizeAfterConstraint(window, size_desired)
     )
 end
 
+--- @param window               ImGuiWindow
+--- @param content_size_current ImVec2
+--- @param content_size_ideal   ImVec2
+local function CalcWindowContentSizes(window, content_size_current, content_size_ideal)
+    local preserve_old_content_sizes = false
+    if window.Collapsed and window.AutoFitFramesX <= 0 and window.AutoFitFramesY <= 0 then
+        preserve_old_content_sizes = true
+    elseif window.Hidden and window.HiddenFramesCannotSkipItems == 0 and window.HiddenFramesCanSkipItems > 0 then
+        preserve_old_content_sizes = true
+    end
+    if preserve_old_content_sizes then
+        content_size_current.x = window.ContentSize.x
+        content_size_current.y = window.ContentSize.y
+        content_size_ideal.x = window.ContentSizeIdeal.x
+        content_size_ideal.y = window.ContentSizeIdeal.y
+        return
+    end
+
+    content_size_current.x = (window.ContentSizeExplicit.x ~= 0.0) and window.ContentSizeExplicit.x or ImTrunc64(window.DC.CursorMaxPos.x - window.DC.CursorStartPos.x)
+    content_size_current.y = (window.ContentSizeExplicit.y ~= 0.0) and window.ContentSizeExplicit.y or ImTrunc64(window.DC.CursorMaxPos.y - window.DC.CursorStartPos.y)
+    content_size_ideal.x = (window.ContentSizeExplicit.x ~= 0.0) and window.ContentSizeExplicit.x or ImTrunc64(ImMax(window.DC.CursorMaxPos.x, window.DC.IdealMaxPos.x) - window.DC.CursorStartPos.x)
+    content_size_ideal.y = (window.ContentSizeExplicit.y ~= 0.0) and window.ContentSizeExplicit.y or ImTrunc64(ImMax(window.DC.CursorMaxPos.y, window.DC.IdealMaxPos.y) - window.DC.CursorStartPos.y)
+end
+
 --- static void CalcResizePosSizeFromAnyCorner
 local function CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
     local pos_min = ImVec2(
@@ -1464,6 +1488,9 @@ function ImGui.Begin(name, p_open, flags)
 
     g.CurrentWindow = nil
 
+    local window_size_x_set_by_api = false
+    local window_size_y_set_by_api = false
+
     if first_begin_of_the_frame and not window.SkipRefresh then
         local window_is_child_tooltip = (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0)
 
@@ -1474,6 +1501,42 @@ function ImGui.Begin(name, p_open, flags)
         window.IDStack:resize(1)
 
         window.DrawList:_ResetForNewFrame()
+
+        -- UPDATE CONTENTS SIZE, UPDATE HIDDEN STATUS
+        -- Update contents size from last frame for auto-fitting (or use explicit size)
+        CalcWindowContentSizes(window, window.ContentSize, window.ContentSizeIdeal)
+        if window.HiddenFramesCanSkipItems > 0 then
+            window.HiddenFramesCanSkipItems = window.HiddenFramesCanSkipItems - 1
+        end
+        if window.HiddenFramesCannotSkipItems > 0 then
+            window.HiddenFramesCannotSkipItems = window.HiddenFramesCannotSkipItems - 1
+        end
+        if window.HiddenFramesForRenderOnly > 0 then
+            window.HiddenFramesForRenderOnly = window.HiddenFramesForRenderOnly - 1
+        end
+
+        -- Hide new windows for one frame until they calculate their size
+        if window_just_created then
+            window.HiddenFramesCannotSkipItems = 1
+        end
+
+        -- Hide popup/tooltip window when re-opening while we measure size (because we recycle the windows)
+        -- We reset Size/ContentSize for reappearing popups/tooltips early in this function, so further code won't be tempted to use the old size.
+        if window_just_activated_by_user and bit.band(flags, bit.bor(ImGuiWindowFlags_Popup, ImGuiWindowFlags_Tooltip)) ~= 0 then
+            window.HiddenFramesCannotSkipItems = 1
+            if bit.band(flags, ImGuiWindowFlags_AlwaysAutoResize) ~= 0 then
+                if not window_size_x_set_by_api then
+                    window.SizeFull.x = 0.0
+                    window.Size.x = 0.0
+                end
+                if not window_size_y_set_by_api then
+                    window.SizeFull.y = 0.0
+                    window.Size.y = 0.0
+                end
+                window.ContentSize = ImVec2(0.0, 0.0)
+                window.ContentSizeIdeal = ImVec2(0.0, 0.0)
+            end
+        end
 
         local viewport = ImGui.GetMainViewport()
         ImGui.SetWindowViewport(window, viewport)
