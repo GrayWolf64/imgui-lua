@@ -439,31 +439,67 @@ function ImGui.KeepAliveID(id)
     end
 end
 
---- bool ImGui::ItemAdd
+local function IsMouseHoveringRect(r_min, r_max)
+    local rect_clipped = ImRect(r_min, r_max)
+
+    return rect_clipped:contains_point(GImGui.IO.MousePos)
+end
+
 function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
+    if extra_flags == nil then extra_flags = 0 end
+
     local g = GImGui
     local window = g.CurrentWindow
 
     g.LastItemData.ID = id
     g.LastItemData.Rect = bb
-
-    if nav_bb_arg then
-        g.LastItemData.NavRect = nav_bb_arg
-    else
-        g.LastItemData.NavRect = bb
-    end
-
-    -- g.LastItemData.ItemFlags = g.CurrentItemFlags | g.NextItemData.ItemFlags | extra_flags;
-    -- g.LastItemData.StatusFlags = ImGuiItemStatusFlags_None;
+    g.LastItemData.NavRect = nav_bb_arg and nav_bb_arg or bb
+    g.LastItemData.ItemFlags = bit.bor(g.CurrentItemFlags, g.NextItemData.ItemFlags, extra_flags)
+    g.LastItemData.StatusFlags = ImGuiItemStatusFlags_None
 
     if id ~= 0 then
         ImGui.KeepAliveID(id)
+
+        -- if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_NoNav) == 0 then
+        --     window.DC.NavLayersActiveMaskNext = bit.bor(window.DC.NavLayersActiveMaskNext, bit.lshift(1, window.DC.NavLayerCurrent))
+
+        --     if g.NavId == id or g.NavAnyRequest then
+        --         if g.NavWindow.RootWindowForNav == window.RootWindowForNav then
+        --             if window == g.NavWindow or bit.band(bit.bor(window.ChildFlags, g.NavWindow.ChildFlags), ImGuiChildFlags.NavFlattened) ~= 0 then
+        --                 TODO: NavProcessItem()
+        --             end
+        --         end
+        --     end
+        -- end
+
+        -- if bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasShortcut) ~= 0 then
+        --     TODO: ItemHandleShortcut(id)
+        -- end
     end
 
-    -- g.NextItemData.HasFlags = ImGuiNextItemDataFlagsNone;
-    -- g.NextItemData.ItemFlags = ImGuiItemFlags_None;
+    g.NextItemData.HasFlags = ImGuiNextItemDataFlags_None
+    g.NextItemData.ItemFlags = ImGuiItemFlags_None
 
-    -- local is_rect_visible = Overlaps(bb, window.ClipRect)
+    local is_rect_visible = bb:Overlaps(window.ClipRect)
+    if not is_rect_visible then
+        if id == 0 or not (id == g.ActiveId or id == g.ActiveIdPreviousFrame or id == g.NavId or id == g.NavActivateId or g.ItemUnclipByLog) then
+            return false
+        end
+    end
+
+    if id ~= 0 and g.DeactivatedItemData.ID == id then
+        g.DeactivatedItemData.ElapseFrame = g.FrameCount
+    end
+
+    if is_rect_visible then
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_Visible)
+    end
+
+    if IsMouseHoveringRect(bb.Min, bb.Max) then
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_HoveredRect)
+    end
+
+    return true
 end
 
 function ImGui.ItemSize(size, text_baseline_y)
@@ -650,12 +686,6 @@ function MT.ImGuiWindow:GetID(str)
     local id = ImHashStr(str, seed)
 
     return id
-end
-
-local function IsMouseHoveringRect(r_min, r_max)
-    local rect_clipped = ImRect(r_min, r_max)
-
-    return rect_clipped:contains_point(GImGui.IO.MousePos)
 end
 
 --- void ImGui::SetHoveredID

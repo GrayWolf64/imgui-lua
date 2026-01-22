@@ -21,6 +21,8 @@
 
 --- @alias ImTextureID ImU64
 
+--- @alias ImGuiKeyChord int
+
 IM_UNICODE_CODEPOINT_INVALID = 0xFFFD
 IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 
@@ -855,6 +857,22 @@ ImGuiItemStatusFlags_Visible          = bit.lshift(1, 8)
 ImGuiItemStatusFlags_HasClipRect      = bit.lshift(1, 9)
 ImGuiItemStatusFlags_HasShortcut      = bit.lshift(1, 10)
 
+--- @alias ImGuiChildFlags integer
+ImGuiChildFlags_None                   = 0
+ImGuiChildFlags_ResizeX                = bit.lshift(1, 0)
+ImGuiChildFlags_ResizeY                = bit.lshift(1, 1)
+ImGuiChildFlags_ResizeBoth             = bit.bor(ImGuiChildFlags_ResizeX, ImGuiChildFlags_ResizeY)
+ImGuiChildFlags_Border                 = bit.lshift(1, 5)
+ImGuiChildFlags_AlwaysUseWindowPadding = bit.lshift(1, 6)
+ImGuiChildFlags_ResizeXAndY            = ImGuiChildFlags_ResizeBoth
+ImGuiChildFlags_NavFlattened           = bit.lshift(1, 7)
+
+--- @alias ImGuiNextItemDataFlags integer
+ImGuiNextItemDataFlags_None                 = 0
+ImGuiNextItemDataFlags_HasFlags             = bit.lshift(1, 0)
+ImGuiNextItemDataFlags_HasShortcut          = bit.lshift(1, 1)
+ImGuiNextItemDataFlags_HasSelectionUserData = bit.lshift(1, 2)
+
 --- @alias ImDrawFlags integer
 ImDrawFlags_None                    = 0
 ImDrawFlags_Closed                  = bit.lshift(1, 0)
@@ -892,6 +910,8 @@ ImGuiCond_Always        = bit.lshift(1, 0)
 ImGuiCond_Once          = bit.lshift(1, 1)
 ImGuiCond_FirstUseEver  = bit.lshift(1, 2)
 ImGuiCond_Appearing     = bit.lshift(1, 3)
+
+--- @alias ImGuiInputFlags int
 
 --- @enum ImGuiBackendFlags
 ImGuiBackendFlags = {

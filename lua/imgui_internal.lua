@@ -1,6 +1,7 @@
 --- Some internal structures
 -- I won't implement type checks, since I ensure that types are correct in internal usage,
 -- and runtime type checking is very slow
+
 local setmetatable = setmetatable
 local isnumber     = isnumber
 local IsValid      = IsValid
@@ -147,7 +148,21 @@ MT.ImRect.__index = MT.ImRect
 function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 function MT.ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
 function MT.ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
-function MT.ImRect:Overlaps(other) return self.Min.x <= other.Max.x and self.Max.x >= other.Min.x and self.Min.y <= other.Max.y and self.Max.y >= other.Min.y end
+function MT.ImRect:Overlaps(other)
+    local min_x, min_y, max_x, max_y
+
+    if other.Min then
+        -- ImRect
+        min_x = other.Min.x; min_y = other.Min.y
+        max_x = other.Max.x; max_y = other.Max.y
+    else
+        -- ImVec4
+        min_x = other.x; min_y = other.y
+        max_x = other.z; max_y = other.w
+    end
+
+    return self.Min.x <= max_x and self.Max.x >= min_x and self.Min.y <= max_y and self.Max.y >= min_y
+end
 function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
 function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
 function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
@@ -315,12 +330,77 @@ function ImGuiLastItemData()
     }
 end
 
+--- @class ImGuiNextItemData
+--- @field HasFlags          ImGuiNextItemDataFlags
+--- @field ItemFlags         ImGuiItemFlags
+--- @field FocusScopeId      ImGuiID
+--- @field SelectionUserData any
+--- @field Width             number
+--- @field Shortcut          ImGuiKeyChord
+--- @field ShortcutFlags     ImGuiInputFlags
+--- @field OpenVal           boolean
+--- @field OpenCond          ImGuiCond
+--- @field RefVal            any
+--- @field StorageId         ImGuiID
+--- @field ColorMarker       ImU32
+MT.ImGuiNextItemData = {}
+MT.ImGuiNextItemData.__index = MT.ImGuiNextItemData
+
+function MT.ImGuiNextItemData:ClearFlags()
+    self.HasFlags = ImGuiNextItemDataFlags_None
+    self.ItemFlags = ImGuiItemFlags_None
+end
+
+--- @return ImGuiNextItemData
+--- @nodiscard
+function ImGuiNextItemData()
+    return setmetatable({
+        HasFlags          = 0,
+        ItemFlags         = 0,
+
+        FocusScopeId      = 0,
+        SelectionUserData = -1,
+        Width             = 0.0,
+        Shortcut          = 0,
+        ShortcutFlags     = 0,
+        OpenVal           = false,
+        OpenCond          = 0,
+        RefVal            = nil,
+        StorageId         = 0,
+        ColorMarker       = 0
+    }, MT.ImGuiNextItemData)
+end
+
 --- @class ImGuiNextWindowData
+--- @field HasFlags             ImGuiNextWindowDataFlags
+--- @field PosCond              ImGuiCond
+--- @field SizeCond             ImGuiCond
+--- @field CollapsedCond        ImGuiCond
+--- @field PosVal               ImVec2?
+--- @field PosPivotVal          ImVec2?
+--- @field SizeVal              ImVec2?
+--- @field ContentSizeVal       ImVec2?
+--- @field ScrollVal            ImVec2?
+--- @field WindowFlags          ImGuiWindowFlags?
+--- @field ChildFlags           ImGuiChildFlags?
+--- @field CollapsedVal         boolean?
+--- @field SizeConstraintRect   ImRect?
+--- @field SizeCallback         function?
+--- @field SizeCallbackUserData any
+--- @field BgAlphaVal           number?
+--- @field MenuBarOffsetMinVal  ImVec2?
+--- @field RefreshFlagsVal      int?
+MT.ImGuiNextWindowData = {}
+MT.ImGuiNextWindowData.__index = MT.ImGuiNextWindowData
+
+function MT.ImGuiNextWindowData:ClearFlags()
+    self.HasFlags = ImGuiNextWindowDataFlags_None
+end
 
 --- @return ImGuiNextWindowData
 --- @nodiscard
 function ImGuiNextWindowData()
-    return {
+    return setmetatable({
         HasFlags = 0,
 
         PosCond              = 0,
@@ -340,7 +420,7 @@ function ImGuiNextWindowData()
         BgAlphaVal           = nil,
         MenuBarOffsetMinVal  = nil,
         RefreshFlagsVal      = nil
-    }
+    }, MT.ImGuiNextWindowData)
 end
 
 --- @alias ImGuiNextWindowDataFlags int
@@ -459,7 +539,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         Time = 0,
 
-        NextItemData = nil,
+        NextItemData = ImGuiNextItemData(),
         LastItemData = ImGuiLastItemData(),
         NextWindowData = ImGuiNextWindowData(),
 
