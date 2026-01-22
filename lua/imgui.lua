@@ -713,8 +713,10 @@ local function SetNavWindow(window)
 end
 
 --- void ImGui::FocusWindow
-function ImGui.FocusWindow(window)
-    if GImGui.NavWindow ~= window then
+function ImGui.FocusWindow(window, flags) -- TODO:
+    local g = GImGui
+
+    if g.NavWindow ~= window then
         SetNavWindow(window)
     end
 
@@ -1404,7 +1406,20 @@ local function SetCurrentWindow(window)
     end
 end
 
-function ImGui.SetWindowPos(window, pos)
+--- @param window ImGuiWindow
+--- @param pos    ImVec2
+--- @param cond?  ImGuiCond
+function ImGui.SetWindowPos(window, pos, cond)
+    if cond == nil then cond = 0 end
+
+    if (cond ~= 0) and (bit.band(window.SetWindowPosAllowFlags, cond) == 0) then
+        return
+    end
+
+    IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
+    window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)))
+    window.SetWindowPosVal = ImVec2(FLT_MAX, FLT_MAX)
+
     local old_pos = window.Pos:copy()
 
     window.Pos.x = ImTrunc(pos.x)
@@ -1412,12 +1427,50 @@ function ImGui.SetWindowPos(window, pos)
 
     local offset = window.Pos - old_pos
 
-    if offset.x == 0 and offset.y == 0 then return end
+    if offset.x == 0 and offset.y == 0 then
+        return
+    end
 
     window.DC.CursorPos = window.DC.CursorPos + offset
     window.DC.CursorMaxPos = window.DC.CursorMaxPos + offset
     window.DC.IdealMaxPos = window.DC.IdealMaxPos + offset
     window.DC.CursorStartPos = window.DC.CursorStartPos + offset
+end
+
+--- @param window ImGuiWindow
+--- @param size   ImVec2
+--- @param cond?  ImGuiCond
+function ImGui.SetWindowSize(window, size, cond)
+    if cond == nil then cond = 0 end
+
+    if ((cond ~= 0) and bit.band(window.SetWindowSizeAllowFlags, cond) == 0) then
+        return
+    end
+
+    IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
+    window.SetWindowSizeAllowFlags = bit.band(window.SetWindowSizeAllowFlags, bit.bnot(bit.bor(ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)))
+
+    if bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) == 0 or window.Appearing or bit.band(window.ChildFlags, ImGuiChildFlags_AlwaysAutoResize) ~= 0 then
+        window.AutoFitFramesX = (size.x <= 0.0) and 2 or 0
+    end
+    if bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) == 0 or window.Appearing or bit.band(window.ChildFlags, ImGuiChildFlags_AlwaysAutoResize) ~= 0 then
+        window.AutoFitFramesY = (size.y <= 0.0) and 2 or 0
+    end
+
+    local old_size = window.SizeFull:copy()
+    if size.x <= 0.0 then
+        window.AutoFitOnlyGrows = false
+    else
+        window.SizeFull.x = IM_TRUNC(size.x)
+    end
+    if size.y <= 0.0 then
+        window.AutoFitOnlyGrows = false
+    else
+        window.SizeFull.y = IM_TRUNC(size.y)
+    end
+    -- if old_size.x ~= window.SizeFull.x or old_size.y ~= window.SizeFull.y then
+    --     TODO: MarkIniSettingsDirty(window)
+    -- end
 end
 
 --- @param size ImVec2
@@ -1545,16 +1598,72 @@ function ImGui.Begin(name, p_open, flags)
 
     local window_just_activated_by_user = (window.LastFrameActive < (current_frame - 1))
 
+    window.Appearing = window_just_activated_by_user
+    if (window.Appearing) then
+        SetWindowConditionAllowFlags(window, ImGuiCond_Appearing, true)
+    end
+
+    -- Update Flags, LastFrameActive, BeginOrderXXX fields
     if first_begin_of_the_frame then
+        window.Flags = flags
+        window.ChildFlags = (bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasChildFlags) ~= 0) and g.NextWindowData.ChildFlags or 0
         window.LastFrameActive = current_frame
+        window.LastTimeActive = g.Time
     else
         flags = window.Flags
     end
 
-    g.CurrentWindow = nil
+    if window.IDStack.Size == 0 then
+        window.IDStack:push_back(window.ID)
+    end
 
+    -- Add to stack
+    g.CurrentWindow = window
+    g.CurrentWindowStack:resize(g.CurrentWindowStack.Size + 1)
+    g.CurrentWindowStack.Data[g.CurrentWindowStack.Size] = ImGuiWindowStackData()
+    local window_stack_data = g.CurrentWindowStack.Data[g.CurrentWindowStack.Size]
+    window_stack_data.Window = window
+    window_stack_data.ParentLastItemDataBackup = g.LastItemData
+    window_stack_data.DisabledOverrideReenable = (bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0) and (bit.band(g.CurrentItemFlags, ImGuiItemFlags_Disabled) ~= 0)
+    window_stack_data.DisabledOverrideReenableAlphaBackup = 0.0
+
+    local window_pos_set_by_api = false
     local window_size_x_set_by_api = false
     local window_size_y_set_by_api = false
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasPos) ~= 0 then
+        window_pos_set_by_api = (bit.band(window.SetWindowPosAllowFlags, g.NextWindowData.PosCond) ~= 0)
+        if window_pos_set_by_api and ImLengthSqr(g.NextWindowData.PosPivotVal) > 1e-5 then
+            -- FIXME: Look into removing the branch so everything can go through this same code path for consistency.
+            window.SetWindowPosVal = g.NextWindowData.PosVal:copy()
+            window.SetWindowPosPivot = g.NextWindowData.PosPivotVal:copy()
+            window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)))
+        else
+            ImGui.SetWindowPos(window, g.NextWindowData.PosVal, g.NextWindowData.PosCond)
+        end
+    end
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize) ~= 0 then
+        window_size_x_set_by_api = (bit.band(window.SetWindowSizeAllowFlags, g.NextWindowData.SizeCond) ~= 0) and (g.NextWindowData.SizeVal.x > 0.0)
+        window_size_y_set_by_api = (bit.band(window.SetWindowSizeAllowFlags, g.NextWindowData.SizeCond) ~= 0) and (g.NextWindowData.SizeVal.y > 0.0)
+        if (bit.band(window.ChildFlags, ImGuiChildFlags_ResizeX) ~= 0 and bit.band(window.SetWindowSizeAllowFlags, ImGuiCond_FirstUseEver) == 0) then
+            g.NextWindowData.SizeVal.x = window.SizeFull.x
+        end
+        if (bit.band(window.ChildFlags, ImGuiChildFlags_ResizeY) ~= 0 and bit.band(window.SetWindowSizeAllowFlags, ImGuiCond_FirstUseEver) == 0) then
+            g.NextWindowData.SizeVal.y = window.SizeFull.y
+        end
+        ImGui.SetWindowSize(window, g.NextWindowData.SizeVal, g.NextWindowData.SizeCond);
+    end
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasScroll) ~= 0 then
+        if g.NextWindowData.ScrollVal.x >= 0.0 then
+            window.ScrollTarget.x = g.NextWindowData.ScrollVal.x
+            window.ScrollTargetCenterRatio.x = 0.0
+        end
+        if g.NextWindowData.ScrollVal.y >= 0.0 then
+            window.ScrollTarget.y = g.NextWindowData.ScrollVal.y
+            window.ScrollTargetCenterRatio.y = 0.0
+        end
+    end
+
+    g.CurrentWindow = nil
 
     if first_begin_of_the_frame and not window.SkipRefresh then
         local window_is_child_tooltip = (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0)
@@ -1633,6 +1742,15 @@ function ImGui.Begin(name, p_open, flags)
 
         window.Pos.x = ImTrunc(window.Pos.x) window.Pos.y = ImTrunc(window.Pos.y)
 
+        local want_focus = false
+        if (window_just_activated_by_user and bit.band(flags, ImGuiWindowFlags_NoFocusOnAppearing) == 0) then
+            if bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 then
+                want_focus = true
+            elseif (bit.band(flags, bit.bor(ImGuiWindowFlags_ChildWindow, ImGuiWindowFlags_Tooltip)) == 0)then
+                want_focus = true
+            end
+        end
+
         if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
             window.WindowRounding = style.ChildRounding
         else
@@ -1676,6 +1794,14 @@ function ImGui.Begin(name, p_open, flags)
         IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer.Data[1].ElemCount == 0)
         window.DrawList:PushTexture(g.Font.OwnerAtlas.TexRef)
         ImGui.PushClipRect(host_rect.Min, host_rect.Max, false)
+
+        do
+            local render_decorations_in_parent = false -- TODO: 
+
+            local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
+
+            RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, resize_grip_col, resize_grip_draw_size)
+        end
 
         local allow_scrollbar_x = (bit.band(flags, ImGuiWindowFlags_NoScrollbar) == 0) and (bit.band(flags, ImGuiWindowFlags_HorizontalScrollbar) ~= 0)
         local allow_scrollbar_y = (bit.band(flags, ImGuiWindowFlags_NoScrollbar) == 0)
@@ -1725,7 +1851,7 @@ function ImGui.Begin(name, p_open, flags)
         local start_pos_highp_x = window.Pos.x + window.WindowPadding.x - window.Scroll.x + window.DecoOuterSizeX1 + window.DC.ColumnsOffset.x
         local start_pos_highp_y = window.Pos.y + window.WindowPadding.y - window.Scroll.y + window.DecoOuterSizeY1
         window.DC.CursorStartPos = ImVec2(start_pos_highp_x, start_pos_highp_y)
-        window.DC.CursorStartPosLossyness = ImVec2(0, 0) -- TODO: Calculate loss of precision
+        window.DC.CursorStartPosLossyness = ImVec2(start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y)
         window.DC.CursorPos = window.DC.CursorStartPos
         window.DC.CursorPosPrevLine = window.DC.CursorPos
         window.DC.CursorMaxPos = window.DC.CursorStartPos
@@ -1736,6 +1862,16 @@ function ImGui.Begin(name, p_open, flags)
         window.DC.PrevLineTextBaseOffset = 0.0
         window.DC.IsSameLine = false
         window.DC.IsSetPos = false
+
+        window.DC.LayoutType = ImGuiLayoutType_Vertical
+        window.DC.ParentLayoutType = (parent_window ~= nil) and parent_window.DC.LayoutType or ImGuiLayoutType_Vertical
+
+        if (window.Size.x > 0.0 and bit.band(flags, ImGuiWindowFlags_Tooltip) == 0 and bit.band(flags, ImGuiWindowFlags_AlwaysAutoResize) == 0) then
+            window.ItemWidthDefault = ImTrunc(window.Size.x * 0.65)
+        else
+            window.ItemWidthDefault = ImTrunc(g.FontSize * 16.0)
+        end
+        window.DC.ItemWidth = window.ItemWidthDefault
         window.DC.TextWrapPos = -1.0
 
         if window.AutoFitFramesX > 0 then
@@ -1745,11 +1881,11 @@ function ImGui.Begin(name, p_open, flags)
             window.AutoFitFramesY = window.AutoFitFramesY - 1
         end
 
+        if want_focus then
+            ImGui.FocusWindow(window)
+        end
+
         -- TODO: SCROLL
-
-        local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
-
-        RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, resize_grip_col, resize_grip_draw_size)
 
         RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
     else
@@ -1765,10 +1901,8 @@ function ImGui.Begin(name, p_open, flags)
     end
 
     window.WriteAccessed = false
-    -- window->BeginCount++;
-    -- g.NextWindowData.ClearFlags();
-
-    g.CurrentWindowStack:push_back(window)
+    window.BeginCount = window.BeginCount + 1
+    g.NextWindowData:ClearFlags()
 
     -- TODO: parent_window
 
@@ -1795,7 +1929,14 @@ function ImGui.End()
     end
 
     g.CurrentWindowStack:pop_back()
-    SetCurrentWindow((g.CurrentWindowStack.Size == 0) and nil or g.CurrentWindowStack:back())
+
+    -- GLUA: No "Ternary Operator", since lua (... and (1) or (2)) will eval (1) and (2) no matter what
+    -- so something like `SetCurrentWindow((g.CurrentWindowStack.Size == 0) and nil or g.CurrentWindowStack:back().Window)` will error
+    if (g.CurrentWindowStack.Size == 0) then
+        SetCurrentWindow(nil)
+    else
+        SetCurrentWindow(g.CurrentWindowStack:back().Window)
+    end
 end
 
 local function FindHoveredWindowEx()
@@ -2068,10 +2209,6 @@ function ImGui.NewFrame()
         g.IO.Framerate = FLT_MAX
     end
 
-    g.CurrentWindowStack:clear_delete()
-
-    g.CurrentWindow = nil
-
     ImGui.UpdateViewportsNewFrame()
 
     ImGui.UpdateTexturesNewFrame()
@@ -2106,6 +2243,8 @@ function ImGui.NewFrame()
         window.WasActive = window.Active
         window.Active = false
         window.WriteAccessed = false
+        window.BeginCountPreviousFrame = window.BeginCount
+        window.BeginCount = 0
     end
 
     ImGui.UpdateHoveredWindowAndCaptureFlags()

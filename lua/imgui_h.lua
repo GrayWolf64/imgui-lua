@@ -183,11 +183,11 @@ MT.ImVector.__index = MT.ImVector
 function ImVector() return setmetatable({Data = {}, Size = 0}, MT.ImVector) end
 
 function MT.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value return value end
-function MT.ImVector:pop_back() if self.Size == 0 then return nil end local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
+function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0) local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
 function MT.ImVector:clear() self.Size = 0 end
 function MT.ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
 function MT.ImVector:empty() return self.Size == 0 end
-function MT.ImVector:back() if self.Size == 0 then return nil end return self.Data[self.Size] end
+function MT.ImVector:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
 function MT.ImVector:erase(i) IM_ASSERT(i >= 1 and i <= self.Size) local removed = table.remove(self.Data, i) self.Size = self.Size - 1 return removed end
 function MT.ImVector:at(i)    IM_ASSERT(i >= 1 and i <= self.Size) return self.Data[i] end
 function MT.ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
@@ -849,7 +849,8 @@ ImGuiItemFlags_NoNav             = bit.lshift(1, 1)
 ImGuiItemFlags_NoNavDefaultFocus = bit.lshift(1, 2)
 ImGuiItemFlags_ButtonRepeat      = bit.lshift(1, 3)
 ImGuiItemFlags_AutoClosePopups   = bit.lshift(1, 4)
-ImGuiItemFlags_AllowDuplicateID  = bit.lshift(1, 5)
+ImGuiItemFlags_AllowDuplicateId  = bit.lshift(1, 5)
+ImGuiItemFlags_Disabled          = bit.lshift(1, 6)
 
 --- @alias ImGuiItemStatusFlags integer
 ImGuiItemStatusFlags_None             = 0

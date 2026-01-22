@@ -64,6 +64,10 @@ end
 
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
+--- @param lhs ImVec2
+--- @return float
+function ImLengthSqr(lhs) return (lhs.x * lhs.x) + (lhs.y * lhs.y) end
+
 --- @return int?
 function ImMemchr(str, char, start_pos)
     local start = start_pos or 1
@@ -483,7 +487,22 @@ function ImGuiStyle()
     return this
 end
 
+--- @class ImGuiWindowStackData
+
+--- @return ImGuiWindowStackData
+--- @nodiscard
+function ImGuiWindowStackData()
+    return {
+        Window                              = nil,
+        ParentLastItemDataBackup            = nil,
+        StackSizesInBegin                   = nil,
+        DisabledOverrideReenable            = nil,
+        DisabledOverrideReenableAlphaBackup = nil
+    }
+end
+
 --- @class ImGuiContext
+--- @field CurrentWindowStack ImVector<ImGuiWindowStackData>
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -620,18 +639,6 @@ function MT.ImGuiWindowSettings:GetName()
     return self.Name
 end
 
---- @class ImGuiWindow
-MT.ImGuiWindow = {}
-MT.ImGuiWindow.__index = MT.ImGuiWindow
-
-function MT.ImGuiWindow:Rect()
-    return ImRect(self.Pos.x, self.Pos.y, self.Pos.x + self.Size.x, self.Pos.y + self.Size.y)
-end
-
-function MT.ImGuiWindow:TitleBarRect()
-    return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
-end
-
 --- @class ImGuiWindowTempData
 --- @field CursorPos               ImVec2
 --- @field CursorPosPrevLine       ImVec2
@@ -677,6 +684,18 @@ local function ImGuiWindowTempData()
     }
 end
 
+--- @class ImGuiWindow
+MT.ImGuiWindow = {}
+MT.ImGuiWindow.__index = MT.ImGuiWindow
+
+function MT.ImGuiWindow:Rect()
+    return ImRect(self.Pos.x, self.Pos.y, self.Pos.x + self.Size.x, self.Pos.y + self.Size.y)
+end
+
+function MT.ImGuiWindow:TitleBarRect()
+    return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
+end
+
 --- @return ImGuiWindow
 --- @nodiscard
 local function ImGuiWindow(ctx, name)
@@ -689,6 +708,8 @@ local function ImGuiWindow(ctx, name)
         Name = name,
 
         Flags = 0,
+
+        ChildFlags = 0,
 
         Pos = nil,
         Size = nil, -- Current size (==SizeFull or collapsed title bar size)
@@ -703,8 +724,15 @@ local function ImGuiWindow(ctx, name)
 
         SkipRefresh = false,
 
+        Appearing = false,
+
         Hidden = false,
         IsFallbackWindow = false,
+
+        BeginCount = 0,
+        BeginCountPreviousFrame = 0,
+        BeginOrderWithinParent = 0,
+        BeginOrderWithinContext = 0,
 
         HiddenFramesCanSkipItems = 0,
         HiddenFramesCannotSkipItems = 0,
@@ -731,7 +759,6 @@ local function ImGuiWindow(ctx, name)
 
         HasCloseButton = true,
 
-        -- Window settings
         SetWindowPosAllowFlags = 0,
         SetWindowSizeAllowFlags = 0,
         SetWindowCollapsedAllowFlags = 0,
@@ -760,6 +787,9 @@ local function ImGuiWindow(ctx, name)
         ClipRect = nil,
 
         LastFrameActive = -1,
+        LastTimeActive = -1.0,
+
+        ItemWidthDefault = 0,
 
         WriteAccessed = false,
 
