@@ -182,6 +182,23 @@ function MT.ImRect:ClipWithFull(r)
     self.Max.x = ImClamp(self.Max.x, r.Min.x, r.Max.x) self.Max.y = ImClamp(self.Max.y, r.Min.y, r.Max.y)
 end
 
+--- @param p ImRect|ImVec2
+function MT.ImRect:Add(p)
+    if p.Min then
+        self:Add(p.Min)
+        self:Add(p.Max)
+    else
+        if p.x < self.Min.x then self.Min.x = p.x end
+        if p.y < self.Min.y then self.Min.y = p.y end
+        if p.x > self.Max.x then self.Max.x = p.x end
+        if p.y > self.Max.y then self.Max.y = p.y end
+    end
+end
+
+function MT.ImRect:ToVec4()
+    return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y)
+end
+
 local function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, MT.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, MT.ImRect) end
 
 function MT.ImDrawList:PathClear()
@@ -477,6 +494,7 @@ function ImGuiStyle()
         ItemSpacing = ImVec2(8, 4),
         ItemInnerSpacing = ImVec2(4, 4),
 
+        CurveTessellationTol       = 1.25,
         CircleTessellationMaxError = 0.30,
 
         _NextFrameFontSizeBase = 0.0

@@ -2049,12 +2049,29 @@ function ImGui.UpdateMouseInputs()
     end
 end
 
---- static void SetupDrawListSharedData()
 local function SetupDrawListSharedData()
     local g = GImGui
     local virtual_space = ImRect(FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX)
-    -- TODO: 
+    for _, viewport in g.Viewports:iter() do
+        virtual_space:Add(viewport:GetMainRect())
+    end
+    g.DrawListSharedData.ClipRectFullscreen = virtual_space:ToVec4()
+    g.DrawListSharedData.CurveTessellationTol = g.Style.CurveTessellationTol
     g.DrawListSharedData:SetCircleTessellationMaxError(g.Style.CircleTessellationMaxError)
+    g.DrawListSharedData.InitialFlags = ImDrawListFlags_None
+    if g.Style.AntiAliasedLines then
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedLines)
+    end
+    if g.Style.AntiAliasedLinesUseTex and not bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedLines) then
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedLinesUseTex)
+    end
+    if g.Style.AntiAliasedFill then
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedFill)
+    end
+    if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset) then
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AllowVtxOffset)
+    end
+    g.DrawListSharedData.InitialFringeScale = 1.0
 end
 
 local function InitViewportDrawData(viewport)

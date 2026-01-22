@@ -3408,7 +3408,11 @@ end
 
 function MT.ImDrawList:PopClipRect()
     self._ClipRectStack:pop_back()
-    self._CmdHeader.ClipRect = (self._ClipRectStack.Size == 0) and self._Data.ClipRectFullscreen or self._ClipRectStack.Data[self._ClipRectStack.Size]
+    if (self._ClipRectStack.Size == 0) then -- GLUA: No "Ternary Operator"
+        self._CmdHeader.ClipRect = self._Data.ClipRectFullscreen
+    else
+        self._CmdHeader.ClipRect = self._ClipRectStack.Data[self._ClipRectStack.Size]
+    end
     self:_OnChangedClipRect()
 end
 
