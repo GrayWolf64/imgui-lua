@@ -1568,6 +1568,44 @@ function ImFontAtlasBuildDestroy(atlas)
     atlas.Builder = nil
 end
 
+--- @param atlas    ImFontAtlas
+--- @param old_font ImFont?
+--- @param new_font ImFont?
+function ImFontAtlasBuildNotifySetFont(atlas, old_font, new_font)
+    for _, shared_data in atlas.DrawListSharedDatas:iter() do
+        if shared_data.Font == old_font then
+            shared_data.Font = new_font
+        end
+        local ctx = shared_data.Context
+        if ctx then
+            if ctx.FrameCount == 0 and old_font == nil then
+                -- While this should work either way, we save ourselves the bother / debugging confusion of running ImGui code so early when it is not needed.
+                continue
+            end
+
+            if ctx.IO.FontDefault == old_font then
+                ctx.IO.FontDefault = new_font
+            end
+            if ctx.Font == old_font then
+                local curr_ctx = GImGui
+                local need_bind_ctx = ctx ~= curr_ctx
+                if need_bind_ctx then
+                    ImGui.SetCurrentContext(ctx)
+                end
+                ImGui.SetCurrentFont(new_font, ctx.FontSizeBase, ctx.FontSize)
+                if need_bind_ctx then
+                    ImGui.SetCurrentContext(curr_ctx)
+                end
+            end
+            for _, font_stack_data in ctx.FontStack:iter() do
+                if font_stack_data.Font == old_font then
+                    font_stack_data.Font = new_font
+                end
+            end
+        end
+    end
+end
+
 --- @param atlas ImFontAtlas
 function ImFontAtlasBuildMain(atlas)
     IM_ASSERT(not atlas.Locked, "Cannot modify a locked ImFontAtlas!")
@@ -2257,6 +2295,7 @@ function MT.ImFontAtlas:AddFont(font_cfg_in)
         ImFontAtlasBuildInit(self)
     end
 
+    local is_first_font = (self.Fonts.Size == 0)
     local font
     if not font_cfg_in.MergeMode then
         font = ImFont()
@@ -2304,6 +2343,10 @@ function MT.ImFontAtlas:AddFont(font_cfg_in)
         return nil
     end
     ImFontAtlasFontSourceAddToFont(self, font, font_cfg)
+
+    if (is_first_font) then
+        ImFontAtlasBuildNotifySetFont(self, nil, font)
+    end
 
     return font
 end

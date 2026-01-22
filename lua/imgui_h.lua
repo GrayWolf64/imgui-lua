@@ -739,6 +739,7 @@ function ImGuiIO()
         MetricsRenderWindows = 0,
 
         Fonts = nil,
+        FontDefault = nil,
 
         BackendPlatformUserData = nil,
         BackendRendererUserData = nil

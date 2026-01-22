@@ -212,7 +212,7 @@ function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
 end
 
 --- void ImGui::SetCurrentFont
-local function SetCurrentFont(font, font_size_before_scaling, font_size_after_scaling)
+function ImGui.SetCurrentFont(font, font_size_before_scaling, font_size_after_scaling)
     local g = GImGui
 
     g.Font = font
@@ -251,7 +251,7 @@ function ImGui.PushFont(font, font_size_base)
         font_size_base = g.FontSizeBase
     end
 
-    SetCurrentFont(font, font_size_base, 0.0)
+    ImGui.SetCurrentFont(font, font_size_base, 0.0)
 end
 
 function ImGui.PopFont()
@@ -264,7 +264,7 @@ function ImGui.PopFont()
     end
 
     local font_stack_data = g.FontStack:back()
-    SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, font_stack_data.FontSizeAfterScaling)
+    ImGui.SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, font_stack_data.FontSizeAfterScaling)
 
     g.FontStack:pop_back()
 end
@@ -318,7 +318,7 @@ function ImGui.UpdateFontsNewFrame()
     g.FontSizeBase = g.Style.FontSizeBase
     g.FontSize = 0.0
     local font_stack_data = ImFontStackData(font, g.Style.FontSizeBase, g.Style.FontSizeBase)
-    SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, 0.0)
+    ImGui.SetCurrentFont(font_stack_data.Font, font_stack_data.FontSizeBeforeScaling, 0.0)
     g.FontStack:push_back(font_stack_data)
     IM_ASSERT(g.Font:IsLoaded())
 end
@@ -365,6 +365,11 @@ local MouseButtonMap = { -- TODO: enums instead
 
 function ImGui.GetCurrentContext()
     return GImGui
+end
+
+--- @param ctx ImGuiContext?
+function ImGui.SetCurrentContext(ctx)
+    GImGui = ctx
 end
 
 --- void ImGui::Initialize()
