@@ -18,6 +18,7 @@ hook.Add("PostRender", "ImGuiTest", function()
     local window1_open = {true}
     ImGui.Begin("Hello World!", window1_open)
     ImGui.Text("WTF")
+    ImGui.Text("A Quick Brown Fox Jumps Over a Lazy Bear!")
     ImGui.End()
 
     ImGui.PopFont()

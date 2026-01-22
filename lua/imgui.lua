@@ -881,14 +881,79 @@ local function CalcWindowMinSize(window)
     return size_min
 end
 
---- static ImVec2 CalcWindowSizeAfterConstraint
+--- @param window       ImGuiWindow  # The window to calculate size for
+--- @param size_desired ImVec2       # The desired size before constraints
+--- @return ImVec2                   # The size after applying constraints
 local function CalcWindowSizeAfterConstraint(window, size_desired)
+    local g = GImGui
+    local new_size = ImVec2(size_desired.x, size_desired.y)
+    if g.NextWindowData.HasFlags and bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint) ~= 0 then
+        local cr = g.NextWindowData.SizeConstraintRect
+        new_size.x = (cr.Min.x >= 0 and cr.Max.x >= 0) and ImClamp(new_size.x, cr.Min.x, cr.Max.x) or window.SizeFull.x
+        new_size.y = (cr.Min.y >= 0 and cr.Max.y >= 0) and ImClamp(new_size.y, cr.Min.y, cr.Max.y) or window.SizeFull.y
+        if g.NextWindowData.SizeCallback then
+            local data = {} -- TODO: ImGuiSizeCallbackData
+            data.UserData = g.NextWindowData.SizeCallbackUserData
+            data.Pos = ImVec2(window.Pos.x, window.Pos.y)
+            data.CurrentSize = ImVec2(window.SizeFull.x, window.SizeFull.y)
+            data.DesiredSize = ImVec2(new_size.x, new_size.y)
+            g.NextWindowData.SizeCallback(data)
+            new_size.x = data.DesiredSize.x
+            new_size.y = data.DesiredSize.y
+        end
+        new_size.x = IM_TRUNC(new_size.x)
+        new_size.y = IM_TRUNC(new_size.y)
+    end
+
     local size_min = CalcWindowMinSize(window)
-    -- TODO: 
     return ImVec2(
-        ImMax(size_desired.x, size_min.x),
-        ImMax(size_desired.y, size_min.y)
+        ImMax(new_size.x, size_min.x),
+        ImMax(new_size.y, size_min.y)
     )
+end
+
+--- @param window        ImGuiWindow # The window to calculate auto-fit size for
+--- @param size_contents ImVec2      # The content size
+--- @param axis_mask     int         # The axis mask to determine which axes to auto-fit
+--- @return ImVec2                   # The auto-fit size
+local function CalcWindowAutoFitSize(window, size_contents, axis_mask)
+    local g = GImGui
+    local style = g.Style
+    local decoration_w_without_scrollbars = window.DecoOuterSizeX1 + window.DecoOuterSizeX2 - window.ScrollbarSizes.x
+    local decoration_h_without_scrollbars = window.DecoOuterSizeY1 + window.DecoOuterSizeY2 - window.ScrollbarSizes.y
+    local size_pad = ImVec2(window.WindowPadding.x * 2, window.WindowPadding.y * 2)
+    local size_desired = ImVec2()
+    size_desired.x = (bit.band(axis_mask, 1) ~= 0) and (size_contents.x + size_pad.x + decoration_w_without_scrollbars) or window.Size.x
+    size_desired.y = (bit.band(axis_mask, 2) ~= 0) and (size_contents.y + size_pad.y + decoration_h_without_scrollbars) or window.Size.y
+
+    local size_max
+    if (bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0) and (bit.band(window.Flags, ImGuiWindowFlags_Popup) == 0) then
+        size_max = ImVec2(FLT_MAX, FLT_MAX)
+    else
+        local main_viewport = g.Viewports:at(1)
+        size_max = ImVec2(main_viewport.WorkSize.x - style.DisplaySafeAreaPadding.x * 2, main_viewport.WorkSize.y - style.DisplaySafeAreaPadding.y * 2)
+    end
+
+    if bit.band(window.Flags, ImGuiWindowFlags_Tooltip) ~= 0 then
+        return ImVec2(math.min(size_desired.x, size_max.x), math.min(size_desired.y, size_max.y))
+    else
+        local size_min = CalcWindowMinSize(window)
+        local size_auto_fit = ImVec2(
+            ImClamp(size_desired.x, math.min(size_min.x, size_max.x), size_max.x),
+            ImClamp(size_desired.y, math.min(size_min.y, size_max.y), size_max.y)
+        )
+
+        local size_auto_fit_after_constraint = CalcWindowSizeAfterConstraint(window, size_auto_fit)
+        local will_have_scrollbar_x = ((size_auto_fit_after_constraint.x - size_pad.x - decoration_w_without_scrollbars) < size_contents.x and (bit.band(window.Flags, ImGuiWindowFlags_NoScrollbar) == 0) and (bit.band(window.Flags, ImGuiWindowFlags_HorizontalScrollbar) ~= 0)) or (bit.band(window.Flags, ImGuiWindowFlags_AlwaysHorizontalScrollbar) ~= 0)
+        local will_have_scrollbar_y = ((size_auto_fit_after_constraint.y - size_pad.y - decoration_h_without_scrollbars) < size_contents.y and (bit.band(window.Flags, ImGuiWindowFlags_NoScrollbar) == 0)) or (bit.band(window.Flags, ImGuiWindowFlags_AlwaysVerticalScrollbar) ~= 0)
+        if will_have_scrollbar_x then
+            size_auto_fit.y = size_auto_fit.y + style.ScrollbarSize
+        end
+        if will_have_scrollbar_y then
+            size_auto_fit.x = size_auto_fit.x + style.ScrollbarSize
+        end
+        return size_auto_fit
+    end
 end
 
 --- @param window               ImGuiWindow

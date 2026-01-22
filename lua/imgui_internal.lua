@@ -719,6 +719,7 @@ local function ImGuiWindow(ctx, name)
         DecoOuterSizeX2 = 0, DecoOuterSizeY2 = 0,
         DecoInnerSizeX1 = 0, DecoInnerSizeY1 = 0,
 
+        ScrollbarSizes = ImVec2(),
         Scroll = ImVec2(),
 
         ContentSize = ImVec2(),
