@@ -1473,13 +1473,32 @@ function ImGui.SetWindowSize(window, size, cond)
     -- end
 end
 
---- @param size ImVec2
---- @param cond ImGuiCond
-function ImGui.SetNextWindowSize(size, cond)
+--- @param pos    ImVec2
+--- @param cond?  ImGuiCond
+--- @param pivot? ImVec2
+function ImGui.SetNextWindowPos(pos, cond, pivot)
+    if cond  == nil then cond  = 0            end
+    if pivot == nil then pivot = ImVec2(0, 0) end
+
     local g = GImGui
     IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
+
+    g.NextWindowData.HasFlags    = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasPos)
+    g.NextWindowData.PosVal      = pos:copy()
+    g.NextWindowData.PosPivotVal = pivot:copy()
+    g.NextWindowData.PosCond     = (cond ~= 0) and cond or ImGuiCond_Always
+end
+
+--- @param size  ImVec2
+--- @param cond? ImGuiCond
+function ImGui.SetNextWindowSize(size, cond)
+    if cond == nil then cond = 0 end
+
+    local g = GImGui
+    IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
+
     g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize)
-    g.NextWindowData.SizeVal = size
+    g.NextWindowData.SizeVal  = size:copy()
     g.NextWindowData.SizeCond = (cond ~= 0) and cond or ImGuiCond_Always
 end
 
