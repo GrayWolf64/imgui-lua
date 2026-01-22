@@ -3365,7 +3365,7 @@ function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text
         font_size = self._Data.FontSize
     end
 
-    local clip_rect = self._CmdHeader.ClipRect
+    local clip_rect = self._CmdHeader.ClipRect:copy() -- Don't modify the clip rect!
     if (cpu_fine_clip_rect) then
         clip_rect.x = ImMax(clip_rect.x, cpu_fine_clip_rect.x)
         clip_rect.y = ImMax(clip_rect.y, cpu_fine_clip_rect.y)

@@ -153,7 +153,7 @@ function ImGui.TextEx(text, text_end, flags)
                 local line_text = string.sub(text, line, line_end - 1)
                 local line_size = ImGui.CalcTextSize(line_text)
                 text_size.x = ImMax(text_size.x, line_size.x)
-                ImGui.RenderText(pos, line_text)
+                ImGui.RenderText(pos, line_text, nil, false)
                 line = line_end + 1
                 line_rect.Min.y = line_rect.Min.y + line_height
                 line_rect.Max.y = line_rect.Max.y + line_height
@@ -187,8 +187,13 @@ end
 --- @param fmt string
 --- @param ... any
 function ImGui.TextV(fmt, ...)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
     local text = string.format(fmt, ...)
-    ImGui.TextEx(text)
+    ImGui.TextEx(text, nil, ImGuiTextFlags.NoWidthForLargeClippedText)
 end
 
 --- @param fmt string
