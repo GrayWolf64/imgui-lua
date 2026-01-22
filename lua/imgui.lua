@@ -1469,6 +1469,40 @@ function ImGui.Begin(name, p_open, flags)
         window.WorkRect.Max.y = window.WorkRect.Min.y + work_rect_size_y
         window.ParentWorkRect = window.WorkRect
 
+        -- [LEGACY] Content Region
+        -- FIXME-OBSOLETE: window->ContentRegionRect.Max is currently very misleading / partly faulty, but some BeginChild() patterns relies on it.
+        -- Unless explicit content size is specified by user, this currently represent the region leading to no scrolling.
+        -- Used by:
+        -- - Mouse wheel scrolling + many other things
+        window.ContentRegionRect.Min.x = window.Pos.x - window.Scroll.x + window.WindowPadding.x + window.DecoOuterSizeX1
+        window.ContentRegionRect.Min.y = window.Pos.y - window.Scroll.y + window.WindowPadding.y + window.DecoOuterSizeY1
+        window.ContentRegionRect.Max.x = window.ContentRegionRect.Min.x + (window.ContentSizeExplicit.x ~= 0.0 and window.ContentSizeExplicit.x or (window.Size.x - window.WindowPadding.x * 2.0 - (window.DecoOuterSizeX1 + window.DecoOuterSizeX2)))
+        window.ContentRegionRect.Max.y = window.ContentRegionRect.Min.y + (window.ContentSizeExplicit.y ~= 0.0 and window.ContentSizeExplicit.y or (window.Size.y - window.WindowPadding.y * 2.0 - (window.DecoOuterSizeY1 + window.DecoOuterSizeY2)))
+
+        -- Setup drawing context
+        -- (NB: That term "drawing context / DC" lost its meaning a long time ago. Initially was meant to hold transient data only. Nowadays difference between window-> and window->DC-> is dubious.)
+        window.DC.Indent.x = window.DecoOuterSizeX1 + window.WindowPadding.x - window.Scroll.x
+        window.DC.GroupOffset.x = 0.0
+        window.DC.ColumnsOffset.x = 0.0
+
+        -- Record the loss of precision of CursorStartPos which can happen due to really large scrolling amount.
+        -- This is used by clipper to compensate and fix the most common use case of large scroll area. Easy and cheap, next best thing compared to switching everything to double or ImU64.
+        local start_pos_highp_x = window.Pos.x + window.WindowPadding.x - window.Scroll.x + window.DecoOuterSizeX1 + window.DC.ColumnsOffset.x
+        local start_pos_highp_y = window.Pos.y + window.WindowPadding.y - window.Scroll.y + window.DecoOuterSizeY1
+        window.DC.CursorStartPos = ImVec2(start_pos_highp_x, start_pos_highp_y)
+        window.DC.CursorStartPosLossyness = ImVec2(0, 0) -- TODO: Calculate loss of precision
+        window.DC.CursorPos = window.DC.CursorStartPos
+        window.DC.CursorPosPrevLine = window.DC.CursorPos
+        window.DC.CursorMaxPos = window.DC.CursorStartPos
+        window.DC.IdealMaxPos = window.DC.CursorStartPos
+        window.DC.CurrLineSize = ImVec2(0.0, 0.0)
+        window.DC.PrevLineSize = ImVec2(0.0, 0.0)
+        window.DC.CurrLineTextBaseOffset = 0.0
+        window.DC.PrevLineTextBaseOffset = 0.0
+        window.DC.IsSameLine = false
+        window.DC.IsSetPos = false
+        window.DC.TextWrapPos = -1.0
+
         local top_border_size = ((bit.band(flags, ImGuiWindowFlags_MenuBar) ~= 0 or bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0) and style.FrameBorderSize or window.WindowBorderSize)
 
         window.InnerClipRect.Min.x = ImFloor(0.5 + window.InnerRect.Min.x + window.WindowBorderSize * 0.5)

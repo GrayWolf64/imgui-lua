@@ -132,9 +132,9 @@ ImWcharClass = {
     Other = 2
 }
 
---- ImVec1
---
-struct_def("ImVec1")
+--- @class ImVec1
+MT.ImVec1 = {}
+MT.ImVec1.__index = MT.ImVec1
 
 local function ImVec1(x) return setmetatable({x = x or 0}, MT.ImVec1) end
 
@@ -599,6 +599,51 @@ function MT.ImGuiWindow:TitleBarRect()
     return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
 end
 
+--- @class ImGuiWindowTempData
+--- @field CursorPos               ImVec2
+--- @field CursorPosPrevLine       ImVec2
+--- @field CursorStartPos          ImVec2
+--- @field CursorMaxPos            ImVec2
+--- @field IdealMaxPos             ImVec2
+--- @field CurrLineSize            ImVec2
+--- @field PrevLineSize            ImVec2
+--- @field CurrLineTextBaseOffset  float
+--- @field PrevLineTextBaseOffset  float
+--- @field IsSameLine              bool
+--- @field IsSetPos                bool
+--- @field Indent                  ImVec1
+--- @field ColumnsOffset           ImVec1
+--- @field GroupOffset             ImVec1
+--- @field CursorStartPosLossyness ImVec1
+--- @field TextWrapPos             float
+
+--- @return ImGuiWindowTempData
+--- @nodiscard
+local function ImGuiWindowTempData()
+    return {
+        CursorPos         = ImVec2(),
+        CursorPosPrevLine = ImVec2(),
+        CursorStartPos    = ImVec2(),
+        CursorMaxPos      = ImVec2(),
+        IdealMaxPos       = ImVec2(),
+        CurrLineSize      = ImVec2(),
+        PrevLineSize      = ImVec2(),
+
+        CurrLineTextBaseOffset = 0,
+        PrevLineTextBaseOffset = 0,
+
+        IsSameLine = false,
+        IsSetPos = false,
+
+        Indent                  = ImVec1(),
+        ColumnsOffset           = ImVec1(),
+        GroupOffset             = ImVec1(),
+        CursorStartPosLossyness = ImVec1(),
+
+        TextWrapPos = 0
+    }
+end
+
 --- @return ImGuiWindow
 --- @nodiscard
 local function ImGuiWindow(ctx, name)
@@ -661,36 +706,16 @@ local function ImGuiWindow(ctx, name)
         Viewport = nil,
 
         --- struct IMGUI_API ImGuiWindowTempData
-        DC = {
-            CursorPos         = ImVec2(),
-            CursorPosPrevLine = ImVec2(),
-            CursorStartPos    = ImVec2(),
-            CursorMaxPos      = ImVec2(),
-            IdealMaxPos       = ImVec2(),
-            CurrLineSize      = ImVec2(),
-            PrevLineSize      = ImVec2(),
-
-            CurrLineTextBaseOffset = 0,
-            PrevLineTextBaseOffset = 0,
-
-            IsSameLine = false,
-            IsSetPos = false,
-
-            Indent                  = ImVec1(),
-            ColumnsOffset           = ImVec1(),
-            GroupOffset             = ImVec1(),
-            CursorStartPosLossyness = ImVec1(),
-
-            TextWrapPos = 0
-        },
+        DC = ImGuiWindowTempData(),
 
         OuterRectClipped = nil,
         InnerRect        = ImRect(),
         InnerClipRect    = ImRect(),
         WorkRect         = ImRect(),
         ParentWorkRect   = ImRect(),
+        ContentRegionRect = ImRect(),
 
-        ClipRect = ImRect(),
+        ClipRect = nil,
 
         LastFrameActive = -1,
 
