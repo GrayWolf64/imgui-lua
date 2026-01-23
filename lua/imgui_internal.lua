@@ -838,6 +838,8 @@ local function ImGuiWindowTempData()
         GroupOffset             = ImVec1(),
         CursorStartPosLossyness = ImVec1(),
 
+        ItemWidth = 0,
+        ItemWidthDefault = 0,
         TextWrapPos = 0
     }
 end
@@ -953,8 +955,6 @@ local function ImGuiWindow(ctx, name)
 
         LastFrameActive = -1,
         LastTimeActive = -1.0,
-
-        ItemWidthDefault = 0,
 
         WriteAccessed = false,
 

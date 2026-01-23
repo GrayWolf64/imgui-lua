@@ -69,6 +69,10 @@ local function SetupDummyPanel()
             local io = ImGui.GetIO()
             io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
             io:AddMouseButtonEvent(ImGuiMouseButton_Left, true)
+        elseif input.IsMouseDown(MOUSE_RIGHT) then
+            local io = ImGui.GetIO()
+            io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
+            io:AddMouseButtonEvent(ImGuiMouseButton_Right, true)
         end
     end
 
@@ -127,7 +131,7 @@ local function ImGui_ImplGMOD_Data()
         CurrentTextureHandle = 1,
         NumFramesInFlight    = 2,
 
-        Time            = 0
+        Time = 0
     }
 end
 

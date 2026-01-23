@@ -2573,12 +2573,13 @@ function ImGui.Begin(name, p_open, flags)
         window.DC.LayoutType = ImGuiLayoutType_Vertical
         window.DC.ParentLayoutType = (parent_window ~= nil) and parent_window.DC.LayoutType or ImGuiLayoutType_Vertical
 
-        if (window.Size.x > 0.0 and bit.band(flags, ImGuiWindowFlags_Tooltip) == 0 and bit.band(flags, ImGuiWindowFlags_AlwaysAutoResize) == 0) then
-            window.ItemWidthDefault = ImTrunc(window.Size.x * 0.65)
+        local is_resizable_window = (window.Size.x > 0.0) and (bit.band(flags, ImGuiWindowFlags_Tooltip) == 0) and (bit.band(flags, ImGuiWindowFlags_AlwaysAutoResize) == 0)
+        if (is_resizable_window) then
+            window.DC.ItemWidthDefault = ImTrunc(window.Size.x * 0.65)
         else
-            window.ItemWidthDefault = ImTrunc(g.FontSize * 16.0)
+            window.DC.ItemWidthDefault = ImTrunc(g.FontSize * 16.0)
         end
-        window.DC.ItemWidth = window.ItemWidthDefault
+        window.DC.ItemWidth = window.DC.ItemWidthDefault
         window.DC.TextWrapPos = -1.0
 
         if window.AutoFitFramesX > 0 then
