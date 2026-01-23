@@ -100,6 +100,74 @@ function IMGUI_DEBUG_LOG_FONT(_str, ...) print(string.format(_str, ...)) end
 
 #IMGUI_DEFINE struct_def(_name) MT[_name] = {} MT[_name].__index = MT[_name]
 
+ImGuiKeyOwner_Any     = 0
+ImGuiKeyOwner_NoOwner = 4294967295
+
+--- @param button ImGuiMouseButton
+--- @return ImGuiKey
+function ImGui.MouseButtonToKey(button) IM_ASSERT(button >= 0 and button < ImGuiMouseButton_COUNT) return ImGuiKey_MouseLeft + button end
+
+--- @param key ImGuiKey
+function ImGui.IsNamedKey(key)
+    return key >= ImGuiKey_NamedKey_BEGIN and key < ImGuiKey_NamedKey_END
+end
+
+--- @param key ImGuiKey
+function ImGui.IsGamepadKey(key)
+    return key >= ImGuiKey_Gamepad_BEGIN and key < ImGuiKey_Gamepad_END
+end
+
+--- @param key ImGuiKey
+function ImGui.IsMouseKey(key)
+    return key >= ImGuiKey_Mouse_BEGIN and key < ImGuiKey_Mouse_END
+end
+
+--- @param key ImGuiKey
+function ImGui.IsAliasKey(key)
+    return key >= ImGuiKey_Aliases_BEGIN and key < ImGuiKey_Aliases_END
+end
+
+--- @param key ImGuiKey
+--- @return bool
+function ImGui.IsNamedKeyOrMod(key)
+    return (key >= ImGuiKey_NamedKey_BEGIN and key < ImGuiKey_NamedKey_END) or key == ImGuiMod_Ctrl or key == ImGuiMod_Shift or key == ImGuiMod_Alt or key == ImGuiMod_Super
+end
+
+--- @param key ImGuiKey
+function ImGui.ConvertSingleModFlagToKey(key)
+    if key == ImGuiMod_Ctrl then
+        return ImGuiKey_ReservedForModCtrl
+    elseif key == ImGuiMod_Shift then
+        return ImGuiKey_ReservedForModShift
+    elseif key == ImGuiMod_Alt then
+        return ImGuiKey_ReservedForModAlt
+    elseif key == ImGuiMod_Super then
+        return ImGuiKey_ReservedForModSuper
+    end
+    return key
+end
+
+--- @param ctx ImGuiContext
+--- @param key ImGuiKey
+function ImGui.GetKeyOwnerData(ctx, key)
+    if bit.band(key, ImGuiMod_Mask_) ~= 0 then key = ImGui.ConvertSingleModFlagToKey(key) end
+    IM_ASSERT(ImGui.IsNamedKey(key))
+    return ctx.KeysOwnerData[key - ImGuiKey_NamedKey_BEGIN]
+end
+
+--- @class ImGuiKeyOwnerData
+
+--- @return ImGuiKeyOwnerData
+--- @nodiscard
+function ImGuiKeyOwnerData()
+    return {
+        OwnerCurr        = ImGuiKeyOwner_NoOwner,
+        OwnerNext        = ImGuiKeyOwner_NoOwner,
+        LockThisFrame    = false,
+        LockUntilRelease = false
+    }
+end
+
 --- @param size float
 --- @return float
 function ImGui.GetRoundedFontSize(size) return IM_ROUND(size) end
@@ -545,6 +613,13 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         IO = ImGuiIO(),
         PlatformIO = ImGuiPlatformIO(),
 
+        KeysOwnerData = {}, -- size = ImGuiKey_NamedKey_COUNT
+
+        InputEventsQueue = ImVector(),
+
+        InputEventsNextMouseSource = ImGuiMouseSource_Mouse,
+        InputEventsNextEventId = 1,
+
         MovingWindow = nil,
         ActiveIDClickOffset = ImVec2(),
 
@@ -617,13 +692,26 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         UserTextures = ImVector(),
 
         -- Settings
-        SettingsWindows = ImVector()
+        SettingsWindows = ImVector(),
+
+        -- Drag and Drop
+        DragDropActive = false,
+        DragDropWithinSource = false,
+        DragDropWithinTarget = false,
+        DragDropSourceFlags = 0,
+        -- TODO: 
     }
 
     this.IO.Fonts = (shared_font_atlas ~= nil) and shared_font_atlas or ImFontAtlas()
     if shared_font_atlas == nil then
         this.IO.Fonts.OwnerContext = this
     end
+
+    for i = 0, ImGuiKey_NamedKey_COUNT - 1 do
+        this.KeysOwnerData[i] = ImGuiKeyOwnerData()
+    end
+
+    this.IO.Ctx = this
 
     return this
 end
@@ -1005,3 +1093,111 @@ function ImFontAtlasPostProcessData(atlas, font, font_src, font_baked, glyph, pi
         Height = height,
     }
 end
+
+--- @alias ImGuiInputSource int
+ImGuiInputSource_None     = 0
+ImGuiInputSource_Mouse    = 1
+ImGuiInputSource_Keyboard = 2
+ImGuiInputSource_Gamepad  = 3
+ImGuiInputSource_COUNT    = 4
+
+--- @class ImGuiInputEventMousePos
+--- @field PosX float
+--- @field PosY float
+--- @field MouseSource ImGuiMouseSource
+
+--- @return ImGuiInputEventMousePos
+--- @nodiscard
+function ImGuiInputEventMousePos()
+    return {
+        PosX = 0,
+        PosY = 0,
+        MouseSource = ImGuiMouseSource_Mouse
+    }
+end
+
+--- @class ImGuiInputEventMouseButton
+--- @field Button int
+--- @field Down bool
+--- @field MouseSource ImGuiMouseSource
+
+--- @return ImGuiInputEventMouseButton
+--- @nodiscard
+function ImGuiInputEventMouseButton()
+    return {
+        Button = 0,
+        Down = false,
+        MouseSource = ImGuiMouseSource_Mouse
+    }
+end
+
+--- @class ImGuiInputEventMouseWheel
+--- @field WheelX float
+--- @field WheelY float
+--- @field MouseSource ImGuiMouseSource
+
+--- @return ImGuiInputEventMouseWheel
+--- @nodiscard
+function ImGuiInputEventMouseWheel()
+    return {
+        WheelX = 0,
+        WheelY = 0,
+        MouseSource = ImGuiMouseSource_Mouse
+    }
+end
+
+--- @class ImGuiInputEvent
+
+--- @return ImGuiInputEvent
+--- @nodiscard
+function ImGuiInputEvent()
+    return {
+        Type    = 0,
+        Source  = 0,
+        EventId = 0,
+
+        -- union
+        MousePos    = nil, -- if Type == ImGuiInputEventType_MousePos
+        MouseWheel  = nil, -- if Type == ImGuiInputEventType_MouseWheel
+        MouseButton = nil, -- if Type == ImGuiInputEventType_MouseButton
+        Key         = nil, -- if Type == ImGuiInputEventType_Key
+        Text        = nil, -- if Type == ImGuiInputEventType_Text
+        AppFocused  = nil, -- if Type == ImGuiInputEventType_Focus
+    }
+end
+
+--- @alias ImGuiInputEventType int
+ImGuiInputEventType_None        = 0
+ImGuiInputEventType_MousePos    = 1
+ImGuiInputEventType_MouseWheel  = 2
+ImGuiInputEventType_MouseButton = 3
+ImGuiInputEventType_Key         = 4
+ImGuiInputEventType_Text        = 5
+ImGuiInputEventType_Focus       = 6
+ImGuiInputEventType_COUNT       = 7
+
+ImGuiInputFlags_RepeatRateDefault                = bit.lshift(1, 1)
+ImGuiInputFlags_RepeatRateNavMove                = bit.lshift(1, 2)
+ImGuiInputFlags_RepeatRateNavTweak               = bit.lshift(1, 3)
+ImGuiInputFlags_RepeatUntilRelease               = bit.lshift(1, 4)
+ImGuiInputFlags_RepeatUntilKeyModsChange         = bit.lshift(1, 5)
+ImGuiInputFlags_RepeatUntilKeyModsChangeFromNone = bit.lshift(1, 6)
+ImGuiInputFlags_RepeatUntilOtherKeyPress         = bit.lshift(1, 7)
+ImGuiInputFlags_LockThisFrame                    = bit.lshift(1, 20)
+ImGuiInputFlags_LockUntilRelease                 = bit.lshift(1, 21)
+ImGuiInputFlags_CondHovered                      = bit.lshift(1, 22)
+ImGuiInputFlags_CondActive                       = bit.lshift(1, 23)
+
+ImGuiInputFlags_CondDefault_                   = bit.bor(ImGuiInputFlags_CondHovered, ImGuiInputFlags_CondActive)
+ImGuiInputFlags_RepeatRateMask_                = bit.bor(ImGuiInputFlags_RepeatRateDefault, ImGuiInputFlags_RepeatRateNavMove, ImGuiInputFlags_RepeatRateNavTweak)
+ImGuiInputFlags_RepeatUntilMask_               = bit.bor(ImGuiInputFlags_RepeatUntilRelease, ImGuiInputFlags_RepeatUntilKeyModsChange, ImGuiInputFlags_RepeatUntilKeyModsChangeFromNone, ImGuiInputFlags_RepeatUntilOtherKeyPress)
+ImGuiInputFlags_RepeatMask_                    = bit.bor(ImGuiInputFlags_Repeat, ImGuiInputFlags_RepeatRateMask_, ImGuiInputFlags_RepeatUntilMask_)
+ImGuiInputFlags_CondMask_                      = bit.bor(ImGuiInputFlags_CondHovered, ImGuiInputFlags_CondActive)
+ImGuiInputFlags_RouteTypeMask_                 = bit.bor(ImGuiInputFlags_RouteActive, ImGuiInputFlags_RouteFocused, ImGuiInputFlags_RouteGlobal, ImGuiInputFlags_RouteAlways)
+ImGuiInputFlags_RouteOptionsMask_              = bit.bor(ImGuiInputFlags_RouteOverFocused, ImGuiInputFlags_RouteOverActive, ImGuiInputFlags_RouteUnlessBgFocused, ImGuiInputFlags_RouteFromRootWindow)
+ImGuiInputFlags_SupportedByIsKeyPressed        = ImGuiInputFlags_RepeatMask_
+ImGuiInputFlags_SupportedByIsMouseClicked      = ImGuiInputFlags_Repeat
+ImGuiInputFlags_SupportedByShortcut            = bit.bor(ImGuiInputFlags_RepeatMask_, ImGuiInputFlags_RouteTypeMask_, ImGuiInputFlags_RouteOptionsMask_)
+ImGuiInputFlags_SupportedBySetNextItemShortcut = bit.bor(ImGuiInputFlags_RepeatMask_, ImGuiInputFlags_RouteTypeMask_, ImGuiInputFlags_RouteOptionsMask_, ImGuiInputFlags_Tooltip)
+ImGuiInputFlags_SupportedBySetKeyOwner         = bit.bor(ImGuiInputFlags_LockThisFrame, ImGuiInputFlags_LockUntilRelease)
+ImGuiInputFlags_SupportedBySetItemKeyOwner     = bit.bor(ImGuiInputFlags_SupportedBySetKeyOwner, ImGuiInputFlags_CondMask_)

@@ -352,17 +352,6 @@ function ImGui.RegisterFontAtlas(atlas)
     end
 end
 
-local DefaultConfig = {
-    WindowSize = {w = 500, h = 480},
-    WindowPos = {x = 60, y = 60}
-}
-
---- Index starts from 1
-local MouseButtonMap = { -- TODO: enums instead
-    [1] = MOUSE_LEFT,
-    [2] = MOUSE_RIGHT
-}
-
 function ImGui.GetCurrentContext()
     return GImGui
 end
@@ -391,8 +380,6 @@ end
 --- @param shared_font_atlas? ImFontAtlas
 function ImGui.CreateContext(shared_font_atlas)
     GImGui = ImGuiContext(shared_font_atlas)
-
-    GImGui.Config = DefaultConfig
 
     for i = 0, 59 do GImGui.FramerateSecPerFrame[i] = 0 end
 
@@ -789,11 +776,114 @@ function MT.ImGuiWindow:GetID(str)
     return id
 end
 
---- void ImGui::SetHoveredID
-local function SetHoveredID(id)
+--- @param id ImGuiID
+function ImGui.SetHoveredID(id)
     local g = GImGui
 
     g.HoveredId = id
+end
+
+--- @param user_flags   ImGuiHoveredFlags
+--- @param shared_flags ImGuiHoveredFlags
+local function ApplyHoverFlagsForTooltip(user_flags, shared_flags)
+    if bit.band(user_flags, bit.bor(ImGuiHoveredFlags_DelayNone, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_DelayNormal)) ~= 0 then
+        shared_flags = bit.band(shared_flags, bit.bnot(bit.bor(ImGuiHoveredFlags_DelayNone, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_DelayNormal)))
+    end
+    return bit.bor(user_flags, shared_flags)
+end
+
+--- @param flags ImGuiHoveredFlags
+function ImGui.IsItemHovered(flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+    IM_ASSERT_USER_ERROR(bit.band(flags, bit.bnot(ImGuiHoveredFlags_AllowedMaskForIsItemHovered)) == 0, "Invalid flags for IsItemHovered()!")
+
+    if g.NavHighlightItemUnderNav and g.NavCursorVisible and bit.band(flags, ImGuiHoveredFlags_NoNavOverride) == 0 then
+        if not ImGui.IsItemFocused() then
+            return false
+        end
+        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags_AllowWhenDisabled) == 0 then
+            return false
+        end
+
+        if bit.band(flags, ImGuiHoveredFlags_ForTooltip) ~= 0 then
+            flags = ApplyHoverFlagsForTooltip(flags, g.Style.HoverFlagsForTooltipNav)
+        end
+    else
+        local status_flags = g.LastItemData.StatusFlags
+        if bit.band(status_flags, ImGuiItemStatusFlags_HoveredRect) == 0 then
+            return false
+        end
+
+        if bit.band(flags, ImGuiHoveredFlags_ForTooltip) ~= 0 then
+            flags = ApplyHoverFlagsForTooltip(flags, g.Style.HoverFlagsForTooltipMouse)
+        end
+
+        if g.HoveredWindow ~= window and bit.band(status_flags, ImGuiItemStatusFlags_HoveredWindow) == 0 then
+            if bit.band(flags, ImGuiHoveredFlags_AllowWhenOverlappedByWindow) == 0 then
+                return false
+            end
+        end
+
+        local id = g.LastItemData.ID
+        if bit.band(flags, ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) == 0 then
+            if g.ActiveId ~= 0 and g.ActiveId ~= id and not g.ActiveIdAllowOverlap and not g.ActiveIdFromShortcut then
+                local cancel_is_hovered = true
+                if g.ActiveId == window.MoveId and (id == 0 or g.ActiveIdDisabledId == id) then
+                    cancel_is_hovered = false
+                end
+                if cancel_is_hovered then
+                    return false
+                end
+            end
+        end
+
+        if not ImGui.IsWindowContentHoverable(window, flags) and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_NoWindowHoverableCheck) == 0 then
+            return false
+        end
+
+        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags_AllowWhenDisabled) == 0 then
+            return false
+        end
+
+        if id == window.MoveId and window.WriteAccessed then
+            return false
+        end
+
+        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AllowOverlap) ~= 0 and id ~= 0 then
+            if bit.band(flags, ImGuiHoveredFlags_AllowWhenOverlappedByItem) == 0 then
+                if g.HoveredIdPreviousFrame ~= g.LastItemData.ID then
+                    return false
+                end
+            end
+        end
+    end
+
+    local delay = ImGui.CalcDelayFromHoveredFlags(flags)
+    if delay > 0.0 or bit.band(flags, ImGuiHoveredFlags_Stationary) ~= 0 then
+        local hover_delay_id
+        if g.LastItemData.ID ~= 0 then
+            hover_delay_id = g.LastItemData.ID
+        else
+            hover_delay_id = window:GetIDFromPos(g.LastItemData.Rect.Min)
+        end
+        if bit.band(flags, ImGuiHoveredFlags_NoSharedDelay) ~= 0 and g.HoverItemDelayIdPreviousFrame ~= hover_delay_id then
+            g.HoverItemDelayTimer = 0.0
+        end
+        g.HoverItemDelayId = hover_delay_id
+
+        if bit.band(flags, ImGuiHoveredFlags_Stationary) ~= 0 and g.HoverItemUnlockedStationaryId ~= hover_delay_id then
+            return false
+        end
+
+        if g.HoverItemDelayTimer < delay then
+            return false
+        end
+    end
+
+    return true
 end
 
 --- bool ImGui::ItemHoverable
@@ -815,7 +905,7 @@ function ImGui.ItemHoverable(id, bb)
     end
 
     if id ~= 0 then
-        SetHoveredID(id)
+        ImGui.SetHoveredID(id)
     end
 
     return true
@@ -837,32 +927,372 @@ function ImGui.IsClippedEx(bb, id)
     return false
 end
 
---- bool ImGui::IsMouseDown
-function ImGui.IsMouseDown(button)
+function MT.ImGuiIO:ClearEventsQueue()
+    IM_ASSERT(self.Ctx ~= nil)
     local g = GImGui
-
-    return g.IO.MouseDown[button]
+    g.InputEventsQueue:clear()
 end
 
---- bool ImGui::IsMouseClicked
-function ImGui.IsMouseClicked(button)
+function MT.ImGuiIO:ClearInputKeys()
+    local g = self.Ctx
+    for key = ImGuiKey_NamedKey_BEGIN, ImGuiKey_NamedKey_END - 1 do
+        if ImGui.IsMouseKey(key) then
+            continue
+        end
+
+        local key_data = g.IO.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+        key_data.Down = false
+        key_data.DownDuration = -1.0
+        key_data.DownDurationPrev = -1.0
+    end
+    self.KeyCtrl  = false
+    self.KeyShift = false
+    self.KeyAlt   = false
+    self.KeySuper = false
+    self.KeyMods  = ImGuiMod_None
+    self.InputQueueCharacters:resize(0)
+end
+
+function MT.ImGuiIO:ClearInputMouse()
+    for key = ImGuiKey_Mouse_BEGIN, ImGuiKey_Mouse_END - 1 do
+        local key_data = self.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+        if key_data then
+            key_data.Down = false
+            key_data.DownDuration = -1.0
+            key_data.DownDurationPrev = -1.0
+        end
+    end
+
+    self.MousePos = ImVec2(-FLT_MAX, -FLT_MAX)
+
+    for n = 0, 2 do -- IM_COUNTOF(MouseDown)
+        self.MouseDown[n] = false
+        self.MouseDownDuration[n] = -1.0
+        self.MouseDownDurationPrev[n] = -1.0
+    end
+
+    self.MouseWheel = 0
+    self.MouseWheelH = 0
+end
+
+--- @param ctx  ImGuiContext
+--- @param type ImGuiInputEventType
+--- @param arg? int
+--- @return ImGuiInputEvent?
+function MT.ImGuiIO:FindLatestInputEvent(ctx, type, arg)
+    if arg == nil then arg = -1 end
+
+    local g = ctx
+    for n = g.InputEventsQueue.Size, 1, -1 do
+        local e = g.InputEventsQueue.Data[n]
+
+        if e.Type ~= type then
+            continue
+        end
+        if type == ImGuiInputEventType_Key and e.Key.Key ~= arg then
+            continue
+        end
+        if type == ImGuiInputEventType_MouseButton and e.MouseButton.Button ~= arg then
+            continue
+        end
+
+        return e
+    end
+
+    return nil
+end
+
+--- @param key          ImGuiKey
+--- @param down         bool
+--- @param analog_value float
+function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
+    IM_ASSERT(self.Ctx ~= nil)
+    if key == ImGuiKey_None or not self.AppAcceptingEvents then
+        return
+    end
+
+    local g = self.Ctx
+    IM_ASSERT(ImGui.IsNamedKeyOrMod(key))
+    IM_ASSERT(ImGui.IsAliasKey(key) == false)
+
+    -- MacOS: swap Cmd(Super) and Ctrl
+    if (g.IO.ConfigMacOSXBehaviors) then
+        if (key == ImGuiMod_Super)          then key = ImGuiMod_Ctrl
+        elseif (key == ImGuiMod_Ctrl)       then key = ImGuiMod_Super
+        elseif (key == ImGuiKey_LeftSuper)  then key = ImGuiKey_LeftCtrl
+        elseif (key == ImGuiKey_RightSuper) then key = ImGuiKey_RightCtrl
+        elseif (key == ImGuiKey_LeftCtrl)   then key = ImGuiKey_LeftSuper
+        elseif (key == ImGuiKey_RightCtrl)  then key = ImGuiKey_RightSuper
+        end
+    end
+
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType_Key, key)
+    local key_data = ImGui.GetKeyData(g, key)
+    local latest_key_down = latest_event and latest_event.Key.Down or key_data.Down
+    local latest_key_analog = latest_event and latest_event.Key.AnalogValue or key_data.AnalogValue
+    if latest_key_down == down and latest_key_analog == analog_value then
+        return
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType_Key
+    e.Source = ImGui.IsGamepadKey(key) and ImGuiInputSource_Gamepad or ImGuiInputSource_Keyboard
+    e.EventId = g.InputEventsNextEventId
+    g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.Key.Key = key
+    e.Key.Down = down
+    e.Key.AnalogValue = analog_value
+    g.InputEventsQueue:push_back(e)
+end
+
+--- @param key  ImGuiKey
+--- @param down bool
+function MT.ImGuiIO:AddKeyEvent(key, down)
+    if not self.AppAcceptingEvents then
+        return
+    end
+    self:AddKeyAnalogEvent(key, down, (down and 1.0 or 0.0))
+end
+
+--- @param accepting_events bool
+function MT.ImGuiIO:SetAppAcceptingEvents(accepting_events)
+    self.AppAcceptingEvents = accepting_events
+end
+
+--- @param x float
+--- @param y float
+function MT.ImGuiIO:AddMousePosEvent(x, y)
+    IM_ASSERT(self.Ctx ~= nil)
+    if not self.AppAcceptingEvents then
+        return
+    end
+
+    local g = self.Ctx
+
+    local x_val = x
+    if x > -FLT_MAX then
+        x_val = ImFloor(x)
+    end
+    local y_val = y
+    if y > -FLT_MAX then
+        y_val = ImFloor(y)
+    end
+
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType_MousePos)
+    local latest_pos = latest_event and ImVec2(latest_event.MousePos.PosX, latest_event.MousePos.PosY) or self.MousePos
+    if latest_pos.x == x_val and latest_pos.y == y_val then
+        return
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType_MousePos
+    e.Source = ImGuiInputSource_Mouse
+    e.EventId = g.InputEventsNextEventId
+    g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.MousePos = ImGuiInputEventMousePos()
+    e.MousePos.PosX = x_val
+    e.MousePos.PosY = y_val
+    e.MousePos.MouseSource = g.InputEventsNextMouseSource
+    g.InputEventsQueue:push_back(e)
+end
+
+--- @param mouse_button ImGuiMouseButton
+--- @param down         bool
+function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
+    IM_ASSERT(self.Ctx ~= nil)
+    local g = self.Ctx
+    IM_ASSERT(mouse_button >= 0 and mouse_button < ImGuiMouseButton_COUNT)
+    if not self.AppAcceptingEvents then
+        return
+    end
+
+    -- On MacOS X: Convert Ctrl(Super)+Left click into Right-click: handle held button.
+    if self.ConfigMacOSXBehaviors and mouse_button == 0 and g.IO.MouseCtrlLeftAsRightClick then
+        -- Order of both statements matters: this event will still release mouse button 1
+        mouse_button = 1
+        if not down then
+            self.MouseCtrlLeftAsRightClick = false
+        end
+    end
+
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType_MouseButton, mouse_button)
+    local latest_button_down = latest_event and latest_event.MouseButton.Down or self.MouseDown[mouse_button]
+    if latest_button_down == down then
+        return
+    end
+
+    -- On MacOS X: Convert Ctrl(Super)+Left click into Right-click.
+    -- - Note that this is actual physical Ctrl which is ImGuiMod_Super for us.
+    -- - At this point we want from !down to down, so this is handling the initial press.
+    if self.ConfigMacOSXBehaviors and mouse_button == 0 and down then
+        local latest_super_event = self:FindLatestInputEvent(g, ImGuiInputEventType_Key, ImGuiMod_Super)
+        if latest_super_event and latest_super_event.Key.Down or self.KeySuper then
+            -- IMGUI_DEBUG_LOG_IO("[io] Super+Left Click aliased into Right Click\n")
+            self.MouseCtrlLeftAsRightClick = true
+            self:AddMouseButtonEvent(1, true) -- This is just quicker to write that passing through, as we need to filter duplicate again.
+            return
+        end
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType_MouseButton
+    e.Source = ImGuiInputSource_Mouse
+    e.EventId = g.InputEventsNextEventId
+    g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.MouseButton = ImGuiInputEventMouseButton()
+    e.MouseButton.Button = mouse_button
+    e.MouseButton.Down = down
+    e.MouseButton.MouseSource = g.InputEventsNextMouseSource
+    g.InputEventsQueue:push_back(e)
+end
+
+--- @param wheel_x float
+--- @param wheel_y float
+function MT.ImGuiIO:AddMouseWheelEvent(wheel_x, wheel_y)
+    IM_ASSERT(self.Ctx ~= nil)
+    local g = self.Ctx
+    if not self.AppAcceptingEvents or (wheel_x == 0 and wheel_y == 0) then
+        return
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType_MouseWheel
+    e.Source = ImGuiInputSource_Mouse
+    e.EventId = g.InputEventsNextEventId
+    g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.MouseWheel = ImGuiInputEventMouseWheel()
+    e.MouseWheel.WheelX = wheel_x
+    e.MouseWheel.WheelY = wheel_y
+    e.MouseWheel.MouseSource = g.InputEventsNextMouseSource
+    g.InputEventsQueue:push_back(e)
+end
+
+--- @param ctx ImGuiContext
+--- @param key ImGuiKey
+--- @return ImGuiKeyData
+function ImGui.GetKeyData(ctx, key)
+    if bit.band(key, ImGuiMod_Mask_) ~= 0 then
+        key = ImGui.ConvertSingleModFlagToKey(key)
+    end
+
+    IM_ASSERT(ImGui.IsNamedKey(key), "Support for user key indices was dropped in favor of ImGuiKey. Please update backend & user code.")
+    return g.IO.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+end
+
+--- @param key      ImGuiKey
+--- @param owner_id ImGuiID
+function ImGui.TestKeyOwner(key, owner_id)
+    if not ImGui.IsNamedKeyOrMod(key) then
+        return true
+    end
+
+    local g = GImGui --- @cast g ImGuiContext
+    if g.ActiveIdUsingAllKeyboardKeys and owner_id ~= g.ActiveId and owner_id ~= ImGuiKeyOwner_Any then
+        if key >= ImGuiKey_Keyboard_BEGIN and key < ImGuiKey_Keyboard_END then
+            return false
+        end
+    end
+
+    local owner_data = ImGui.GetKeyOwnerData(g, key)
+    if owner_id == ImGuiKeyOwner_Any then
+        return not owner_data.LockThisFrame
+    end
+
+    if owner_data.OwnerCurr ~= owner_id then
+        if owner_data.LockThisFrame then
+            return false
+        end
+        if owner_data.OwnerCurr ~= ImGuiKeyOwner_NoOwner then
+            return false
+        end
+    end
+
+    return true
+end
+
+--- @param t0           float
+--- @param t1           float
+--- @param repeat_delay float
+--- @param repeat_rate  float
+function ImGui.CalcTypematicRepeatAmount(t0, t1, repeat_delay, repeat_rate)
+    if t1 == 0.0 then return 1 end
+    if t0 >= t1 then return 0 end
+    if repeat_rate <= 0.0 then
+        if t0 < repeat_delay and t1 >= repeat_delay then
+            return 1
+        else
+            return 0
+        end
+    end
+
+    local count_t0
+    if t0 < repeat_delay then
+        count_t0 = -1
+    else
+        count_t0 = math.floor((t0 - repeat_delay) / repeat_rate)
+    end
+
+    local count_t1
+    if t1 < repeat_delay then
+        count_t1 = -1
+    else
+        count_t1 = math.floor((t1 - repeat_delay) / repeat_rate)
+    end
+
+    return count_t1 - count_t0
+end
+
+--- bool ImGui::IsMouseDown
+function ImGui.IsMouseDown(button, owner_id)
+    if owner_id == nil then owner_id = ImGuiKeyOwner_Any end
+
     local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
+    return g.IO.MouseDown[button] and ImGui.TestKeyOwner(ImGui.MouseButtonToKey(button), owner_id)
+end
+
+--- @param button     ImGuiMouseButton
+--- @param is_repeat? bool
+--- @param flags?     ImGuiInputFlags
+--- @param owner_id?  ImGuiID
+function ImGui.IsMouseClicked(button, is_repeat, flags, owner_id)
+    if is_repeat == true then flags = ImGuiInputFlags_Repeat else flags = ImGuiInputFlags_None end
+    if owner_id  == nil  then owner_id = ImGuiKeyOwner_Any end
+
+    local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
 
     if not g.IO.MouseDown[button] then
         return false
     end
-
     local t = g.IO.MouseDownDuration[button]
-    if t < 0 then
+    if t < 0.0 then
         return false
     end
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags_SupportedByIsMouseClicked)) == 0)
 
-    local pressed = (t == 0)
+    local repeat_flag = (bit.band(flags, ImGuiInputFlags_Repeat) ~= 0)
+    local pressed = (t == 0.0) or (repeat_flag and t > g.IO.KeyRepeatDelay and ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0)
+
     if not pressed then
         return false
     end
 
+    if not ImGui.TestKeyOwner(ImGui.MouseButtonToKey(button), owner_id) then
+        return false
+    end
+
     return true
+end
+
+--- @param button   ImGuiMouseButton
+--- @param owner_id ImGuiID
+function ImGui.IsMouseReleased(button, owner_id)
+    if owner_id == nil then owner_id = ImGuiKeyOwner_Any end
+
+    local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
+    return g.IO.MouseReleased[button] and ImGui.TestKeyOwner(ImGui.MouseButtonToKey(button), owner_id)
 end
 
 #IMGUI_INCLUDE "imgui_widgets.lua"
@@ -1056,7 +1486,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
         local resize_grip_id = window:GetID(tostring(i))
 
         ImGui.ItemAdd(resize_rect, resize_grip_id)
-        local pressed, hovered, held = ImGui.ButtonBehavior(resize_grip_id, resize_rect)
+        local pressed, hovered, held = ImGui.ButtonBehavior(resize_rect, resize_grip_id)
 
         if hovered or held then
             if i == 1 then
@@ -1992,7 +2422,7 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags()
     local mouse_earliest_down = -1
     local mouse_any_down = false
 
-    for i = 1, #MouseButtonMap do
+    for i = 0, 2 do -- IM_COUNTOF(io.MouseDown)
         if io.MouseClicked[i] then
             io.MouseDownOwned[i] = (g.HoveredWindow ~= nil)
         end
@@ -2014,7 +2444,7 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags()
     end
 end
 
---- ImGui::UpdateMouseInputs()
+--- TODO: 
 function ImGui.UpdateMouseInputs()
     local g = GImGui
     local io = g.IO
@@ -2022,11 +2452,10 @@ function ImGui.UpdateMouseInputs()
     io.MousePos.x = GetMouseX()
     io.MousePos.y = GetMouseY()
 
-    for i = 1, #MouseButtonMap do
-        local button_down = io.IsMouseDown(MouseButtonMap[i])
-
-        io.MouseClicked[i] = button_down and (io.MouseDownDuration[i] < 0)
-        io.MouseReleased[i] = not button_down and (io.MouseDownDuration[i] >= 0)
+    for i = 0, 2 do -- IM_COUNTOF(io.MouseDown)
+        io.MouseClicked[i] = io.MouseDown[i] and (io.MouseDownDuration[i] < 0)
+        io.MouseClickedCount[i] = 0
+        io.MouseReleased[i] = not io.MouseDown[i] and (io.MouseDownDuration[i] >= 0)
 
         if io.MouseClicked[i] then
             io.MouseClickedTime[i] = g.Time
@@ -2037,7 +2466,7 @@ function ImGui.UpdateMouseInputs()
             io.MouseReleasedTime[i] = g.Time
         end
 
-        if button_down then
+        if io.MouseDown[i] then
             if io.MouseDownDuration[i] < 0 then
                 io.MouseDownDuration[i] = 0
             else
@@ -2048,8 +2477,6 @@ function ImGui.UpdateMouseInputs()
         end
 
         io.MouseDownDurationPrev[i] = io.MouseDownDuration[i]
-
-        io.MouseDown[i] = button_down
     end
 end
 

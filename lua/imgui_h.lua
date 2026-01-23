@@ -709,11 +709,39 @@ function ImFontGlyph()
     }
 end
 
+--- @class ImGuiKeyData
+--- @field Down             bool
+--- @field DownDuration     float
+--- @field DownDurationPrev float
+--- @field AnalogValue      float
+
+--- @return ImGuiKeyData
+--- @nodiscard
+function ImGuiKeyData()
+    return {
+        Down             = false,
+        DownDuration     = nil,
+        DownDurationPrev = nil,
+        AnalogValue      = nil
+    }
+end
+
 --- @class ImGuiIO
+MT.ImGuiIO = {}
+MT.ImGuiIO.__index = MT.ImGuiIO
 
 --- @return ImGuiIO
 function ImGuiIO()
-    return {
+    local this = {
+        Ctx = nil,
+
+        KeyCtrl  = false,
+        KeyShift = false,
+        KeyAlt   = false,
+        KeySuper = false,
+
+        KeyMods  = nil,
+
         BackendFlags = 0,
 
         DeltaTime = 1.0 / 60.0,
@@ -721,25 +749,36 @@ function ImGuiIO()
         DisplayFramebufferScale = ImVec2(1.0, 1.0),
 
         MousePos = ImVec2(),
-        IsMouseDown = input.IsMouseDown,
 
-        --- Just support 2 buttons now, L & R
-        MouseDown             = {false, false},
-        MouseClicked          = {false, false},
-        MouseReleased         = {false, false},
-        MouseDownDuration     = {-1, -1},
-        MouseDownDurationPrev = {-1, -1},
+        MouseDown             = {[0] = false, [1] = false, [2] = false},
 
-        MouseDownOwned = {nil, nil},
+        MouseWheel = 0,
+        MouseWheelH = 0,
+        
+        MouseCtrlLeftAsRightClick = false,
 
-        MouseClickedTime = {nil, nil},
-        MouseReleasedTime = {nil, nil},
+        MouseClicked          = {[0] = false, [1] = false, [2] = false},
+        MouseReleased         = {[0] = false, [1] = false, [2] = false},
+        MouseClickedCount     = {[0] =  0, [1] =  0, [2] =  0},
+        MouseDownDuration     = {[0] = -1, [1] = -1, [2] = -1},
+        MouseDownDurationPrev = {[0] = -1, [1] = -1, [2] = -1},
 
-        MouseClickedPos = {ImVec2(), ImVec2()},
+        MouseDownOwned    = {[0] = nil, [1] = nil, [2] = nil},
+        MouseClickedTime  = {[0] = nil, [1] = nil, [2] = nil},
+        MouseReleasedTime = {[0] = nil, [1] = nil, [2] = nil},
+        MouseClickedPos   = {[0] = ImVec2(), [1] = ImVec2(), [2] = ImVec2()},
 
-        WantCaptureMouse = nil,
-        -- WantCaptureKeyboard = nil,
-        -- WantTextInput = nil,
+        MouseDoubleClickTime    = 0.30,
+        MouseDoubleClickMaxDist = 6.0,
+        MouseDragThreshold      = 6.0,
+        KeyRepeatDelay          = 0.275,
+        KeyRepeatRate           = 0.050,
+
+        KeysData = {}, -- size = ImGuiKey_NamedKey_COUNT
+
+        WantCaptureMouse    = nil,
+        WantCaptureKeyboard = nil,
+        WantTextInput       = nil,
 
         Framerate = 0,
 
@@ -749,8 +788,18 @@ function ImGuiIO()
         FontDefault = nil,
 
         BackendPlatformUserData = nil,
-        BackendRendererUserData = nil
+        BackendRendererUserData = nil,
+
+        InputQueueCharacters = ImVector(),
+
+        AppAcceptingEvents = true
     }
+
+    for i = 0, ImGuiKey_NamedKey_COUNT - 1 do
+        this.KeysData[i] = ImGuiKeyData()
+    end
+
+    return setmetatable(this, MT.ImGuiIO)
 end
 
 --- @alias ImGuiViewportFlags int
@@ -811,6 +860,12 @@ ImGuiDir = {
     Down  = 3,
     COUNT = 4
 }
+
+--- @alias ImGuiMouseButton int
+ImGuiMouseButton_Left   = 0
+ImGuiMouseButton_Right  = 1
+ImGuiMouseButton_Middle = 2
+ImGuiMouseButton_COUNT  = 5
 
 --- @alias ImGuiWindowFlags integer
 ImGuiWindowFlags_None                      = 0
@@ -913,6 +968,12 @@ ImFontFlags = {
     LockBakedSizes = bit.lshift(1, 3)
 }
 
+--- @alias ImGuiMouseSource int # This is probably impractical in GMod
+ImGuiMouseSource_Mouse       = 0
+ImGuiMouseSource_TouchScreen = 1
+ImGuiMouseSource_Pen         = 2
+ImGuiMouseSource_COUNT       = 3
+
 --- @alias ImGuiCond int
 ImGuiCond_None          = 0
 ImGuiCond_Always        = bit.lshift(1, 0)
@@ -921,6 +982,279 @@ ImGuiCond_FirstUseEver  = bit.lshift(1, 2)
 ImGuiCond_Appearing     = bit.lshift(1, 3)
 
 --- @alias ImGuiInputFlags int
+ImGuiInputFlags_None                 = 0
+ImGuiInputFlags_Repeat               = bit.lshift(1, 0)
+ImGuiInputFlags_RouteActive          = bit.lshift(1, 10)
+ImGuiInputFlags_RouteFocused         = bit.lshift(1, 11)
+ImGuiInputFlags_RouteGlobal          = bit.lshift(1, 12)
+ImGuiInputFlags_RouteAlways          = bit.lshift(1, 13)
+ImGuiInputFlags_RouteOverFocused     = bit.lshift(1, 14)
+ImGuiInputFlags_RouteOverActive      = bit.lshift(1, 15)
+ImGuiInputFlags_RouteUnlessBgFocused = bit.lshift(1, 16)
+ImGuiInputFlags_RouteFromRootWindow  = bit.lshift(1, 17)
+ImGuiInputFlags_Tooltip              = bit.lshift(1, 18)
+
+--- @alias ImGuiButtonFlags int
+ImGuiButtonFlags_None                   = 0
+ImGuiButtonFlags_MouseButtonLeft        = bit.lshift(1, 0)
+ImGuiButtonFlags_MouseButtonRight       = bit.lshift(1, 1)
+ImGuiButtonFlags_MouseButtonMiddle      = bit.lshift(1, 2)
+ImGuiButtonFlags_MouseButtonMask_       = bit.bor(ImGuiButtonFlags_MouseButtonLeft, ImGuiButtonFlags_MouseButtonRight, ImGuiButtonFlags_MouseButtonMiddle)
+ImGuiButtonFlags_EnableNav              = bit.lshift(1, 3)
+
+ImGuiButtonFlags_PressedOnClick                = bit.lshift(1, 4)
+ImGuiButtonFlags_PressedOnClickRelease         = bit.lshift(1, 5)
+ImGuiButtonFlags_PressedOnClickReleaseAnywhere = bit.lshift(1, 6)
+ImGuiButtonFlags_PressedOnRelease              = bit.lshift(1, 7)
+ImGuiButtonFlags_PressedOnDoubleClick          = bit.lshift(1, 8)
+ImGuiButtonFlags_PressedOnDragDropHold         = bit.lshift(1, 9)
+ImGuiButtonFlags_FlattenChildren               = bit.lshift(1, 11)
+ImGuiButtonFlags_AllowOverlap                  = bit.lshift(1, 12)
+ImGuiButtonFlags_AlignTextBaseLine             = bit.lshift(1, 15)
+ImGuiButtonFlags_NoKeyModsAllowed              = bit.lshift(1, 16)
+ImGuiButtonFlags_NoHoldingActiveId             = bit.lshift(1, 17)
+ImGuiButtonFlags_NoNavFocus                    = bit.lshift(1, 18)
+ImGuiButtonFlags_NoHoveredOnFocus              = bit.lshift(1, 19)
+ImGuiButtonFlags_NoSetKeyOwner                 = bit.lshift(1, 20)
+ImGuiButtonFlags_NoTestKeyOwner                = bit.lshift(1, 21)
+ImGuiButtonFlags_NoFocus                       = bit.lshift(1, 22)
+
+ImGuiButtonFlags_PressedOnMask_ = bit.bor(
+    ImGuiButtonFlags_PressedOnClick,
+    ImGuiButtonFlags_PressedOnClickRelease,
+    ImGuiButtonFlags_PressedOnClickReleaseAnywhere,
+    ImGuiButtonFlags_PressedOnRelease,
+    ImGuiButtonFlags_PressedOnDoubleClick,
+    ImGuiButtonFlags_PressedOnDragDropHold
+)
+
+ImGuiButtonFlags_PressedOnDefault_ = ImGuiButtonFlags_PressedOnClickRelease
+ImGuiButtonFlags_NoKeyModifiers    = ImGuiButtonFlags_NoKeyModsAllowed
+
+--- @alias ImGuiHoveredFlags int
+ImGuiHoveredFlags_None                         = 0
+ImGuiHoveredFlags_ChildWindows                 = bit.lshift(1, 0)
+ImGuiHoveredFlags_RootWindow                   = bit.lshift(1, 1)
+ImGuiHoveredFlags_AnyWindow                    = bit.lshift(1, 2)
+ImGuiHoveredFlags_NoPopupHierarchy             = bit.lshift(1, 3)
+ImGuiHoveredFlags_AllowWhenBlockedByPopup      = bit.lshift(1, 5)
+ImGuiHoveredFlags_AllowWhenBlockedByActiveItem = bit.lshift(1, 7)
+ImGuiHoveredFlags_AllowWhenOverlappedByItem    = bit.lshift(1, 8)
+ImGuiHoveredFlags_AllowWhenOverlappedByWindow  = bit.lshift(1, 9)
+ImGuiHoveredFlags_AllowWhenDisabled            = bit.lshift(1, 10)
+ImGuiHoveredFlags_NoNavOverride                = bit.lshift(1, 11)
+ImGuiHoveredFlags_ForTooltip                   = bit.lshift(1, 12)
+ImGuiHoveredFlags_Stationary                   = bit.lshift(1, 13)
+ImGuiHoveredFlags_DelayNone                    = bit.lshift(1, 14)
+ImGuiHoveredFlags_DelayShort                   = bit.lshift(1, 15)
+ImGuiHoveredFlags_DelayNormal                  = bit.lshift(1, 16)
+ImGuiHoveredFlags_NoSharedDelay                = bit.lshift(1, 17)
+
+ImGuiHoveredFlags_AllowWhenOverlapped = bit.bor(ImGuiHoveredFlags_AllowWhenOverlappedByItem, ImGuiHoveredFlags_AllowWhenOverlappedByWindow)
+ImGuiHoveredFlags_RectOnly            = bit.bor(ImGuiHoveredFlags_AllowWhenBlockedByPopup, ImGuiHoveredFlags_AllowWhenBlockedByActiveItem, ImGuiHoveredFlags_AllowWhenOverlapped)
+ImGuiHoveredFlags_RootAndChildWindows = bit.bor(ImGuiHoveredFlags_RootWindow, ImGuiHoveredFlags_ChildWindows)
+
+ImGuiHoveredFlags_DelayMask_ = bit.bor(
+    ImGuiHoveredFlags_DelayNone,
+    ImGuiHoveredFlags_DelayShort,
+    ImGuiHoveredFlags_DelayNormal,
+    ImGuiHoveredFlags_NoSharedDelay
+)
+
+ImGuiHoveredFlags_AllowedMaskForIsWindowHovered = bit.bor(
+    ImGuiHoveredFlags_ChildWindows,
+    ImGuiHoveredFlags_RootWindow,
+    ImGuiHoveredFlags_AnyWindow,
+    ImGuiHoveredFlags_NoPopupHierarchy,
+    ImGuiHoveredFlags_AllowWhenBlockedByPopup,
+    ImGuiHoveredFlags_AllowWhenBlockedByActiveItem,
+    ImGuiHoveredFlags_ForTooltip,
+    ImGuiHoveredFlags_Stationary
+)
+
+ImGuiHoveredFlags_AllowedMaskForIsItemHovered = bit.bor(
+    ImGuiHoveredFlags_AllowWhenBlockedByPopup,
+    ImGuiHoveredFlags_AllowWhenBlockedByActiveItem,
+    ImGuiHoveredFlags_AllowWhenOverlapped,
+    ImGuiHoveredFlags_AllowWhenDisabled,
+    ImGuiHoveredFlags_NoNavOverride,
+    ImGuiHoveredFlags_ForTooltip,
+    ImGuiHoveredFlags_Stationary,
+    ImGuiHoveredFlags_DelayMask_
+)
+
+--- @alias ImGuiKey int
+ImGuiKey_None           = 0
+ImGuiKey_NamedKey_BEGIN = 512
+
+ImGuiKey_Tab            = 512
+ImGuiKey_LeftArrow      = 513
+ImGuiKey_RightArrow     = 514
+ImGuiKey_UpArrow        = 515
+ImGuiKey_DownArrow      = 516
+ImGuiKey_PageUp         = 517
+ImGuiKey_PageDown       = 518
+ImGuiKey_Home           = 519
+ImGuiKey_End            = 520
+ImGuiKey_Insert         = 521
+ImGuiKey_Delete         = 522
+ImGuiKey_Backspace      = 523
+ImGuiKey_Space          = 524
+ImGuiKey_Enter          = 525
+ImGuiKey_Escape         = 526
+ImGuiKey_LeftCtrl       = 527
+ImGuiKey_LeftShift      = 528
+ImGuiKey_LeftAlt        = 529
+ImGuiKey_LeftSuper      = 530
+ImGuiKey_RightCtrl      = 531
+ImGuiKey_RightShift     = 532
+ImGuiKey_RightAlt       = 533
+ImGuiKey_RightSuper     = 534
+ImGuiKey_Menu           = 535
+ImGuiKey_0              = 536
+ImGuiKey_1              = 537
+ImGuiKey_2              = 538
+ImGuiKey_3              = 539
+ImGuiKey_4              = 540
+ImGuiKey_5              = 541
+ImGuiKey_6              = 542
+ImGuiKey_7              = 543
+ImGuiKey_8              = 544
+ImGuiKey_9              = 545
+ImGuiKey_A              = 546
+ImGuiKey_B              = 547
+ImGuiKey_C              = 548
+ImGuiKey_D              = 549
+ImGuiKey_E              = 550
+ImGuiKey_F              = 551
+ImGuiKey_G              = 552
+ImGuiKey_H              = 553
+ImGuiKey_I              = 554
+ImGuiKey_J              = 555
+ImGuiKey_K              = 556
+ImGuiKey_L              = 557
+ImGuiKey_M              = 558
+ImGuiKey_N              = 559
+ImGuiKey_O              = 560
+ImGuiKey_P              = 561
+ImGuiKey_Q              = 562
+ImGuiKey_R              = 563
+ImGuiKey_S              = 564
+ImGuiKey_T              = 565
+ImGuiKey_U              = 566
+ImGuiKey_V              = 567
+ImGuiKey_W              = 568
+ImGuiKey_X              = 569
+ImGuiKey_Y              = 570
+ImGuiKey_Z              = 571
+ImGuiKey_F1             = 572
+ImGuiKey_F2             = 573
+ImGuiKey_F3             = 574
+ImGuiKey_F4             = 575
+ImGuiKey_F5             = 576
+ImGuiKey_F6             = 577
+ImGuiKey_F7             = 578
+ImGuiKey_F8             = 579
+ImGuiKey_F9             = 580
+ImGuiKey_F10            = 581
+ImGuiKey_F11            = 582
+ImGuiKey_F12            = 583
+ImGuiKey_F13            = 584
+ImGuiKey_F14            = 585
+ImGuiKey_F15            = 586
+ImGuiKey_F16            = 587
+ImGuiKey_F17            = 588
+ImGuiKey_F18            = 589
+ImGuiKey_F19            = 590
+ImGuiKey_F20            = 591
+ImGuiKey_F21            = 592
+ImGuiKey_F22            = 593
+ImGuiKey_F23            = 594
+ImGuiKey_F24            = 595
+ImGuiKey_Apostrophe     = 596
+ImGuiKey_Comma          = 597
+ImGuiKey_Minus          = 598
+ImGuiKey_Period         = 599
+ImGuiKey_Slash          = 600
+ImGuiKey_Semicolon      = 601
+ImGuiKey_Equal          = 602
+ImGuiKey_LeftBracket    = 603
+ImGuiKey_Backslash      = 604
+ImGuiKey_RightBracket   = 605
+ImGuiKey_GraveAccent    = 606
+ImGuiKey_CapsLock       = 607
+ImGuiKey_ScrollLock     = 608
+ImGuiKey_NumLock        = 609
+ImGuiKey_PrintScreen    = 610
+ImGuiKey_Pause          = 611
+ImGuiKey_Keypad0        = 612
+ImGuiKey_Keypad1        = 613
+ImGuiKey_Keypad2        = 614
+ImGuiKey_Keypad3        = 615
+ImGuiKey_Keypad4        = 616
+ImGuiKey_Keypad5        = 617
+ImGuiKey_Keypad6        = 618
+ImGuiKey_Keypad7        = 619
+ImGuiKey_Keypad8        = 620
+ImGuiKey_Keypad9        = 621
+ImGuiKey_KeypadDecimal  = 622
+ImGuiKey_KeypadDivide   = 623
+ImGuiKey_KeypadMultiply = 624
+ImGuiKey_KeypadSubtract = 625
+ImGuiKey_KeypadAdd      = 626
+ImGuiKey_KeypadEnter    = 627
+ImGuiKey_KeypadEqual    = 628
+ImGuiKey_AppBack        = 629
+ImGuiKey_AppForward     = 630
+ImGuiKey_Oem102         = 631
+
+ImGuiKey_GamepadStart       = 632
+ImGuiKey_GamepadBack        = 633
+ImGuiKey_GamepadFaceLeft    = 634
+ImGuiKey_GamepadFaceRight   = 635
+ImGuiKey_GamepadFaceUp      = 636
+ImGuiKey_GamepadFaceDown    = 637
+ImGuiKey_GamepadDpadLeft    = 638
+ImGuiKey_GamepadDpadRight   = 639
+ImGuiKey_GamepadDpadUp      = 640
+ImGuiKey_GamepadDpadDown    = 641
+ImGuiKey_GamepadL1          = 642
+ImGuiKey_GamepadR1          = 643
+ImGuiKey_GamepadL2          = 644
+ImGuiKey_GamepadR2          = 645
+ImGuiKey_GamepadL3          = 646
+ImGuiKey_GamepadR3          = 647
+ImGuiKey_GamepadLStickLeft  = 648
+ImGuiKey_GamepadLStickRight = 649
+ImGuiKey_GamepadLStickUp    = 650
+ImGuiKey_GamepadLStickDown  = 651
+ImGuiKey_GamepadRStickLeft  = 652
+ImGuiKey_GamepadRStickRight = 653
+ImGuiKey_GamepadRStickUp    = 654
+ImGuiKey_GamepadRStickDown  = 655
+
+ImGuiKey_MouseLeft   = 656
+ImGuiKey_MouseRight  = 657
+ImGuiKey_MouseMiddle = 658
+ImGuiKey_MouseX1     = 659
+ImGuiKey_MouseX2     = 660
+ImGuiKey_MouseWheelX = 661
+ImGuiKey_MouseWheelY = 662
+
+ImGuiKey_ReservedForModCtrl  = 663
+ImGuiKey_ReservedForModShift = 664
+ImGuiKey_ReservedForModAlt   = 665
+ImGuiKey_ReservedForModSuper = 666
+
+ImGuiKey_NamedKey_END   = 667
+ImGuiKey_NamedKey_COUNT = ImGuiKey_NamedKey_END - ImGuiKey_NamedKey_BEGIN
+
+ImGuiMod_None  = 0
+ImGuiMod_Ctrl  = bit.lshift(1, 12)
+ImGuiMod_Shift = bit.lshift(1, 13)
+ImGuiMod_Alt   = bit.lshift(1, 14)
+ImGuiMod_Super = bit.lshift(1, 15)
+ImGuiMod_Mask_ = 0xF000
 
 --- @enum ImGuiBackendFlags
 ImGuiBackendFlags = {

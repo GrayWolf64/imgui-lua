@@ -7,4 +7,5 @@
 5. Project file structure. `include` & preprocessor usage.
     Use `getfenv` and `setfenv`?
 6. *imgui_pp* pragma once, process_file with file.Write
-7. Deal with GC?
+7. Deal with GC? Optimize?
+8. Exposed a lot of globals. Quite messy.
