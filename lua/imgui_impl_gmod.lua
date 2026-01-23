@@ -6,6 +6,7 @@
 local cam     = cam
 local render  = render
 local surface = surface
+local mesh    = mesh
 
 local ImGui_ImplGMOD_DestroyTexture
 local ImGui_ImplGMOD_UpdateTexture
@@ -133,6 +134,10 @@ local function ImGui_ImplGMOD_NewFrame()
     end
 end
 
+local clip_min = ImVec2()
+local clip_max = ImVec2()
+local clip_off = ImVec2()
+
 local function ImGui_ImplGMOD_RenderDrawData(draw_data)
     local bd = ImGui_ImplGMOD_GetBackendData()
 
@@ -148,9 +153,19 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
         end
     end
 
+    clip_off.x = draw_data.DisplayPos.x; clip_off.y = draw_data.DisplayPos.y
+
     for _, draw_list in draw_data.CmdLists:iter() do
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.ElemCount > 0 then
+                clip_min.x = pcmd.ClipRect.x - clip_off.x; clip_min.y = pcmd.ClipRect.y - clip_off.y
+                clip_max.x = pcmd.ClipRect.z - clip_off.x; clip_max.y = pcmd.ClipRect.w - clip_off.y
+                if clip_max.x <= clip_min.x or clip_max.y <= clip_min.y then
+                    continue
+                end
+
+                render.SetScissorRect(clip_min.x, clip_min.y, clip_max.x, clip_max.y, true)
+
                 for i = 0, pcmd.ElemCount - 1, 3 do
                     local idx0 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 1 + i]
                     local idx1 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 2 + i]
@@ -183,6 +198,8 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
                     mesh.End()
                 end
+
+                render.SetScissorRect(0, 0, 0, 0, false)
             end
         end
     end

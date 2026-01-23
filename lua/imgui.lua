@@ -598,10 +598,14 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
 end
 
 function ImGui.ItemSize(size, text_baseline_y)
+    if text_baseline_y == nil then text_baseline_y = -1.0 end
+
     local g = GImGui
     local window = g.CurrentWindow
 
-    if window.SkipItems then return end
+    if window.SkipItems then
+        return
+    end
 
     local offset_to_match_baseline_y
     if text_baseline_y >= 0 then
@@ -621,8 +625,8 @@ function ImGui.ItemSize(size, text_baseline_y)
 
     window.DC.CursorPosPrevLine.x = window.DC.CursorPos.x + size.x
     window.DC.CursorPosPrevLine.y = line_y1
-    window.DC.CursorPos.x = ImTrunc(window.Pos.x + window.DC.Indent.x + window.DC.ColumnsOffset.x)
-    window.DC.CursorPos.y = ImTrunc(line_y1 + line_height + g.Style.ItemSpacing.y)
+    window.DC.CursorPos.x = IM_TRUNC(window.Pos.x + window.DC.Indent.x + window.DC.ColumnsOffset.x)
+    window.DC.CursorPos.y = IM_TRUNC(line_y1 + line_height + g.Style.ItemSpacing.y)
     window.DC.CursorMaxPos.x = ImMax(window.DC.CursorMaxPos.x, window.DC.CursorPosPrevLine.x)
     window.DC.CursorMaxPos.y = ImMax(window.DC.CursorMaxPos.y, window.DC.CursorPos.y - g.Style.ItemSpacing.y)
 
@@ -2101,9 +2105,9 @@ function ImGui.GetCurrentWindow()
     return g.CurrentWindow
 end
 
---- @param clip_rect_min                    ImVec2
---- @param clip_rect_max                    ImVec2
---- @param intersect_with_current_clip_rect bool
+--- @param clip_rect_min                     ImVec2
+--- @param clip_rect_max                     ImVec2
+--- @param intersect_with_current_clip_rect? bool
 function ImGui.PushClipRect(clip_rect_min, clip_rect_max, intersect_with_current_clip_rect)
     local window = ImGui.GetCurrentWindow()
     window.DrawList:PushClipRect(clip_rect_min, clip_rect_max, intersect_with_current_clip_rect)
