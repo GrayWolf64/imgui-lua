@@ -508,7 +508,7 @@ local function CreateNewWindow(name, flags)
     return window
 end
 
---- void ImGui::KeepAliveID(ImGuiID id)
+--- @param id ImGuiID
 function ImGui.KeepAliveID(id)
     local g = GImGui
 
@@ -521,10 +521,24 @@ function ImGui.KeepAliveID(id)
     end
 end
 
-local function IsMouseHoveringRect(r_min, r_max)
-    local rect_clipped = ImRect(r_min, r_max)
+--- @param r_min  ImVec2
+--- @param r_max  ImVec2
+--- @param clip?  bool
+local function IsMouseHoveringRect(r_min, r_max, clip)
+    if clip == nil then clip = true end
 
-    return rect_clipped:contains_point(GImGui.IO.MousePos)
+    local g = GImGui
+
+    local rect_clipped = ImRect(r_min, r_max)
+    if clip then
+        rect_clipped:ClipWith(g.CurrentWindow.ClipRect)
+    end
+
+    if not rect_clipped:ContainsWithPad(g.IO.MousePos, g.Style.TouchExtraPadding) then
+        return false
+    end
+
+    return true
 end
 
 function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
@@ -717,36 +731,69 @@ function ImGui.FocusWindow(window, flags) -- TODO:
 end
 
 --- void ImGui::SetFocusID
+function ImGui.SetFocusID(id, window)
+    local g = GImGui
+    IM_ASSERT(id ~= 0)
+    -- TODO:
+end
 
---- void ImGui::StopMouseMovingWindow()
-local function StopMouseMovingWindow()
+function ImGui.StopMouseMovingWindow()
     GImGui.MovingWindow = nil
 end
 
---- void ImGui::SetActiveID
+--- @param id      ImGuiID
+--- @param window? ImGuiWindow
 function ImGui.SetActiveID(id, window)
     local g = GImGui
 
     if g.ActiveId ~= 0 then
         g.DeactivatedItemData.ID = g.ActiveId
-        -- g.DeactivatedItemData.ElapseFrame =
-        -- g.DeactivatedItemData.HasBeenEditedBefore =
+        if g.LastItemData.ID == g.ActiveId then
+            g.DeactivatedItemData.ElapseFrame = g.FrameCount
+        else
+            g.DeactivatedItemData.ElapseFrame = g.FrameCount + 1
+        end
+        g.DeactivatedItemData.HasBeenEditedBefore = g.ActiveIdHasBeenEditedBefore
         g.DeactivatedItemData.IsAlive = (g.ActiveIdIsAlive == g.ActiveId)
 
-        if g.MovingWindow and (g.ActiveId == g.MovingWindow.MoveID) then
+        if g.MovingWindow and (g.ActiveId == g.MovingWindow.MoveId) then
             print("SetActiveID() cancel MovingWindow")
-            StopMouseMovingWindow()
+            ImGui.StopMouseMovingWindow()
         end
     end
 
     g.ActiveIdIsJustActivated = (g.ActiveId ~= id)
+    if (g.ActiveIdIsJustActivated) then
+        -- IMGUI_DEBUG_LOG_ACTIVEID("SetActiveID() old:0x%08X (window \"%s\") -> new:0x%08X (window \"%s\")\n", g.ActiveId, g.ActiveIdWindow ? g.ActiveIdWindow->Name : "", id, window ? window->Name : "")
+        g.ActiveIdTimer = 0.0
+        g.ActiveIdHasBeenPressedBefore = false
+        g.ActiveIdHasBeenEditedBefore = false
+        g.ActiveIdMouseButton = -1
 
+        if id ~= 0 then
+            g.LastActiveId = id
+            g.LastActiveIdTimer = 0.0
+        end
+    end
     g.ActiveId = id
-    g.ActiveIDWindow = window
-
+    g.ActiveIdAllowOverlap = false
+    g.ActiveIdNoClearOnFocusLoss = false
+    g.ActiveIdWindow = window
+    g.ActiveIdHasBeenEditedThisFrame = false
+    g.ActiveIdFromShortcut = false
+    g.ActiveIdDisabledId = 0
     if id ~= 0 then
         g.ActiveIdIsAlive = id
+        if g.NavActivateId == id or g.NavJustMovedToId == id then
+            g.ActiveIdSource = g.NavInputSource
+        else
+            g.ActiveIdSource = ImGuiInputSource_Mouse
+        end
+        IM_ASSERT(g.ActiveIdSource ~= ImGuiInputSource_None)
     end
+
+    g.ActiveIdUsingNavDirMask = 0x00
+    g.ActiveIdUsingAllKeyboardKeys = false
 end
 
 function ImGui.ClearActiveID()
@@ -779,8 +826,12 @@ end
 --- @param id ImGuiID
 function ImGui.SetHoveredID(id)
     local g = GImGui
-
     g.HoveredId = id
+    g.HoveredIdAllowOverlap = false
+    if id ~= 0 and g.HoveredIdPreviousFrame ~= id then
+        g.HoveredIdTimer = 0.0
+        g.HoveredIdNotActiveTimer = 0.0
+    end
 end
 
 --- @param user_flags   ImGuiHoveredFlags
@@ -793,7 +844,7 @@ local function ApplyHoverFlagsForTooltip(user_flags, shared_flags)
 end
 
 --- @param flags ImGuiHoveredFlags
-function ImGui.IsItemHovered(flags)
+function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted here
     if flags == nil then flags = 0 end
 
     local g = GImGui
@@ -886,7 +937,7 @@ function ImGui.IsItemHovered(flags)
     return true
 end
 
---- bool ImGui::ItemHoverable
+--- TODO:
 function ImGui.ItemHoverable(id, bb)
     local g = GImGui
 
@@ -1059,6 +1110,13 @@ function MT.ImGuiIO:SetAppAcceptingEvents(accepting_events)
     self.AppAcceptingEvents = accepting_events
 end
 
+--- @param source ImGuiMouseSource
+function MT.ImGuiIO:AddMouseSourceEvent(source)
+    IM_ASSERT(self.Ctx ~= nil)
+    local g = self.Ctx
+    g.InputEventsNextMouseSource = source
+end
+
 --- @param x float
 --- @param y float
 function MT.ImGuiIO:AddMousePosEvent(x, y)
@@ -1167,16 +1225,36 @@ function MT.ImGuiIO:AddMouseWheelEvent(wheel_x, wheel_y)
     g.InputEventsQueue:push_back(e)
 end
 
---- @param ctx ImGuiContext
---- @param key ImGuiKey
+--- @param ctx? ImGuiContext
+--- @param key  ImGuiKey
 --- @return ImGuiKeyData
 function ImGui.GetKeyData(ctx, key)
+    if ctx == nil then ctx = GImGui end
+
     if bit.band(key, ImGuiMod_Mask_) ~= 0 then
         key = ImGui.ConvertSingleModFlagToKey(key)
     end
 
     IM_ASSERT(ImGui.IsNamedKey(key), "Support for user key indices was dropped in favor of ImGuiKey. Please update backend & user code.")
-    return g.IO.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+    return ctx.IO.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+end
+
+--- @param key      ImGuiKey
+--- @param owner_id ImGuiID
+--- @param flags?   ImGuiInputFlags
+function ImGui.SetKeyOwner(key, owner_id, flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui --- @cast g ImGuiContext
+    IM_ASSERT(ImGui.IsNamedKeyOrMod(key) and (owner_id ~= ImGuiKeyOwner_Any or (bit.band(flags, bit.bor(ImGuiInputFlags_LockThisFrame, ImGuiInputFlags_LockUntilRelease)) ~= 0)), "Can only use _Any with _LockXXX flags (to eat a key away without an ID to retrieve it)")
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags_SupportedBySetKeyOwner)) == 0, "Passing flags not supported by this function!")
+
+    local owner_data = ImGui.GetKeyOwnerData(g, key)
+    owner_data.OwnerCurr = owner_id
+    owner_data.OwnerNext = owner_id
+
+    owner_data.LockUntilRelease = (bit.band(flags, ImGuiInputFlags_LockUntilRelease) ~= 0)
+    owner_data.LockThisFrame = (bit.band(flags, ImGuiInputFlags_LockThisFrame) ~= 0) or owner_data.LockUntilRelease
 end
 
 --- @param key      ImGuiKey
@@ -1210,6 +1288,21 @@ function ImGui.TestKeyOwner(key, owner_id)
     return true
 end
 
+--- @param key       ImGuiKey
+--- @param owner_id? ImGuiID
+function ImGui.IsKeyDown(key, owner_id)
+    if owner_id == nil then owner_id = ImGuiKeyOwner_Any end
+
+    local key_data = ImGui.GetKeyData(nil, key)
+    if not key_data.Down then
+        return false
+    end
+    if not ImGui.TestKeyOwner(key, owner_id) then
+        return false
+    end
+    return true
+end
+
 --- @param t0           float
 --- @param t1           float
 --- @param repeat_delay float
@@ -1240,6 +1333,14 @@ function ImGui.CalcTypematicRepeatAmount(t0, t1, repeat_delay, repeat_rate)
     end
 
     return count_t1 - count_t0
+end
+
+--- @param mouse_pos? ImVec2
+function ImGui.IsMousePosValid(mouse_pos)
+    local MOUSE_INVALID = -256000.0
+    local p
+    if mouse_pos then p = mouse_pos else p = GImGui.IO.MousePos end
+    return p.x >= MOUSE_INVALID and p.y >= MOUSE_INVALID
 end
 
 --- bool ImGui::IsMouseDown
@@ -1293,6 +1394,61 @@ function ImGui.IsMouseReleased(button, owner_id)
     local g = GImGui
     IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
     return g.IO.MouseReleased[button] and ImGui.TestKeyOwner(ImGui.MouseButtonToKey(button), owner_id)
+end
+
+--- @param trickle_fast_inputs bool
+function ImGui.UpdateInputEvents(trickle_fast_inputs)
+    local g = GImGui
+    local io = g.IO
+
+    local trickle_interleaved_nonchar_keys_and_text = trickle_fast_inputs and g.WantTextInputNextFrame == 1
+
+    local mouse_moved          = false
+    local mouse_wheeled        = false
+    local key_changed          = false
+    local key_changed_nonchar  = false
+    local text_inputted        = false
+    local mouse_button_changed = 0x00
+
+    local event_n = 1
+    while event_n <= g.InputEventsQueue.Size do
+        local e = g.InputEventsQueue.Data[event_n]
+        if e.Type == ImGuiInputEventType_MousePos then
+            if g.IO.WantSetMousePos then
+                continue
+            end
+            if trickle_fast_inputs and (mouse_button_changed ~= 0 or mouse_wheeled or key_changed or text_inputted) then
+                break
+            end
+            local event_pos = ImVec2(e.MousePos.PosX, e.MousePos.PosY)
+            io.MousePos =  event_pos
+            io.MouseSource = e.MousePos.MouseSource
+            mouse_moved = true
+        elseif e.Type == ImGuiInputEventType_MouseButton then
+            local button = e.MouseButton.Button
+            IM_ASSERT(button >= 0 and button < ImGuiMouseButton_COUNT)
+            if trickle_fast_inputs and ((bit.band(mouse_button_changed, bit.lshift(1, button)) ~= 0) or mouse_wheeled) then
+                break
+            end
+            if trickle_fast_inputs and e.MouseButton.MouseSource == ImGuiMouseSource_TouchScreen and mouse_moved then
+                break
+            end
+
+            io.MouseDown[button] = e.MouseButton.Down
+            io.MouseSource = e.MouseButton.MouseSource
+            mouse_button_changed = bit.bor(mouse_button_changed, bit.lshift(1, button))
+        end
+
+        event_n = event_n + 1
+    end
+
+    if event_n == g.InputEventsQueue.Size + 1 then
+        g.InputEventsQueue:resize(0)
+    else
+        for i = 1, event_n - 1 do
+            g.InputEventsQueue:erase(1)
+        end
+    end
 end
 
 #IMGUI_INCLUDE "imgui_widgets.lua"
@@ -1470,7 +1626,7 @@ local function UpdateWindowManualResize(window, resize_grip_col)
     local min_size = g.Style.WindowMinSize
     local max_size = {x = FLT_MAX, y = FLT_MAX}
 
-    local clamp_rect = ImRect(window.Pos + min_size, window.Pos + max_size) -- visibility rect?
+    local clamp_rect = ImRect(window.Pos + min_size, window.Pos + max_size) -- TODO: visibility rect?
 
     for i = 1, #ImResizeGripDef do
         local corner_pos = ImResizeGripDef[i].CornerPos
@@ -1485,8 +1641,8 @@ local function UpdateWindowManualResize(window, resize_grip_col)
 
         local resize_grip_id = window:GetID(tostring(i))
 
-        ImGui.ItemAdd(resize_rect, resize_grip_id)
-        local pressed, hovered, held = ImGui.ButtonBehavior(resize_rect, resize_grip_id)
+        ImGui.ItemAdd(resize_rect, resize_grip_id, nil, ImGuiItemFlags_NoNav)
+        local pressed, hovered, held = ImGui.ButtonBehavior(resize_rect, resize_grip_id, bit.bor(ImGuiButtonFlags_FlattenChildren, ImGuiButtonFlags_NoNavFocus))
 
         if hovered or held then
             if i == 1 then
@@ -1496,13 +1652,17 @@ local function UpdateWindowManualResize(window, resize_grip_col)
             end
         end
 
+        if held and g.IO.MouseDoubleClicked[0] then
+            -- TODO:
+        end
+
         if held then
             local clamp_min = ImVec2((corner_pos.x == 1.0) and clamp_rect.Min.x or -FLT_MAX, (corner_pos.y == 1.0) and clamp_rect.Min.y or -FLT_MAX)
             local clamp_max = ImVec2((corner_pos.x == 0.0) and clamp_rect.Max.x or FLT_MAX, (corner_pos.y == 0.0) and clamp_rect.Max.y or FLT_MAX)
 
             local corner_target = ImVec2(
-                g.IO.MousePos.x - g.ActiveIDClickOffset.x + ImLerp(inner_dir.x * grip_hover_outer_size, inner_dir.x * -grip_hover_inner_size, corner_pos.x),
-                g.IO.MousePos.y - g.ActiveIDClickOffset.y + ImLerp(inner_dir.y * grip_hover_outer_size, inner_dir.y * -grip_hover_inner_size, corner_pos.y)
+                g.IO.MousePos.x - g.ActiveIdClickOffset.x + ImLerp(inner_dir.x * grip_hover_outer_size, inner_dir.x * -grip_hover_inner_size, corner_pos.x),
+                g.IO.MousePos.y - g.ActiveIdClickOffset.y + ImLerp(inner_dir.y * grip_hover_outer_size, inner_dir.y * -grip_hover_inner_size, corner_pos.y)
             )
 
             corner_target.x = ImClamp(corner_target.x, clamp_min.x, clamp_max.x)
@@ -1715,7 +1875,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
     local window_border_size = window.WindowBorderSize
 
     if window.Collapsed then
-        -- TODO: 
+        -- TODO:
         RenderFrame(title_bar_rect.Min, title_bar_rect.Max, g.Style.Colors.TitleBgCollapsed, true, 0)
     else
         -- Title bar
@@ -1812,10 +1972,36 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open
     local clip_r = ImRect(layout_r.Min.x, layout_r.Min.y, ImMin(layout_r.Max.x + g.Style.ItemInnerSpacing.x, title_bar_rect.Max.x), layout_r.Max.y)
 
     -- if bit.band(flags, ImGuiWindowFlags_UnsavedDocument) ~= 0 then
-    -- TODO: 
+    -- TODO:
     -- end
 
     ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, 1, nil, text_size, style.WindowTitleAlign, clip_r)
+end
+
+--- @param window         ImGuiWindow
+--- @param flags          ImGuiWindowFlags
+--- @param parent_window? ImGuiWindow
+function ImGui.UpdateWindowParentAndRootLinks(window, flags, parent_window)
+    window.ParentWindow                   = parent_window
+    window.RootWindow                     = window
+    window.RootWindowPopupTree            = window
+    window.RootWindowForTitleBarHighlight = window
+    window.RootWindowForNav               = window
+
+    if parent_window and (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0) and (bit.band(flags, ImGuiWindowFlags_Tooltip) == 0) then
+        window.RootWindow = parent_window.RootWindow
+    end
+    if parent_window and (bit.band(flags, ImGuiWindowFlags_Popup) ~= 0) then
+        window.RootWindowPopupTree = parent_window.RootWindowPopupTree
+    end
+    if parent_window and (bit.band(flags, ImGuiWindowFlags_Modal) == 0) and (bit.band(flags, bit.bor(ImGuiWindowFlags_ChildWindow, ImGuiWindowFlags_Popup, ImGuiWindowFlags_Tooltip)) ~= 0) then
+        window.RootWindowForTitleBarHighlight = parent_window.RootWindowForTitleBarHighlight
+    end
+
+    while bit.band(window.RootWindowForNav.ChildFlags, ImGuiChildFlags_NavFlattened) ~= 0 do
+        IM_ASSERT(window.RootWindowForNav.ParentWindow ~= nil)
+        window.RootWindowForNav = window.RootWindowForNav.ParentWindow
+    end
 end
 
 --- static void SetCurrentWindow
@@ -1936,66 +2122,113 @@ function ImGui.SetNextWindowSize(size, cond)
     g.NextWindowData.SizeCond = (cond ~= 0) and cond or ImGuiCond_Always
 end
 
---- void ImGui::StartMouseMovingWindow
-local function StartMouseMovingWindow(window)
+function ImGui.SetActiveIdUsingAllKeyboardKeys()
     local g = GImGui
-
-    ImGui.FocusWindow(window)
-    ImGui.SetActiveID(window.MoveID, window)
-
-    g.ActiveIDClickOffset = g.IO.MouseClickedPos[1] - window.Pos
-
-    g.MovingWindow = window
+    IM_ASSERT(g.ActiveId ~= 0)
+    -- TODO: 
 end
 
---- void ImGui::UpdateMouseMovingWindowNewFrame
+--- @param window ImGuiWindow
+local function StartMouseMovingWindow(window)
+    local g = GImGui
+    ImGui.FocusWindow(window)
+    ImGui.SetActiveID(window.MoveId, window)
+    if (g.IO.ConfigNavCursorVisibleAuto) then
+        g.NavCursorVisible = false
+    end
+    g.ActiveIdClickOffset = g.IO.MouseClickedPos[0] - window.RootWindow.Pos
+    g.ActiveIdNoClearOnFocusLoss = true
+    ImGui.SetActiveIdUsingAllKeyboardKeys()
+
+    local can_move_window = true
+    if bit.band(window.Flags, ImGuiWindowFlags_NoMove) ~= 0 or bit.band(window.RootWindow.Flags, ImGuiWindowFlags_NoMove) ~= 0 then
+        can_move_window = false
+    end
+    if can_move_window then
+        g.MovingWindow = window
+    end
+end
+
 function ImGui.UpdateMouseMovingWindowNewFrame()
     local g = GImGui
-    local window = g.MovingWindow
 
-    if window then
+    if g.MovingWindow then
         ImGui.KeepAliveID(g.ActiveId)
+        IM_ASSERT(g.MovingWindow and g.MovingWindow.RootWindow)
 
-        if g.IO.MouseDown[1] then
-            ImGui.SetWindowPos(window, g.IO.MousePos - g.ActiveIDClickOffset)
-
+        local moving_window = g.MovingWindow.RootWindow
+        if g.IO.MouseDown[0] and ImGui.IsMousePosValid(g.IO.MousePos) then
+            ImGui.SetWindowPos(moving_window, g.IO.MousePos - g.ActiveIdClickOffset, ImGuiCond_Always)
             ImGui.FocusWindow(g.MovingWindow)
         else
-            StopMouseMovingWindow()
+            ImGui.StopMouseMovingWindow()
             ImGui.ClearActiveID()
         end
     else
-        if (g.ActiveIDWindow and g.ActiveIDWindow.MoveID == g.ActiveId) then
+        if (g.ActiveIdWindow and g.ActiveIdWindow.MoveId == g.ActiveId) then
             ImGui.KeepAliveID(g.ActiveId)
 
-            if g.IO.MouseDown[1] then
+            if not g.IO.MouseDown[0] then
                 ImGui.ClearActiveID()
             end
         end
     end
 end
 
---- ImDrawListSharedData* ImGui::GetDrawListSharedData()
 function ImGui.GetDrawListSharedData()
     return GImGui.DrawListSharedData
 end
 
---- void ImGui::UpdateMouseMovingWindowEndFrame()
+function ImGui.IsPopupOpen(id, popup_flags)
+    return false -- TODO:
+end
+
 function ImGui.UpdateMouseMovingWindowEndFrame()
     local g = GImGui
 
-    if g.ActiveId ~= 0 or g.HoveredId ~= 0 then return end
+    if g.ActiveId ~= 0 or (g.HoveredId ~= 0 and not g.HoveredIdIsDisabled) then
+        return
+    end
+
+    if g.NavWindow and g.NavWindow.Appearing then
+        return
+    end
 
     local hovered_window = g.HoveredWindow
 
-    if g.IO.MouseClicked[1] then
+    if g.IO.MouseClicked[0] then
+        local hovered_root
         if hovered_window then
+            hovered_root = hovered_window.RootWindow
+        else
+            hovered_root = nil
+        end
+        local is_closed_popup = hovered_root and (bit.band(hovered_root.Flags, ImGuiWindowFlags_Popup) ~= 0) and not ImGui.IsPopupOpen(hovered_root.PopupId, ImGuiPopupFlags_AnyPopupLevel)
+
+        if hovered_window ~= nil and not is_closed_popup then
             StartMouseMovingWindow(hovered_window)
-        else -- TODO: investigate elseif (hovered_window == nil and g.NavWindow == nil) 
-            ImGui.FocusWindow(nil)
-            g.ActiveIDWindow = nil
+
+            -- Cancel moving if clicked outside of title bar
+            if bit.band(hovered_window.BgClickFlags, ImGuiWindowBgClickFlags.Move) == 0 then  -- set by io.ConfigWindowsMoveFromTitleBarOnly
+                if bit.band(hovered_root.Flags, ImGuiWindowFlags_NoTitleBar) == 0 then
+                    if not hovered_root:TitleBarRect():Contains(g.IO.MouseClickedPos[0]) then
+                        g.MovingWindow = nil
+                    end
+                end
+            end
+
+            -- Cancel moving if clicked over an item which was disabled or inhibited by popups
+            -- (when g.HoveredIdIsDisabled == true && g.HoveredId == 0 we are inhibited by popups, when g.HoveredIdIsDisabled == true && g.HoveredId != 0 we are over a disabled item)
+            if g.HoveredIdIsDisabled then
+                g.MovingWindow = nil
+                g.ActiveIdDisabledId = g.HoveredId
+            end
+        elseif hovered_window == nil and g.NavWindow ~= nil then
+            ImGui.FocusWindow(nil, ImGuiFocusRequestFlags.UnlessBelowModal)
         end
     end
+
+    -- TODO: Right mouse button close popup
 end
 
 --- ImGui::FindWindowByID
@@ -2066,6 +2299,23 @@ function ImGui.Begin(name, p_open, flags)
         flags = window.Flags
     end
 
+    local parent_window_in_stack
+    if g.CurrentWindowStack:empty() then
+        parent_window_in_stack = nil
+    else
+        parent_window_in_stack = g.CurrentWindowStack:back().Window
+    end
+    local parent_window
+    if first_begin_of_the_frame then
+        if (bit.band(flags, bit.bor(ImGuiWindowFlags_ChildWindow, ImGuiWindowFlags_Popup, ImGuiWindowFlags_Tooltip)) ~= 0) then
+            parent_window = parent_window_in_stack
+        else
+            parent_window = nil
+        end
+    else
+        parent_window = window.ParentWindow
+    end
+
     if window.IDStack.Size == 0 then
         window.IDStack:push_back(window.ID)
     end
@@ -2079,6 +2329,10 @@ function ImGui.Begin(name, p_open, flags)
     window_stack_data.ParentLastItemDataBackup = g.LastItemData
     window_stack_data.DisabledOverrideReenable = (bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0) and (bit.band(g.CurrentItemFlags, ImGuiItemFlags_Disabled) ~= 0)
     window_stack_data.DisabledOverrideReenableAlphaBackup = 0.0
+
+    if first_begin_of_the_frame then
+        ImGui.UpdateWindowParentAndRootLinks(window, flags, parent_window)
+    end
 
     local window_pos_set_by_api = false
     local window_size_x_set_by_api = false
@@ -2249,7 +2503,7 @@ function ImGui.Begin(name, p_open, flags)
         ImGui.PushClipRect(host_rect.Min, host_rect.Max, false)
 
         do
-            local render_decorations_in_parent = false -- TODO: 
+            local render_decorations_in_parent = false -- TODO:
 
             local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
 
@@ -2340,7 +2594,21 @@ function ImGui.Begin(name, p_open, flags)
 
         -- TODO: SCROLL
 
-        RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
+        if bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0 then
+            RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
+        end
+
+        if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
+            window.BgClickFlags = parent_window.BgClickFlags
+        else
+            window.BgClickFlags = g.IO.ConfigWindowsMoveFromTitleBarOnly and ImGuiWindowBgClickFlags.None or ImGuiWindowBgClickFlags.Move
+        end
+
+        window.DC.WindowItemStatusFlags = ImGuiItemStatusFlags_None
+
+        if IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false) then
+            window.DC.WindowItemStatusFlags = bit.bor(window.DC.WindowItemStatusFlags, ImGuiItemStatusFlags_HoveredRect)
+        end
     else
         -- if (window->SkipRefresh)
         --     SetWindowActiveForSkipRefresh(window);
@@ -2356,8 +2624,6 @@ function ImGui.Begin(name, p_open, flags)
     window.WriteAccessed = false
     window.BeginCount = window.BeginCount + 1
     g.NextWindowData:ClearFlags()
-
-    -- TODO: parent_window
 
     return not window.Collapsed
 end
@@ -2392,32 +2658,72 @@ function ImGui.End()
     end
 end
 
-local function FindHoveredWindowEx()
+--- @param pos                            ImVec2
+--- @param find_first_and_in_any_viewport bool
+--- @return ImGuiWindow, ImGuiWindow?
+local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
     local g = GImGui
+    local hovered_window = nil
+    local hovered_window_under_moving_window = nil
 
-    g.HoveredWindow = nil
+    if not find_first_and_in_any_viewport and g.MovingWindow and bit.band(g.MovingWindow.Flags, ImGuiWindowFlags_NoMouseInputs) == 0 then
+        hovered_window = g.MovingWindow
+    end
 
+    local padding_regular = g.Style.TouchExtraPadding
+    local padding_for_resize = ImVec2()
+    padding_for_resize.x = ImMax(g.Style.TouchExtraPadding.x, g.Style.WindowBorderHoverPadding)
+    padding_for_resize.y = ImMax(g.Style.TouchExtraPadding.y, g.Style.WindowBorderHoverPadding)
+    local window
     for i = g.Windows.Size, 1, -1 do
-        local window = g.Windows:at(i)
+        window = g.Windows.Data[i]
+        if not window.WasActive or window.Hidden then
+            continue
+        end
+        if bit.band(window.Flags, ImGuiWindowFlags_NoMouseInputs) ~= 0 then
+            continue
+        end
+        local hit_padding
+        if bit.band(window.Flags, bit.bor(ImGuiWindowFlags_NoResize, ImGuiWindowFlags_AlwaysAutoResize)) ~= 0 then
+            hit_padding = padding_regular
+        else
+            hit_padding = padding_for_resize
+        end
+        if not window.OuterRectClipped:ContainsWithPad(pos, hit_padding) then
+            continue
+        end
 
-        if not window or ((not window.WasActive) or window.Hidden) then continue end
+        if window.HitTestHoleSize.x ~= 0 then
+            -- TODO: hit test hole
+        end
 
-        local hit = IsMouseHoveringRect(window.Pos, window.Pos + window.Size)
-
-        if hit and g.HoveredWindow == nil then
-            g.HoveredWindow = window
-
+        if find_first_and_in_any_viewport then
+            hovered_window = window
             break
+        else
+            if hovered_window == nil then
+                hovered_window = window
+            end
+
+            if hovered_window_under_moving_window == nil and (not g.MovingWindow or window.RootWindow ~= g.MovingWindow.RootWindow) then
+                hovered_window_under_moving_window = window
+            end
+
+            if hovered_window and hovered_window_under_moving_window then
+                break
+            end
         end
     end
+
+    return hovered_window, hovered_window_under_moving_window
 end
 
---- void ImGui::UpdateHoveredWindowAndCaptureFlags
-function ImGui.UpdateHoveredWindowAndCaptureFlags()
+-- TODO:
+function ImGui.UpdateHoveredWindowAndCaptureFlags(mouse_pos)
     local g = GImGui
     local io = g.IO
 
-    FindHoveredWindowEx()
+    g.HoveredWindow, g.HoveredWindowUnderMovingWindow = FindHoveredWindowEx(mouse_pos, false)
 
     local mouse_earliest_down = -1
     local mouse_any_down = false
@@ -2444,28 +2750,130 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags()
     end
 end
 
---- TODO: 
+--- @param key          ImGuiKey
+--- @param v            bool
+--- @param analog_value float
+function ImGui.UpdateAliasKey(key, v, analog_value)
+    IM_ASSERT(ImGui.IsAliasKey(key))
+    local key_data = ImGui.GetKeyData(nil, key)
+    key_data.Down = v
+    key_data.AnalogValue = analog_value
+end
+
+function ImGui.GetMergedModsFromKeys()
+    local mods = 0
+
+    if ImGui.IsKeyDown(ImGuiMod_Ctrl) then mods  = bit.bor(mods, ImGuiMod_Ctrl) end
+    if ImGui.IsKeyDown(ImGuiMod_Shift) then mods = bit.bor(mods, ImGuiMod_Shift) end
+    if ImGui.IsKeyDown(ImGuiMod_Alt) then mods   = bit.bor(mods, ImGuiMod_Alt) end
+    if ImGui.IsKeyDown(ImGuiMod_Super) then mods = bit.bor(mods, ImGuiMod_Super) end
+
+    return mods
+end
+
+function ImGui.UpdateKeyboardInputs()
+    local g = GImGui
+    local io = g.IO
+
+    if bit.band(io.ConfigFlags, ImGuiConfigFlags_NoKeyboard) ~= 0 then
+        io:ClearInputKeys()
+    end
+
+    for n = 0, 2 do -- TODO: ImGuiMouseButton_COUNT - 1
+        ImGui.UpdateAliasKey(ImGui.MouseButtonToKey(n), io.MouseDown[n], io.MouseDown[n] and 1.0 or 0.0)
+    end
+    ImGui.UpdateAliasKey(ImGuiKey_MouseWheelX, io.MouseWheelH ~= 0.0, io.MouseWheelH)
+    ImGui.UpdateAliasKey(ImGuiKey_MouseWheelY, io.MouseWheel ~= 0.0, io.MouseWheel)
+
+    -- Synchronize io.KeyMods and io.KeyCtrl/io.KeyShift/etc. values
+    local prev_key_mods = io.KeyMods
+    io.KeyMods = ImGui.GetMergedModsFromKeys()
+    io.KeyCtrl = bit.band(io.KeyMods, ImGuiMod_Ctrl) ~= 0
+    io.KeyShift = bit.band(io.KeyMods, ImGuiMod_Shift) ~= 0
+    io.KeyAlt = bit.band(io.KeyMods, ImGuiMod_Alt) ~= 0
+    io.KeySuper = bit.band(io.KeyMods, ImGuiMod_Super) ~= 0
+    if prev_key_mods ~= io.KeyMods then
+        g.LastKeyModsChangeTime = g.Time
+    end
+    if prev_key_mods ~= io.KeyMods and prev_key_mods == 0 then
+        g.LastKeyModsChangeFromNoneTime = g.Time
+    end
+
+    -- Clear gamepad data if disabled
+    if bit.band(io.BackendFlags, ImGuiBackendFlags.HasGamepad) == 0 then
+        for key = ImGuiKey_Gamepad_BEGIN, ImGuiKey_Gamepad_END - 1 do
+            io.KeysData[key - ImGuiKey_NamedKey_BEGIN].Down = false
+            io.KeysData[key - ImGuiKey_NamedKey_BEGIN].AnalogValue = 0.0
+        end
+    end
+
+    -- Update keys
+    for key = ImGuiKey_NamedKey_BEGIN, ImGuiKey_NamedKey_END - 1 do
+        local key_data = io.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+        key_data.DownDurationPrev = key_data.DownDuration
+        if key_data.Down then
+            if key_data.DownDuration < 0.0 then
+                key_data.DownDuration = 0.0
+            else
+                key_data.DownDuration = key_data.DownDuration + io.DeltaTime
+            end
+        else
+            key_data.DownDuration = -1.0
+        end
+        if key_data.DownDuration == 0.0 then
+            if ImGui.IsKeyboardKey(key) then
+                g.LastKeyboardKeyPressTime = g.Time
+            elseif key == ImGuiKey_ReservedForModCtrl or key == ImGuiKey_ReservedForModShift or key == ImGuiKey_ReservedForModAlt or key == ImGuiKey_ReservedForModSuper then
+                g.LastKeyboardKeyPressTime = g.Time
+            end
+        end
+    end
+
+    -- Update keys/input owner (named keys only): one entry per key
+    for key = ImGuiKey_NamedKey_BEGIN, ImGuiKey_NamedKey_END - 1 do
+        local key_data = io.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+        local owner_data = g.KeysOwnerData[key - ImGuiKey_NamedKey_BEGIN]
+        owner_data.OwnerCurr = owner_data.OwnerNext
+        if not key_data.Down then -- Important: ownership is released on the frame after a release. Ensure a 'MouseDown -> CloseWindow -> MouseUp' chain doesn't lead to someone else seeing the MouseUp.
+            owner_data.OwnerNext = ImGuiKeyOwner_NoOwner
+        end
+        owner_data.LockThisFrame = owner_data.LockUntilRelease and key_data.Down
+        owner_data.LockUntilRelease = owner_data.LockUntilRelease and key_data.Down  -- Clear LockUntilRelease when key is not Down anymore
+    end
+
+    -- TODO: UpdateKeyRoutingTable(g.KeysRoutingTable)
+end
+
 function ImGui.UpdateMouseInputs()
     local g = GImGui
     local io = g.IO
 
-    io.MousePos.x = GetMouseX()
-    io.MousePos.y = GetMouseY()
+    io.MouseWheelRequestAxisSwap = io.KeyShift and not io.ConfigMacOSXBehaviors
+
+    -- Round mouse position to avoid spreading non-rounded position (e.g. UpdateManualResize doesn't support them well)
+    if (ImGui.IsMousePosValid(io.MousePos)) then
+        local x_val = ImFloor(io.MousePos.x)
+        local y_val = ImFloor(io.MousePos.y)
+
+        io.MousePos = ImVec2(x_val, y_val)
+        g.MouseLastValidPos = ImVec2(x_val, y_val)
+    end
+
+    -- If mouse just appeared or disappeared (usually denoted by -FLT_MAX components) we cancel out movement in MouseDelta
+    if (ImGui.IsMousePosValid(io.MousePos) and ImGui.IsMousePosValid(io.MousePosPrev)) then
+        io.MouseDelta = io.MousePos - io.MousePosPrev
+    else
+        io.MouseDelta = ImVec2(0.0, 0.0)
+    end
 
     for i = 0, 2 do -- IM_COUNTOF(io.MouseDown)
         io.MouseClicked[i] = io.MouseDown[i] and (io.MouseDownDuration[i] < 0)
         io.MouseClickedCount[i] = 0
         io.MouseReleased[i] = not io.MouseDown[i] and (io.MouseDownDuration[i] >= 0)
-
-        if io.MouseClicked[i] then
-            io.MouseClickedTime[i] = g.Time
-            io.MouseClickedPos[i] = ImVec2(io.MousePos.x, io.MousePos.y)
-        end
-
-        if io.MouseReleased[i] then
+        if (io.MouseReleased[i]) then
             io.MouseReleasedTime[i] = g.Time
         end
-
+        io.MouseDownDurationPrev[i] = io.MouseDownDuration[i]
         if io.MouseDown[i] then
             if io.MouseDownDuration[i] < 0 then
                 io.MouseDownDuration[i] = 0
@@ -2476,7 +2884,37 @@ function ImGui.UpdateMouseInputs()
             io.MouseDownDuration[i] = -1.0
         end
 
-        io.MouseDownDurationPrev[i] = io.MouseDownDuration[i]
+        if io.MouseClicked[i] then
+            local is_repeated_click = false
+            if (g.Time - io.MouseClickedTime[i]) < io.MouseDoubleClickTime then
+                local delta_from_click_pos
+                if ImGui.IsMousePosValid(io.MousePos) then
+                    delta_from_click_pos = io.MousePos - io.MouseClickedPos[i]
+                else
+                    delta_from_click_pos = ImVec2(0.0, 0.0)
+                end
+
+                if ImLengthSqr(delta_from_click_pos) < io.MouseDoubleClickMaxDist * io.MouseDoubleClickMaxDist then
+                    is_repeated_click = true
+                end
+            end
+
+            if is_repeated_click then
+                io.MouseClickedLastCount[i] = io.MouseClickedLastCount[i] + 1
+            else
+                io.MouseClickedLastCount[i] = 1
+            end
+
+            io.MouseClickedTime[i] = g.Time
+            io.MouseClickedPos[i] = io.MousePos
+            io.MouseClickedCount[i] = io.MouseClickedLastCount[i]
+        end
+
+        io.MouseDoubleClicked[i] = (io.MouseClickedCount[i] == 2)
+
+        if (io.MouseClicked[i]) then
+            g.NavHighlightItemUnderNav = false
+        end
     end
 end
 
@@ -2676,6 +3114,8 @@ function ImGui.NewFrame()
         g.IO.Framerate = FLT_MAX
     end
 
+    ImGui.UpdateInputEvents(g.IO.ConfigInputTrickleEventQueue)
+
     ImGui.UpdateViewportsNewFrame()
 
     ImGui.UpdateTexturesNewFrame()
@@ -2689,8 +3129,24 @@ function ImGui.NewFrame()
         viewport.DrawDataP.Valid = false
     end
 
+    -- Update HoveredId data
+    if not g.HoveredIdPreviousFrame then
+        g.HoveredIdTimer = 0.0
+    end
+    if not g.HoveredIdPreviousFrame or (g.HoveredId and g.ActiveId == g.HoveredId) then
+        g.HoveredIdNotActiveTimer = 0.0
+    end
+    if g.HoveredId then
+        g.HoveredIdTimer = g.HoveredIdTimer + g.IO.DeltaTime
+    end
+    if g.HoveredId and g.ActiveId ~= g.HoveredId then
+        g.HoveredIdNotActiveTimer = g.HoveredIdNotActiveTimer + g.IO.DeltaTime
+    end
+    g.HoveredIdPreviousFrame = g.HoveredId
+    g.HoveredIdPreviousFrameItemCount = 0
     g.HoveredId = 0
-    g.HoveredWindow = nil -- TODO: is this correct?
+    g.HoveredIdAllowOverlap = false
+    g.HoveredIdIsDisabled = false
 
     if (g.ActiveId ~= 0 and g.ActiveIdIsAlive ~= g.ActiveId and g.ActiveIdPreviousFrame == g.ActiveId) then
         print("NewFrame(): ClearActiveID() because it isn't marked alive anymore!")
@@ -2698,10 +3154,59 @@ function ImGui.NewFrame()
         ImGui.ClearActiveID()
     end
 
+    -- Update ActiveId data (clear reference to active widget if the widget isn't alive anymore)
+    if g.ActiveId then
+        g.ActiveIdTimer = g.ActiveIdTimer + g.IO.DeltaTime
+    end
+    g.LastActiveIdTimer = g.LastActiveIdTimer + g.IO.DeltaTime
     g.ActiveIdPreviousFrame = g.ActiveId
     g.ActiveIdIsAlive = 0
+    g.ActiveIdHasBeenEditedThisFrame = false
     g.ActiveIdIsJustActivated = false
+    if g.TempInputId ~= 0 and g.ActiveId ~= g.TempInputId then
+        g.TempInputId = 0
+    end
+    if g.ActiveId == 0 then
+        g.ActiveIdUsingNavDirMask = 0x00
+        g.ActiveIdUsingAllKeyboardKeys = false
+    end
+    if g.DeactivatedItemData.ElapseFrame < g.FrameCount then
+        g.DeactivatedItemData.ID = 0
+    end
+    g.DeactivatedItemData.IsAlive = false
 
+    -- Record when we have been stationary as this state is preserved while over same item.
+    -- FIXME: The way this is expressed means user cannot alter HoverStationaryDelay during the frame to use varying values.
+    -- To allow this we should store HoverItemMaxStationaryTime+ID and perform the >= check in IsItemHovered() function.
+    -- if g.HoverItemDelayId ~= 0 and g.MouseStationaryTimer >= g.Style.HoverStationaryDelay then
+    --     g.HoverItemUnlockedStationaryId = g.HoverItemDelayId
+    -- elseif g.HoverItemDelayId == 0 then
+    --     g.HoverItemUnlockedStationaryId = 0
+    -- end
+
+    -- if g.HoveredWindow ~= nil and g.MouseStationaryTimer >= g.Style.HoverStationaryDelay then
+    --     g.HoverWindowUnlockedStationaryId = g.HoveredWindow.ID
+    -- elseif g.HoveredWindow == nil then
+    --     g.HoverWindowUnlockedStationaryId = 0
+    -- end
+
+    -- -- Update hover delay for IsItemHovered() with delays and tooltips
+    -- g.HoverItemDelayIdPreviousFrame = g.HoverItemDelayId
+    -- if g.HoverItemDelayId ~= 0 then
+    --     g.HoverItemDelayTimer = g.HoverItemDelayTimer + g.IO.DeltaTime
+    --     g.HoverItemDelayClearTimer = 0.0
+    --     g.HoverItemDelayId = 0
+    -- elseif g.HoverItemDelayTimer > 0.0 then
+    --     -- This gives a little bit of leeway before clearing the hover timer, allowing mouse to cross gaps
+    --     -- We could expose 0.25f as style.HoverClearDelay but I am not sure of the logic yet, this is particularly subtle.
+    --     g.HoverItemDelayClearTimer = g.HoverItemDelayClearTimer + g.IO.DeltaTime
+    --     if g.HoverItemDelayClearTimer >= math.max(0.25, g.IO.DeltaTime * 2.0) then  -- ~7 frames at 30 Hz + allow for low framerate
+    --         g.HoverItemDelayTimer = 0.0
+    --         g.HoverItemDelayClearTimer = 0.0  -- May want a decaying timer, in which case need to clamp at max first, based on max of caller last requested timer.
+    --     end
+    -- end
+
+    ImGui.UpdateKeyboardInputs()
     ImGui.UpdateMouseInputs()
 
     -- TODO: GC
@@ -2714,7 +3219,7 @@ function ImGui.NewFrame()
         window.BeginCount = 0
     end
 
-    ImGui.UpdateHoveredWindowAndCaptureFlags()
+    ImGui.UpdateHoveredWindowAndCaptureFlags(g.IO.MousePos)
 
     ImGui.UpdateMouseMovingWindowNewFrame()
 
@@ -2733,6 +3238,7 @@ end
 
 function ImGui.EndFrame()
     local g = GImGui
+    IM_ASSERT(g.Initialized)
 
     if g.FrameCountEnded == g.FrameCount then
         return
@@ -2760,6 +3266,12 @@ function ImGui.EndFrame()
     for _, atlas in g.FontAtlases:iter() do
         atlas.Locked = false
     end
+
+    g.IO.MousePosPrev = g.IO.MousePos
+    g.IO.AppFocusLost = false
+    g.IO.MouseWheel = 0.0
+    g.IO.MouseWheelH = 0.0
+    g.IO.InputQueueCharacters:resize(0)
 end
 
 function ImGui.Render()

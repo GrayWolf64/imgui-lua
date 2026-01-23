@@ -23,6 +23,8 @@
 
 --- @alias ImGuiKeyChord int
 
+--- @alias ImGCFriendly function # I tag a function with this to mark that: it minimizes / avoids Lua table creation
+
 IM_UNICODE_CODEPOINT_INVALID = 0xFFFD
 IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 
@@ -726,6 +728,16 @@ function ImGuiKeyData()
     }
 end
 
+--- @alias ImGuiConfigFlags int
+ImGuiConfigFlags_None                   = 0
+ImGuiConfigFlags_NavEnableKeyboard      = bit.lshift(1, 0)  -- Master keyboard navigation enable flag. Enable full Tabbing + directional arrows + space/enter to activate.
+ImGuiConfigFlags_NavEnableGamepad       = bit.lshift(1, 1)  -- Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags_HasGamepad.
+ImGuiConfigFlags_NoMouse                = bit.lshift(1, 4)  -- Instruct dear imgui to disable mouse inputs and interactions.
+ImGuiConfigFlags_NoMouseCursorChange    = bit.lshift(1, 5)  -- Instruct backend to not alter mouse cursor shape and visibility. Use if the backend cursor changes are interfering with yours and you don't want to use SetMouseCursor() to change mouse cursor. You may want to honor requests from imgui by reading GetMouseCursor() yourself instead.
+ImGuiConfigFlags_NoKeyboard             = bit.lshift(1, 6)  -- Instruct dear imgui to disable keyboard inputs and interactions. This is done by ignoring keyboard events and clearing existing states.
+ImGuiConfigFlags_IsSRGB                 = bit.lshift(1, 20) -- Application is SRGB-aware.
+ImGuiConfigFlags_IsTouchScreen          = bit.lshift(1, 21) -- Application is using a touch screen instead of a mouse.
+
 --- @class ImGuiIO
 MT.ImGuiIO = {}
 MT.ImGuiIO.__index = MT.ImGuiIO
@@ -743,30 +755,45 @@ function ImGuiIO()
         KeyMods  = nil,
 
         BackendFlags = 0,
+        ConfigFlags  = 0,
 
         DeltaTime = 1.0 / 60.0,
 
         DisplayFramebufferScale = ImVec2(1.0, 1.0),
 
         MousePos = ImVec2(),
+        MousePosPrev = ImVec2(),
+
+        WantSetMousePos = false,
+
+        MouseDelta = ImVec2(),
 
         MouseDown             = {[0] = false, [1] = false, [2] = false},
 
         MouseWheel = 0,
         MouseWheelH = 0,
-        
+
         MouseCtrlLeftAsRightClick = false,
+
+        MouseWheelRequestAxisSwap = false,
+
+        ConfigMacOSXBehaviors = false,
+        ConfigNavCursorVisibleAuto = true,
+        ConfigInputTrickleEventQueue = true,
 
         MouseClicked          = {[0] = false, [1] = false, [2] = false},
         MouseReleased         = {[0] = false, [1] = false, [2] = false},
         MouseClickedCount     = {[0] =  0, [1] =  0, [2] =  0},
+        MouseClickedLastCount = {[0] =  0, [1] =  0, [2] =  0},
         MouseDownDuration     = {[0] = -1, [1] = -1, [2] = -1},
         MouseDownDurationPrev = {[0] = -1, [1] = -1, [2] = -1},
 
         MouseDownOwned    = {[0] = nil, [1] = nil, [2] = nil},
-        MouseClickedTime  = {[0] = nil, [1] = nil, [2] = nil},
-        MouseReleasedTime = {[0] = nil, [1] = nil, [2] = nil},
+        MouseClickedTime  = {[0] = 0, [1] = 0, [2] = 0},
+        MouseReleasedTime = {[0] = 0, [1] = 0, [2] = 0},
         MouseClickedPos   = {[0] = ImVec2(), [1] = ImVec2(), [2] = ImVec2()},
+
+        MouseDoubleClicked = {[0] = false, [1] = false, [2] = false},
 
         MouseDoubleClickTime    = 0.30,
         MouseDoubleClickMaxDist = 6.0,

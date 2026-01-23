@@ -29,18 +29,61 @@ local function SetupDummyPanel()
 
     GDummyPanel:SetVisible(false)
 
+    -- TODO: cleanup
+    GDummyPanel.OnCursorMoved = function(self, x, y)
+        local io = ImGui.GetIO()
+        io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
+        io:AddMousePosEvent(x, y)
+    end
+
+    GDummyPanel.OnMousePressed = function(self, key_code)
+        local io = ImGui.GetIO()
+        io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
+
+        local mouse_button
+        if key_code == MOUSE_LEFT then
+            mouse_button = ImGuiMouseButton_Left
+        elseif key_code == MOUSE_RIGHT then
+            mouse_button = ImGuiMouseButton_Right
+        end
+
+        io:AddMouseButtonEvent(mouse_button, true)
+    end
+
+    GDummyPanel.OnMouseReleased = function(self, key_code)
+        local io = ImGui.GetIO()
+        io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
+
+        local mouse_button
+        if key_code == MOUSE_LEFT then
+            mouse_button = ImGuiMouseButton_Left
+        elseif key_code == MOUSE_RIGHT then
+            mouse_button = ImGuiMouseButton_Right
+        end
+
+        io:AddMouseButtonEvent(mouse_button, false)
+    end
+
+    GDummyPanel.Think = function(self)
+        if input.IsMouseDown(MOUSE_LEFT) then
+            local io = ImGui.GetIO()
+            io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
+            io:AddMouseButtonEvent(ImGuiMouseButton_Left, true)
+        end
+    end
+
     -- GDummyPanel.Paint = function(self, w, h) -- FIXME: block derma modal panels
         -- surface.SetDrawColor(0, 255, 0)
         -- surface.DrawOutlinedRect(0, 0, w, h, 4)
     -- end
 end
 
-local function AttachDummyPanel(pos, size)
+local function AttachDummyPanel(x, y, w, h)
     if not IsValid(GDummyPanel) then return end
 
     GDummyPanel:SetFocusTopLevel(true)
-    GDummyPanel:SetPos(pos.x, pos.y)
-    GDummyPanel:SetSize(size.x, size.y)
+    GDummyPanel:SetPos(x, y)
+    GDummyPanel:SetSize(w, h)
     GDummyPanel:SetVisible(true)
     GDummyPanel:MakePopup()
     GDummyPanel:SetKeyboardInputEnabled(false)
@@ -127,11 +170,7 @@ local function ImGui_ImplGMOD_NewFrame()
 
     --- Our window isn't actually a window. It doesn't "exist"
     -- need to block input to other game ui like Derma panels
-    if io.WantCaptureMouse then
-        AttachDummyPanel({x = 0, y = 0}, io.DisplaySize)
-    else
-        DetachDummyPanel()
-    end
+    AttachDummyPanel(0, 0, io.DisplaySize.x, io.DisplaySize.y)
 end
 
 local clip_min = ImVec2()

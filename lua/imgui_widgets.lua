@@ -1,8 +1,8 @@
 
---- @param bb        ImRect
---- @param button_id ImGuiID
---- @param flags?    ImGuiButtonFlags
-function ImGui.ButtonBehavior(bb, button_id, flags)
+--- @param bb     ImRect
+--- @param id     ImGuiID
+--- @param flags? ImGuiButtonFlags
+function ImGui.ButtonBehavior(bb, id, flags)
     if flags == nil then flags = 0 end
 
     local g = GImGui
@@ -33,14 +33,13 @@ function ImGui.ButtonBehavior(bb, button_id, flags)
     end
 
     local pressed = false
-    local hovered = ImGui.ItemHoverable(button_id, bb)
+    local hovered = ImGui.ItemHoverable(id, bb)
     if g.DragDropActive then
         if (bit.band(flags, ImGuiButtonFlags_PressedOnDragDropHold) ~= 0) and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags_SourceNoHoldToOpenOthers) == 0) and ImGui.IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) then
             hovered = true
             ImGui.SetHoveredID(id)
 
             if (g.HoveredIdTimer - g.IO.DeltaTime <= DRAGDROP_HOLD_TO_OPEN_TIMER) and (g.HoveredIdTimer >= DRAGDROP_HOLD_TO_OPEN_TIMER) then
-
                 pressed = true
                 g.DragDropHoldJustPressedId = id
                 ImGui.FocusWindow(window)
@@ -71,28 +70,125 @@ function ImGui.ButtonBehavior(bb, button_id, flags)
 
         local mods_ok = (bit.band(flags, ImGuiButtonFlags_NoKeyModsAllowed) == 0) or (not g.IO.KeyCtrl and not g.IO.KeyShift and not g.IO.KeyAlt)
         if mods_ok then
-            -- TODO:
-        end
-        -- if ImGui.IsMouseClicked(1) then
-        --     pressed = true
+            if mouse_button_clicked ~= -1 and g.ActiveId ~= id then
+                if bit.band(flags, ImGuiButtonFlags_NoSetKeyOwner) == 0 then
+                    ImGui.SetKeyOwner(ImGui.MouseButtonToKey(mouse_button_clicked), id)
+                end
 
-        --     ImGui.SetActiveID(button_id, g.CurrentWindow) -- FIXME: is this correct?
-        -- end
+                if bit.band(flags, bit.bor(ImGuiButtonFlags_PressedOnClickRelease, ImGuiButtonFlags_PressedOnClickReleaseAnywhere)) ~= 0 then
+                    ImGui.SetActiveID(id, window)
+                    g.ActiveIdMouseButton = mouse_button_clicked
+
+                    if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 then
+                        ImGui.SetFocusID(id, window)
+                        ImGui.FocusWindow(window)
+                    elseif bit.band(flags, ImGuiButtonFlags_NoFocus) == 0 then
+                        ImGui.FocusWindow(window, ImGuiFocusRequestFlags.RestoreFocusedChild)
+                    end
+                end
+
+                if (bit.band(flags, ImGuiButtonFlags_PressedOnClick) ~= 0) or ((bit.band(flags, ImGuiButtonFlags_PressedOnDoubleClick) ~= 0) and g.IO.MouseClickedCount[mouse_button_clicked] == 2) then
+                    pressed = true
+
+                    if bit.band(flags, ImGuiButtonFlags_NoHoldingActiveId) ~= 0 then
+                        ImGui.ClearActiveID()
+                    else
+                        ImGui.SetActiveID(id, window)
+                    end
+
+                    g.ActiveIdMouseButton = mouse_button_clicked
+
+                    if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 then
+                        ImGui.SetFocusID(id, window)
+                        ImGui.FocusWindow(window)
+                    elseif bit.band(flags, ImGuiButtonFlags_NoFocus) == 0 then
+                        ImGui.FocusWindow(window, ImGuiFocusRequestFlags.RestoreFocusedChild)
+                    end
+                end
+            end
+
+            if bit.band(flags, ImGuiButtonFlags_PressedOnRelease) ~= 0 then
+                if mouse_button_released ~= -1 then
+                    local has_repeated_at_least_once = (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and g.IO.MouseDownDurationPrev[mouse_button_released] >= g.IO.KeyRepeatDelay
+
+                    if not has_repeated_at_least_once then
+                        pressed = true
+                    end
+
+                    if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 then
+                        ImGui.SetFocusID(id, window)  -- FIXME: Lack of FocusWindow() call here is inconsistent with other paths. Research why.
+                    end
+
+                    ImGui.ClearActiveID()
+                end
+            end
+
+            if g.ActiveId == id and (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) then
+                if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClicked(g.ActiveIdMouseButton, nil, ImGuiInputFlags_Repeat, test_owner_id) then
+                    pressed = true
+                end
+            end
+        end
+
+        if pressed and g.IO.ConfigNavCursorVisibleAuto then
+            g.NavCursorVisible = false
+        end
     end
 
-    local io = g.IO
+    -- TODO: Keyboard/Gamepad navigation handling
 
     local held = false
-    if g.ActiveId == button_id then
-        if g.ActiveIdIsJustActivated then
-            g.ActiveIDClickOffset = io.MousePos - bb.Min
+    if g.ActiveId == id then
+        if g.ActiveIdSource == ImGuiInputSource_Mouse then
+            if g.ActiveIdIsJustActivated then
+                g.ActiveIdClickOffset = g.IO.MousePos - bb.Min
+            end
+
+            local mouse_button = g.ActiveIdMouseButton
+            if mouse_button == -1 then
+                -- Fallback for the rare situation were g.ActiveId was set programmatically or from another widget (e.g. #6304).
+                ImGui.ClearActiveID()
+            elseif ImGui.IsMouseDown(mouse_button, test_owner_id) then
+                held = true
+            else
+                local release_in = hovered and (bit.band(flags, ImGuiButtonFlags_PressedOnClickRelease) ~= 0)
+                local release_anywhere = (bit.band(flags, ImGuiButtonFlags_PressedOnClickReleaseAnywhere) ~= 0)
+
+                if (release_in or release_anywhere) and not g.DragDropActive then
+                    -- Report as pressed when releasing the mouse (this is the most common path)
+                    local is_double_click_release = (bit.band(flags, ImGuiButtonFlags_PressedOnDoubleClick) ~= 0) and g.IO.MouseReleased[mouse_button] and g.IO.MouseClickedLastCount[mouse_button] == 2
+
+                    local is_repeating_already = (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and g.IO.MouseDownDurationPrev[mouse_button] >= g.IO.KeyRepeatDelay
+
+                    local is_button_avail_or_owned = ImGui.TestKeyOwner(ImGui.MouseButtonToKey(mouse_button), test_owner_id)
+
+                    if not is_double_click_release and not is_repeating_already and is_button_avail_or_owned then
+                        pressed = true
+                    end
+                end
+
+                ImGui.ClearActiveID()
+            end
+
+            if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 and g.IO.ConfigNavCursorVisibleAuto then
+                g.NavCursorVisible = false
+            end
+        elseif g.ActiveIdSource == ImGuiInputSource_Keyboard or g.ActiveIdSource == ImGuiInputSource_Gamepad then
+            -- When activated using Nav, we hold on the ActiveID until activation button is released
+            if g.NavActivateDownId == id then
+                held = true  -- hovered == true not true as we are already likely hovered on direct activation.
+            else
+                ImGui.ClearActiveID()
+            end
         end
 
-        if ImGui.IsMouseDown(1) then
-            held = true
-        else
-            ImGui.ClearActiveID()
+        if pressed then
+            g.ActiveIdHasBeenPressedBefore = true
         end
+    end
+
+    if g.NavHighlightActivatedId == id and (bit.band(item_flags, ImGuiItemFlags_Disabled) == 0) then
+        hovered = true
     end
 
     return pressed, hovered, held
@@ -108,6 +204,9 @@ function ImGui.CloseButton(id, pos)
     local is_clipped = not ImGui.ItemAdd(bb, id)
 
     local pressed, hovered = ImGui.ButtonBehavior(bb, id)
+    if is_clipped then
+        return pressed
+    end
 
     if hovered then
         window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered)

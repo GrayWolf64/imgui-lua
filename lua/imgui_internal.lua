@@ -11,9 +11,6 @@ local ScrH = ScrH
 
 local SysTime = SysTime
 
-local GetMouseX = gui.MouseX
-local GetMouseY = gui.MouseY
-
 local stbrp
 local stbtt
 
@@ -113,6 +110,11 @@ function ImGui.IsNamedKey(key)
 end
 
 --- @param key ImGuiKey
+function ImGui.IsKeyboardKey(key)
+    return key >= ImGuiKey_Keyboard_BEGIN and key < ImGuiKey_Keyboard_END
+end
+
+--- @param key ImGuiKey
 function ImGui.IsGamepadKey(key)
     return key >= ImGuiKey_Gamepad_BEGIN and key < ImGuiKey_Gamepad_END
 end
@@ -192,6 +194,13 @@ ImDrawTextFlags = {
     StopOnNewLine  = bit.lshift(1, 2)
 }
 
+--- @enum ImGuiFocusRequestFlags
+ImGuiFocusRequestFlags = {
+    None                = 0,
+    RestoreFocusedChild = bit.lshift(1, 0),
+    UnlessBelowModal    = bit.lshift(1, 1)
+}
+
 --- @enum ImGuiTextFlags
 ImGuiTextFlags = {
     None                          = 0,
@@ -219,19 +228,25 @@ MT.ImRect = {}
 MT.ImRect.__index = MT.ImRect
 
 function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
-function MT.ImRect:contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
-function MT.ImRect:contains_point(p) return p.x >= self.Min.x and p.x <= self.Max.x and p.y >= self.Min.y and p.y <= self.Max.y end
+function MT.ImRect:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
+
+--- @param p   ImVec2
+--- @param pad ImVec2
+function MT.ImRect:ContainsWithPad(p, pad)
+    return p.x >= self.Min.x - pad.x and p.y >= self.Min.y - pad.y and p.x < self.Max.x + pad.x and p.y < self.Max.y + pad.y
+end
+
 function MT.ImRect:Overlaps(other)
     local min_x, min_y, max_x, max_y
 
-    if other.Min then
-        -- ImRect
+    if other.Min then -- ImRect
         min_x = other.Min.x; min_y = other.Min.y
         max_x = other.Max.x; max_y = other.Max.y
-    else
-        -- ImVec4
+    elseif other.z then -- ImVec4
         min_x = other.x; min_y = other.y
         max_x = other.z; max_y = other.w
+    else
+        IM_ASSERT(false)
     end
 
     return self.Min.x <= max_x and self.Max.x >= min_x and self.Min.y <= max_y and self.Max.y >= min_y
@@ -241,8 +256,15 @@ function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
 function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
 
 function MT.ImRect:ClipWith(r)
-    self.Min.x = ImMax(self.Min.x, r.Min.x) self.Min.y = ImMax(self.Min.y, r.Min.y)
-    self.Max.x = ImMin(self.Max.x, r.Max.x) self.Max.y = ImMin(self.Max.y, r.Max.y)
+    if r.Min then -- ImRect
+        self.Min.x = ImMax(self.Min.x, r.Min.x) self.Min.y = ImMax(self.Min.y, r.Min.y)
+        self.Max.x = ImMin(self.Max.x, r.Max.x) self.Max.y = ImMin(self.Max.y, r.Max.y)
+    elseif r.z then -- ImVec4
+        self.Min.x = ImMax(self.Min.x, r.x) self.Min.y = ImMax(self.Min.y, r.y)
+        self.Max.x = ImMin(self.Max.x, r.z) self.Max.y = ImMin(self.Max.y, r.w)
+    else
+        IM_ASSERT(false)
+    end
 end
 
 function MT.ImRect:ClipWithFull(r)
@@ -513,6 +535,12 @@ function ImGuiNextWindowData()
     }, MT.ImGuiNextWindowData)
 end
 
+--- @enum ImGuiWindowBgClickFlags
+ImGuiWindowBgClickFlags = {
+    None = 0,
+    Move = bit.lshift(1, 0),
+}
+
 --- @alias ImGuiNextWindowDataFlags int
 ImGuiNextWindowDataFlags_None               = 0
 ImGuiNextWindowDataFlags_HasPos             = bit.lshift(1, 0)
@@ -547,8 +575,12 @@ function ImGuiStyle()
         FramePadding = ImVec2(4, 3),
         WindowPadding = ImVec2(8, 8),
 
+        TouchExtraPadding = ImVec2(0, 0),
+
         WindowRounding = 0,
         WindowBorderSize = 1,
+
+        WindowBorderHoverPadding = 4.0,
 
         PopupBorderSize = 1.0,
 
@@ -613,6 +645,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         IO = ImGuiIO(),
         PlatformIO = ImGuiPlatformIO(),
 
+        MouseLastValidPos = ImVec2(),
+
         KeysOwnerData = {}, -- size = ImGuiKey_NamedKey_COUNT
 
         InputEventsQueue = ImVector(),
@@ -621,18 +655,28 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         InputEventsNextEventId = 1,
 
         MovingWindow = nil,
-        ActiveIDClickOffset = ImVec2(),
+        ActiveIdClickOffset = ImVec2(),
 
         HoveredWindow = nil,
+        HoveredWindowUnderMovingWindow = nil,
+        HoveredIdIsDisabled = false,
 
         ActiveId = 0, -- Active widget
-        ActiveIDWindow = nil, -- Active window
+        ActiveIdWindow = nil, -- Active window
 
         ActiveIdIsJustActivated = false,
+
+        ActiveIdNoClearOnFocusLoss = false,
+        ActiveIdHasBeenPressedBefore = false,
 
         ActiveIdIsAlive = nil,
 
         ActiveIdPreviousFrame = 0,
+
+        ActiveIdTimer = 0.0,
+
+        LastActiveId = 0,
+        LastActiveIdTimer = 0.0,
 
         DeactivatedItemData = {
             ID = 0,
@@ -642,8 +686,15 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         },
 
         HoveredId = 0,
+        HoveredIdTimer = 0.0,
+        HoveredIdNotActiveTimer = 0.0,
 
+        NavId = 0,
         NavWindow = nil,
+        NavHighlightActivatedId = 0,
+        NavCursorVisible = false,
+        NavHighlightItemUnderNav = false,
+        NavIdIsAlive = false,
 
         FrameCount = -1,
 
@@ -685,6 +736,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         -- WantTextInputNextFrame = -1
 
         MouseCursor = "arrow",
+        MouseStationaryTimer = 0.0,
 
         CurrentItemFlags = ImGuiItemFlags_None,
 
@@ -808,7 +860,7 @@ local function ImGuiWindow(ctx, name)
     local this = {
         ID = 0,
 
-        MoveID = 0,
+        MoveId = 0,
 
         Ctx = ctx,
         Name = name,
@@ -865,6 +917,8 @@ local function ImGuiWindow(ctx, name)
 
         HasCloseButton = true,
 
+        BgClickFlags = 0,
+
         SetWindowPosAllowFlags = 0,
         SetWindowSizeAllowFlags = 0,
         SetWindowCollapsedAllowFlags = 0,
@@ -875,6 +929,11 @@ local function ImGuiWindow(ctx, name)
 
         DrawList = nil,
         DrawListInst = ImDrawList(),
+
+        RootWindow = nil,
+
+        ParentWindow = nil,
+        ParentWindowInBeginStack = nil,
 
         IDStack = ImVector(),
 
@@ -900,7 +959,9 @@ local function ImGuiWindow(ctx, name)
         WriteAccessed = false,
 
         FontWindowScale = 1.0,
-        FontWindowScaleParents = 1.0
+        FontWindowScaleParents = 1.0,
+
+        HitTestHoleSize = ImVec2()
     }
 
     this.DrawList = this.DrawListInst
@@ -911,7 +972,7 @@ local function ImGuiWindow(ctx, name)
 
     this.ID = ImHashStr(name) -- ImHashData expects a table containing only numbers
     this.IDStack:push_back(this.ID)
-    this.MoveID = this:GetID("#MOVE")
+    this.MoveId = this:GetID("#MOVE")
 
     return this
 end
@@ -1165,6 +1226,15 @@ function ImGuiInputEvent()
         AppFocused  = nil, -- if Type == ImGuiInputEventType_Focus
     }
 end
+
+ImGuiKey_Keyboard_BEGIN = ImGuiKey_NamedKey_BEGIN
+ImGuiKey_Keyboard_END   = ImGuiKey_GamepadStart
+ImGuiKey_Gamepad_BEGIN  = ImGuiKey_GamepadStart
+ImGuiKey_Gamepad_END    = ImGuiKey_GamepadRStickDown + 1
+ImGuiKey_Mouse_BEGIN    = ImGuiKey_MouseLeft
+ImGuiKey_Mouse_END      = ImGuiKey_MouseWheelY + 1
+ImGuiKey_Aliases_BEGIN  = ImGuiKey_Mouse_BEGIN
+ImGuiKey_Aliases_END    = ImGuiKey_Mouse_END
 
 --- @alias ImGuiInputEventType int
 ImGuiInputEventType_None        = 0
