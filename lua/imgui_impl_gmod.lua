@@ -82,6 +82,7 @@ local function SetupDummyPanel()
     -- end
 end
 
+-- FIXME: currently everything under our windows are blocked from mouse input
 local function AttachDummyPanel(x, y, w, h)
     if not IsValid(GDummyPanel) then return end
 

@@ -600,7 +600,7 @@ function ImFontAtlasPackDiscardRect(atlas, id)
 
     local builder = atlas.Builder
     local index_idx = ImFontAtlasRectId_GetIndex(id)
-    local index_entry = builder.RectsIndex:at(index_idx + 1) -- TODO: indexing validation
+    local index_entry = builder.RectsIndex.Data[index_idx + 1]
     IM_ASSERT(index_entry.IsUsed and index_entry.TargetIndex >= 0)
     index_entry.IsUsed = false
     index_entry.TargetIndex = builder.RectsIndexFreeListStart
@@ -666,11 +666,11 @@ function ImFontAtlasPackGetRect(atlas, id)
     IM_ASSERT(id ~= ImFontAtlasRectId_Invalid)
     local index_idx = ImFontAtlasRectId_GetIndex(id)
     local builder = atlas.Builder
-    local index_entry = builder.RectsIndex:at(index_idx + 1) -- TODO: indexing validation
+    local index_entry = builder.RectsIndex.Data[index_idx + 1]
     IM_ASSERT(index_entry.Generation == ImFontAtlasRectId_GetGeneration(id))
     IM_ASSERT(index_entry.IsUsed)
     --- @type ImTextureRect
-    return builder.Rects:at(index_entry.TargetIndex + 1) -- TODO: indexing validation
+    return builder.Rects.Data[index_entry.TargetIndex + 1]
 end
 
 --- @param atlas ImFontAtlas
@@ -688,11 +688,11 @@ function ImFontAtlasPackGetRectSafe(atlas, id)
     if index_idx >= builder.RectsIndex.Size then
         return nil
     end
-    local index_entry = builder.RectsIndex:at(index_idx + 1) -- TODO: indexing validation
+    local index_entry = builder.RectsIndex.Data[index_idx + 1]
     if (index_entry.Generation ~= ImFontAtlasRectId_GetGeneration(id) or not index_entry.IsUsed) then
         return nil
     end
-    return builder.Rects:at(index_entry.TargetIndex + 1) -- TODO: indexing validation
+    return builder.Rects.Data[index_entry.TargetIndex + 1]
 end
 
 --- @param src       ImFontConfig
@@ -1445,7 +1445,7 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
         local uv0 = ImVec2((r.x + pad_left - 1), (r.y + y)) * atlas.TexUvScale
         local uv1 = ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)) * atlas.TexUvScale
         local half_v = (uv0.y + uv1.y) * 0.5
-        atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v) -- TODO: indexing validation
+        atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v)
     end
 end
 
@@ -1680,7 +1680,7 @@ end
 
 --- @param c ImWchar
 --- @return ImFontGlyph?
-function MT.ImFontBaked:FindGlyph(c) -- TODO: indexing validation
+function MT.ImFontBaked:FindGlyph(c)
     if c < self.IndexLookup.Size then -- IM_LIKELY
         local i = self.IndexLookup.Data[c + 1]
         if i == IM_FONTGLYPH_INDEX_NOT_FOUND then
@@ -1692,12 +1692,16 @@ function MT.ImFontBaked:FindGlyph(c) -- TODO: indexing validation
     end
 
     local glyph = ImFontBaked_BuildLoadGlyph(self, c, nil)
-    return (glyph ~= nil) and glyph or self.Glyphs.Data[self.FallbackGlyphIndex]
+    if glyph then
+        return glyph
+    else
+        return self.Glyphs.Data[self.FallbackGlyphIndex]
+    end
 end
 
 --- @param c ImWchar
 --- @return ImFontGlyph?
-function MT.ImFontBaked:FindGlyphNoFallback(c) -- TODO: indexing validation
+function MT.ImFontBaked:FindGlyphNoFallback(c)
     if c < self.IndexLookup.Size then -- IM_LIKELY
         local i = self.IndexLookup.Data[c + 1]
         if i == IM_FONTGLYPH_INDEX_NOT_FOUND then
@@ -1810,10 +1814,10 @@ function ImFontAtlasBakedAddFontGlyph(atlas, baked, src, in_glyph)
 
     local codepoint = glyph.Codepoint
     ImFontBaked_BuildGrowIndex(baked, codepoint + 1)
-    baked.IndexAdvanceX.Data[codepoint + 1] = glyph.AdvanceX -- TODO: indexing validation
+    baked.IndexAdvanceX.Data[codepoint + 1] = glyph.AdvanceX
     baked.IndexLookup.Data[codepoint + 1] = glyph_idx -- (ImU16)
     local page_n = codepoint / 8192
-    baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1] = bit.bor(baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1], bit.lshift(1, bit.band(page_n, 7))) -- TODO: indexing validation
+    baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1] = bit.bor(baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1], bit.lshift(1, bit.band(page_n, 7)))
 
     return glyph, glyph_idx
 end
@@ -1947,7 +1951,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     end
 
     ImFontBaked_BuildGrowIndex(baked, codepoint + 1);
-    baked.IndexAdvanceX.Data[codepoint + 1] = baked.FallbackAdvanceX -- TODO: indexing validation
+    baked.IndexAdvanceX.Data[codepoint + 1] = baked.FallbackAdvanceX
     baked.IndexLookup.Data[codepoint + 1] = IM_FONTGLYPH_INDEX_NOT_FOUND
 
     return nil
@@ -2111,7 +2115,7 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
             end
         end
 
-        local char_width = (c < baked.IndexAdvanceX.Size) and baked.IndexAdvanceX.Data[c + 1] or -1.0 -- TODO: indexing validation
+        local char_width = (c < baked.IndexAdvanceX.Size) and baked.IndexAdvanceX.Data[c + 1] or -1.0
         if char_width < 0.0 then
             char_width = BuildLoadGlyphGetAdvanceOrFallback(baked, c)
         end
@@ -2246,7 +2250,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
             continue
         end
 
-        local char_width = (c < baked.IndexAdvanceX.Size) and baked.IndexAdvanceX.Data[c + 1] or -1.0 -- TODO: indexing validation
+        local char_width = (c < baked.IndexAdvanceX.Size) and baked.IndexAdvanceX.Data[c + 1] or -1.0
         if (char_width < 0.0) then
             char_width = BuildLoadGlyphGetAdvanceOrFallback(baked, c)
         end
@@ -3763,7 +3767,7 @@ end
 --- @param dir ImGuiDir
 --- @param scale float
 function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
-    local h = GImGui.FontSize -- TODO: draw_list->_Data->FontSize * 1.00f?
+    local h = draw_list._Data.FontSize * 1.00
     local r = h * 0.40 * scale
 
     center = pos + ImVec2(h * 0.50, h * 0.50 * scale)

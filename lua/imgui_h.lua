@@ -425,13 +425,13 @@ function ImTextureRef(tex_id)
 end
 
 --- @class ImFontBaked
---- @field IndexAdvanceX        ImVector<float>
+--- @field IndexAdvanceX        ImVector<float>       # Glyphs->AdvanceX in a directly indexable way. Note that codepoint starts from 0, so IndexAdvanceX.Data[0 + 1] holds the advanceX of glyph at codepoint 0
 --- @field FallbackAdvanceX     float
 --- @field Size                 float
 --- @field RasterizerDensity    float
---- @field IndexLookup          ImVector<ImU16>
+--- @field IndexLookup          ImVector<ImU16>       # Index glyphs by Unicode codepoint. use IndexLookup.Data[codepoint + 1] for codepoint. Stores 1-based index!
 --- @field Glyphs               ImVector<ImFontGlyph>
---- @field FallbackGlyphIndex   int                   # Initial value = -1
+--- @field FallbackGlyphIndex   int                   # Initial value = -1, then becomes 1-based index if fallback char is set
 --- @field Ascent               float
 --- @field Descent              float
 --- @field MetricsTotalSurface  unsigned_int
@@ -484,7 +484,7 @@ end
 --- @field Sources                  ImVector<ImFontConfig>
 --- @field EllipsisChar             ImWchar
 --- @field FallbackChar             ImWchar
---- @field Used8kPagesMap           ImU8[]
+--- @field Used8kPagesMap           ImU8[]                 # 1-based table
 --- @field EllipsisAutoBake         bool
 --- @field RemapPairs               table<ImGuiID, any>    # GLUA: No ImGuiStorage
 --- @field Scale                    float
@@ -600,7 +600,7 @@ end
 --- @field TexUvWhitePixel     ImVec2
 --- @field Fonts               ImVector<ImFont>
 --- @field Sources             ImVector<ImFontConfig>
---- @field TexUvLines          ImVec4[]
+--- @field TexUvLines          ImVec4[]                       # 0-based table
 --- @field TexNextUniqueID     int
 --- @field FontNextUniqueID    int
 --- @field DrawListSharedDatas ImVector<ImDrawListSharedData>
