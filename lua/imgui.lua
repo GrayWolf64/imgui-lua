@@ -2946,6 +2946,7 @@ local function SetupDrawListSharedData()
     g.DrawListSharedData.InitialFringeScale = 1.0
 end
 
+--- @param viewport ImGuiViewportP
 local function InitViewportDrawData(viewport)
     local io = ImGui.GetIO()
     local draw_data = viewport.DrawDataP

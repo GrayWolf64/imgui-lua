@@ -3,11 +3,6 @@
 -- and runtime type checking is very slow
 
 local setmetatable = setmetatable
-local isnumber     = isnumber
-local IsValid      = IsValid
-
-local ScrW = ScrW
-local ScrH = ScrH
 
 local SysTime = SysTime
 

@@ -1,47 +1,70 @@
---- TEST HERE:
+--- Temporary testing:
+-- won't let users write these complicated stuff in production version
 
 include"imgui.lua"
+
 local ImGui_ImplGMOD = include("imgui_impl_gmod.lua")
-
-ImGui.CreateContext()
-
-ImGui_ImplGMOD.Init()
-
-local g = ImGui.GetCurrentContext()
 
 local window1_open = {true}
 local window2_open = {true}
 
---- TODO: can i actually switch different hooks dynamically to achieve our windows rendered under and above the game ui or derma?
-hook.Add("PostRender", "ImGuiTest", function()
-    cam.Start2D()
+local g_ModelMatrix = Matrix()
+local g_ScaleVector = Vector(1, 1, 1)
 
-    ImGui_ImplGMOD.NewFrame()
+concommand.Add("imgui_test", function()
+    local viewport = ImGui_ImplGMOD.CreateMainViewport()
 
-    ImGui.NewFrame()
+    ImGui.CreateContext()
+    local g = ImGui.GetCurrentContext()
 
-    -- math.max(20, math.abs(100 * math.sin(SysTime())))
-    ImGui.PushFont(nil, 30)
+    ImGui_ImplGMOD.Init(viewport)
 
-    ImGui.SetNextWindowSize(ImVec2(550, 400), ImGuiCond_FirstUseEver)
+    local old_Paint = viewport.Paint
+    function viewport.Paint(self, w, h)
+        old_Paint(self, w, h)
 
-    ImGui.Begin("Hello, World!", window1_open)
-        ImGui.Text("Lua Memory Usage: %dKb", math.Round(collectgarbage("count")))
-        ImGui.Text("FPS: %d", g.IO.Framerate)
-    ImGui.End()
+        local offset_x, offset_y = self:GetPos()
+        local old_w, old_h = ScrW(), ScrH()
 
-    ImGui.PopFont()
+        -- This scales the things we draw, so later we restore it
+        render.SetViewPort(offset_x, offset_y, w, h)
 
-    ImGui.SetNextWindowPos(ImVec2(30, 100), ImGuiCond_FirstUseEver)
+        g_ScaleVector.x = old_w / w
+        g_ScaleVector.y = old_h / h
+        g_ModelMatrix:Scale(g_ScaleVector)
+        cam.PushModelMatrix(g_ModelMatrix)
+        g_ModelMatrix:Identity()
 
-    ImGui.Begin("ImGui Demo", window2_open)
-    ImGui.End()
 
-    ImGui.EndFrame()
+        ImGui_ImplGMOD.NewFrame()
 
-    ImGui.Render()
+        ImGui.NewFrame()
 
-    ImGui_ImplGMOD.RenderDrawData(ImGui.GetDrawData())
+        ImGui.PushFont(nil, 30)
 
-    cam.End2D()
+        ImGui.SetNextWindowSize(ImVec2(550, 400), ImGuiCond_FirstUseEver)
+
+        ImGui.Begin("Hello, World!", window1_open)
+            ImGui.Text("Lua Memory Usage: %dKb", math.Round(collectgarbage("count")))
+            ImGui.Text("FPS: %d", g.IO.Framerate)
+        ImGui.End()
+
+        ImGui.PopFont()
+
+        ImGui.SetNextWindowPos(ImVec2(30, 100), ImGuiCond_FirstUseEver)
+
+        ImGui.Begin("ImGui Demo", window2_open)
+        ImGui.End()
+
+        ImGui.EndFrame()
+
+        ImGui.Render()
+
+        ImGui_ImplGMOD.RenderDrawData(ImGui.GetDrawData())
+
+
+        render.SetViewPort(0, 0, old_w, old_h)
+
+        cam.PopModelMatrix()
+    end
 end)

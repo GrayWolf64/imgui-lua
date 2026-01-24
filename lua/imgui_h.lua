@@ -758,6 +758,7 @@ function ImGuiIO()
 
         BackendFlags = 0,
         ConfigFlags  = 0,
+        DisplaySize = ImVec2(-1.0, -1.0),
 
         DeltaTime = 1.0 / 60.0,
 

@@ -1,7 +1,4 @@
 --- All the things strongly related to GMod go here
--- TODO: Rename the dummy panel?
--- TODO: investigate: this dummy panel is actually a valid viewport? Derma panels can be fake viewports?
--- TODO: currently the renderer and platform are in the same backend structure, separate them
 
 local cam     = cam
 local render  = render
@@ -14,99 +11,81 @@ local ImGui_ImplGMOD_DestroyTexture
 --- @type function
 local ImGui_ImplGMOD_UpdateTexture
 
---- VGUIMousePressAllowed hook can only block mouse clicks to derma elements
--- and can't block mouse hovering
-local GDummyPanel = GDummyPanel or nil
+--- @type function
+local ImGui_ImplGMOD_InputEventHandler
 
-local function SetupDummyPanel()
-    if IsValid(GDummyPanel) then
-        GDummyPanel:Remove()
-        GDummyPanel = nil
+--- @type Panel? # We are at non-docking branch, only one viewport is supported
+local g_Viewport = nil
+
+--- @return Panel?
+local function ImGui_ImplGMOD_CreateMainViewport()
+    if IsValid(g_Viewport) then
+        g_Viewport:Remove()
     end
 
-    GDummyPanel = vgui.Create("EditablePanel")
+    g_Viewport = vgui.Create("DFrame")
 
-    GDummyPanel:SetDrawOnTop(true)
-    GDummyPanel:SetMouseInputEnabled(false)
-    GDummyPanel:SetKeyboardInputEnabled(false)
+    g_Viewport:SetSizable(true)
+    g_Viewport:SetSize(800, 600)
+    g_Viewport:MakePopup()
+    g_Viewport:SetDraggable(true)
+    g_Viewport:Center()
+    g_Viewport:SetTitle("ImGui Main Viewport")
 
-    GDummyPanel:SetVisible(false)
+    g_Viewport.LocalToScreen = function(self, x, y)
+        local pos_x, pos_y = self:GetPos()
+        return pos_x + x, pos_y + y
+    end
 
-    -- TODO: cleanup
-    GDummyPanel.OnCursorMoved = function(self, x, y)
-        local io = ImGui.GetIO()
+    g_Viewport.OnCursorMoved = function(self, x, y)
+        ImGui_ImplGMOD_InputEventHandler(nil, nil, x, y)
+    end
+
+    local old_OnMousePressed = g_Viewport.OnMousePressed
+    g_Viewport.OnMousePressed = function(self, key_code)
+        old_OnMousePressed(self, key_code)
+        ImGui_ImplGMOD_InputEventHandler(key_code, true, nil, nil)
+    end
+
+    local old_OnMouseReleased = g_Viewport.OnMouseReleased
+    g_Viewport.OnMouseReleased = function(self, key_code)
+        old_OnMouseReleased(self, key_code)
+        ImGui_ImplGMOD_InputEventHandler(key_code, false, nil, nil)
+    end
+
+    local clear_color = ImVec4(0.45, 0.55, 0.60, 1.00) * 255
+    local old_Paint = g_Viewport.Paint
+    g_Viewport.Paint = function(self, w, h)
+        old_Paint(self, w, h)
+        surface.SetDrawColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w)
+        surface.DrawRect(0, 0, w, h)
+    end
+
+    return g_Viewport
+end
+
+function ImGui_ImplGMOD_InputEventHandler(key_code, is_down, x, y)
+    local io = ImGui.GetIO()
+
+    if key_code then -- Mouse button or keyboard key
+        if key_code >= MOUSE_FIRST and key_code <= MOUSE_LAST then
+            io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
+
+            local mouse_button
+            if key_code == MOUSE_LEFT then
+                mouse_button = ImGuiMouseButton_Left
+            elseif key_code == MOUSE_RIGHT then
+                mouse_button = ImGuiMouseButton_Right
+            end
+
+            io:AddMouseButtonEvent(mouse_button, is_down)
+        else
+            -- TODO: 
+        end
+    else -- cursor position update
         io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
         io:AddMousePosEvent(x, y)
     end
-
-    GDummyPanel.OnMousePressed = function(self, key_code)
-        local io = ImGui.GetIO()
-        io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
-
-        local mouse_button
-        if key_code == MOUSE_LEFT then
-            mouse_button = ImGuiMouseButton_Left
-        elseif key_code == MOUSE_RIGHT then
-            mouse_button = ImGuiMouseButton_Right
-        end
-
-        io:AddMouseButtonEvent(mouse_button, true)
-    end
-
-    GDummyPanel.OnMouseReleased = function(self, key_code)
-        local io = ImGui.GetIO()
-        io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
-
-        local mouse_button
-        if key_code == MOUSE_LEFT then
-            mouse_button = ImGuiMouseButton_Left
-        elseif key_code == MOUSE_RIGHT then
-            mouse_button = ImGuiMouseButton_Right
-        end
-
-        io:AddMouseButtonEvent(mouse_button, false)
-    end
-
-    GDummyPanel.Think = function(self)
-        if input.IsMouseDown(MOUSE_LEFT) then
-            local io = ImGui.GetIO()
-            io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
-            io:AddMouseButtonEvent(ImGuiMouseButton_Left, true)
-        elseif input.IsMouseDown(MOUSE_RIGHT) then
-            local io = ImGui.GetIO()
-            io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
-            io:AddMouseButtonEvent(ImGuiMouseButton_Right, true)
-        end
-    end
-
-    -- GDummyPanel.Paint = function(self, w, h) -- FIXME: block derma modal panels
-        -- surface.SetDrawColor(0, 255, 0)
-        -- surface.DrawOutlinedRect(0, 0, w, h, 4)
-    -- end
-end
-
--- FIXME: currently everything under our windows are blocked from mouse input
-local function AttachDummyPanel(x, y, w, h)
-    if not IsValid(GDummyPanel) then return end
-
-    GDummyPanel:SetFocusTopLevel(true)
-    GDummyPanel:SetPos(x, y)
-    GDummyPanel:SetSize(w, h)
-    GDummyPanel:SetVisible(true)
-    GDummyPanel:MakePopup()
-    GDummyPanel:SetKeyboardInputEnabled(false)
-end
-
-local function DetachDummyPanel()
-    if not IsValid(GDummyPanel) then return end
-
-    GDummyPanel:SetVisible(false)
-end
-
-local function SetMouseCursor(cursor_str)
-    if not IsValid(GDummyPanel) then return end
-
-    GDummyPanel:SetCursor(cursor_str)
 end
 
 --- @class ImGui_ImplGMOD_Texture
@@ -126,6 +105,7 @@ local function ImGui_ImplGMOD_Texture()
 end
 
 --- @class ImGui_ImplGMOD_Data
+--- @field Window Panel
 
 --- @return ImGui_ImplGMOD_Data
 --- @nodiscard
@@ -135,7 +115,8 @@ local function ImGui_ImplGMOD_Data()
         CurrentTextureHandle = 1,
         NumFramesInFlight    = 2,
 
-        Time = 0
+        Time = 0,
+        Window = nil
     }
 end
 
@@ -143,42 +124,41 @@ local function ImGui_ImplGMOD_GetBackendData()
     return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
 end
 
-local function ImGui_ImplGMOD_Init()
+--- @param window Panel
+local function ImGui_ImplGMOD_Init(window)
     local io = ImGui.GetIO()
 
     local bd = ImGui_ImplGMOD_Data()
+    bd.Window = window
     io.BackendPlatformUserData = bd
 
-    SetupDummyPanel()
-
-    local main_viewport = ImGui.GetMainViewport()
-    main_viewport.PlatformHandle = GDummyPanel
+    -- local main_viewport = ImGui.GetMainViewport()
+    -- main_viewport.PlatformHandle = window
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
 end
 
-local function ImGui_ImplGMOD_Shutdown()
+local function ImGui_ImplGMOD_UpdateMouseCursor(io, cursor_str)
+    local bd = ImGui_ImplGMOD_GetBackendData()
+
+    bd.Window:SetCursor(cursor_str)
 end
 
-local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
-    SetMouseCursor(imgui_cursor)
+local function ImGui_ImplGMOD_Shutdown()
 end
 
 local function ImGui_ImplGMOD_NewFrame()
     local io = ImGui.GetIO()
     local bd = ImGui_ImplGMOD_GetBackendData()
 
-    io.DisplaySize = ImVec2(ScrW(), ScrH())
+    io.DisplaySize = ImVec2(ScrW(), ScrH()) -- TODO: is this correct?
+    local main_viewport = ImGui.GetMainViewport()
 
     local current_time = SysTime()
     io.DeltaTime = current_time - bd.Time
     bd.Time = current_time
 
     ImGui_ImplGMOD_UpdateMouseCursor(io, ImGui.GetMouseCursor())
-
-    --- Our window isn't actually a window. It doesn't "exist"
-    -- need to block input to other game ui like Derma panels
-    AttachDummyPanel(0, 0, io.DisplaySize.x, io.DisplaySize.y)
 end
 
 local clip_min = ImVec2()
@@ -211,7 +191,10 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     continue
                 end
 
-                render.SetScissorRect(clip_min.x, clip_min.y, clip_max.x, clip_max.y, true)
+                -- This uses screen-space coords
+                local clip_min_x, clip_min_y = bd.Window:LocalToScreen(clip_min.x, clip_min.y)
+                local clip_max_x, clip_max_y = bd.Window:LocalToScreen(clip_max.x, clip_max.y)
+                render.SetScissorRect(clip_min_x, clip_min_y, clip_max_x, clip_max_y, true)
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
@@ -286,8 +269,8 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         local backend_tex = ImGui_ImplGMOD_Texture()
 
-        backend_tex.Width            = tex.Width
-        backend_tex.Height           = tex.Height
+        backend_tex.Width  = tex.Width
+        backend_tex.Height = tex.Height
 
         backend_tex.Handle      = bd.CurrentTextureHandle
         bd.CurrentTextureHandle = bd.CurrentTextureHandle + 1
@@ -394,6 +377,8 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 end
 
 return {
+    CreateMainViewport = ImGui_ImplGMOD_CreateMainViewport,
+
     Init           = ImGui_ImplGMOD_Init,
     Shutdown       = ImGui_ImplGMOD_Shutdown,
     NewFrame       = ImGui_ImplGMOD_NewFrame,
