@@ -2530,7 +2530,7 @@ function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
     if draw_list.CmdBuffer.Size == 0 then
         return
     end
-    if draw_list.CmdBuffer.Size == 1 and draw_list.CmdBuffer.Data[1].ElemCount == 0 and draw_list.CmdBuffer[1].UserCallback == nil then
+    if draw_list.CmdBuffer.Size == 1 and draw_list.CmdBuffer.Data[1].ElemCount == 0 and draw_list.CmdBuffer.Data[1].UserCallback == nil then
         return
     end
 

@@ -20,6 +20,5 @@
     "workspace.library": [
         "${addons}/garrysmod/module/library"
     ],
-    "runtime.version": "LuaJIT",
-    "runtime.plugin": "misc/luals_plugin.lua"
+    "runtime.version": "LuaJIT"
 }

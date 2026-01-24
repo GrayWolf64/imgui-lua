@@ -213,6 +213,8 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
                 render.SetScissorRect(clip_min.x, clip_min.y, clip_max.x, clip_max.y, true)
 
+                mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
+
                 for i = 0, pcmd.ElemCount - 1, 3 do
                     local idx0 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 1 + i]
                     local idx1 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 2 + i]
@@ -225,8 +227,6 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     local tex_id = pcmd:GetTexID()
 
                     render.SetMaterial(bd.TextureRegistry[tex_id].Material)
-
-                    mesh.Begin(MATERIAL_TRIANGLES, 1)
 
                     mesh.Position(vtx0.pos.x, vtx0.pos.y, 0)
                     mesh.TexCoord(0, vtx0.uv.x, vtx0.uv.y)
@@ -242,9 +242,9 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     mesh.TexCoord(0, vtx2.uv.x, vtx2.uv.y)
                     mesh.Color(vtx2.col.x * 255, vtx2.col.y * 255, vtx2.col.z * 255, vtx2.col.w * 255)
                     mesh.AdvanceVertex()
-
-                    mesh.End()
                 end
+
+                mesh.End()
 
                 render.SetScissorRect(0, 0, 0, 0, false)
             end
