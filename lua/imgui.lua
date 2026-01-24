@@ -58,9 +58,15 @@ function ImFileLoadToMemory(filename, mode)
     return file_data, file_size
 end
 
-local MT = include"imgui_h.lua"
+include"imgui_h.lua"
 
-#IMGUI_INCLUDE "imgui_internal.lua"
+include"imgui_internal.lua"
+
+include"imgui_draw.lua"
+
+include"imgui_widgets.lua"
+
+local MT = ImGui.GetMetatables()
 
 local ImResizeGripDef = {
     {CornerPos = ImVec2(1, 1), InnerDir = ImVec2(-1, -1), AngleMin12 = 0, AngleMax12 = 3}, -- Bottom right grip
@@ -171,8 +177,6 @@ function ImTextCountUtf8BytesFromChar(in_text, pos, in_text_end)
     local bytes, unused = ImTextCharFromUtf8(in_text, pos, in_text_end)
     return bytes
 end
-
-#IMGUI_INCLUDE "imgui_draw.lua"
 
 --- void ImGui::UpdateCurrentFontSize
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
@@ -1450,8 +1454,6 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         end
     end
 end
-
-#IMGUI_INCLUDE "imgui_widgets.lua"
 
 --- static bool IsWindowActiveAndVisible
 local function IsWindowActiveAndVisible(window)

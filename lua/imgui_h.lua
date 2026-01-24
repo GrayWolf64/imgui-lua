@@ -36,6 +36,8 @@ IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 --- @type table<string, table>
 local MT = {}
 
+function ImGui.GetMetatables() return MT end
+
 --- @param _EXPR boolean
 --- @param _MSG string?
 function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
@@ -1307,5 +1309,3 @@ IM_COL32             = function(R, G, B, A) return (bit.bor(bit.lshift(A, IM_COL
 IM_COL32_WHITE       = IM_COL32(255, 255, 255, 255)
 IM_COL32_BLACK       = IM_COL32(0, 0, 0, 255)
 IM_COL32_BLACK_TRANS = IM_COL32(0, 0, 0, 0)
-
-return MT

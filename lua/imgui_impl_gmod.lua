@@ -8,7 +8,10 @@ local render  = render
 local surface = surface
 local mesh    = mesh
 
+--- @type function
 local ImGui_ImplGMOD_DestroyTexture
+
+--- @type function
 local ImGui_ImplGMOD_UpdateTexture
 
 --- VGUIMousePressAllowed hook can only block mouse clicks to derma elements

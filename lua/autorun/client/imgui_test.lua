@@ -1,6 +1,8 @@
-local ImGui_ImplGMOD = IMGUI_INCLUDE("imgui_impl_gmod.lua")
-
 --- TEST HERE:
+
+include"imgui.lua"
+local ImGui_ImplGMOD = include("imgui_impl_gmod.lua")
+
 ImGui.CreateContext()
 
 ImGui_ImplGMOD.Init()

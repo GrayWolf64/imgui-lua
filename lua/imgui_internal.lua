@@ -11,31 +11,32 @@ local ScrH = ScrH
 
 local SysTime = SysTime
 
-local stbrp
-local stbtt
+local MT = ImGui.GetMetatables()
+
+local stbrp_context = include"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
 
 FLT_MAX = math.huge
-#IMGUI_DEFINE IM_PI   math.pi
-#IMGUI_DEFINE ImAbs   math.abs
-#IMGUI_DEFINE ImFabs  math.abs
-#IMGUI_DEFINE ImMin   math.min
-#IMGUI_DEFINE ImMax   math.max
-#IMGUI_DEFINE ImRound math.Round
-#IMGUI_DEFINE ImCeil  math.ceil
-#IMGUI_DEFINE ImSin   math.sin
-#IMGUI_DEFINE ImCos   math.cos
-#IMGUI_DEFINE ImAcos  math.acos
-#IMGUI_DEFINE ImSqrt  math.sqrt
-#IMGUI_DEFINE ImLerp(a, b, t)       ((a) + ((b) - (a)) * (t))
-#IMGUI_DEFINE ImClamp(v, min, max)  ImMin(ImMax((v), (min)), (max))
+IM_PI   = math.pi
+ImAbs   = math.abs
+ImFabs  = math.abs
+ImMin   = math.min
+ImMax   = math.max
+ImRound = math.Round
+ImCeil  = math.ceil
+ImSin   = math.sin
+ImCos   = math.cos
+ImAcos  = math.acos
+ImSqrt  = math.sqrt
+function ImLerp(a, b, t)      return ((a) + ((b) - (a)) * (t)) end
+function ImClamp(v, min, max) return ImMin(ImMax((v), (min)), (max)) end
 
 function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
 function ImTrunc64(f) return ImTrunc(f) end
 
-#IMGUI_DEFINE IM_ROUNDUP_TO_EVEN(n) (ImCeil((n) / 2) * 2)
-#IMGUI_DEFINE ImRsqrt(x)            (1 / ImSqrt(x))
+function IM_ROUNDUP_TO_EVEN(n) return (ImCeil((n) / 2) * 2) end
+function ImRsqrt(x)            return (1 / ImSqrt(x))       end
 
 function IM_TRUNC(VAL) return math.floor(VAL) end -- Positive values only!
 function IM_ROUND(VAL) return math.floor(VAL + 0.5) end
@@ -78,24 +79,22 @@ end
 IMGUI_FONT_SIZE_MAX                                = 512.0
 IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE = 128.0
 
-#IMGUI_DEFINE IMGUI_WINDOW_HARD_MIN_SIZE 16
+IMGUI_WINDOW_HARD_MIN_SIZE = 16
 
-#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN 4
-#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX 512
+IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN = 4
+IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
 
-#IMGUI_DEFINE IM_DRAWLIST_ARCFAST_TABLE_SIZE 48
-#IMGUI_DEFINE IM_DRAWLIST_ARCFAST_SAMPLE_MAX IM_DRAWLIST_ARCFAST_TABLE_SIZE
+IM_DRAWLIST_ARCFAST_TABLE_SIZE = 48
+IM_DRAWLIST_ARCFAST_SAMPLE_MAX = IM_DRAWLIST_ARCFAST_TABLE_SIZE
 
-#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin((_MAXERROR), (_RAD)) / (_RAD)))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
-#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(_N, _MAXERROR) ((_MAXERROR) / (1 - ImCos(IM_PI / ImMax(_N, IM_PI))))
-#IMGUI_DEFINE IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  ((1 - ImCos(IM_PI / ImMax((_N), IM_PI))) / (_RAD))
+function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) return ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin((_MAXERROR), (_RAD)) / (_RAD)))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX) end
+function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(_N, _MAXERROR) return ((_MAXERROR) / (1 - ImCos(IM_PI / ImMax(_N, IM_PI)))) end
+function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCos(IM_PI / ImMax((_N), IM_PI))) / (_RAD)) end
 
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
 function IMGUI_DEBUG_LOG_FONT(_str, ...) print(string.format(_str, ...)) end
-
-#IMGUI_DEFINE struct_def(_name) MT[_name] = {} MT[_name].__index = MT[_name]
 
 ImGuiKeyOwner_Any     = 0
 ImGuiKeyOwner_NoOwner = 4294967295
@@ -320,9 +319,10 @@ function MT.ImDrawList:PathStroke(col, flags, thickness)
 end
 
 --- @class ImDrawListSharedData
-struct_def("ImDrawListSharedData")
+MT.ImDrawListSharedData = {}
+MT.ImDrawListSharedData.__index = MT.ImDrawListSharedData
 
-local function ImDrawListSharedData()
+function ImDrawListSharedData()
     local this = setmetatable({
         TexUvWhitePixel = nil,
         TexUvLines = nil,
@@ -381,7 +381,7 @@ function ImFontAtlasBuilder()
     --- @type ImFontAtlasBuilder
     local this = setmetatable({}, MT.ImFontAtlasBuilder)
 
-    this.PackContext              = stbrp.context() -- struct stbrp_context_opaque { char data[80]; };
+    this.PackContext              = stbrp_context() -- struct stbrp_context_opaque { char data[80]; };
     this.PackNodes                = ImVector()
     this.Rects                    = ImVector()
     this.RectsIndex               = ImVector()
@@ -858,7 +858,7 @@ end
 
 --- @return ImGuiWindow
 --- @nodiscard
-local function ImGuiWindow(ctx, name)
+function ImGuiWindow(ctx, name)
     local this = {
         ID = 0,
 
@@ -978,7 +978,8 @@ local function ImGuiWindow(ctx, name)
 end
 
 --- @class ImDrawDataBuilder
-struct_def("ImDrawDataBuilder")
+MT.ImDrawDataBuilder = {}
+MT.ImDrawDataBuilder.__index = MT.ImDrawDataBuilder
 
 --- @return ImDrawDataBuilder
 --- @nodiscard
@@ -990,7 +991,8 @@ local function ImDrawDataBuilder()
 end
 
 --- @class ImGuiViewportP : ImGuiViewport
-struct_def("ImGuiViewportP")
+MT.ImGuiViewportP = {}
+MT.ImGuiViewportP.__index = MT.ImGuiViewportP
 
 setmetatable(MT.ImGuiViewportP, {__index = MT.ImGuiViewport})
 
@@ -1027,8 +1029,7 @@ end
 
 --- @return ImGuiViewportP
 --- @nodiscard
-local function ImGuiViewportP()
-
+function ImGuiViewportP()
     local this = setmetatable(ImGuiViewport(), MT.ImGuiViewportP)
     --- @cast this ImGuiViewportP
 
@@ -1061,7 +1062,7 @@ MT.ImFontLoader.__index = MT.ImFontLoader
 
 --- @return ImFontLoader
 --- @nodiscard
-local function ImFontLoader()
+function ImFontLoader()
     --- @type ImFontLoader
     local this = setmetatable({}, MT.ImFontLoader)
 

@@ -5,7 +5,8 @@
 function ImGui.ButtonBehavior(bb, id, flags)
     if flags == nil then flags = 0 end
 
-    local g = GImGui
+    local g = ImGui.GetCurrentContext()
+
     local window = ImGui.GetCurrentWindow()
 
     local item_flags = (g.LastItemData.ID == id) and g.LastItemData.ItemFlags or g.CurrentItemFlags
@@ -196,7 +197,8 @@ end
 
 --- @return boolean
 function ImGui.CloseButton(id, pos)
-    local g = GImGui
+    local g = ImGui.GetCurrentContext()
+
     local window = g.CurrentWindow
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
@@ -225,7 +227,8 @@ end
 
 --- @return boolean
 function ImGui.CollapseButton(id, pos)
-    local g = GImGui
+    local g = ImGui.GetCurrentContext()
+
     local window = g.CurrentWindow
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
@@ -254,8 +257,11 @@ function ImGui.TextEx(text, text_end, flags)
     if not flags then flags = 0 end
 
     local window = ImGui.GetCurrentWindow()
-    if window.SkipItems then return end
-    local g = GImGui
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
 
     if not text or text == "" then
         text = ""
