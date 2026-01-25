@@ -1,6 +1,7 @@
 ---------------------------
 --- stb_truetype in Lua5.1!
--- with imgui patches
+---   with imgui patches
+---------------------------
 
 -- stb_truetype.h - v1.26 - public domain
 -- authored from 2009-2021 by Sean Barrett / RAD Game Tools
@@ -26,9 +27,9 @@ local stbtt_GetFontOffsetForIndex
 local stbtt_ScaleForPixelHeight
 local stbtt_FindGlyphIndex
 
-------------------------------
---- C Pointer / Array Mimicing
---
+---------------------------------------------------------------------------
+--- C Array / Pointer Mimicing
+---------------------------------------------------------------------------
 
 --- @class stbtt_slice
 --- @field data   table
@@ -221,8 +222,9 @@ local function STBTT__CSCTX_INIT(bounds)
     return this
 end
 
--- local function stbtt_kerningentry()
--- end
+local function stbtt_kerningentry()
+    STBTT_NOT_IMPLEMENTED()
+end
 
 local function stbtt__edge()
     return {
@@ -284,24 +286,30 @@ local function stbtt__point()
     }
 end
 
--- local function stbrp_node()
--- end
+local function stbrp_node()
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbrp_context()
--- end
+local function stbrp_context()
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbrp_rect()
--- end
+local function stbrp_rect()
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt_pack_range()
--- end
+local function stbtt_pack_range()
+    STBTT_NOT_IMPLEMENTED()
+end
 
--- local function stbtt_packedchar()
--- end
+local function stbtt_packedchar()
+    STBTT_NOT_IMPLEMENTED()
+end
 
-----------------------------------------------
+---------------------------------------------------------------------------
 --- stbtt__buf helpers to parse data from file
---
+---------------------------------------------------------------------------
+
 local function stbtt__buf_get8(b)
     if b.cursor >= b.size then return 0 end
     local result = b.data[b.cursor]
@@ -444,9 +452,10 @@ local function stbtt__cff_index_get(b, i)
     return stbtt__buf_range(b, 2 + (count + 1) * offsize + start, _end - start)
 end
 
--------------------------------------
---- accessors to parse data from file
---
+---------------------------------------------------------------------------
+--- Accessors to parse data from file
+---------------------------------------------------------------------------
+
 local function ttUSHORT(p) return stbtt_uint16(p.data[p.offset + 1] * 256 + p.data[p.offset + 2]) end
 local function ttSHORT(p) return stbtt_int16(p.data[p.offset + 1] * 256 + p.data[p.offset + 2]) end
 local function ttULONG(p) return stbtt_uint32(bit.lshift(p.data[p.offset + 1], 24) + bit.lshift(p.data[p.offset + 2], 16) + bit.lshift(p.data[p.offset + 3], 8) + p.data[p.offset + 4]) end
@@ -2477,10 +2486,9 @@ local function stbtt_MakeCodepointBitmap(info, output, out_w, out_h, out_stride,
     STBTT_NOT_IMPLEMENTED()
 end
 
-------------------------------------------------------------
---- bitmap baking
---- "This is SUPER-CRAPPY packing to keep source code small"
---
+---------------------------------------------------------------------------
+--- Bitmap baking
+---------------------------------------------------------------------------
 
 local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
     STBTT_NOT_IMPLEMENTED()
@@ -2494,9 +2502,9 @@ local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, o
     STBTT_NOT_IMPLEMENTED()
 end
 
------------------
---- bitmap baking
---
+---------------------------------------------------------------------------
+--- Bitmap baking / packing
+---------------------------------------------------------------------------
 
 local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, alloc_context)
     STBTT_NOT_IMPLEMENTED()
@@ -2513,49 +2521,49 @@ end
 local STBTT__OVER_MASK = STBTT_MAX_OVERSAMPLE - 1
 
 local function stbtt__h_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
-    local buffer = {} for i = 0, STBTT_MAX_OVERSAMPLE - 1 do buffer[i] = 0 end
+    local buffer = {}
     local safe_w = w - kernel_width
 
     for j = 0, h - 1 do
         local total = 0
         local row_offset = j * stride_in_bytes
 
-        for i = 0, kernel_width - 1 do buffer[i] = 0 end
+        for i = 1, kernel_width do buffer[i] = 0 end
 
         for i = 0, safe_w do
-            total = total + pixels[row_offset + i] - buffer[bit.band(i, STBTT__OVER_MASK)]
-            buffer[bit.band(i + kernel_width, STBTT__OVER_MASK)] = pixels[row_offset + i]
-            pixels[row_offset + i] = unsigned_char(total / kernel_width)
+            total = total + pixels[row_offset + i + 1] - buffer[bit.band(i, STBTT__OVER_MASK) + 1]
+            buffer[bit.band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[row_offset + i + 1]
+            pixels[row_offset + i + 1] = unsigned_char(total / kernel_width)
         end
 
         for i = safe_w + 1, w - 1 do
-            STBTT_assert(pixels[row_offset + i] == 0)
-            total = total - buffer[bit.band(i, STBTT__OVER_MASK)]
-            pixels[row_offset + i] = unsigned_char(total / kernel_width)
+            STBTT_assert(pixels[row_offset + i + 1] == 0)
+            total = total - buffer[bit.band(i, STBTT__OVER_MASK) + 1]
+            pixels[row_offset + i + 1] = unsigned_char(total / kernel_width)
         end
     end
 end
 
 local function stbtt__v_prefilter(pixels, w, h, stride_in_bytes, kernel_width)
-    local buffer = {} for i = 0, STBTT_MAX_OVERSAMPLE - 1 do buffer[i] = 0 end
+    local buffer = {}
     local safe_h = h - kernel_width
 
     for j = 0, w - 1 do
         local total = 0
         local col_offset = j
 
-        for i = 0, kernel_width - 1 do buffer[i] = 0 end
+        for i = 1, kernel_width do buffer[i] = 0 end
 
         for i = 0, safe_h do
-            total = total + pixels[col_offset + i * stride_in_bytes] - buffer[bit.band(i, STBTT__OVER_MASK)]
-            buffer[bit.band(i + kernel_width, STBTT__OVER_MASK)] = pixels[col_offset + i * stride_in_bytes]
-            pixels[col_offset + i * stride_in_bytes] = unsigned_char(total / kernel_width)
+            total = total + pixels[col_offset + i * stride_in_bytes + 1] - buffer[bit.band(i, STBTT__OVER_MASK) + 1]
+            buffer[bit.band(i + kernel_width, STBTT__OVER_MASK) + 1] = pixels[col_offset + i * stride_in_bytes + 1]
+            pixels[col_offset + i * stride_in_bytes + 1] = unsigned_char(total / kernel_width)
         end
 
         for i = safe_h + 1, h - 1 do
-            STBTT_assert(pixels[col_offset + i * stride_in_bytes] == 0)
-            total = total - buffer[bit.band(i, STBTT__OVER_MASK)]
-            pixels[col_offset + i * stride_in_bytes] = unsigned_char(total / kernel_width)
+            STBTT_assert(pixels[col_offset + i * stride_in_bytes + 1] == 0)
+            total = total - buffer[bit.band(i, STBTT__OVER_MASK) + 1]
+            pixels[col_offset + i * stride_in_bytes + 1] = unsigned_char(total / kernel_width)
         end
     end
 end
@@ -2623,9 +2631,9 @@ function stbtt_GetPackedQuad(chardata, pw, ph, char_index, xpos, ypos, q, align_
     STBTT_NOT_IMPLEMENTED()
 end
 
--------------------
+---------------------------------------------------------------------------
 --- sdf computation
---
+---------------------------------------------------------------------------
 
 -- local STBTT_min = math.min
 -- local STBTT_max = math.max
@@ -2658,11 +2666,9 @@ local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_val
     STBTT_NOT_IMPLEMENTED()
 end
 
------------------------------------------------------
---- font name matching -- recommended not to use this
---
-
---- NOT IMPLEMENTED
+---------------------------------------------------------------------------
+--- (NOT IMPLEMENTED) Font name matching -- recommended not to use this
+---------------------------------------------------------------------------
 
 function stbtt_GetFontOffsetForIndex(data, index)
     return stbtt_GetFontOffsetForIndex_internal(data, index)
