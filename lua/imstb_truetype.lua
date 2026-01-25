@@ -131,16 +131,44 @@ local function unsigned_char(value)
     return bit.band(value, 0xFF)
 end
 
+--- @class stbtt__buf
+--- @field data?  table # 1-based byte table
+--- @field offset int   # Every access to `data` will be offset by this
+--- @field cursor int   # >= 0
+--- @field size   int
+
+--- @return stbtt__buf
+--- @nodiscard
 local function stbtt__buf()
     return {
-        data   = nil, -- byte array
-        cursor = nil, -- > = 0
+        data   = nil,
+        offset = 0,
+        cursor = 0,
         size   = nil
     }
 end
 
 --- @class stbtt_fontinfo
---- @field data stbtt_slice
+--- @field userdata         any
+--- @field data             stbtt_slice # pointer to .ttf file
+--- @field fontstart        int         # offset of start of font
+--- @field numGlyphs        int         # number of glyphs, needed for range checking
+--- @field loca             int         # table location as offset from start of .ttf
+--- @field head             int         # table location as offset from start of .ttf
+--- @field glyf             int         # table location as offset from start of .ttf
+--- @field hhea             int         # table location as offset from start of .ttf
+--- @field hmtx             int         # table location as offset from start of .ttf
+--- @field kern             int         # table location as offset from start of .ttf
+--- @field gpos             int         # table location as offset from start of .ttf
+--- @field svg              int         # table location as offset from start of .ttf
+--- @field index_map        int         # a cmap mapping for our chosen character encoding
+--- @field indexToLocFormat int         # format needed to map from glyph index to glyph
+--- @field cff              stbtt__buf  # cff font data
+--- @field charstrings      stbtt__buf  # the charstring index
+--- @field gsubrs           stbtt__buf  # global charstring subroutines index
+--- @field subrs            stbtt__buf  # private charstring subroutines index
+--- @field fontdicts        stbtt__buf  # array of font dicts
+--- @field fdselect         stbtt__buf  # map from glyph to fontdict
 
 --- @return stbtt_fontinfo
 function stbtt_fontinfo()
@@ -171,19 +199,47 @@ function stbtt_fontinfo()
     }
 end
 
+--- @class stbtt_vertex
+--- @field x       int
+--- @field y       int
+--- @field cx      int
+--- @field cy      int
+--- @field cx1     int
+--- @field cy1     int
+--- @field type    int
+--- @field padding int
+
+--- @return stbtt_vertex
+--- @nodiscard
 local function stbtt_vertex()
     return {
-        x = nil,
-        y = nil,
-        cx = nil,
-        cy = nil,
-        cx1 = nil,
-        cy1 = nil,
-        type = nil,
+        x       = nil,
+        y       = nil,
+        cx      = nil,
+        cy      = nil,
+        cx1     = nil,
+        cy1     = nil,
+        type    = nil,
         padding = nil
     }
 end
 
+--- @class stbtt__csctx
+--- @field bounds       int
+--- @field started      int
+--- @field first_x      float
+--- @field first_y      float
+--- @field x            float
+--- @field y            float
+--- @field min_x        int
+--- @field max_x        int
+--- @field min_y        int
+--- @field max_y        int
+--- @field pvertices    stbtt_vertex[]
+--- @field num_vertices int
+
+--- @return stbtt__csctx
+--- @nodiscard
 local function stbtt__csctx()
     return {
         bounds  = nil,
@@ -202,6 +258,8 @@ local function stbtt__csctx()
     }
 end
 
+--- @return stbtt__csctx
+--- @nodiscard
 local function STBTT__CSCTX_INIT(bounds)
     local this = stbtt__csctx()
 
@@ -226,6 +284,15 @@ local function stbtt_kerningentry()
     STBTT_NOT_IMPLEMENTED()
 end
 
+--- @class stbtt__edge
+--- @field x0     float
+--- @field y0     float
+--- @field x1     float
+--- @field y1     float
+--- @field invert int
+
+--- @return stbtt__edge
+--- @nodiscard
 local function stbtt__edge()
     return {
         x0 = nil,
@@ -237,6 +304,11 @@ local function stbtt__edge()
 end
 
 --- XXX: STBTT_RASTERIZER_VERSION == 2
+
+--- @class stbtt__active_edge
+
+--- @return stbtt__active_edge
+--- @nodiscard
 local function stbtt__active_edge()
     return {
         next = nil,
@@ -249,6 +321,8 @@ local function stbtt__active_edge()
     }
 end
 
+--- @return stbtt__active_edge
+--- @nodiscard
 local function stbtt__new_active(e, off_x, start_point)
     local z = stbtt__active_edge()
     local dxdy = (e.x1 - e.x0) / (e.y1 - e.y0)
@@ -310,18 +384,22 @@ end
 --- stbtt__buf helpers to parse data from file
 ---------------------------------------------------------------------------
 
+--- @param b stbtt__buf
 local function stbtt__buf_get8(b)
     if b.cursor >= b.size then return 0 end
-    local result = b.data[b.cursor]
+    local result = b.data[b.offset + b.cursor + 1]
     b.cursor = b.cursor + 1
     return result
 end
 
+--- @param b stbtt__buf
 local function stbtt__buf_peek8(b)
     if b.cursor >= b.size then return 0 end
-    return b.data[b.cursor]
+    return b.data[b.offset + b.cursor + 1]
 end
 
+--- @param b stbtt__buf
+--- @param o int
 local function stbtt__buf_seek(b, o)
     STBTT_assert(not (o > b.size or o < 0))
     if o > b.size or o < 0 then
@@ -331,6 +409,8 @@ local function stbtt__buf_seek(b, o)
     end
 end
 
+--- @param b stbtt__buf
+--- @param o int
 local function stbtt__buf_skip(b, o)
     stbtt__buf_seek(b, b.cursor + o)
 end
@@ -344,6 +424,10 @@ local function stbtt__buf_get(b, n)
     return v
 end
 
+--- @param p?   table
+--- @param size int
+--- @return stbtt__buf
+--- @nodiscard
 local function stbtt__new_buf(p, size)
     local r = stbtt__buf()
     STBTT_assert(size < 0x40000000)
@@ -353,19 +437,28 @@ local function stbtt__new_buf(p, size)
     return r
 end
 
+--- @param b stbtt__buf
 local function stbtt__buf_get16(b) return stbtt__buf_get(b, 2) end
+--- @param b stbtt__buf
 local function stbtt__buf_get32(b) return stbtt__buf_get(b, 4) end
 
+--- @param b stbtt__buf
+--- @param o int
+--- @param s int
+--- @return stbtt__buf
+--- @nodiscard
 local function stbtt__buf_range(b, o, s)
     local r = stbtt__new_buf(nil, 0)
     if (o < 0 or s < 0 or o > b.size or s > (b.size - o)) then
         return r
     end
-    r.data = b.data + o -- FIXME: This should be changed to slice
+    r.data = b.data
+    r.offset = b.offset + o
     r.size = s
     return r
 end
 
+--- @param b stbtt__buf
 local function stbtt__cff_get_index(b)
     local count, start, offsize
     start = b.cursor
@@ -379,6 +472,7 @@ local function stbtt__cff_get_index(b)
     return stbtt__buf_range(b, start, b.cursor - start)
 end
 
+--- @param b stbtt__buf
 local function stbtt__cff_int(b)
     local b0 = stbtt__buf_get8(b)
     if b0 >= 32 and b0 <= 246 then return b0 - 139
@@ -391,6 +485,7 @@ local function stbtt__cff_int(b)
     return 0
 end
 
+--- @param b stbtt__buf
 local function stbtt__cff_skip_operand(b)
     local v
     local b0 = stbtt__buf_peek8(b)
@@ -408,6 +503,10 @@ local function stbtt__cff_skip_operand(b)
     end
 end
 
+--- @param b stbtt__buf
+--- @param key int
+--- @return stbtt__buf
+--- @nodiscard
 local function stbtt__dict_get(b, key)
     stbtt__buf_seek(b, 0)
     while b.cursor < b.size do
@@ -424,6 +523,11 @@ local function stbtt__dict_get(b, key)
     return stbtt__buf_range(b, 0, 0)
 end
 
+--- @param b        stbtt__buf
+--- @param key      int
+--- @param outcount int
+--- @return int[]
+--- @nodiscard
 local function stbtt__dict_get_ints(b, key, outcount)
     local operands = stbtt__dict_get(b, key)
     local out = {}
@@ -434,11 +538,16 @@ local function stbtt__dict_get_ints(b, key, outcount)
     return out
 end
 
+--- @param b stbtt__buf
 local function stbtt__cff_index_count(b)
     stbtt__buf_seek(b, 0)
     return stbtt__buf_get16(b)
 end
 
+--- @param b stbtt__buf
+--- @param i int
+--- @return stbtt__buf
+--- @nodiscard
 local function stbtt__cff_index_get(b, i)
     local count, offsize, start, _end
     stbtt__buf_seek(b, 0)
@@ -1827,9 +1936,9 @@ local function stbtt_GetCodepointSVG(info, unicode_codepoint)
     STBTT_NOT_IMPLEMENTED()
 end
 
-------------------------------------
---- antialiasing software rasterizer
---
+---------------------------------------------------------------------------
+--- Antialiasing software rasterizer
+---------------------------------------------------------------------------
 
 function stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, shift_x, shift_y)
     local n, x0, y0, x1, y1 = stbtt_GetGlyphBox(font, glyph)
@@ -1864,9 +1973,9 @@ local function stbtt_GetCodepointBitmapBox(font, codepoint, scale_x, scale_y)
     return stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, 0.0, 0.0)
 end
 
---------------
+---------------------------------------------------------------------------
 --- Rasterizer
---
+---------------------------------------------------------------------------
 
 local function stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x1, y1)
     if y0 == y1 then return end
@@ -2384,7 +2493,7 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
     end
 
     local num_contours = n
-    if n == 0 then return end
+    if n == 0 then return nil end
 
     local contour_lengths = {} -- size = n
 
