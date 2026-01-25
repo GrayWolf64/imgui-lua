@@ -1,0 +1,5 @@
+*.lua text eol=crlf
+*.md text eol=crlf diff=markdown
+*.json text eol=crlf
+
+*.png binary
