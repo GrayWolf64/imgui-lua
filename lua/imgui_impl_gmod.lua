@@ -26,7 +26,7 @@ local function ImGui_ImplGMOD_CreateMainViewport()
     g_Viewport = vgui.Create("DFrame")
 
     g_Viewport:SetSizable(true)
-    g_Viewport:SetSize(800, 600)
+    g_Viewport:SetSize(ScrW() / 2, ScrH() / 2)
     g_Viewport:MakePopup()
     g_Viewport:SetDraggable(true)
     g_Viewport:Center()

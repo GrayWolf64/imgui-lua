@@ -180,7 +180,9 @@ end
 --- @return float
 function ImGui.GetRoundedFontSize(size) return IM_ROUND(size) end
 
-function ImCharIsBlankA(c) return c == chr' ' or c == chr '\t' end
+--- @param c char
+--- @return bool # True if this character is a ' ' or '\t'
+function ImCharIsBlankA(c) return c == 32 or c == 9 end
 
 --- @enum ImGuiNavLayer
 ImGuiNavLayer = {
@@ -824,6 +826,7 @@ end
 --- @field GroupOffset             ImVec1
 --- @field CursorStartPosLossyness ImVec1
 --- @field TextWrapPos             float
+--- @field TextWrapPosStack        ImVector
 
 --- @return ImGuiWindowTempData
 --- @nodiscard
@@ -850,7 +853,8 @@ local function ImGuiWindowTempData()
 
         ItemWidth = 0,
         ItemWidthDefault = 0,
-        TextWrapPos = 0
+        TextWrapPos = 0,
+        TextWrapPosStack = ImVector()
     }
 end
 

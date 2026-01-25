@@ -52,6 +52,7 @@ concommand.Add("imgui_test", function()
         ImGui.PopFont()
 
         ImGui.SetNextWindowPos(ImVec2(30, 100), ImGuiCond_FirstUseEver)
+        ImGui.SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver)
 
         ImGui.Begin("ImGui Demo", window2_open)
             ImGui.PushFont(nil, 50)
@@ -59,6 +60,8 @@ concommand.Add("imgui_test", function()
             ImGui.TextColored(ImVec4(0, 1, 0, 1), "Dear ImGui says %s!", "Hello")
             ImGui.TextColored(ImVec4(1, 0, 1, 1), "ImGui Sincerely")
             ImGui.TextDisabled("I am Disabled Text!")
+            ImGui.TextUnformatted("Unformatted Text I am!", 12)
+            ImGui.TextWrapped("A Quick Brown Fox Jumps Over A Lazy Bear When The Text Is Wrapped!")
 
             ImGui.PopFont()
         ImGui.End()

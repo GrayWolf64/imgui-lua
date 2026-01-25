@@ -2595,6 +2595,7 @@ function ImGui.Begin(name, p_open, flags)
         end
         window.DC.ItemWidth = window.DC.ItemWidthDefault
         window.DC.TextWrapPos = -1.0
+        window.DC.TextWrapPosStack:resize(0)
 
         if window.AutoFitFramesX > 0 then
             window.AutoFitFramesX = window.AutoFitFramesX - 1
@@ -3465,6 +3466,22 @@ function ImGui.PopStyleColor(count)
         g.ColorStack:pop_back()
         count = count - 1
     end
+end
+
+--- @param wrap_local_pos_x float
+function ImGui.PushTextWrapPos(wrap_local_pos_x) -- ATTENTION: THIS IS IN LEGACY LOCAL SPACE.
+    local g = GImGui
+    local window = g.CurrentWindow
+    window.DC.TextWrapPosStack:push_back(window.DC.TextWrapPos)
+    window.DC.TextWrapPos = wrap_local_pos_x
+end
+
+function ImGui.PopTextWrapPos()
+    local g = GImGui
+    local window = g.CurrentWindow
+    IM_ASSERT_USER_ERROR_RET(window.DC.TextWrapPosStack.Size > 0, "Calling PopTextWrapPos() too many times!")
+    window.DC.TextWrapPos = window.DC.TextWrapPosStack:back()
+    window.DC.TextWrapPosStack:pop_back()
 end
 
 --- static void ScaleWindow(ImGuiWindow* window, float scale)

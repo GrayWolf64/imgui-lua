@@ -358,6 +358,12 @@ function ImGui.TextEx(text, text_end, flags)
     end
 end
 
+--- @param text      string
+--- @param text_end? int
+function ImGui.TextUnformatted(text, text_end)
+    ImGui.TextEx(text, text_end, ImGuiTextFlags.NoWidthForLargeClippedText)
+end
+
 --- @param fmt string
 --- @param ... any
 function ImGui.TextV(fmt, ...)
@@ -368,6 +374,16 @@ function ImGui.TextV(fmt, ...)
 
     local text = string.format(fmt, ...)
     ImGui.TextEx(text, nil, ImGuiTextFlags.NoWidthForLargeClippedText)
+end
+
+--- @param fmt string
+--- @param ... any
+function ImGui.Text(fmt, ...)
+    if select('#', ...) > 0 then
+        ImGui.TextV(fmt, ...)
+    else
+        ImGui.TextEx(fmt)
+    end
 end
 
 --- @param col ImVec4
@@ -390,10 +406,14 @@ end
 
 --- @param fmt string
 --- @param ... any
-function ImGui.Text(fmt, ...)
-    if select('#', ...) > 0 then
-        ImGui.TextV(fmt, ...)
-    else
-        ImGui.TextEx(fmt)
+function ImGui.TextWrapped(fmt, ...)
+    local g = ImGui.GetCurrentContext()
+    local need_backup = (g.CurrentWindow.DC.TextWrapPos < 0.0)
+    if need_backup then
+        ImGui.PushTextWrapPos(0.0)
+    end
+    ImGui.TextV(fmt, ...)
+    if need_backup then
+        ImGui.PopTextWrapPos()
     end
 end
