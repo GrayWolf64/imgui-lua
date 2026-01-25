@@ -381,6 +381,15 @@ end
 
 --- @param fmt string
 --- @param ... any
+function ImGui.TextDisabled(fmt, ...)
+    local g = ImGui.GetCurrentContext()
+    ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextDisabled])
+    ImGui.TextV(fmt, ...)
+    ImGui.PopStyleColor()
+end
+
+--- @param fmt string
+--- @param ... any
 function ImGui.Text(fmt, ...)
     if select('#', ...) > 0 then
         ImGui.TextV(fmt, ...)
