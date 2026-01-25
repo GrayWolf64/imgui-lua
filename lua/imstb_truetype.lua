@@ -1162,17 +1162,13 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                     v.cy = stbtt_int16(n * (mtx[2] * x + mtx[4] * y + mtx[6]))
                 end
 
-                -- append vertices
-                local tmp = {}
-                if num_vertices > 0 and vertices then
-                    for i = 1, num_vertices do
-                        tmp[i] = vertices[i]
+                if num_vertices == 0 then -- GLUA: No malloc
+                    vertices = comp_verts
+                else
+                    for i = 1, comp_num_vertices do
+                        vertices[num_vertices + i] = comp_verts[i]
                     end
                 end
-                for i = 1, comp_num_vertices do
-                    tmp[num_vertices + i] = comp_verts[i]
-                end
-                vertices = tmp
 
                 num_vertices = num_vertices + comp_num_vertices
             end
@@ -1575,7 +1571,7 @@ function stbtt__GetGlyphInfoT2(info, glyph_index) -- const stbtt_fontinfo *info,
     return ((r ~= 0) and c.num_vertices or 0), x0, y0, x1, y1
 end
 
---- @return int?, table?
+--- @return int, table?
 function stbtt_GetGlyphShape(info, glyph_index)
     if info.cff.size == 0 then
         return stbtt__GetGlyphShapeTT(info, glyph_index)
