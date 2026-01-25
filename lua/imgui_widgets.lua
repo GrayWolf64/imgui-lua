@@ -211,16 +211,16 @@ function ImGui.CloseButton(id, pos)
     end
 
     if hovered then
-        window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered)
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.ButtonHovered))
     end
 
     --- DrawLine draws lines of different thickness, why? Antialiasing
-    -- AddText(window.DrawList, "X", "ImCloseButtonCross", x + w * 0.25, y, g.Style.Colors.Text)
+    -- AddText(window.DrawList, "X", "ImCloseButtonCross", x + w * 0.25, y, ImGui.GetColorU32(ImGuiCol.Text))
     local cross_center = bb:GetCenter() - ImVec2(0.5, 0.5)
     local cross_extent = g.FontSize * 0.5 * 0.7071 - 1
 
-    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, cross_extent), cross_center + ImVec2(-cross_extent, -cross_extent), g.Style.Colors.Text, 1)
-    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, -cross_extent), cross_center + ImVec2(-cross_extent, cross_extent), g.Style.Colors.Text, 1)
+    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, cross_extent), cross_center + ImVec2(-cross_extent, -cross_extent), ImGui.GetColorU32(ImGuiCol.Text), 1)
+    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, -cross_extent), cross_center + ImVec2(-cross_extent, cross_extent), ImGui.GetColorU32(ImGuiCol.Text), 1)
 
     return pressed
 end
@@ -238,13 +238,13 @@ function ImGui.CollapseButton(id, pos)
     local pressed, hovered = ImGui.ButtonBehavior(bb, id)
 
     if hovered then
-        window.DrawList:AddRectFilled(bb.Min, bb.Max, g.Style.Colors.ButtonHovered)
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.ButtonHovered))
     end
 
     if window.Collapsed then
-        ImGui.RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir.Right, 1)
+        ImGui.RenderArrow(window.DrawList, bb.Min, ImGui.GetColorU32(ImGuiCol.Text), ImGuiDir.Right, 1)
     else
-        ImGui.RenderArrow(window.DrawList, bb.Min, g.Style.Colors.Text, ImGuiDir.Down, 1)
+        ImGui.RenderArrow(window.DrawList, bb.Min, ImGui.GetColorU32(ImGuiCol.Text), ImGuiDir.Down, 1)
     end
 
     return pressed
@@ -368,6 +368,15 @@ function ImGui.TextV(fmt, ...)
 
     local text = string.format(fmt, ...)
     ImGui.TextEx(text, nil, ImGuiTextFlags.NoWidthForLargeClippedText)
+end
+
+--- @param col ImVec4
+--- @param fmt string
+--- @param ... any
+function ImGui.TextColored(col, fmt, ...)
+    ImGui.PushStyleColor(ImGuiCol.Text, col)
+    ImGui.TextV(fmt, ...)
+    ImGui.PopStyleColor()
 end
 
 --- @param fmt string

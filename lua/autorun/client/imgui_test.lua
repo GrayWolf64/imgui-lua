@@ -54,6 +54,8 @@ concommand.Add("imgui_test", function()
         ImGui.SetNextWindowPos(ImVec2(30, 100), ImGuiCond_FirstUseEver)
 
         ImGui.Begin("ImGui Demo", window2_open)
+        ImGui.TextColored(ImVec4(0, 1, 0, 1), "Dear ImGui says %s!", "Hello")
+        ImGui.TextColored(ImVec4(1, 0, 1, 1), "ImGui Sincerely")
         ImGui.End()
 
         ImGui.EndFrame()

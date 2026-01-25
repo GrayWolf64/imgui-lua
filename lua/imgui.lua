@@ -1688,12 +1688,12 @@ local function UpdateWindowManualResize(window, resize_grip_col)
         local resize_grip_visible = held or hovered or (i == 1 and bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) == 0)
         if resize_grip_visible then
             if held then
-                resize_grip_col[i] = g.Style.Colors.ResizeGripActive
+                resize_grip_col[i] = ImGui.GetColorU32(ImGuiCol.ResizeGripActive)
             else
                 if hovered then
-                    resize_grip_col[i] = g.Style.Colors.ResizeGripHovered
+                    resize_grip_col[i] = ImGui.GetColorU32(ImGuiCol.ResizeGripHovered)
                 else
-                    resize_grip_col[i] = g.Style.Colors.ResizeGrip
+                    resize_grip_col[i] = ImGui.GetColorU32(ImGuiCol.ResizeGrip)
                 end
             end
         end
@@ -1776,7 +1776,7 @@ function ImGui.RenderText(pos, text, text_end, hide_text_after_hash)
     end
 
     if text ~= "" and text_display_end > 1 then
-        window.DrawList:AddText(g.Font, g.FontSize, pos, g.Style.Colors.Text, text, 1, text_display_end, 0.0)
+        window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, 1, text_display_end, 0.0)
         if g.LogEnabled then
             -- LogRenderedText(&pos, text, text_display_end);
         end
@@ -1795,8 +1795,8 @@ function ImGui.RenderTextWrapped(pos, text, text_end, wrap_width)
         text_end = #text + 1
     end
 
-    if text ~= "" then -- TODO: GetColorU32(ImGuiCol_Text)
-        window.DrawList:AddText(g.Font, g.FontSize, pos, g.Style.Colors.Text, text, 1, text_end, wrap_width)
+    if text ~= "" then
+        window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, 1, text_end, wrap_width)
     end
 end
 
@@ -1804,10 +1804,10 @@ end
 --- @param pos_min             ImVec2
 --- @param pos_max             ImVec2
 --- @param text                string
---- @param text_display_end    int
---- @param text_size_if_known? ImVec2
---- @param align?              ImVec2
---- @param clip_rect?          ImRect
+ --- @param text_display_end    int
+ --- @param text_size_if_known? ImVec2
+ --- @param align?              ImVec2
+ --- @param clip_rect?          ImRect
 local function RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
     if not align then align = ImVec2(0, 0) end
 
@@ -1825,11 +1825,11 @@ local function RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin
     if (align.y > 0.0) then pos.y = ImMax(pos.y, pos.y + (pos_max.y - pos.y - text_size.y) * align.y) end
 
     local g = GImGui
-    if (need_clipping) then -- TODO: GetColorU32(ImGuiCol_Text)
+    if (need_clipping) then
         local fine_clip_rect = ImVec4(clip_min.x, clip_min.y, clip_max.x, clip_max.y)
-        draw_list:AddText(nil, 0.0, pos, g.Style.Colors.Text, text, text_begin, text_display_end, 0.0, fine_clip_rect)
+        draw_list:AddText(nil, 0.0, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0, fine_clip_rect)
     else
-        draw_list:AddText(nil, 0.0, pos, g.Style.Colors.Text, text, text_begin, text_display_end, 0.0, nil)
+        draw_list:AddText(nil, 0.0, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0, nil)
     end
 end
 
@@ -1868,8 +1868,8 @@ local function RenderFrame(p_min, p_max, fill_col, borders, rounding) -- TODO: i
 
     local border_size = g.Style.FrameBorderSize
     if borders and border_size > 0 then
-        window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), g.Style.Colors.BorderShadow, rounding, 0, border_size)
-        window.DrawList:AddRect(p_min, p_max, g.Style.Colors.Border, rounding, 0, border_size)
+        window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), ImGui.GetColorU32(ImGuiCol.BorderShadow), rounding, 0, border_size)
+        window.DrawList:AddRect(p_min, p_max, ImGui.GetColorU32(ImGuiCol.Border), rounding, 0, border_size)
     end
 end
 
@@ -1879,9 +1879,9 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
     local title_color
     if titlebar_is_highlight then
-        title_color = g.Style.Colors.TitleBgActive
+        title_color = ImGui.GetColorU32(ImGuiCol.TitleBgActive)
     else
-        title_color = g.Style.Colors.TitleBg
+        title_color = ImGui.GetColorU32(ImGuiCol.TitleBg)
     end
 
     local border_width = g.Style.FrameBorderSize
@@ -1890,17 +1890,17 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
     if window.Collapsed then
         -- TODO:
-        RenderFrame(title_bar_rect.Min, title_bar_rect.Max, g.Style.Colors.TitleBgCollapsed, true, 0)
+        RenderFrame(title_bar_rect.Min, title_bar_rect.Max, ImGui.GetColorU32(ImGuiCol.TitleBgCollapsed), true, 0)
     else
         -- Title bar
         window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_color, 0, 0) -- TODO: rounding
         -- Window background
-        window.DrawList:AddRectFilled(window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size, g.Style.Colors.WindowBg, 0, 0) -- TODO: rounding
+        window.DrawList:AddRectFilled(window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size, ImGui.GetColorU32(ImGuiCol.WindowBg), 0, 0) -- TODO: rounding
 
         -- Resize grip(s)
         for i = 1, #ImResizeGripDef do
             local col = resize_grip_col[i]
-            if not col then continue end -- TODO: use IM_COL32_A_MASK
+            if bit.band(col, IM_COL32_A_MASK) == 0 then continue end
 
             local inner_dir = ImResizeGripDef[i].InnerDir
             local corner = window.Pos + ImResizeGripDef[i].CornerPos * window.Size
@@ -1911,8 +1911,8 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
             window.DrawList:PathFillConvex(col)
         end
 
-        -- RenderWindowOuterBorders?
-        window.DrawList:AddRect(window.Pos, window.Pos + window.Size, g.Style.Colors.Border, 0, 0, border_width)
+        -- TODO: RenderWindowOuterBorders?
+        window.DrawList:AddRect(window.Pos, window.Pos + window.Size, ImGui.GetColorU32(ImGuiCol.Border), 0, 0, border_width)
     end
 end
 
@@ -2487,7 +2487,7 @@ function ImGui.Begin(name, p_open, flags)
             handle_borders_and_resize_grips = false
         end
 
-        local resize_grip_col = {}
+        local resize_grip_col = {0, 0, 0, 0}
         local resize_grip_draw_size = ImTrunc(ImMax(g.FontSize * 1.10, g.Style.WindowRounding + 1.0 + g.FontSize * 0.2))
         if handle_borders_and_resize_grips and not window.Collapsed then
             UpdateWindowManualResize(window, resize_grip_col)
@@ -3392,6 +3392,79 @@ end
 function ImGui.SetMouseCursor(cursor_type)
     local g = GImGui
     g.MouseCursor = cursor_type
+end
+
+--- @param in_col  ImU32
+--- @param out_col ImVec4?
+--- @return ImVec4
+function ImGui.ColorConvertU32ToFloat4(in_col, out_col)
+    local s = 1.0 / 255.0
+    local r = bit.band(bit.rshift(in_col, IM_COL32_R_SHIFT), 0xFF) * s
+    local g = bit.band(bit.rshift(in_col, IM_COL32_G_SHIFT), 0xFF) * s
+    local b = bit.band(bit.rshift(in_col, IM_COL32_B_SHIFT), 0xFF) * s
+    local a = bit.band(bit.rshift(in_col, IM_COL32_A_SHIFT), 0xFF) * s
+
+    if out_col then
+        out_col.x = r
+        out_col.y = g
+        out_col.z = b
+        out_col.w = a
+        return out_col
+    else
+        return ImVec4(r, g, b, a)
+    end
+end
+
+--- @param in_col ImVec4
+--- @return ImU32
+function ImGui.ColorConvertFloat4ToU32(in_col)
+    local out_col = 0
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.x), IM_COL32_R_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.y), IM_COL32_G_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.z), IM_COL32_B_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.w), IM_COL32_A_SHIFT))
+    return out_col
+end
+
+--- @param idx        ImGuiCol
+--- @param alpha_mul? float
+--- @return ImU32
+function ImGui.GetColorU32(idx, alpha_mul)
+    if alpha_mul == nil then alpha_mul = 1.0 end
+
+    local g = GImGui
+    local c = g.Style.Colors[idx]
+    c.w = c.w * g.Style.Alpha * alpha_mul
+    return ImGui.ColorConvertFloat4ToU32(c)
+end
+
+--- @param idx ImGuiCol
+--- @param col ImVec4
+function ImGui.PushStyleColor(idx, col)
+    local g = GImGui
+    local backup = ImGuiColorMod(idx, g.Style.Colors[idx])
+    g.ColorStack:push_back(backup)
+    if g.DebugFlashStyleColorIdx ~= idx then
+        g.Style.Colors[idx] = col
+    end
+end
+
+--- @param count? int
+function ImGui.PopStyleColor(count)
+    if count == nil then count = 1 end
+
+    local g = GImGui
+    if g.ColorStack.Size < count then
+        IM_ASSERT_USER_ERROR(false, "Calling PopStyleColor() too many times!")
+        count = g.ColorStack.Size
+    end
+
+    while count > 0 do
+        local backup = g.ColorStack:back()
+        g.Style.Colors[backup.Col] = backup.BackupValue
+        g.ColorStack:pop_back()
+        count = count - 1
+    end
 end
 
 --- static void ScaleWindow(ImGuiWindow* window, float scale)

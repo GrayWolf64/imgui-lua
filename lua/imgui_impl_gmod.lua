@@ -164,6 +164,9 @@ end
 local clip_min = ImVec2()
 local clip_max = ImVec2()
 local clip_off = ImVec2()
+local col0 = ImVec4()
+local col1 = ImVec4()
+local col2 = ImVec4()
 
 local function ImGui_ImplGMOD_RenderDrawData(draw_data)
     local bd = ImGui_ImplGMOD_GetBackendData()
@@ -213,17 +216,20 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
                     mesh.Position(vtx0.pos.x, vtx0.pos.y, 0)
                     mesh.TexCoord(0, vtx0.uv.x, vtx0.uv.y)
-                    mesh.Color(vtx0.col.x * 255, vtx0.col.y * 255, vtx0.col.z * 255, vtx0.col.w * 255)
+                    ImGui.ColorConvertU32ToFloat4(vtx0.col, col0)
+                    mesh.Color(col0.x * 255, col0.y * 255, col0.z * 255, col0.w * 255)
                     mesh.AdvanceVertex()
 
                     mesh.Position(vtx1.pos.x, vtx1.pos.y, 0)
                     mesh.TexCoord(0, vtx1.uv.x, vtx1.uv.y)
-                    mesh.Color(vtx1.col.x * 255, vtx1.col.y * 255, vtx1.col.z * 255, vtx1.col.w * 255)
+                    ImGui.ColorConvertU32ToFloat4(vtx1.col, col1)
+                    mesh.Color(col1.x * 255, col1.y * 255, col1.z * 255, col1.w * 255)
                     mesh.AdvanceVertex()
 
                     mesh.Position(vtx2.pos.x, vtx2.pos.y, 0)
                     mesh.TexCoord(0, vtx2.uv.x, vtx2.uv.y)
-                    mesh.Color(vtx2.col.x * 255, vtx2.col.y * 255, vtx2.col.z * 255, vtx2.col.w * 255)
+                    ImGui.ColorConvertU32ToFloat4(vtx2.col, col2)
+                    mesh.Color(col2.x * 255, col2.y * 255, col2.z * 255, col2.w * 255)
                     mesh.AdvanceVertex()
                 end
 

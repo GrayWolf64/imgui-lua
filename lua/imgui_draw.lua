@@ -56,21 +56,66 @@ function ImGui.StyleColorsDark(dst)
     local style = dst and dst or ImGui.GetStyle()
     local colors = style.Colors
 
-    -- i don't use enums to index here
-    colors["Text"]              = ImVec4(1.00, 1.00, 1.00, 1.00)
-    colors["WindowBg"]          = ImVec4(0.06, 0.06, 0.06, 0.94)
-    colors["Border"]            = ImVec4(0.43, 0.43, 0.50, 0.50)
-    colors["BorderShadow"]      = ImVec4(0.00, 0.00, 0.00, 0.00)
-    colors["TitleBg"]           = ImVec4(0.04, 0.04, 0.04, 1.00)
-    colors["TitleBgActive"]     = ImVec4(0.16, 0.29, 0.48, 1.00)
-    colors["TitleBgCollapsed"]  = ImVec4(0.00, 0.00, 0.00, 0.51)
-    colors["MenuBarBg"]         = ImVec4(0.14, 0.14, 0.14, 1.00)
-    colors["Button"]            = ImVec4(0.26, 0.59, 0.98, 0.40)
-    colors["ButtonHovered"]     = ImVec4(0.26, 0.59, 0.98, 1.00)
-    colors["ButtonActive"]      = ImVec4(0.06, 0.53, 0.98, 1.00)
-    colors["ResizeGrip"]        = ImVec4(0.26, 0.59, 0.98, 0.20)
-    colors["ResizeGripHovered"] = ImVec4(0.26, 0.59, 0.98, 0.67)
-    colors["ResizeGripActive"]  = ImVec4(0.26, 0.59, 0.98, 0.95)
+    colors[ImGuiCol.Text]                   = ImVec4(1.00, 1.00, 1.00, 1.00)
+    colors[ImGuiCol.TextDisabled]           = ImVec4(0.50, 0.50, 0.50, 1.00)
+    colors[ImGuiCol.WindowBg]               = ImVec4(0.06, 0.06, 0.06, 0.94)
+    colors[ImGuiCol.ChildBg]                = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.PopupBg]                = ImVec4(0.08, 0.08, 0.08, 0.94)
+    colors[ImGuiCol.Border]                 = ImVec4(0.43, 0.43, 0.50, 0.50)
+    colors[ImGuiCol.BorderShadow]           = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.FrameBg]                = ImVec4(0.16, 0.29, 0.48, 0.54)
+    colors[ImGuiCol.FrameBgHovered]         = ImVec4(0.26, 0.59, 0.98, 0.40)
+    colors[ImGuiCol.FrameBgActive]          = ImVec4(0.26, 0.59, 0.98, 0.67)
+    colors[ImGuiCol.TitleBg]                = ImVec4(0.04, 0.04, 0.04, 1.00)
+    colors[ImGuiCol.TitleBgActive]          = ImVec4(0.16, 0.29, 0.48, 1.00)
+    colors[ImGuiCol.TitleBgCollapsed]       = ImVec4(0.00, 0.00, 0.00, 0.51)
+    colors[ImGuiCol.MenuBarBg]              = ImVec4(0.14, 0.14, 0.14, 1.00)
+    colors[ImGuiCol.ScrollbarBg]            = ImVec4(0.02, 0.02, 0.02, 0.53)
+    colors[ImGuiCol.ScrollbarGrab]          = ImVec4(0.31, 0.31, 0.31, 1.00)
+    colors[ImGuiCol.ScrollbarGrabHovered]   = ImVec4(0.41, 0.41, 0.41, 1.00)
+    colors[ImGuiCol.ScrollbarGrabActive]    = ImVec4(0.51, 0.51, 0.51, 1.00)
+    colors[ImGuiCol.CheckMark]              = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.SliderGrab]             = ImVec4(0.24, 0.52, 0.88, 1.00)
+    colors[ImGuiCol.SliderGrabActive]       = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.Button]                 = ImVec4(0.26, 0.59, 0.98, 0.40)
+    colors[ImGuiCol.ButtonHovered]          = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.ButtonActive]           = ImVec4(0.06, 0.53, 0.98, 1.00)
+    colors[ImGuiCol.Header]                 = ImVec4(0.26, 0.59, 0.98, 0.31)
+    colors[ImGuiCol.HeaderHovered]          = ImVec4(0.26, 0.59, 0.98, 0.80)
+    colors[ImGuiCol.HeaderActive]           = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.Separator]              = colors[ImGuiCol.Border]
+    colors[ImGuiCol.SeparatorHovered]       = ImVec4(0.10, 0.40, 0.75, 0.78)
+    colors[ImGuiCol.SeparatorActive]        = ImVec4(0.10, 0.40, 0.75, 1.00)
+    colors[ImGuiCol.ResizeGrip]             = ImVec4(0.26, 0.59, 0.98, 0.20)
+    colors[ImGuiCol.ResizeGripHovered]      = ImVec4(0.26, 0.59, 0.98, 0.67)
+    colors[ImGuiCol.ResizeGripActive]       = ImVec4(0.26, 0.59, 0.98, 0.95)
+    colors[ImGuiCol.InputTextCursor]        = colors[ImGuiCol.Text]
+    colors[ImGuiCol.TabHovered]             = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.Tab]                    = ImLerpVec4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
+    colors[ImGuiCol.TabSelected]            = ImLerpVec4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.TabSelectedOverline]    = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TabDimmed]              = ImLerpVec4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]      = ImLerpVec4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.50, 0.50, 0.50, 0.00)
+    colors[ImGuiCol.PlotLines]              = ImVec4(0.61, 0.61, 0.61, 1.00)
+    colors[ImGuiCol.PlotLinesHovered]       = ImVec4(1.00, 0.43, 0.35, 1.00)
+    colors[ImGuiCol.PlotHistogram]          = ImVec4(0.90, 0.70, 0.00, 1.00)
+    colors[ImGuiCol.PlotHistogramHovered]   = ImVec4(1.00, 0.60, 0.00, 1.00)
+    colors[ImGuiCol.TableHeaderBg]          = ImVec4(0.19, 0.19, 0.20, 1.00)
+    colors[ImGuiCol.TableBorderStrong]      = ImVec4(0.31, 0.31, 0.35, 1.00)
+    colors[ImGuiCol.TableBorderLight]       = ImVec4(0.23, 0.23, 0.25, 1.00)
+    colors[ImGuiCol.TableRowBg]             = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.TableRowBgAlt]          = ImVec4(1.00, 1.00, 1.00, 0.06)
+    colors[ImGuiCol.TextLink]               = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TextSelectedBg]         = ImVec4(0.26, 0.59, 0.98, 0.35)
+    colors[ImGuiCol.TreeLines]              = colors[ImGuiCol.Border]
+    colors[ImGuiCol.DragDropTarget]         = ImVec4(1.00, 1.00, 0.00, 0.90)
+    colors[ImGuiCol.DragDropTargetBg]       = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.UnsavedMarker]          = ImVec4(1.00, 1.00, 1.00, 1.00)
+    colors[ImGuiCol.NavCursor]              = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.NavWindowingHighlight]  = ImVec4(1.00, 1.00, 1.00, 0.70)
+    colors[ImGuiCol.NavWindowingDimBg]      = ImVec4(0.80, 0.80, 0.80, 0.20)
+    colors[ImGuiCol.ModalWindowDimBg]       = ImVec4(0.80, 0.80, 0.80, 0.35)
 end
 
 local ImFontAtlasTextureAdd
@@ -2705,13 +2750,13 @@ function MT.ImDrawList:_OnChangedVtxOffset()
 end
 
 function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col) -- TODO: cleanup
-    if points_count < 3 or col.a == 0 then return end
+    if points_count < 3 or bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
     local uv = self._Data.TexUvWhitePixel
 
     if bit.band(self.Flags, ImDrawListFlags_AntiAliasedFill) ~= 0 then
         local AA_SIZE = self._FringeScale
-        local col_trans = {r = col.r, g = col.g, b = col.b, a = 0}
+        local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
         local idx_count = (points_count - 2) * 3 + points_count * 6
         local vtx_count = points_count * 2
         self:PrimReserve(idx_count, vtx_count)
@@ -2956,7 +3001,7 @@ end
 --- void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32 col, ImDrawFlags flags, float thickness)
 -- TODO: fix this
 function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
-    if points_count < 2 or col.a == 0 then
+    if points_count < 2 or bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
 
@@ -2968,7 +3013,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     if bit.band(self.Flags, ImDrawListFlags_AntiAliasedLines) ~= 0 then
         -- Anti-aliased stroke
         local AA_SIZE = self._FringeScale
-        local col_trans = {x = col.x, y = col.y, z = col.z, w = 0}
+        local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
 
         -- Thicknesses <1.0 should behave like thickness 1.0
         thickness = ImMax(thickness, 1.0)
@@ -3309,7 +3354,7 @@ function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
     if not rounding then rounding = 0.0 end
     if not flags    then flags    = 0   end
 
-    if col.w == 0 then return end -- TODO: pack color?
+    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
     if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask) == ImDrawFlags_RoundCornersNone) then
         self:PrimReserve(6, 4)
@@ -3321,7 +3366,7 @@ function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
 end
 
 function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
-    if col.w == 0 then return end
+    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
     if bit.band(self.Flags, ImDrawListFlags_AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
     else
@@ -3332,7 +3377,7 @@ function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
 end
 
 function MT.ImDrawList:AddLine(p1, p2, col, thickness)
-    if col.w == 0 then return end
+    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
     self:PathLineTo(p1 + ImVec2(0.5, 0.5))
     self:PathLineTo(p2 + ImVec2(0.5, 0.5))
@@ -3340,7 +3385,7 @@ function MT.ImDrawList:AddLine(p1, p2, col, thickness)
 end
 
 function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
-    if col.w == 0 then return end
+    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
     self:PathLineTo(p1)
     self:PathLineTo(p2)
@@ -3351,14 +3396,14 @@ end
 --- @param font                ImFont
 --- @param font_size           float
 --- @param pos                 ImVec2
---- @param col                 ImVec4
+--- @param col                 ImU32
 --- @param text                string
 --- @param text_begin          int
 --- @param text_end            int
 --- @param wrap_width          float
 --- @param cpu_fine_clip_rect? ImVec4
 function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text_end, wrap_width, cpu_fine_clip_rect)
-    if col.w == 0 then return end
+    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
     if text_begin == text_end then
         return
@@ -3584,7 +3629,7 @@ end
 --- @param draw_list  ImDrawList
 --- @param size       float
 --- @param pos        ImVec2
---- @param col        ImVec4
+--- @param col        ImU32
 --- @param clip_rect  ImVec4
 --- @param text       string
 --- @param text_begin int
@@ -3649,8 +3694,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     local cmd_count = draw_list.CmdBuffer.Size
     local cpu_fine_clip = bit.band(flags, ImDrawTextFlags.CpuFineClip) ~= 0
 
-    local color_untinted = col:copy()
-    color_untinted.w = 1.0 -- TODO: packed colors
+    local color_untinted = bit.bor(col, bit.bnot(IM_COL32_A_MASK))
 
     local word_wrap_eol
 

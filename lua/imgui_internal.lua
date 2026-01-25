@@ -25,6 +25,7 @@ ImCos   = math.cos
 ImAcos  = math.acos
 ImSqrt  = math.sqrt
 function ImLerp(a, b, t)      return ((a) + ((b) - (a)) * (t)) end
+function ImLerpVec4(a, b, t)  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t) end
 function ImClamp(v, min, max) return ImMin(ImMax((v), (min)), (max)) end
 
 function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
@@ -56,6 +57,17 @@ function ImUpperPowerOfTwo(v)
 end
 
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
+
+IM_F32_TO_INT8_SAT = function(val) return math.floor(ImSaturate(val) * 255.0 + 0.5) end
+
+--- @param col          ImGuiCol
+--- @param backup_value ImVec4
+function ImGuiColorMod(col, backup_value)
+    return {
+        Col = col,
+        BackupValue = backup_value
+    }
+end
 
 --- @param lhs ImVec2
 --- @return float
@@ -623,6 +635,7 @@ end
 function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
     local this = {
         Style = ImGuiStyle(),
+        ColorStack = ImVector(),
 
         Config = nil,
         Initialized = false,
@@ -747,6 +760,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         DragDropWithinTarget = false,
         DragDropSourceFlags = 0,
         -- TODO: 
+
+        DebugFlashStyleColorIdx = nil,
     }
 
     this.IO.Fonts = (shared_font_atlas ~= nil) and shared_font_atlas or ImFontAtlas()
