@@ -136,6 +136,7 @@ local function ImGui_ImplGMOD_Init(window)
     -- main_viewport.PlatformHandle = window
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset)
 end
 
 local function ImGui_ImplGMOD_UpdateMouseCursor(io, cursor_str)
@@ -243,7 +244,7 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
     -- Display the atlas on my screen
     -- local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
     -- if atlas_tex then
-    --     render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), ScrW() - atlas_tex.Width - 10, 10, atlas_tex.Width, atlas_tex.Height)
+    --     render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), 20, 20, atlas_tex.Width, atlas_tex.Height)
     -- end
 end
 

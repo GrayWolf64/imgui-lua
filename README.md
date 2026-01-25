@@ -15,7 +15,7 @@
 | Widgets    | WIP                              |
 | Backends   | Currently only have GMod backend |
 
-### My Developing Platform
+### My Development Platform
 
 `GMod x86-64 branch (2026.1.21)` with `LuaJIT 2.1.0-beta3`, `Lua 5.1`. Recording this is actually necessary, since who knows how GMod Lua APIs will change in the future!
 
@@ -48,8 +48,8 @@ Previous Attempts at immediate-mode UIs in GMod:
 
 AIs:
 
-- [DeepSeek](https://www.deepseek.com/),
-- [KIMI K2 Thinking](https://www.kimi.com/),
+- [DeepSeek](https://www.deepseek.com/)
+- [KIMI K2 Thinking](https://www.kimi.com/)
 - [TRAE](https://www.trae.ai/)
 
 for helping me avoid those areas involving a lot of repeatitive work!

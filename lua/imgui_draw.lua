@@ -2877,11 +2877,10 @@ function MT.ImDrawList:_SetTexture(tex_ref)
     self:_OnChangedTexture()
 end
 
---- TODO: LIMIT: 65536 for imesh, 4096 for drawpoly
 function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     IM_ASSERT_PARANOID(idx_count >= 0 and vtx_count >= 0)
 
-    if self._VtxCurrentIdx + vtx_count >= 4096 then
+    if (self._VtxCurrentIdx + vtx_count >= bit.lshift(1, 16)) and (bit.band(self.Flags, ImDrawListFlags_AllowVtxOffset) ~= 0) then
         self._CmdHeader.VtxOffset = self.VtxBuffer.Size + 1
         self:_OnChangedVtxOffset()
     end
