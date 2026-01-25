@@ -1818,7 +1818,7 @@ function ImFontAtlasBakedAddFontGlyph(atlas, baked, src, in_glyph)
     ImFontBaked_BuildGrowIndex(baked, codepoint + 1)
     baked.IndexAdvanceX.Data[codepoint + 1] = glyph.AdvanceX
     baked.IndexLookup.Data[codepoint + 1] = glyph_idx -- (ImU16)
-    local page_n = codepoint / 8192
+    local page_n = math.floor(codepoint / 8192)
     baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1] = bit.bor(baked.OwnerFont.Used8kPagesMap[bit.rshift(page_n, 3) + 1], bit.lshift(1, bit.band(page_n, 7)))
 
     return glyph, glyph_idx

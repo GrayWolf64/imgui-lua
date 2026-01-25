@@ -10,8 +10,9 @@ local FONT_DEFAULT_SIZE_BASE = 20
 
 IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 
-local math = math
-local bit  = bit
+local string = string
+local math   = math
+local bit    = bit
 
 ----------------------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
@@ -21,15 +22,26 @@ local FILE = {
     close     = FindMetaTable("File").Close,
     size      = FindMetaTable("File").Size,
     write     = FindMetaTable("File").Write,
-    read_byte = FindMetaTable("File").ReadByte
+    read      = FindMetaTable("File").Read
 }
 
 function ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
 function ImFileClose(f) FILE.close(f) end
 function ImFileGetSize(f) return FILE.size(f) end
 function ImFileRead(f, data, count)
-    for i = 1, count do
-        data[i] = FILE.read_byte(f)
+    local CHUNK_SIZE = 8000 -- We don't read byte by byte
+    local offset = 0
+
+    while offset < count do
+        local read_size = math.min(CHUNK_SIZE, count - offset)
+        local str = FILE.read(f, read_size)
+
+        local bytes = {string.byte(str, 1, read_size)}
+        for i = 1, read_size do
+            data[offset + i] = bytes[i]
+        end
+
+        offset = offset + read_size
     end
 end
 

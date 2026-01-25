@@ -515,8 +515,6 @@ function ImFont()
     this.RemapPairs       = {}
     this.Scale            = 0
 
-    for i = 1, (IM_UNICODE_CODEPOINT_MAX + 1) / 8192 / 8 do this.Used8kPagesMap[i] = 0 end
-
     return this
 end
 
