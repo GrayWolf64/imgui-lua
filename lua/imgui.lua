@@ -122,10 +122,11 @@ local function GetResizeBorderRect(window, border_n, perp_padding, thickness)
     return ImRect()
 end
 
---- @param data table
+--- @param data table|number
+--- @param size int?
 --- @param seed int?
 --- @return int
-function ImHashData(data, seed)
+function ImHashData(data, size, seed)
     seed = seed or 0
 
     local FNV_OFFSET_BASIS = 0x811C9DC5
@@ -133,11 +134,17 @@ function ImHashData(data, seed)
 
     local hash = bit.bxor(FNV_OFFSET_BASIS, seed)
 
-    local _data
-    for i = 1, #data do
-        _data = data[i]
-        hash = bit.bxor(hash, _data)
+    if size == 1 then --- @cast data number
+        hash = bit.bxor(hash, data)
         hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
+    else
+        size = size or #data
+        local _data
+        for i = 1, size do
+            _data = data[i]
+            hash = bit.bxor(hash, _data)
+            hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
+        end
     end
 
     assert(hash ~= 0, "ImHashData = 0!")
@@ -150,23 +157,9 @@ end
 --- @param seed int?
 --- @return int
 function ImHashStr(str, seed)
-    seed = seed or 0
-
-    local FNV_OFFSET_BASIS = 0x811C9DC5
-    local FNV_PRIME = 0x01000193
-
-    local hash = bit.bxor(FNV_OFFSET_BASIS, seed)
-
-    local byte
-    for i = 1, #str do
-        byte = string.byte(str, i)
-        hash = bit.bxor(hash, byte)
-        hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
-    end
-
-    assert(hash ~= 0, "ImHashStr = 0!")
-
-    return hash
+    local len = #str
+    local data = {string.byte(str, 1, len)}
+    return ImHashData(data, len, seed)
 end
 
 --- @param in_text     string
@@ -949,13 +942,19 @@ function ImGui.PopID()
     window.IDStack:pop_back()
 end
 
---- @param str string
+--- @param id string|int
 --- @return ImGuiID
-function MT.ImGuiWindow:GetID(str)
+function MT.ImGuiWindow:GetID(id)
     local seed = self.IDStack:back()
-    local id = ImHashStr(str, seed)
+    local t = type(id)
 
-    return id
+    if t == "string" then
+        return ImHashStr(id, seed)
+    elseif t == "number" then
+        return ImHashData(id, 1, seed)
+    else
+        error("GetID: expected string or number, got " .. t)
+    end
 end
 
 --- @param id ImGuiID
@@ -1793,7 +1792,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         if resize_rect.Min.x > resize_rect.Max.x then resize_rect.Min.x, resize_rect.Max.x = resize_rect.Max.x, resize_rect.Min.x end
         if resize_rect.Min.y > resize_rect.Max.y then resize_rect.Min.y, resize_rect.Max.y = resize_rect.Max.y, resize_rect.Min.y end
 
-        local resize_grip_id = window:GetID(tostring(resize_grip_n))
+        local resize_grip_id = window:GetID(resize_grip_n)
 
         ImGui.ItemAdd(resize_rect, resize_grip_id, nil, ImGuiItemFlags_NoNav)
         local _, hovered, held = ImGui.ButtonBehavior(resize_rect, resize_grip_id, bit.bor(ImGuiButtonFlags_FlattenChildren, ImGuiButtonFlags_NoNavFocus))
@@ -1858,7 +1857,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         end
 
         local border_rect = GetResizeBorderRect(window, border_n, grip_hover_inner_size, g.WindowsBorderHoverPadding)
-        local border_id = window:GetID(tostring(border_n + 4))
+        local border_id = window:GetID(border_n + 4)
         ImGui.ItemAdd(border_rect, border_id, nil, ImGuiItemFlags_NoNav)
         local _, hovered, held = ImGui.ButtonBehavior(border_rect, border_id, bit.bor(ImGuiButtonFlags_FlattenChildren, ImGuiButtonFlags_NoNavFocus))
 
