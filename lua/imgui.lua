@@ -2116,12 +2116,19 @@ end
 
 --- ImGui::RenderMouseCursor
 
---- ImGui::RenderFrame
-local function RenderFrame(p_min, p_max, fill_col, borders, rounding) -- TODO: implement rounding
+--- @param p_min    ImVec2
+--- @param p_max    ImVec2
+--- @param fill_col ImU32
+--- @param borders  bool
+--- @param rounding float
+function ImGui.RenderFrame(p_min, p_max, fill_col, borders, rounding)
+    if borders  == nil then borders  = true end
+    if rounding == nil then rounding = 0.0 end
+
     local g = GImGui
     local window = g.CurrentWindow
 
-    window.DrawList:AddRectFilled(p_min, p_max, fill_col, rounding, 0)
+    window.DrawList:AddRectFilled(p_min, p_max, fill_col, rounding)
 
     local border_size = g.Style.FrameBorderSize
     if borders and border_size > 0 then
@@ -2202,7 +2209,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
         else
             title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBgCollapsed)
         end
-        RenderFrame(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, true, 0)
+        ImGui.RenderFrame(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, true, window_rounding)
         g.Style.FrameBorderSize = backup_border_size
     else
         -- Window background

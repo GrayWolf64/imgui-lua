@@ -8,7 +8,6 @@ local SysTime = SysTime
 
 local MT = ImGui.GetMetatables()
 
---- @module "imstb_rectpack.lua"
 local stbrp_context = include"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
@@ -943,10 +942,14 @@ end
 MT.ImGuiWindow = {}
 MT.ImGuiWindow.__index = MT.ImGuiWindow
 
+--- @return ImRect
+--- @nodiscard
 function MT.ImGuiWindow:Rect()
     return ImRect(self.Pos.x, self.Pos.y, self.Pos.x + self.Size.x, self.Pos.y + self.Size.y)
 end
 
+--- @return ImRect
+--- @nodiscard
 function MT.ImGuiWindow:TitleBarRect()
     return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
 end
