@@ -374,34 +374,59 @@ function MT.ImDrawList:PathStroke(col, flags, thickness)
 end
 
 --- @class ImDrawListSharedData
+--- @field TexUvWhitePixel       ImVec2
+--- @field TexUvLines            ImVec4
+--- @field FontAtlas             ImFontAtlas
+--- @field Font                  ImFont
+--- @field FontSize              float
+--- @field FontScale             float
+--- @field CurveTessellationTol  float
+--- @field CircleSegmentMaxError float
+--- @field InitialFringeScale    float
+--- @field InitialFlags          ImDrawListFlags
+--- @field ClipRectFullscreen?   ImVec4
+--- @field TempBuffer            ImVector<ImVec2>
+--- @field DrawLists             ImVector<ImDrawList>
+--- @field Context?              ImGuiContext
+--- @field ArcFastVtx            table<ImVec2>        # 1-based table
+--- @field ArcFastRadiusCutoff   float
+--- @field CircleSegmentCounts   table<int>           # 1-based table
 MT.ImDrawListSharedData = {}
 MT.ImDrawListSharedData.__index = MT.ImDrawListSharedData
 
+--- @return ImDrawListSharedData
+--- @nodiscard
 function ImDrawListSharedData()
     local this = setmetatable({
         TexUvWhitePixel = nil,
-        TexUvLines = nil,
-        FontAtlas = nil,
+        TexUvLines      = nil,
+        FontAtlas       = nil,
 
-        InitialFringeScale = 1,
-        ClipRectFullscreen = nil,
+        Font      = nil,
+        FontSize  = 0,
+        FontScale = 0,
 
+        CurveTessellationTol  = 0,
         CircleSegmentMaxError = 0,
+        InitialFringeScale    = 1,
 
-        TempBuffer = ImVector(),
-        DrawLists = ImVector(),
+        InitialFlags          = 0,
+        ClipRectFullscreen    = nil,
+        TempBuffer            = ImVector(),
+        DrawLists             = ImVector(),
 
-        ArcFastVtx = {}, -- size = IM_DRAWLIST_ARCFAST_TABLE_SIZE
+        ArcFastVtx          = {},
         ArcFastRadiusCutoff = nil,
-        CircleSegmentCounts = {} -- size = 64
+        CircleSegmentCounts = {},
+
+        Context = nil
     }, MT.ImDrawListSharedData)
 
-    for i = 0, IM_DRAWLIST_ARCFAST_TABLE_SIZE - 1 do
-        local a = (i * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
+    for i = 1, IM_DRAWLIST_ARCFAST_TABLE_SIZE do
+        local a = ((i - 1) * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
         this.ArcFastVtx[i] = ImVec2(ImCos(a), ImSin(a))
     end
 
-    -- this is odd. CircleSegmentMaxError = 0 at this time resulting in ArcFastRadiusCutoff = 0
     this.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, this.CircleSegmentMaxError)
 
     return this

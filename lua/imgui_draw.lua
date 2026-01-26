@@ -2598,13 +2598,16 @@ function MT.ImDrawData:AddDrawList(draw_list)
 end
 
 function MT.ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
-    if self.CircleSegmentMaxError == max_error then return end
+    if self.CircleSegmentMaxError == max_error then
+        return
+    end
+
     IM_ASSERT(max_error > 0)
 
     self.CircleSegmentMaxError = max_error
-    for i = 0, 64 - 1 do
-        local radius = i
-        self.CircleSegmentCounts[i] = i > 0 and IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self.CircleSegmentMaxError) or IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+    for i = 1, 64 do -- IM_COUNTOF(CircleSegmentCounts)
+        local radius = (i - 1)
+        self.CircleSegmentCounts[i] = (i > 1) and IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self.CircleSegmentMaxError) or IM_DRAWLIST_ARCFAST_SAMPLE_MAX
     end
 
     self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleSegmentMaxError)
@@ -3427,10 +3430,10 @@ function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text
 end
 
 function MT.ImDrawList:_CalcCircleAutoSegmentCount(radius)
-    local radius_idx = ImFloor(radius + 0.999999)
+    local radius_idx = ImFloor(radius + 0.999999) + 1
 
-    if radius_idx >= 0 and radius_idx < 64 then -- IM_ARRAYSIZE(_Data->CircleSegmentCounts)
-        return self._Data.CircleSegmentCounts[radius_idx] -- Use cached value
+    if radius_idx >= 1 and radius_idx <= 64 then -- IM_COUNTOF(_Data->CircleSegmentCounts)
+        return self._Data.CircleSegmentCounts[radius_idx]
     else
         return IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self._Data.CircleSegmentMaxError)
     end
@@ -3466,7 +3469,11 @@ function MT.ImDrawList:PopClipRect()
     self:_OnChangedClipRect()
 end
 
---- void ImDrawList::_PathArcToFastEx
+--- @param center       ImVec2
+--- @param radius       float
+--- @param a_min_sample int
+--- @param a_max_sample int
+--- @param a_step       int
 function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
     if radius < 0.5 then
         self._Path:push_back(center)
@@ -3474,10 +3481,10 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
     end
 
     if a_step <= 0 then
-        a_step = ImFloor(IM_DRAWLIST_ARCFAST_SAMPLE_MAX / self:_CalcCircleAutoSegmentCount(radius)) -- FIXME: I may forget to add ImFloor if result is int somewhere
+        a_step = math.floor(IM_DRAWLIST_ARCFAST_SAMPLE_MAX / self:_CalcCircleAutoSegmentCount(radius))
     end
 
-    a_step = ImClamp(a_step, 1, ImFloor(IM_DRAWLIST_ARCFAST_TABLE_SIZE / 4))
+    a_step = ImClamp(a_step, 1, math.floor(IM_DRAWLIST_ARCFAST_TABLE_SIZE / 4))
 
     local sample_range = ImAbs(a_max_sample - a_min_sample)
     local a_next_step = a_step
@@ -3485,7 +3492,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
     local samples = sample_range + 1
     local extra_max_sample = false
     if a_step > 1 then
-        samples = sample_range / a_step + 1
+        samples = math.floor(sample_range / a_step) + 1
         local overstep = sample_range % a_step
 
         if overstep > 0 then
@@ -3493,13 +3500,13 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
             samples = samples + 1
 
             if sample_range > 0 then
-                a_step = a_step - ImFloor((a_step - overstep) / 2)
+                a_step = a_step - math.floor((a_step - overstep) / 2)
             end
         end
     end
 
     self._Path:resize(self._Path.Size + samples)
-    local out_ptr = _Path.Size - samples + 1
+    local out_ptr = self._Path.Size - samples + 1
 
     local sample_index = a_min_sample
     if sample_index < 0 or sample_index >= IM_DRAWLIST_ARCFAST_SAMPLE_MAX then
@@ -3516,7 +3523,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
                 sample_index = sample_index - IM_DRAWLIST_ARCFAST_SAMPLE_MAX
             end
 
-            local s = self._Data.ArcFastVtx[sample_index]
+            local s = self._Data.ArcFastVtx[sample_index + 1]
             self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
             out_ptr = out_ptr + 1
 
@@ -3531,7 +3538,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
                 sample_index = sample_index + IM_DRAWLIST_ARCFAST_SAMPLE_MAX
             end
 
-            local s = self._Data.ArcFastVtx[sample_index]
+            local s = self._Data.ArcFastVtx[sample_index + 1]
             self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
             out_ptr = out_ptr + 1
 
@@ -3547,12 +3554,12 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
             normalized_max_sample = normalized_max_sample + IM_DRAWLIST_ARCFAST_SAMPLE_MAX
         end
 
-        local s = self._Data.ArcFastVtx[sample_index]
+        local s = self._Data.ArcFastVtx[normalized_max_sample + 1]
         self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
         out_ptr = out_ptr + 1
     end
 
-    --- IM_ASSERT_PARANOID(_Path.Data + _Path.Size == out_ptr);
+    IM_ASSERT_PARANOID(self._Path.Size == out_ptr - 1)
 end
 
 function MT.ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
@@ -3576,7 +3583,14 @@ function MT.ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
     end
 end
 
+--- @param center        ImVec2
+--- @param radius        float
+--- @param a_min         float
+--- @param a_max         float
+--- @param num_segments? int
 function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
+    if num_segments == nil then num_segments = 0 end
+
     if radius < 0.5 then
         self._Path:push_back(center)
         return
@@ -3616,10 +3630,7 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
     else
         local arc_length = ImAbs(a_max - a_min)
         local circle_segment_count = self:_CalcCircleAutoSegmentCount(radius)
-        local arc_segment_count = ImMax(
-            ImCeil(circle_segment_count * arc_length / (IM_PI * 2.0)),
-            2.0 * IM_PI / arc_length
-        )
+        local arc_segment_count = ImMax(ImCeil(circle_segment_count * arc_length / (IM_PI * 2.0)), 2.0 * IM_PI / arc_length)
 
         self:_PathArcToN(center, radius, a_min, a_max, arc_segment_count)
     end
