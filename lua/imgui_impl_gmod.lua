@@ -139,10 +139,48 @@ local function ImGui_ImplGMOD_Init(window)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset)
 end
 
-local function ImGui_ImplGMOD_UpdateMouseCursor(io, cursor_str)
+--- @param io           ImGuiIO
+--- @param imgui_cursor ImGuiMouseCursor
+local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
+    if bit.band(io.ConfigFlags, ImGuiConfigFlags_NoMouseCursorChange) ~= 0 then
+        return false
+    end
+
     local bd = ImGui_ImplGMOD_GetBackendData()
 
-    bd.Window:SetCursor(cursor_str)
+    if imgui_cursor == ImGuiMouseCursor.None or io.MouseDrawCursor then
+        bd.Window:SetCursor("blank")
+    else
+        local gmod_cursor = "arrow"
+
+        if imgui_cursor == ImGuiMouseCursor.Arrow then
+            gmod_cursor = "arrow"
+        elseif imgui_cursor == ImGuiMouseCursor.TextInput then
+            gmod_cursor = "beam"
+        elseif imgui_cursor == ImGuiMouseCursor.ResizeAll then
+            gmod_cursor = "sizeall"
+        elseif imgui_cursor == ImGuiMouseCursor.ResizeEW then
+            gmod_cursor = "sizewe"
+        elseif imgui_cursor == ImGuiMouseCursor.ResizeNS then
+            gmod_cursor = "sizens"
+        elseif imgui_cursor == ImGuiMouseCursor.ResizeNESW then
+            gmod_cursor = "sizenesw"
+        elseif imgui_cursor == ImGuiMouseCursor.ResizeNWSE then
+            gmod_cursor = "sizenwse"
+        elseif imgui_cursor == ImGuiMouseCursor.Hand then
+            gmod_cursor = "hand"
+        elseif imgui_cursor == ImGuiMouseCursor.Wait then
+            gmod_cursor = "hourglass"
+        elseif imgui_cursor == ImGuiMouseCursor.Progress then
+            gmod_cursor = "waitarrow"
+        elseif imgui_cursor == ImGuiMouseCursor.NotAllowed then
+            gmod_cursor = "no"
+        end
+
+        bd.Window:SetCursor(gmod_cursor)
+    end
+
+    return true
 end
 
 local function ImGui_ImplGMOD_Shutdown()

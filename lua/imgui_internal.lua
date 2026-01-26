@@ -8,6 +8,7 @@ local SysTime = SysTime
 
 local MT = ImGui.GetMetatables()
 
+--- @module "imstb_rectpack.lua"
 local stbrp_context = include"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
@@ -16,17 +17,59 @@ FLT_MAX = math.huge
 IM_PI   = math.pi
 ImAbs   = math.abs
 ImFabs  = math.abs
+
 ImMin   = math.min
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImMinVec2(a, b) return ImVec2(math.min(a.x, b.x), math.min(a.y, b.y)) end
+
 ImMax   = math.max
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImMaxVec2(a, b) return ImVec2(math.max(a.x, b.x), math.max(a.y, b.y)) end
+
 ImRound = math.Round
 ImCeil  = math.ceil
 ImSin   = math.sin
 ImCos   = math.cos
 ImAcos  = math.acos
 ImSqrt  = math.sqrt
-function ImLerp(a, b, t)      return ((a) + ((b) - (a)) * (t)) end
-function ImLerpVec4(a, b, t)  return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t) end
-function ImClamp(v, min, max) return ImMin(ImMax((v), (min)), (max)) end
+
+--- @param a number
+--- @param b number
+--- @param t number
+function ImLerp(a, b, t) return ((a) + ((b) - (a)) * (t)) end
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @param t ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImLerpV2V2V2(a, b, t) return ImVec2(a.x + (b.x - a.x) * t.x, a.y + (b.y - a.y) * t.y) end
+
+--- @param a ImVec4
+--- @param b ImVec4
+--- @param t float
+--- @nodiscard
+function ImLerpV4V4(a, b, t) return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t) end
+
+--- @param v   number
+--- @param min number
+--- @param max number
+function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
+
+--- @param v   ImVec2
+--- @param min ImVec2
+--- @param max ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImClampVec2(v, min, max) return ImVec2(ImMin(ImMax(v.x, min.x), max.x), ImMin(ImMax(v.y, min.y), max.y)) end
 
 function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
 function ImTrunc64(f) return ImTrunc(f) end
@@ -235,7 +278,12 @@ function MT.ImVec1:copy() return ImVec1(self.x) end
 MT.ImRect = {}
 MT.ImRect.__index = MT.ImRect
 
+--- @nodiscard
+function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, MT.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, MT.ImRect) end
+
+function MT.ImRect:__eq(other) return self.Min == other.Min and self.Max == other.Max end
 function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+function MT.ImRect:copy() return ImRect(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 function MT.ImRect:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
 
 --- @param p   ImVec2
@@ -296,8 +344,6 @@ end
 function MT.ImRect:ToVec4()
     return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y)
 end
-
-function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, MT.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, MT.ImRect) end
 
 function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
@@ -585,18 +631,22 @@ function ImGuiStyle()
         WindowPadding = ImVec2(8, 8),
 
         TouchExtraPadding = ImVec2(0, 0),
+        IndentSpacing = 21.0,
 
         WindowRounding = 0,
         WindowBorderSize = 1,
 
         WindowBorderHoverPadding = 4.0,
 
+        DisplaySafeAreaPadding = ImVec2(3, 3),
+        DisplayWindowPadding = ImVec2(19, 19),
+
         PopupBorderSize = 1.0,
 
         Colors = {},
 
         WindowMinSize = ImVec2(64, 64),
-        WindowTitleAlign = ImVec2(0.0,0.5),
+        WindowTitleAlign = ImVec2(0.0, 0.5),
         WindowMenuButtonPosition = ImGuiDir.Left,
 
         FrameBorderSize = 1,
@@ -665,6 +715,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         InputEventsNextEventId = 1,
 
         MovingWindow = nil,
+
+        WheelingWindow = nil,
+
         ActiveIdClickOffset = ImVec2(),
 
         HoveredWindow = nil,
@@ -747,6 +800,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         MouseCursor = "arrow",
         MouseStationaryTimer = 0.0,
+
+        WindowResizeBorderExpectedRect = ImRect(),
+        WindowResizeRelativeMode = false,
 
         CurrentItemFlags = ImGuiItemFlags_None,
 
@@ -903,6 +959,9 @@ function ImGuiWindow(ctx, name)
         Hidden = false,
         IsFallbackWindow = false,
 
+        ResizeBorderHovered = -1,
+        ResizeBorderHeld = -1,
+
         BeginCount = 0,
         BeginCountPreviousFrame = 0,
         BeginOrderWithinParent = 0,
@@ -947,6 +1006,7 @@ function ImGuiWindow(ctx, name)
         DrawListInst = ImDrawList(),
 
         RootWindow = nil,
+        RootWindowPopupTree = nil,
 
         ParentWindow = nil,
         ParentWindowInBeginStack = nil,
@@ -1286,3 +1346,10 @@ ImGuiInputFlags_SupportedByShortcut            = bit.bor(ImGuiInputFlags_RepeatM
 ImGuiInputFlags_SupportedBySetNextItemShortcut = bit.bor(ImGuiInputFlags_RepeatMask_, ImGuiInputFlags_RouteTypeMask_, ImGuiInputFlags_RouteOptionsMask_, ImGuiInputFlags_Tooltip)
 ImGuiInputFlags_SupportedBySetKeyOwner         = bit.bor(ImGuiInputFlags_LockThisFrame, ImGuiInputFlags_LockUntilRelease)
 ImGuiInputFlags_SupportedBySetItemKeyOwner     = bit.bor(ImGuiInputFlags_SupportedBySetKeyOwner, ImGuiInputFlags_CondMask_)
+
+--- @enum ImGuiAxis
+ImGuiAxis = {
+    None = -1,
+    X    = 0,
+    Y    = 1
+}

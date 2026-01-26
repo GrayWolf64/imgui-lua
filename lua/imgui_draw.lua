@@ -91,11 +91,11 @@ function ImGui.StyleColorsDark(dst)
     colors[ImGuiCol.ResizeGripActive]          = ImVec4(0.26, 0.59, 0.98, 0.95)
     colors[ImGuiCol.InputTextCursor]           = colors[ImGuiCol.Text]
     colors[ImGuiCol.TabHovered]                = colors[ImGuiCol.HeaderHovered]
-    colors[ImGuiCol.Tab]                       = ImLerpVec4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
-    colors[ImGuiCol.TabSelected]               = ImLerpVec4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.Tab]                       = ImLerpV4V4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
+    colors[ImGuiCol.TabSelected]               = ImLerpV4V4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
     colors[ImGuiCol.TabSelectedOverline]       = colors[ImGuiCol.HeaderActive]
-    colors[ImGuiCol.TabDimmed]                 = ImLerpVec4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
-    colors[ImGuiCol.TabDimmedSelected]         = ImLerpVec4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
     colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.50, 0.50, 0.50, 0.00)
     colors[ImGuiCol.PlotLines]                 = ImVec4(0.61, 0.61, 0.61, 1.00)
     colors[ImGuiCol.PlotLinesHovered]          = ImVec4(1.00, 0.43, 0.35, 1.00)
