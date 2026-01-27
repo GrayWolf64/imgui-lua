@@ -2685,7 +2685,7 @@ end
 function MT.ImDrawList:_PopUnusedDrawCmd()
     while self.CmdBuffer.Size > 0 do
         local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
-        if curr_cmd.ElemCount ~= 0 then
+        if curr_cmd.ElemCount ~= 0 or curr_cmd.UserCallback ~= nil then
             break
         end
 
@@ -3400,11 +3400,13 @@ end
 --- @param pos                 ImVec2
 --- @param col                 ImU32
 --- @param text                string
---- @param text_begin          int
+--- @param text_begin?         int    # Defaults to 1
 --- @param text_end            int
 --- @param wrap_width          float
 --- @param cpu_fine_clip_rect? ImVec4
 function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text_end, wrap_width, cpu_fine_clip_rect)
+    if text_begin == nil then text_begin = 1 end
+
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
     if text_begin == text_end then

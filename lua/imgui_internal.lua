@@ -68,9 +68,15 @@ function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 --- @param max ImVec2
 --- @return ImVec2
 --- @nodiscard
-function ImClampVec2(v, min, max) return ImVec2(ImMin(ImMax(v.x, min.x), max.x), ImMin(ImMax(v.y, min.y), max.y)) end
+function ImClampV2(v, min, max) return ImVec2(ImMin(ImMax(v.x, min.x), max.x), ImMin(ImMax(v.y, min.y), max.y)) end
 
+--- @param f number
 function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
+
+--- @param v ImVec2
+--- @nodiscard
+function ImTruncV2(v) return ImVec2(ImTrunc(v.x), ImTrunc(v.y)) end
+
 function ImTrunc64(f) return ImTrunc(f) end
 
 function IM_ROUNDUP_TO_EVEN(n) return (ImCeil((n) / 2) * 2) end
@@ -233,8 +239,19 @@ ImGuiNavLayer = {
     COUNT = 2
 }
 
--- TODO: ImGuiItemFlagsPrivate_
-ImGuiItemFlags_NoFocus = bit.lshift(1, 17)
+ImGuiItemFlags_ReadOnly               = bit.lshift(1, 11)
+ImGuiItemFlags_MixedValue             = bit.lshift(1, 12)
+ImGuiItemFlags_NoWindowHoverableCheck = bit.lshift(1, 13)
+ImGuiItemFlags_AllowOverlap           = bit.lshift(1, 14)
+ImGuiItemFlags_NoNavDisableMouseHover = bit.lshift(1, 15)
+ImGuiItemFlags_NoMarkEdited           = bit.lshift(1, 16)
+ImGuiItemFlags_NoFocus                = bit.lshift(1, 17)
+
+ImGuiItemFlags_Inputable            = bit.lshift(1, 20)
+ImGuiItemFlags_HasSelectionUserData = bit.lshift(1, 21)
+ImGuiItemFlags_IsMultiSelect        = bit.lshift(1, 22)
+
+ImGuiItemFlags_Default_ = ImGuiItemFlags_AutoClosePopups
 
 --- @enum ImDrawTextFlags
 ImDrawTextFlags = {
@@ -265,6 +282,7 @@ ImWcharClass = {
 }
 
 --- @class ImVec1
+--- @field x number
 MT.ImVec1 = {}
 MT.ImVec1.__index = MT.ImVec1
 
@@ -274,6 +292,8 @@ function MT.ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
 function MT.ImVec1:copy() return ImVec1(self.x) end
 
 --- @class ImRect
+--- @field Min ImVec2
+--- @field Max ImVec2
 MT.ImRect = {}
 MT.ImRect.__index = MT.ImRect
 
@@ -283,7 +303,12 @@ function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a,
 function MT.ImRect:__eq(other) return self.Min == other.Min and self.Max == other.Max end
 function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 function MT.ImRect:copy() return ImRect(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+
+--- @param other ImRect
 function MT.ImRect:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
+
+--- @param p ImVec2
+function MT.ImRect:ContainsV2(p) return p.x >= self.Min.x and p.y >= self.Min.y and p.x < self.Max.x and p.y < self.Max.y end
 
 --- @param p   ImVec2
 --- @param pad ImVec2
@@ -308,6 +333,7 @@ function MT.ImRect:Overlaps(other)
 end
 function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
 function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
+function MT.ImRect:GetHeight() return self.Max.y - self.Min.y end
 function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
 
 function MT.ImRect:ClipWith(r)
@@ -340,8 +366,20 @@ function MT.ImRect:Add(p)
     end
 end
 
+--- @param amount ImVec2
+function MT.ImRect:ExpandV2(amount)
+    self.Min.x = self.Min.x - amount.x; self.Min.y = self.Min.y - amount.y
+    self.Max.x = self.Max.x + amount.x; self.Max.y = self.Max.y + amount.y
+end
+
 function MT.ImRect:ToVec4()
     return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y)
+end
+
+--- @param d ImVec2
+function MT.ImRect:Translate(d)
+    self.Min.x = self.Min.x + d.x; self.Min.y = self.Min.y + d.y
+    self.Max.x = self.Max.x + d.x; self.Max.y = self.Max.y + d.y
 end
 
 function MT.ImDrawList:PathClear()
@@ -609,7 +647,7 @@ function ImGuiNextWindowData()
         SizeCallback         = nil,
         SizeCallbackUserData = nil,
         BgAlphaVal           = nil,
-        MenuBarOffsetMinVal  = nil,
+        MenuBarOffsetMinVal  = ImVec2(),
         RefreshFlagsVal      = nil
     }, MT.ImGuiNextWindowData)
 end
@@ -669,9 +707,13 @@ function ImGuiStyle()
 
         Colors = {},
 
+        ButtonTextAlign = ImVec2(0.5, 0.5),
+
         WindowMinSize = ImVec2(64, 64),
         WindowTitleAlign = ImVec2(0.0, 0.5),
         WindowMenuButtonPosition = ImGuiDir.Left,
+
+        MouseCursorScale = 1.0,
 
         FrameBorderSize = 1,
         ItemSpacing = ImVec2(8, 4),
@@ -679,6 +721,9 @@ function ImGuiStyle()
 
         CurveTessellationTol       = 1.25,
         CircleTessellationMaxError = 0.30,
+
+        HoverFlagsForTooltipMouse = bit.bor(ImGuiHoveredFlags_Stationary, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_AllowWhenDisabled),
+        HoverFlagsForTooltipNav = bit.bor(ImGuiHoveredFlags_NoSharedDelay, ImGuiHoveredFlags_DelayNormal, ImGuiHoveredFlags_AllowWhenDisabled),
 
         _NextFrameFontSizeBase = 0.0
     }
@@ -748,6 +793,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         HoveredWindowUnderMovingWindow = nil,
         HoveredIdIsDisabled = false,
 
+        ActiveIdFromShortcut = false,
+
         ActiveId = 0, -- Active widget
         ActiveIdWindow = nil, -- Active window
 
@@ -775,7 +822,11 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         HoveredId = 0,
         HoveredIdTimer = 0.0,
         HoveredIdNotActiveTimer = 0.0,
+        HoveredIdAllowOverlap = false,
 
+        ActiveIdAllowOverlap = false,
+
+        NavLayer = ImGuiNavLayer.Main,
         NavId = 0,
         NavWindow = nil,
         NavHighlightActivatedId = 0,
@@ -800,6 +851,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         FontSize = 0.0,
         FontSizeBase = 0.0,
         CurrentDpiScale = 0.0,
+
+        FontRefSize = 0.0,
 
         FontRasterizerDensity = 1.0,
 
@@ -828,7 +881,14 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         WindowResizeBorderExpectedRect = ImRect(),
         WindowResizeRelativeMode = false,
 
+        TooltipOverrideCount = 0,
+        TooltipPreviousWindow = nil,
+
         CurrentItemFlags = ImGuiItemFlags_None,
+
+        DisabledStackSize = 0,
+
+        ItemFlagsStack = ImVector(),
 
         -- Extensions
         UserTextures = ImVector(),
@@ -934,7 +994,11 @@ local function ImGuiWindowTempData()
         ItemWidth = 0,
         ItemWidthDefault = 0,
         TextWrapPos = 0,
-        TextWrapPosStack = ImVector()
+        TextWrapPosStack = ImVector(),
+
+        MenuBarOffset = ImVec2(),
+
+        ChildWindows = ImVector()
     }
 end
 
@@ -1023,6 +1087,8 @@ function ImGuiWindow(ctx, name)
         BgClickFlags = 0,
 
         SetWindowPosAllowFlags = 0,
+        SetWindowPosVal = ImVec2(FLT_MAX, FLT_MAX),
+        SetWindowPosPivot = ImVec2(FLT_MAX, FLT_MAX),
         SetWindowSizeAllowFlags = 0,
         SetWindowCollapsedAllowFlags = 0,
         SettingsOffset = -1,
@@ -1080,6 +1146,8 @@ function ImGuiWindow(ctx, name)
 end
 
 --- @class ImDrawDataBuilder
+--- @field Layers     table<ImDrawList?>   # 1-based size=2 table
+--- @field LayerData1 ImVector<ImDrawList>
 MT.ImDrawDataBuilder = {}
 MT.ImDrawDataBuilder.__index = MT.ImDrawDataBuilder
 
@@ -1087,7 +1155,7 @@ MT.ImDrawDataBuilder.__index = MT.ImDrawDataBuilder
 --- @nodiscard
 local function ImDrawDataBuilder()
     return setmetatable({
-        Layers = {nil, nil},
+        Layers     = {nil, nil},
         LayerData1 = ImVector()
     }, MT.ImDrawDataBuilder)
 end
@@ -1380,4 +1448,31 @@ ImGuiAxis = {
     None = -1,
     X    = 0,
     Y    = 1
+}
+
+--- @enum ImGuiPlotType
+ImGuiPlotType = {
+    Lines     = 0,
+    Histogram = 1
+}
+
+--- @enum ImGuiTooltipFlags
+ImGuiTooltipFlags = {
+    None             = 0,
+    OverridePrevious = bit.lshift(1, 1)
+}
+
+--- @enum ImGuiPopupPositionPolicy
+ImGuiPopupPositionPolicy = {
+    Default  = 0,
+    ComboBox = 1,
+    Tooltip  = 2
+}
+
+--- @enum ImGuiWindowRefreshFlags
+ImGuiWindowRefreshFlags = {
+    None              = 0,
+    TryToAvoidRefresh = bit.lshift(1, 0),
+    RefreshOnHover    = bit.lshift(1, 1),
+    RefreshOnFocus    = bit.lshift(1, 2)
 }

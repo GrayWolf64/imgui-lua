@@ -9,3 +9,4 @@
 6. *imgui_pp* pragma once, process_file with file.Write
 7. Deal with GC? Optimize?
 8. Exposed a lot of globals. Quite messy.
+9. Don't have overloads for functions. So follow a convention like: if there's a function ImMax for numbers, then ImMaxV2 is for ImVec2s. When it takes in many params, better name it like ImLerpV2V2V2. This helps me avoid type checking in these helper functions and also keep the code clear.

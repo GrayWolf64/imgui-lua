@@ -28,9 +28,9 @@
 IM_UNICODE_CODEPOINT_INVALID = 0xFFFD
 IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 
-----------------------------------------------------------------
+---------------------------------------------------------------------------------------
 -- [SECTION] METATABLE MANAGEMENT
-----------------------------------------------------------------
+---------------------------------------------------------------------------------------
 
 --- File-scope metatable storage
 --- @type table<string, table>
@@ -38,15 +38,15 @@ local MT = {}
 
 function ImGui.GetMetatables() return MT end
 
---- @param _EXPR boolean
+--- @param _EXPR boolean|nil
 --- @param _MSG string?
 function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
 
 IM_ASSERT_PARANOID = IM_ASSERT
 
-----------------------------------------------------------------
+---------------------------------------------------------------------------------------
 -- [SECTION] C POINTER / ARRAY LIKE OPERATIONS SUPPORT
-----------------------------------------------------------------
+---------------------------------------------------------------------------------------
 
 -- TODO: try to reduce its usage
 --- @alias float_ptr float[] # Size = 1
@@ -127,10 +127,10 @@ ImFontAtlasFlags = {
 --- @field w unsigned_short
 --- @field h unsigned_short
 
---- @param x unsigned_short?
---- @param y unsigned_short?
---- @param w unsigned_short?
---- @param h unsigned_short?
+--- @param x? unsigned_short
+--- @param y? unsigned_short
+--- @param w? unsigned_short
+--- @param h? unsigned_short
 --- @return ImTextureRect
 function ImTextureRect(x, y, w, h)
     return {
@@ -145,8 +145,8 @@ end
 MT.ImVec2 = {}
 MT.ImVec2.__index = MT.ImVec2
 
---- @param x number?
---- @param y number?
+--- @param x? number
+--- @param y? number
 --- @return ImVec2
 --- @nodiscard
 function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, MT.ImVec2) end
@@ -178,6 +178,8 @@ function MT.ImVec4:copy() return ImVec4(self.x, self.y, self.z, self.w) end
 
 --- A compact ImVector clone
 --- @class ImVector
+--- @field Data table # 1-based table
+--- @field Size int   # >= 0
 MT.ImVector = {}
 MT.ImVector.__index = MT.ImVector
 
@@ -200,7 +202,7 @@ function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(valu
 function MT.ImVector:reserve() return end
 function MT.ImVector:reserve_discard() return end
 function MT.ImVector:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
-function MT.ImVector:resize(new_size, v) local old_size = self.Size if new_size > old_size then for i = old_size + 1, new_size do self.Data[i] = v end end self.Size = new_size end
+function MT.ImVector:resize(new_size, v) local old_size = self.Size if new_size > old_size and v ~= nil then for i = old_size + 1, new_size do self.Data[i] = v end end self.Size = new_size end
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
 function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end return false end end
 function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1) for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
@@ -1384,6 +1386,24 @@ ImGuiBackendFlags = {
     RendererHasVtxOffset  = bit.lshift(1, 3),
     RendererHasTextures   = bit.lshift(1, 4)
 }
+
+--- @alias ImGuiDragDropFlags int
+ImGuiDragDropFlags_None                     = 0
+ImGuiDragDropFlags_SourceNoPreviewTooltip   = bit.lshift(1, 0)
+ImGuiDragDropFlags_SourceNoDisableHover     = bit.lshift(1, 1)
+ImGuiDragDropFlags_SourceNoHoldToOpenOthers = bit.lshift(1, 2)
+ImGuiDragDropFlags_SourceAllowNullID        = bit.lshift(1, 3)
+ImGuiDragDropFlags_SourceExtern             = bit.lshift(1, 4)
+ImGuiDragDropFlags_PayloadAutoExpire        = bit.lshift(1, 5)
+ImGuiDragDropFlags_PayloadNoCrossContext    = bit.lshift(1, 6)
+ImGuiDragDropFlags_PayloadNoCrossProcess    = bit.lshift(1, 7)
+
+ImGuiDragDropFlags_AcceptBeforeDelivery    = bit.lshift(1, 10)
+ImGuiDragDropFlags_AcceptNoDrawDefaultRect = bit.lshift(1, 11)
+ImGuiDragDropFlags_AcceptNoPreviewTooltip  = bit.lshift(1, 12)
+ImGuiDragDropFlags_AcceptDrawAsHovered     = bit.lshift(1, 13)
+
+ImGuiDragDropFlags_AcceptPeekOnly = bit.bor(ImGuiDragDropFlags_AcceptBeforeDelivery, ImGuiDragDropFlags_AcceptNoDrawDefaultRect)
 
 IM_COL32_R_SHIFT = 0
 IM_COL32_G_SHIFT = 8
