@@ -12,14 +12,13 @@ local g_ModelMatrix = Matrix()
 local g_ScaleVector = Vector(1, 1, 1)
 
 
-local animate = true
-local values = {} for i = 1, 90 do values[i] = 0 end
-local values_offset = 0
-local refresh_time = 0
-local phase = 0
-
-
 concommand.Add("imgui_test", function()
+    local animate = true
+    local values = {} for i = 1, 90 do values[i] = 0 end
+    local values_offset = 0
+    local refresh_time = 0
+    local phase = 0
+
     local viewport = ImGui_ImplGMOD.CreateMainViewport()
 
     ImGui.CreateContext()
