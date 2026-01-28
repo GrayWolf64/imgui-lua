@@ -629,7 +629,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
         -- end
     end
 
-    g.NextItemData.HasFlags = ImGuiNextItemDataFlags_None
+    g.NextItemData.HasFlags = ImGuiNextItemDataFlags.None
     g.NextItemData.ItemFlags = ImGuiItemFlags_None
 
     local is_rect_visible = bb:Overlaps(window.ClipRect)
@@ -782,7 +782,7 @@ function ImGui.CalcItemWidth()
     local window = g.CurrentWindow
 
     local w
-    if bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags_HasWidth) ~= 0 then
+    if bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasWidth) ~= 0 then
         w = g.NextItemData.Width
     else
         w = window.DC.ItemWidth

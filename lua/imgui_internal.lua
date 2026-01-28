@@ -576,7 +576,7 @@ MT.ImGuiNextItemData = {}
 MT.ImGuiNextItemData.__index = MT.ImGuiNextItemData
 
 function MT.ImGuiNextItemData:ClearFlags()
-    self.HasFlags = ImGuiNextItemDataFlags_None
+    self.HasFlags = ImGuiNextItemDataFlags.None
     self.ItemFlags = ImGuiItemFlags_None
 end
 

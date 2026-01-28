@@ -991,14 +991,16 @@ ImGuiChildFlags_AlwaysUseWindowPadding = bit.lshift(1, 6)
 ImGuiChildFlags_ResizeXAndY            = ImGuiChildFlags_ResizeBoth
 ImGuiChildFlags_NavFlattened           = bit.lshift(1, 7)
 
---- @alias ImGuiNextItemDataFlags integer
-ImGuiNextItemDataFlags_None           = 0
-ImGuiNextItemDataFlags_HasWidth       = bit.lshift(1, 0)
-ImGuiNextItemDataFlags_HasOpen        = bit.lshift(1, 1)
-ImGuiNextItemDataFlags_HasShortcut    = bit.lshift(1, 2)
-ImGuiNextItemDataFlags_HasRefVal      = bit.lshift(1, 3)
-ImGuiNextItemDataFlags_HasStorageID   = bit.lshift(1, 4)
-ImGuiNextItemDataFlags_HasColorMarker = bit.lshift(1, 5)
+--- @enum ImGuiNextItemDataFlags
+ImGuiNextItemDataFlags = {
+    None           = 0,
+    HasWidth       = bit.lshift(1, 0),
+    HasOpen        = bit.lshift(1, 1),
+    HasShortcut    = bit.lshift(1, 2),
+    HasRefVal      = bit.lshift(1, 3),
+    HasStorageID   = bit.lshift(1, 4),
+    HasColorMarker = bit.lshift(1, 5)
+}
 
 --- @alias ImDrawFlags integer
 ImDrawFlags_None                    = 0
