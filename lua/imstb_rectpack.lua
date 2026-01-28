@@ -1,4 +1,3 @@
---- @module "imstb_rectpack"
 local bit = bit
 
 local STBRP__MAXVAL = 0x7fffffff

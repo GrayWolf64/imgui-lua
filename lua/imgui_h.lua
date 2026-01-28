@@ -1,16 +1,23 @@
+--- ImGui Sincerely WIP
+-- (Definitions)
+
 --- @alias ImU8           integer
 --- @alias ImU16          integer
 --- @alias ImU32          integer
 --- @alias ImU64          integer
 --- @alias ImS8           integer
 --- @alias float          number
---- @alias unsigned_int   integer
+
 --- @alias int            integer
+--- @alias unsigned_int   integer
+
+--- @alias short          integer
 --- @alias unsigned_short integer
 
 --- @alias size_t unsigned_int
 
---- @alias char integer
+--- @alias char          integer
+--- @alias unsigned_char integer
 
 --- @alias ImWchar16 unsigned_short
 --- @alias ImWchar   ImWchar16
