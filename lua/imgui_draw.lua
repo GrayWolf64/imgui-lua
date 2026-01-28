@@ -2613,7 +2613,7 @@ function MT.ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleSegmentMaxError)
 end
 
---- void ImDrawList::_SetDrawListSharedData(ImDrawListSharedData* data)
+--- @param data ImDrawListSharedData
 function MT.ImDrawList:_SetDrawListSharedData(data)
     if self._Data ~= nil then
         self._Data.DrawLists:find_erase_unsorted(self)

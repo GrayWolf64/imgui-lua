@@ -1097,7 +1097,7 @@ function ImGuiWindow(ctx, name)
         ScrollbarY = false,
 
         DrawList = nil,
-        DrawListInst = ImDrawList(),
+        DrawListInst = ImDrawList(ctx.DrawListSharedData),
 
         RootWindow = nil,
         RootWindowPopupTree = nil,
@@ -1134,11 +1134,9 @@ function ImGuiWindow(ctx, name)
 
     this.DrawList = this.DrawListInst
 
-    this.DrawList:_SetDrawListSharedData(ctx.DrawListSharedData)
-
     setmetatable(this, MT.ImGuiWindow)
 
-    this.ID = ImHashStr(name) -- ImHashData expects a table containing only numbers
+    this.ID = ImHashStr(name)
     this.IDStack:push_back(this.ID)
     this.MoveId = this:GetID("#MOVE")
 

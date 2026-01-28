@@ -30,6 +30,8 @@
 
 --- @alias ImGuiKeyChord int
 
+--- @alias ImDrawIdx unsigned_int
+
 --- @alias ImGCFriendly function # I tag a function with this to mark that: it minimizes / avoids Lua table creation
 
 IM_UNICODE_CODEPOINT_INVALID = 0xFFFD
@@ -40,7 +42,6 @@ IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 ---------------------------------------------------------------------------------------
 
 --- File-scope metatable storage
---- @type table<string, table>
 local MT = {}
 
 function ImGui.GetMetatables() return MT end
@@ -206,8 +207,8 @@ function MT.ImVector:iter() local i, n = 0, self.Size return function() i = i + 
 function MT.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end
 function MT.ImVector:erase_unsorted(index) IM_ASSERT(i >= 1 and i <= self.Size) local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
 function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx then return self:erase_unsorted(idx) end return false end
-function MT.ImVector:reserve() return end
-function MT.ImVector:reserve_discard() return end
+function MT.ImVector:reserve(new_capacity) return end
+function MT.ImVector:reserve_discard(new_capacity) return end
 function MT.ImVector:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
 function MT.ImVector:resize(new_size, v) local old_size = self.Size if new_size > old_size and v ~= nil then for i = old_size + 1, new_size do self.Data[i] = v end end self.Size = new_size end
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
@@ -301,12 +302,57 @@ function ImDrawCmdHeader()
     }, MT.ImDrawCmdHeader)
 end
 
+--- @class ImDrawChannel
+--- @field _CmdBuffer ImVector<ImDrawCmd>
+--- @field _IdxBuffer ImVector<ImDrawIdx>
+
+--- @return ImDrawChannel
+--- @nodiscard
+function ImDrawChannel()
+    return {
+        _CmdBuffer = ImVector(),
+        _IdxBuffer = ImVector()
+    }
+end
+
+--- @class ImDrawListSplitter
+--- @field _Current  int
+--- @field _Count    int
+--- @field _Channels ImVector<ImDrawChannel>
+
+--- @return ImDrawListSplitter
+--- @nodiscard
+function ImDrawListSplitter()
+    return {
+        _Current  = 0,
+        _Count    = 0,
+        _Channels = ImVector()
+    }
+end
+
 --- @class ImDrawList
+--- @field CmdBuffer         ImVector<ImDrawCmd>
+--- @field IdxBuffer         ImVector<ImDrawIdx>
+--- @field VtxBuffer         ImVector<ImDrawVert>
+--- @field Flags             ImDrawListFlags
+--- @field _VtxCurrentIdx    unsigned_int         # 1-based, generally == (VtxBuffer.Size + 1)
+--- @field _Data             ImDrawListSharedData # Pointes to shared draw data
+--- @field _VtxWritePtr      unsigned_int         # 1-based, points to the current writing index in VtxBuffer.Data
+--- @field _IdxWritePtr      unsigned_int         # 1-based, points to the current writing index in IdxBuffer.Data
+--- @field _Path             ImVector<ImVec2>     # current path building
+--- @field _CmdHeader        ImDrawCmdHeader      # template of active commands. Fields should match those of CmdBuffer:back()
+--- @field _Splitter         ImDrawListSplitter
+--- @field _ClipRectStack    ImVector<ImVec4>
+--- @field _TextureStack     ImVector<ImTextureRef>
+--- @field _CallbacksDataBuf any
+--- @field _FringeScale      float
+--- @field _OwnerName        string
 MT.ImDrawList = {}
 MT.ImDrawList.__index = MT.ImDrawList
 
 --- @param data? ImDrawListSharedData
 --- @return ImDrawList
+--- @nodiscard
 function ImDrawList(data)
     --- @type ImDrawList
     local this = setmetatable({
@@ -315,20 +361,22 @@ function ImDrawList(data)
         VtxBuffer = ImVector(),
         Flags     = 0,
 
-        _VtxCurrentIdx = 1,    -- TODO: validate
-        _Data          = data, -- ImDrawListSharedData*, Pointer to shared draw data (you can use ImGui:GetDrawListSharedData() to get the one from current ImGui context)
+        _VtxCurrentIdx = 1,
+        _Data          = data,
         _VtxWritePtr   = 1,
         _IdxWritePtr   = 1,
         _Path          = ImVector(),
         _CmdHeader     = ImDrawCmdHeader(),
+        _Splitter      = ImDrawListSplitter(),
         _ClipRectStack = ImVector(),
         _TextureStack  = ImVector(),
+        _CallbacksDataBuf = nil,
 
-        _FringeScale = 0
+        _FringeScale = 0,
+        _OwnerName = nil
     }, MT.ImDrawList)
 
-    -- GLUA: Keep Reference
-    if data then this._CmdHeader.TexRef = data.FontAtlas.TexRef end
+    this:_SetDrawListSharedData(data)
 
     return this
 end
@@ -367,7 +415,7 @@ end
 --- @field Width                int
 --- @field Height               int
 --- @field BytesPerPixel        int
---- @field Pixels               ImSlice
+--- @field Pixels               ImSlice<unsigned_char>
 --- @field UsedRect             ImTextureRect
 --- @field UpdateRect           ImTextureRect
 --- @field Updates              ImVector<ImTextureRect>
@@ -392,7 +440,7 @@ function ImTextureData()
     this.Width                = 0
     this.Height               = 0
     this.BytesPerPixel        = 0
-    this.Pixels               = IM_SLICE() -- XXX: ptr: unsigned char
+    this.Pixels               = IM_SLICE()
     this.UsedRect             = ImTextureRect()
     this.UpdateRect           = ImTextureRect()
     this.Updates              = ImVector()
