@@ -32,8 +32,6 @@
 
 --- @alias ImDrawIdx unsigned_int
 
---- @alias ImGCFriendly function # I tag a function with this to mark that: it minimizes / avoids Lua table creation
-
 IM_UNICODE_CODEPOINT_INVALID = 0xFFFD
 IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 

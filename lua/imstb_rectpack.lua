@@ -1,11 +1,19 @@
+--- ImGui Sincerely
+-- This is a Lua port of original `imstb_rectpack.h`
+
+-- ALL TABLES IN THIS FILE ARE 1-BASED!
+-- Avoids table creation when possible
+
+--- The `prev_link` can be stbrp_context or stbrp_node
+--- @diagnostic disable
+
 local bit = bit
 
-local STBRP__MAXVAL = 0x7fffffff
+local STBRP_SORT = table.sort
+local STBRP_ASSERT = assert
+local STBRP__NOTUSED = function(_) end
 
-local stbrp_pack_rects
-local stbrp_init_target
-local stbrp_setup_allow_out_of_mem
-local stbrp_setup_heuristic
+local STBRP__MAXVAL = 0x7fffffff
 
 --- @enum STBRP_HEURISTIC_Skyline
 local STBRP_HEURISTIC_Skyline = {
@@ -16,10 +24,16 @@ local STBRP_HEURISTIC_Skyline = {
 
 local STBRP__INIT_skyline = 1
 
---- @alias stbrp_coord integer
+--- @enum STBRP__PREV_LINK_TYPE
+local STBRP__PREV_LINK_TYPE = {
+    ACTIVE_HEAD = 0,
+    NEXT = 1
+}
+
+--- @alias stbrp_coord int
 
 --- @class stbrp_rect
---- @field id         integer
+--- @field id         int
 --- @field w          stbrp_coord
 --- @field h          stbrp_coord
 --- @field x          stbrp_coord
@@ -55,12 +69,12 @@ local function stbrp_node()
 end
 
 --- @class stbrp_context
---- @field width       integer
---- @field height      integer
---- @field align       integer
---- @field init_mode   integer
---- @field heuristic   integer
---- @field num_nodes   integer
+--- @field width       int
+--- @field height      int
+--- @field align       int
+--- @field init_mode   int
+--- @field heuristic   int
+--- @field num_nodes   int
 --- @field active_head stbrp_node
 --- @field free_head   stbrp_node
 --- @field extra       stbrp_node[]
@@ -82,46 +96,33 @@ local function stbrp_context()
     }
 end
 
--- GLUA: Simulate stbrp_node **prev_link usage
---- @class stbrp__doubleptr
---- @field obj table
---- @field key string
-
---- @return stbrp__doubleptr
---- @nodiscard
---- @package
-local function stbrp__doubleptr(_obj, _key)
-    return {
-        obj = _obj,
-        key = _key,
-    }
-end
-
 --- @class stbrp__findresult
---- @field x          integer
---- @field y          integer
---- @field prev_link? stbrp__doubleptr
+--- @field x               int
+--- @field y               int
+--- @field prev_link?      table
+--- @field prev_link_type? int
 
 --- @return stbrp__findresult
 local function stbrp__findresult()
     return {
-        x         = 0,
-        y         = 0,
-        prev_link = nil
+        x = 0,
+        y = 0,
+
+        prev_link      = nil,
+        prev_link_type = nil
     }
 end
 
-local STBRP_SORT = table.sort
-local STBRP_ASSERT = assert
-local STBRP__NOTUSED = function(_) end
-
 --------------------------
+--------------------------
+---
 --- IMPLEMENTATION SECTION
---
+---
+---
 
---- @param context stbrp_context
---- @param heuristic integer
-function stbrp_setup_heuristic(context, heuristic)
+--- @param context   stbrp_context
+--- @param heuristic int
+local function stbrp_setup_heuristic(context, heuristic)
     if context.init_mode == STBRP__INIT_skyline then
         STBRP_ASSERT(heuristic == STBRP_HEURISTIC_Skyline.BL_sortHeight or heuristic == STBRP_HEURISTIC_Skyline.BF_sortHeight)
         context.heuristic = heuristic
@@ -130,9 +131,9 @@ function stbrp_setup_heuristic(context, heuristic)
     end
 end
 
---- @param context stbrp_context
+--- @param context          stbrp_context
 --- @param allow_out_of_mem boolean
-function stbrp_setup_allow_out_of_mem(context, allow_out_of_mem)
+local function stbrp_setup_allow_out_of_mem(context, allow_out_of_mem)
     if allow_out_of_mem then
         context.align = 1
     else
@@ -140,11 +141,11 @@ function stbrp_setup_allow_out_of_mem(context, allow_out_of_mem)
     end
 end
 
---- @param context stbrp_context
---- @param width integer
---- @param height integer
---- @param nodes stbrp_node[]
---- @param num_nodes integer
+--- @param context   stbrp_context
+--- @param width     int
+--- @param height    int
+--- @param nodes     stbrp_node[]
+--- @param num_nodes int
 function stbrp_init_target(context, width, height, nodes, num_nodes)
     nodes[1] = stbrp_node()
     for i = 1, num_nodes - 1 do
@@ -171,9 +172,9 @@ end
 
 --- @param c stbrp_context
 --- @param first stbrp_node
---- @param x0 integer
---- @param width integer
---- @return integer, integer
+--- @param x0 int
+--- @param width int
+--- @return int, int
 local function stbrp__skyline_find_min_y(c, first, x0, width)
     local node = first
     local x1 = x0 + width
@@ -212,9 +213,9 @@ local function stbrp__skyline_find_min_y(c, first, x0, width)
     return min_y, waste_area
 end
 
---- @param c stbrp_context
---- @param width integer
---- @param height integer
+--- @param c      stbrp_context
+--- @param width  int
+--- @param height int
 --- @return stbrp__findresult
 local function stbrp__skyline_find_best_pos(c, width, height)
     local best_waste = bit.lshift(1, 30)
@@ -222,6 +223,7 @@ local function stbrp__skyline_find_best_pos(c, width, height)
     local best_y = bit.lshift(1, 30)
     local fr = stbrp__findresult()
     local best_prev_link = nil
+    local best_prev_link_type = nil
 
     width = width + c.align - 1
     width = width - width % c.align
@@ -229,12 +231,14 @@ local function stbrp__skyline_find_best_pos(c, width, height)
 
     if width > c.width or height > c.height then
         fr.prev_link = nil
+        fr.prev_link_type = nil
         fr.x = 0
         fr.y = 0
         return fr
     end
 
-    local prev_link = stbrp__doubleptr(c, "active_head")
+    local prev_link = c
+    local prev_link_type = STBRP__PREV_LINK_TYPE.ACTIVE_HEAD
     local node = c.active_head
 
     while (node.x + width <= c.width) do
@@ -244,6 +248,7 @@ local function stbrp__skyline_find_best_pos(c, width, height)
             if y < best_y then
                 best_y = y
                 best_prev_link = prev_link
+                best_prev_link_type = prev_link_type
                 best_x = node.x
             end
         else
@@ -252,19 +257,22 @@ local function stbrp__skyline_find_best_pos(c, width, height)
                     best_y = y
                     best_waste = waste
                     best_prev_link = prev_link
+                    best_prev_link_type = prev_link_type
                     best_x = node.x
                 end
             end
         end
 
-        prev_link = stbrp__doubleptr(node, "next")
+        prev_link = node
+        prev_link_type = STBRP__PREV_LINK_TYPE.NEXT
         node = node.next
     end
 
     if c.heuristic == STBRP_HEURISTIC_Skyline.BF_sortHeight then
         local tail = c.active_head
         local node_scan = c.active_head
-        local prev_link_scan = stbrp__doubleptr(c, "active_head")
+        local prev_link_scan = c
+        local prev_link_scan_type = STBRP__PREV_LINK_TYPE.ACTIVE_HEAD
 
         while tail and tail.x < width do
             tail = tail.next
@@ -275,7 +283,8 @@ local function stbrp__skyline_find_best_pos(c, width, height)
             STBRP_ASSERT(xpos >= 0)
 
             while node_scan.next and node_scan.next.x <= xpos do
-                prev_link_scan = stbrp__doubleptr(node_scan, "next")
+                prev_link_scan = node_scan
+                prev_link_scan_type = STBRP__PREV_LINK_TYPE.NEXT
                 node_scan = node_scan.next
             end
 
@@ -291,6 +300,7 @@ local function stbrp__skyline_find_best_pos(c, width, height)
                             best_y = y
                             best_waste = waste
                             best_prev_link = prev_link_scan
+                            best_prev_link_type = prev_link_scan_type
                         end
                     end
                 end
@@ -301,20 +311,22 @@ local function stbrp__skyline_find_best_pos(c, width, height)
     end
 
     fr.prev_link = best_prev_link
+    fr.prev_link_type = best_prev_link_type
     fr.x = best_x
     fr.y = best_y
     return fr
 end
 
 --- @param context stbrp_context
---- @param width integer
---- @param height integer
+--- @param width   int
+--- @param height  int
 --- @return stbrp__findresult
 local function stbrp__skyline_pack_rectangle(context, width, height)
     local res = stbrp__skyline_find_best_pos(context, width, height)
 
     if res.prev_link == nil or res.y + height > context.height or context.free_head == nil then
         res.prev_link = nil
+        res.prev_link_type = nil
         return res
     end
 
@@ -323,14 +335,23 @@ local function stbrp__skyline_pack_rectangle(context, width, height)
     node.y = res.y + height
     context.free_head = node.next
 
-    local cur = res.prev_link.obj[res.prev_link.key]
+    local cur
+    if res.prev_link_type == STBRP__PREV_LINK_TYPE.ACTIVE_HEAD then
+        cur = res.prev_link.active_head
+    else
+        cur = res.prev_link.next
+    end
 
     if cur.x < res.x then
         local next = cur.next
         cur.next = node
         cur = next
     else
-        res.prev_link.obj[res.prev_link.key] = node
+        if res.prev_link_type == STBRP__PREV_LINK_TYPE.ACTIVE_HEAD then
+            res.prev_link.active_head = node
+        else
+            res.prev_link.next = node
+        end
     end
 
     while cur.next and cur.next.x <= res.x + width do
@@ -351,7 +372,7 @@ end
 
 --- @param a stbrp_rect
 --- @param b stbrp_rect
---- @return boolean
+--- @return bool
 --- @package
 local function rect_height_compare(a, b)
     if a.h > b.h then
@@ -365,17 +386,17 @@ end
 
 --- @param a stbrp_rect
 --- @param b stbrp_rect
---- @return boolean
+--- @return bool
 --- @package
 local function rect_original_order(a, b)
     return a.was_packed < b.was_packed
 end
 
---- @param context stbrp_context
---- @param rects stbrp_rect[]
---- @param num_rects integer
+--- @param context   stbrp_context
+--- @param rects     stbrp_rect[]
+--- @param num_rects int
 --- @return int
-function stbrp_pack_rects(context, rects, num_rects)
+local function stbrp_pack_rects(context, rects, num_rects)
     local all_rects_packed = 1
 
     for i = 1, num_rects do
