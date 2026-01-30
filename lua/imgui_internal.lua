@@ -134,7 +134,7 @@ end
 IMGUI_FONT_SIZE_MAX                                = 512.0
 IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE = 128.0
 
-IMGUI_WINDOW_HARD_MIN_SIZE = 16
+IMGUI_WINDOW_HARD_MIN_SIZE = 4.0
 
 IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN = 4
 IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
@@ -698,6 +698,10 @@ function ImGuiStyle()
         WindowRounding = 0,
         WindowBorderSize = 1,
 
+        ScrollbarSize     = 14.0,
+        ScrollbarRounding = 9.0,
+        ScrollbarPadding  = 2.0,
+
         WindowBorderHoverPadding = 4.0,
 
         DisplaySafeAreaPadding = ImVec2(3, 3),
@@ -709,7 +713,7 @@ function ImGuiStyle()
 
         ButtonTextAlign = ImVec2(0.5, 0.5),
 
-        WindowMinSize = ImVec2(64, 64),
+        WindowMinSize = ImVec2(32, 32),
         WindowTitleAlign = ImVec2(0.0, 0.5),
         WindowMenuButtonPosition = ImGuiDir.Left,
 
@@ -812,6 +816,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         LastActiveId = 0,
         LastActiveIdTimer = 0.0,
 
+        ActiveIdUsingNavDirMask = 0x00,
+        ActiveIdUsingAllKeyboardKeys = false,
+
         DeactivatedItemData = {
             ID = 0,
             ElapseFrame = 0,
@@ -858,8 +865,10 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         FontAtlases = ImVector(),
 
-        --- Contains ImFontStackData
         FontStack = ImVector(),
+
+        OpenPopupStack = ImVector(),
+        BeginPopupStack = ImVector(),
 
         DrawListSharedData = ImDrawListSharedData(),
 
@@ -1062,6 +1071,8 @@ function ImGuiWindow(ctx, name)
         HiddenFramesCanSkipItems = 0,
         HiddenFramesCannotSkipItems = 0,
         HiddenFramesForRenderOnly = 0,
+
+        DisableInputsFrames = 0,
 
         WindowRounding = 0,
         WindowBorderSize = 1,

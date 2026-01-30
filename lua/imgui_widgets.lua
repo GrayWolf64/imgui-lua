@@ -674,5 +674,3 @@ function ImGui.PlotLines(label, values, values_count, values_offset, overlay_tex
     local data = ImGuiPlotArrayGetterData(values, stride)
     ImGui.PlotEx(ImGuiPlotType.Lines, label, Plot_ArrayGetter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size)
 end
-
--- FIXME: tooltips(popups) size

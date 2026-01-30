@@ -74,7 +74,7 @@ function ImFileLoadToMemory(filename, mode)
         return
     end
 
-    local file_data = IM_SLICE() -- XXX: ptr-like op support
+    local file_data = IM_SLICE()
     ImFileRead(f, file_data.data, file_size)
     if #file_data.data == 0 then
         ImFileClose(f)
@@ -500,9 +500,9 @@ local function InitOrLoadWindowSettings(window, settings)
     -- Initial window state with e.g. default/arbitrary window position
     -- Use SetNextWindowPos() with the appropriate condition flag to change the initial position of a window.
     local main_viewport = ImGui.GetMainViewport()
-    window.Pos = ImVec2(main_viewport.Pos.x + 60, main_viewport.Pos.y + 60)
+    window.Pos = main_viewport.Pos + ImVec2(60, 60)
     window.SizeFull = ImVec2(0, 0)
-    window.Size = window.SizeFull
+    window.Size = ImVec2(0, 0)
     window.SetWindowPosAllowFlags = bit.bor(ImGuiCond_Always, ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)
     window.SetWindowSizeAllowFlags = window.SetWindowPosAllowFlags
     window.SetWindowCollapsedAllowFlags = window.SetWindowPosAllowFlags
@@ -763,6 +763,8 @@ function ImGui.Unindent(indent_w)
     window.DC.CursorPos.x = window.Pos.x + window.DC.Indent.x + window.DC.ColumnsOffset.x
 end
 
+--- @return ImVec2
+--- @nodiscard
 function ImGui.GetContentRegionAvail()
     local g = GImGui
     local window = g.CurrentWindow
@@ -1690,29 +1692,54 @@ local function IsWindowActiveAndVisible(window)
     return window.Active and not window.Hidden
 end
 
---- static inline ImVec2 CalcWindowMinSize
+--- @param window ImGuiWindow
+--- @nodiscard
 local function CalcWindowMinSize(window)
     local g = GImGui
 
     local size_min = ImVec2()
 
-    size_min.x = ImMax(g.Style.WindowMinSize.x, IMGUI_WINDOW_HARD_MIN_SIZE)
-    size_min.y = ImMax(g.Style.WindowMinSize.y, IMGUI_WINDOW_HARD_MIN_SIZE)
+    if (bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0) and (bit.band(window.Flags, ImGuiWindowFlags_Popup) == 0) then
+        if bit.band(window.ChildFlags, ImGuiChildFlags_ResizeX) ~= 0 then
+            size_min.x = g.Style.WindowMinSize.x
+        else
+            size_min.x = IMGUI_WINDOW_HARD_MIN_SIZE
+        end
+
+        if bit.band(window.ChildFlags, ImGuiChildFlags_ResizeY) ~= 0 then
+            size_min.y = g.Style.WindowMinSize.y
+        else
+            size_min.y = IMGUI_WINDOW_HARD_MIN_SIZE
+        end
+    else
+        if bit.band(window.Flags, ImGuiWindowFlags_AlwaysAutoResize) == 0 then
+            size_min.x = g.Style.WindowMinSize.x
+        else
+            size_min.x = IMGUI_WINDOW_HARD_MIN_SIZE
+        end
+
+        if bit.band(window.Flags, ImGuiWindowFlags_AlwaysAutoResize) == 0 then
+            size_min.y = g.Style.WindowMinSize.y
+        else
+            size_min.y = IMGUI_WINDOW_HARD_MIN_SIZE
+        end
+    end
 
     local window_for_height = window
-    size_min.y = ImMax(size_min.y, window_for_height.TitleBarHeight + ImMax(0, g.Style.WindowRounding - 1))
+    size_min.y = ImMax(size_min.y, window_for_height.TitleBarHeight + window_for_height.MenuBarHeight + ImMax(0, g.Style.WindowRounding - 1))
 
     return size_min
 end
 
---- @param window       ImGuiWindow  # The window to calculate size for
---- @param size_desired ImVec2       # The desired size before constraints
---- @return ImVec2                   # The size after applying constraints
+--- @param window       ImGuiWindow
+--- @param size_desired ImVec2
+--- @return ImVec2
+--- @nodiscard
 local function CalcWindowSizeAfterConstraint(window, size_desired)
     local g = GImGui
-    local new_size = ImVec2(size_desired.x, size_desired.y)
-    if g.NextWindowData.HasFlags and bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint) ~= 0 then
-        local cr = g.NextWindowData.SizeConstraintRect
+    local new_size = size_desired:copy()
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint) ~= 0 then
+        local cr = g.NextWindowData.SizeConstraintRect:copy()
         new_size.x = (cr.Min.x >= 0 and cr.Max.x >= 0) and ImClamp(new_size.x, cr.Min.x, cr.Max.x) or window.SizeFull.x
         new_size.y = (cr.Min.y >= 0 and cr.Max.y >= 0) and ImClamp(new_size.y, cr.Min.y, cr.Max.y) or window.SizeFull.y
         if g.NextWindowData.SizeCallback then
@@ -1730,10 +1757,7 @@ local function CalcWindowSizeAfterConstraint(window, size_desired)
     end
 
     local size_min = CalcWindowMinSize(window)
-    return ImVec2(
-        ImMax(new_size.x, size_min.x),
-        ImMax(new_size.y, size_min.y)
-    )
+    return ImMaxVec2(new_size, size_min)
 end
 
 --- @param window        ImGuiWindow # The window to calculate auto-fit size for
@@ -1813,26 +1837,36 @@ local function GetWindowBgColorIdx(window)
     end
 end
 
---- static void CalcResizePosSizeFromAnyCorner
-local function CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
-    local pos_min = ImVec2(
-        ImLerp(corner_target.x, window.Pos.x, corner_pos.x),
-        ImLerp(corner_target.y, window.Pos.y, corner_pos.y)
-    )
-    local pos_max = ImVec2(
-        ImLerp(window.Pos.x + window.Size.x, corner_target.x, corner_pos.x),
-        ImLerp(window.Pos.y + window.Size.y, corner_target.y, corner_pos.y)
-    )
-    local size_expected = pos_max - pos_min
+--- @param window            ImGuiWindow
+--- @param corner_target_arg ImVec2
+--- @param corner_norm       ImVec2
+--- @return ImVec2, ImVec2
+--- @nodiscard
+local function CalcResizePosSizeFromAnyCorner(window, corner_target_arg, corner_norm)
+    local corner_target = corner_target_arg:copy()
+    if bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
+        local parent_window = window.ParentWindow
+        local parent_flags = parent_window.Flags
+        local limit_rect = parent_window.InnerRect
+        limit_rect:ExpandV2(ImVec2(-ImMax(parent_window.WindowPadding.x, parent_window.WindowBorderSize), -ImMax(parent_window.WindowPadding.y, parent_window.WindowBorderSize)))
 
+        if (bit.band(parent_flags, bit.bor(ImGuiWindowFlags_HorizontalScrollbar, ImGuiWindowFlags_AlwaysHorizontalScrollbar)) == 0) or (bit.band(parent_flags, ImGuiWindowFlags_NoScrollbar) ~= 0) then
+            corner_target.x = ImClamp(corner_target.x, limit_rect.Min.x, limit_rect.Max.x)
+        end
+        if bit.band(parent_flags, ImGuiWindowFlags_NoScrollbar) ~= 0 then
+            corner_target.y = ImClamp(corner_target.y, limit_rect.Min.y, limit_rect.Max.y)
+        end
+    end
+    local pos_min = ImLerpV2V2V2(corner_target, window.Pos, corner_norm)
+    local pos_max = ImLerpV2V2V2(window.Pos + window.Size, corner_target, corner_norm)
+    local size_expected = pos_max - pos_min
     local size_constrained = CalcWindowSizeAfterConstraint(window, size_expected)
 
-    local out_pos = ImVec2(pos_min.x, pos_min.y)
-
-    if corner_pos.x == 0 then
+    local out_pos = pos_min
+    if corner_norm.x == 0.0 then
         out_pos.x = out_pos.x - (size_constrained.x - size_expected.x)
     end
-    if corner_pos.y == 0 then
+    if corner_norm.y == 0.0 then
         out_pos.y = out_pos.y - (size_constrained.y - size_expected.y)
     end
 
@@ -2326,12 +2360,12 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
                 bg_col = bit.band(bg_col, bit.bnot(IM_COL32_A_MASK)) or bit.lshift(IM_F32_TO_INT8_SAT(alpha), IM_COL32_A_SHIFT)
             end
 
-            local corners = 0
-            if bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0 then
-                corners = ImDrawFlags_RoundCornersBottom
+            if bit.band(bg_col, IM_COL32_A_MASK) ~= 0 then
+                local bg_rect = ImRect(window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size)
+                local bg_rounding_flags = (bit.band(flags, ImGuiWindowFlags_NoTitleBar) ~= 0) and 0 or ImDrawFlags_RoundCornersBottom
+                local bg_draw_list = window.DrawList
+                bg_draw_list:AddRectFilled(bg_rect.Min, bg_rect.Max, bg_col, window_rounding, bg_rounding_flags)
             end
-
-            window.DrawList:AddRectFilled(window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size, bg_col, window_rounding, corners)
         end
 
         -- Title bar
@@ -2642,10 +2676,14 @@ function ImGui.SetNextWindowBgAlpha(alpha)
     g.NextWindowData.BgAlphaVal = alpha
 end
 
+-- This is a shortcut for not taking ownership of 100+ keys, frequently used by drag operations.
+-- FIXME: It might be undesirable that this will likely disable KeyOwner-aware shortcuts systems. Consider a more fine-tuned version if needed?
 function ImGui.SetActiveIdUsingAllKeyboardKeys()
     local g = GImGui
     IM_ASSERT(g.ActiveId ~= 0)
-    -- TODO:
+    g.ActiveIdUsingNavDirMask = (bit.lshift(1, ImGuiDir.COUNT) - 1)
+    g.ActiveIdUsingAllKeyboardKeys = true
+    ImGui.NavMoveRequestCancel()
 end
 
 --- @param window ImGuiWindow
@@ -2699,8 +2737,34 @@ function ImGui.GetDrawListSharedData()
     return GImGui.DrawListSharedData
 end
 
+--- @param id          ImGuiID
+--- @param popup_flags ImGuiPopupFlags
 function ImGui.IsPopupOpen(id, popup_flags)
-    return false -- TODO:
+    local g = GImGui
+
+    if bit.band(popup_flags, ImGuiPopupFlags_AnyPopupId) ~= 0 then
+        -- Return true if any popup is open at the current BeginPopup() level of the popup stack
+        -- This may be used to e.g. test for another popups already opened to handle popups priorities at the same level.
+        IM_ASSERT(id == 0)
+        if bit.band(popup_flags, ImGuiPopupFlags_AnyPopupLevel) ~= 0 then
+            return g.OpenPopupStack.Size > 0
+        else
+            return g.OpenPopupStack.Size > g.BeginPopupStack.Size
+        end
+    else
+        if bit.band(popup_flags, ImGuiPopupFlags_AnyPopupLevel) ~= 0 then
+            -- Return true if the popup is open anywhere in the popup stack
+            for n = 1, g.OpenPopupStack.Size do
+                if g.OpenPopupStack.Data[n].PopupId == id then
+                    return true
+                end
+            end
+            return false
+        else
+            -- Return true if the popup is open at the current BeginPopup() level of the popup stack (this is the most-common query)
+            return g.OpenPopupStack.Size > g.BeginPopupStack.Size and g.OpenPopupStack.Data[g.BeginPopupStack.Size + 1].PopupId == id
+        end
+    end
 end
 
 function ImGui.UpdateMouseMovingWindowEndFrame()
@@ -2905,6 +2969,11 @@ function ImGui.Begin(name, p_open, flags)
             window.ScrollTargetCenterRatio.y = 0.0
         end
     end
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasContentSize) ~= 0 then
+        window.ContentSizeExplicit = g.NextWindowData.ContentSizeVal:copy()
+    elseif first_begin_of_the_frame then
+        window.ContentSizeExplicit = ImVec2(0.0, 0.0)
+    end
 
     -- [EXPERIMENTAL] Skip Refresh mode
     ImGui.UpdateWindowSkipRefresh(window)
@@ -3000,12 +3069,63 @@ function ImGui.Begin(name, p_open, flags)
 
         window.TitleBarHeight = (bit.band(flags, ImGuiWindowFlags_NoTitleBar) ~= 0) and 0 or g.FontSize + g.Style.FramePadding.y * 2
 
-        -- const ImVec2 scrollbar_sizes_from_last_frame = window->ScrollbarSizes;
+        local scrollbar_sizes_from_last_frame = window.ScrollbarSizes:copy() -- Updated several lines later
         window.DecoOuterSizeX1 = 0.0
         window.DecoOuterSizeX2 = 0.0
         window.DecoOuterSizeY1 = window.TitleBarHeight + window.MenuBarHeight
         window.DecoOuterSizeY2 = 0.0
-        -- window->ScrollbarSizes = ImVec2(0.0f, 0.0f);
+        window.ScrollbarSizes = ImVec2(0.0, 0.0)
+
+        -- Calculate auto-fit size, handle automatic resize
+        -- - Using SetNextWindowSize() overrides ImGuiWindowFlags_AlwaysAutoResize, so it can be used on tooltips/popups, etc.
+        -- - We still process initial auto-fit on collapsed windows to get a window width, but otherwise don't honor ImGuiWindowFlags_AlwaysAutoResize when collapsed.
+        -- - Auto-fit may only grow window during the first few frames.
+        do
+            local size_auto_fit_x_always = not window_size_x_set_by_api and (bit.band(flags, ImGuiWindowFlags_AlwaysAutoResize) ~= 0) and not window.Collapsed
+            local size_auto_fit_y_always = not window_size_y_set_by_api and (bit.band(flags, ImGuiWindowFlags_AlwaysAutoResize) ~= 0) and not window.Collapsed
+            local size_auto_fit_x_current = not window_size_x_set_by_api and (window.AutoFitFramesX > 0)
+            local size_auto_fit_y_current = not window_size_y_set_by_api and (window.AutoFitFramesY > 0)
+
+            local size_auto_fit_mask = 0
+            if size_auto_fit_x_always or size_auto_fit_x_current then
+                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.X))
+            end
+            if size_auto_fit_y_always or size_auto_fit_y_current then
+                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.Y))
+            end
+
+            local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, size_auto_fit_mask)
+            local old_size = ImVec2(window.SizeFull.x, window.SizeFull.y)
+
+            if size_auto_fit_x_always or size_auto_fit_x_current then
+                if size_auto_fit_x_always then
+                    window.SizeFull.x = size_auto_fit.x
+                else
+                    if window.AutoFitOnlyGrows then
+                        window.SizeFull.x = ImMax(window.SizeFull.x, size_auto_fit.x)
+                    else
+                        window.SizeFull.x = size_auto_fit.x
+                    end
+                end
+                use_current_size_for_scrollbar_x = true
+            end
+            if size_auto_fit_y_always or size_auto_fit_y_current then
+                if size_auto_fit_y_always then
+                    window.SizeFull.y = size_auto_fit.y
+                else
+                    if window.AutoFitOnlyGrows then
+                        window.SizeFull.y = ImMax(window.SizeFull.y, size_auto_fit.y)
+                    else
+                        window.SizeFull.y = size_auto_fit.y
+                    end
+                end
+                use_current_size_for_scrollbar_y = true
+            end
+
+            if old_size.x ~= window.SizeFull.x or old_size.y ~= window.SizeFull.y then
+                -- ImGui.MarkIniSettingsDirty(window)
+            end
+        end
 
         window.SizeFull = CalcWindowSizeAfterConstraint(window, window.SizeFull)
         window.Size = (window.Collapsed and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0) and window:TitleBarRect():GetSize() or window.SizeFull
@@ -3272,7 +3392,59 @@ function ImGui.Begin(name, p_open, flags)
     window.BeginCount = window.BeginCount + 1
     g.NextWindowData:ClearFlags()
 
-    return not window.Collapsed
+    if first_begin_of_the_frame and not window.SkipRefresh then
+        if (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0) and (bit.band(flags, ImGuiWindowFlags_ChildMenu) == 0) then
+            -- Child window can be out of sight and have "negative" clip windows.
+            -- Mark them as collapsed so commands are skipped earlier (we can't manually collapse them because they have no title bar).
+            IM_ASSERT((bit.band(flags, ImGuiWindowFlags_NoTitleBar) ~= 0))
+
+            local nav_request = (bit.band(window.ChildFlags, ImGuiChildFlags_NavFlattened) ~= 0) and (g.NavAnyRequest and g.NavWindow and g.NavWindow.RootWindowForNav == window.RootWindowForNav)
+
+            if not g.LogEnabled and not nav_request then
+                if window.OuterRectClipped.Min.x >= window.OuterRectClipped.Max.x or window.OuterRectClipped.Min.y >= window.OuterRectClipped.Max.y then
+                    if window.AutoFitFramesX > 0 or window.AutoFitFramesY > 0 then
+                        window.HiddenFramesCannotSkipItems = 1
+                    else
+                        window.HiddenFramesCanSkipItems = 1
+                    end
+                end
+            end
+
+            -- Hide along with parent or if parent is collapsed
+            if parent_window and (parent_window.Collapsed or parent_window.HiddenFramesCanSkipItems > 0) then
+                window.HiddenFramesCanSkipItems = 1
+            end
+            if parent_window and parent_window.HiddenFramesCannotSkipItems > 0 then
+                window.HiddenFramesCannotSkipItems = 1
+            end
+        end
+
+        if style.Alpha <= 0.0 then
+            window.HiddenFramesCanSkipItems = 1
+        end
+
+        local hidden_regular = (window.HiddenFramesCanSkipItems > 0) or (window.HiddenFramesCannotSkipItems > 0)
+        window.Hidden = hidden_regular or (window.HiddenFramesForRenderOnly > 0)
+
+        -- Disable inputs for requested number of frames
+        if window.DisableInputsFrames > 0 then
+            window.DisableInputsFrames = window.DisableInputsFrames - 1
+            window.Flags = bit.bor(window.Flags, ImGuiWindowFlags_NoInputs)
+        end
+
+        -- Update the SkipItems flag, used to early out of all items functions (no layout required)
+        local skip_items = false
+        if window.Collapsed or not window.Active or hidden_regular then
+            if window.AutoFitFramesX <= 0 and window.AutoFitFramesY <= 0 and window.HiddenFramesCannotSkipItems <= 0 then
+                skip_items = true
+            end
+        end
+        window.SkipItems = skip_items
+    elseif first_begin_of_the_frame then
+        window.SkipItems = true
+    end
+
+    return not window.SkipItems
 end
 
 function ImGui.End()
@@ -3899,7 +4071,7 @@ function ImGui.NewFrame()
 
     ImGui.UpdateMouseMovingWindowNewFrame()
 
-    g.MouseCursor = "arrow" -- TODO:
+    g.MouseCursor = ImGuiMouseCursor.Arrow
     g.WantCaptureMouseNextFrame = -1
     g.WantCaptureKeyboardNextFrame = -1
     g.WantTextInputNextFrame = -1
@@ -4262,6 +4434,8 @@ end
 -- [SECTION] TOOLTIPS
 ---------------------------------------------------------------------------------------
 
+-- FIXME: tooltip autofit size not working
+
 --- @param tooltip_flags      ImGuiTooltipFlags
 --- @param extra_window_flags ImGuiWindowFlags
 function ImGui.BeginTooltipEx(tooltip_flags, extra_window_flags)
@@ -4613,4 +4787,8 @@ function ImGui.NavCalcPreferredRefPos(window_type)
         local viewport = ImGui.GetMainViewport()
         return ImTruncV2(ImClampV2(pos, viewport.Pos, viewport.Pos + viewport.Size))  -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
     end
+end
+
+function ImGui.NavMoveRequestCancel()
+    -- TODO:
 end

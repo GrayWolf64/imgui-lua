@@ -1474,3 +1474,19 @@ IM_COL32             = function(R, G, B, A) return (bit.bor(bit.lshift(A, IM_COL
 IM_COL32_WHITE       = IM_COL32(255, 255, 255, 255)
 IM_COL32_BLACK       = IM_COL32(0, 0, 0, 255)
 IM_COL32_BLACK_TRANS = IM_COL32(0, 0, 0, 0)
+
+--- @alias ImGuiPopupFlags int
+ImGuiPopupFlags_None                    = 0
+ImGuiPopupFlags_MouseButtonLeft         = bit.lshift(1, 2)
+ImGuiPopupFlags_MouseButtonRight        = bit.lshift(2, 2)
+ImGuiPopupFlags_MouseButtonMiddle       = bit.lshift(3, 2)
+ImGuiPopupFlags_NoReopen                = bit.lshift(1, 5)
+ImGuiPopupFlags_NoOpenOverExistingPopup = bit.lshift(1, 7)
+ImGuiPopupFlags_NoOpenOverItems         = bit.lshift(1, 8)
+ImGuiPopupFlags_AnyPopupId              = bit.lshift(1, 10)
+ImGuiPopupFlags_AnyPopupLevel           = bit.lshift(1, 11)
+
+ImGuiPopupFlags_AnyPopup          = bit.bor(ImGuiPopupFlags_AnyPopupId, ImGuiPopupFlags_AnyPopupLevel)
+ImGuiPopupFlags_MouseButtonShift_ = 2
+ImGuiPopupFlags_MouseButtonMask_  = 0x0C
+ImGuiPopupFlags_InvalidMask_      = 0x03
