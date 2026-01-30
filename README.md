@@ -15,6 +15,13 @@
 | Widgets    | WIP                              |
 | Backends   | Currently only have GMod backend |
 
+### How to Try it in GMOD?
+
+1. Clone this project into your GMod `addons` folder
+2. Create a *singleplayer* game
+3. Run `imgui_test` command in engine console
+4. You can also write your own test scripts and run locally
+
 ### My Development Platform
 
 `GMod x86-64 branch (2026.1.21)` with `LuaJIT 2.1.0-beta3`, `Lua 5.1`. Recording this is actually necessary, since who knows how GMod Lua APIs will change in the future!

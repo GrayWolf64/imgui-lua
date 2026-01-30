@@ -4,8 +4,6 @@
 
 local setmetatable = setmetatable
 
-local SysTime = SysTime
-
 local MT = ImGui.GetMetatables()
 
 local stbrp_context = include"imstb_rectpack.lua".context
@@ -17,7 +15,7 @@ IM_PI   = math.pi
 ImAbs   = math.abs
 ImFabs  = math.abs
 
-ImMin   = math.min
+ImMin = math.min
 
 --- @param a ImVec2
 --- @param b ImVec2
@@ -25,7 +23,7 @@ ImMin   = math.min
 --- @nodiscard
 function ImMinVec2(a, b) return ImVec2(math.min(a.x, b.x), math.min(a.y, b.y)) end
 
-ImMax   = math.max
+ImMax = math.max
 
 --- @param a ImVec2
 --- @param b ImVec2
@@ -980,6 +978,8 @@ end
 --- @field CursorStartPosLossyness ImVec1
 --- @field TextWrapPos             float
 --- @field TextWrapPosStack        ImVector
+--- @field MenuBarOffset           ImVec2
+--- @field ChildWindows            ImVector<ImGuiWindow>
 
 --- @return ImGuiWindowTempData
 --- @nodiscard
@@ -1193,18 +1193,21 @@ function MT.ImGuiViewportP:UpdateWorkRect()
     self.WorkSize = self:CalcWorkRectSize(self.WorkInsetMin, self.WorkInsetMax)
 end
 
+--- @nodiscard
 function MT.ImGuiViewportP:GetMainRect()
     return ImRect(self.Pos.x, self.Pos.y,
         self.Pos.x + self.Size.x,
         self.Pos.y + self.Size.y)
 end
 
+--- @nodiscard
 function MT.ImGuiViewportP:GetWorkRect()
     return ImRect(self.WorkPos.x, self.WorkPos.y,
         self.WorkPos.x + self.WorkSize.x,
         self.WorkPos.y + self.WorkSize.y)
 end
 
+--- @nodiscard
 function MT.ImGuiViewportP:GetBuildWorkRect()
     local pos = self:CalcWorkRectPos(self.BuildWorkInsetMin)
     local size = self:CalcWorkRectSize(self.BuildWorkInsetMin, self.BuildWorkInsetMax)

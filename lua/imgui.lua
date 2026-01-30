@@ -27,8 +27,8 @@ IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 local string = string
 local ImFormatString = string.format
 
-local math   = math
-local bit    = bit
+local math = math
+local bit  = bit
 
 ---------------------------------------------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
