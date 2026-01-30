@@ -1,6 +1,10 @@
 --- ImGui for Garry's Mod written in pure Lua
 --
 
+--- Set to disable some functions, then you need to write your own
+-- IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS = true // Don't implement ImFileOpen/ImFileClose/ImFileRead/ImFileWrite so you can implement them yourself
+-- NOTE: you must implement ImFileOpen if you are not in GMod
+
 --- @type ImGuiContext?
 local GImGui = nil
 
@@ -34,56 +38,100 @@ local bit  = bit
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ---------------------------------------------------------------------------------------
 
-local FILE = {
-    close     = FindMetaTable("File").Close,
-    size      = FindMetaTable("File").Size,
-    write     = FindMetaTable("File").Write,
-    read      = FindMetaTable("File").Read
-}
+--- Store methods for File object
+ImFile = {}
 
-function ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
-function ImFileClose(f) FILE.close(f) end
-function ImFileGetSize(f) return FILE.size(f) end
-function ImFileRead(f, data, count)
-    local CHUNK_SIZE = 8000 -- We don't read byte by byte
-    local offset = 0
+-- function ImFile.close(_file)
+--
+--     This closes the _file.
+--
+-- end
 
-    while offset < count do
-        local read_size = math.min(CHUNK_SIZE, count - offset)
-        local str = FILE.read(f, read_size)
+-- function ImFile.size(_file)
+--
+--     This returns the size of _file in bytes.
+--
+-- end
 
-        local bytes = {string.byte(str, 1, read_size)}
-        for i = 1, read_size do
-            data[offset + i] = bytes[i]
-        end
+-- function ImFile.write(_file, _str)
+--
+--     This writes _str into _file.
+--
+-- end
 
-        offset = offset + read_size
-    end
+-- function ImFile.read(_file, _count)
+--
+--     This reads the specified _count of chars and returns them as a binary string.
+--
+-- end
+
+-- function ImFileOpen(_filename, _mode)
+--
+--     This opens the file at _filename in _mode and returns the File object.
+--
+-- end
+
+--- [GMod] Platform specific
+if gmod then
+    ImFile.close = FindMetaTable("File").Close --- @type function
+    ImFile.size  = FindMetaTable("File").Size  --- @type function
+    ImFile.write = FindMetaTable("File").Write --- @type function
+    ImFile.read  = FindMetaTable("File").Read  --- @type function
 end
 
---- @param filename string
---- @param mode string
---- @return ImSlice?, integer?
-function ImFileLoadToMemory(filename, mode)
-    local f = ImFileOpen(filename, mode)
-    if not f then return end
-
-    local file_size = ImFileGetSize(f)
-    if file_size <= 0 then
-        ImFileClose(f)
-        return
+if not IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS then
+    --- [GMod] Another Platform specific
+    if gmod then
+        function ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
     end
 
-    local file_data = IM_SLICE()
-    ImFileRead(f, file_data.data, file_size)
-    if #file_data.data == 0 then
-        ImFileClose(f)
-        return
+    function ImFileClose(f) ImFile.close(f) end
+    function ImFileGetSize(f) return ImFile.size(f) end
+
+    --- @param f     any   # File object
+    --- @param data  table # 1-based table to store result data
+    --- @param count int   # Amount of bytes to read from `f`
+    function ImFileRead(f, data, count)
+        local CHUNK_SIZE = 8000 -- We don't read byte by byte
+        local offset = 0
+
+        while offset < count do
+            local read_size = math.min(CHUNK_SIZE, count - offset)
+            local str = ImFile.read(f, read_size)
+
+            local bytes = {string.byte(str, 1, read_size)}
+            for i = 1, read_size do
+                data[offset + i] = bytes[i]
+            end
+
+            offset = offset + read_size
+        end
     end
 
-    ImFileClose(f)
+    --- @param filename string
+    --- @param mode     string
+    --- @return ImSlice?, integer?
+    function ImFileLoadToMemory(filename, mode)
+        local f = ImFileOpen(filename, mode)
+        if not f then return end
 
-    return file_data, file_size
+        local file_size = ImFileGetSize(f)
+        if file_size <= 0 then
+            ImFileClose(f)
+            return
+        end
+
+        local file_data = IM_SLICE()
+        ImFileRead(f, file_data.data, file_size)
+        if #file_data.data == 0 then
+            ImFileClose(f)
+            return
+        end
+
+        ImFileClose(f)
+
+        return file_data, file_size
+    end
 end
 
 local MT = ImGui.GetMetatables()
