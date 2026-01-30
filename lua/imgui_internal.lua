@@ -382,6 +382,8 @@ function MT.ImRect:Translate(d)
     self.Max.x = self.Max.x + d.x; self.Max.y = self.Max.y + d.y
 end
 
+function MT.ImRect:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
+
 function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
 end
@@ -772,6 +774,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         WindowsBorderHoverPadding = 0,
 
+        WindowsActiveCount = 0,
+
         CurrentWindowStack = ImVector(),
         CurrentWindow = nil,
 
@@ -881,10 +885,10 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         FramerateSecPerFrameAccum = 0,
 
         WantCaptureMouseNextFrame = -1,
-        -- WantCaptureKeyboardNextFrame = -1,
-        -- WantTextInputNextFrame = -1
+        WantCaptureKeyboardNextFrame = -1,
+        WantTextInputNextFrame = -1,
 
-        MouseCursor = "arrow",
+        MouseCursor = ImGuiMouseCursor.Arrow,
         MouseStationaryTimer = 0.0,
 
         WindowResizeBorderExpectedRect = ImRect(),
@@ -1144,6 +1148,7 @@ function ImGuiWindow(ctx, name)
     }
 
     this.DrawList = this.DrawListInst
+    this.DrawList._OwnerName = name
 
     setmetatable(this, MT.ImGuiWindow)
 

@@ -32,6 +32,10 @@ local function CArray(size, init)
 end
 ```
 
+## Notes
+
+1. It's very important to pay attention to `=` operators. Sometimes `:copy()` is necessary in Lua instead of simply using `=` on tables(structures)
+
 Search for "GLUA:" to see (G)Lua specific changes!
 
 This is overall a painful experience, but I learnt a lot.

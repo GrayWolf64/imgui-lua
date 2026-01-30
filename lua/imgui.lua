@@ -2450,7 +2450,6 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open
         g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags_NoFocus)
         if ImGui.CloseButton(window:GetID("#CLOSE"), close_button_pos) then
             p_open[1] = false
-            window.Hidden = true -- TODO: temporary hidden set
         end
         g.CurrentItemFlags = backup_item_flags
     end
@@ -2881,7 +2880,8 @@ function ImGui.Begin(name, p_open, flags)
         window.LastFrameActive = current_frame
         window.LastTimeActive = g.Time
         window.BeginOrderWithinParent = 0
-        -- TODO: BeginOrderWithinContext
+        window.BeginOrderWithinContext = g.WindowsActiveCount
+        g.WindowsActiveCount = g.WindowsActiveCount + 1
     else
         flags = window.Flags
     end
@@ -3319,10 +3319,10 @@ function ImGui.Begin(name, p_open, flags)
         local start_pos_highp_y = window.Pos.y + window.WindowPadding.y - window.Scroll.y + window.DecoOuterSizeY1
         window.DC.CursorStartPos = ImVec2(start_pos_highp_x, start_pos_highp_y)
         window.DC.CursorStartPosLossyness = ImVec2(start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y)
-        window.DC.CursorPos = window.DC.CursorStartPos
-        window.DC.CursorPosPrevLine = window.DC.CursorPos
-        window.DC.CursorMaxPos = window.DC.CursorStartPos
-        window.DC.IdealMaxPos = window.DC.CursorStartPos
+        window.DC.CursorPos = window.DC.CursorStartPos:copy()
+        window.DC.CursorPosPrevLine = window.DC.CursorPos:copy()
+        window.DC.CursorMaxPos = window.DC.CursorStartPos:copy()
+        window.DC.IdealMaxPos = window.DC.CursorStartPos:copy()
         window.DC.CurrLineSize = ImVec2(0.0, 0.0)
         window.DC.PrevLineSize = ImVec2(0.0, 0.0)
         window.DC.CurrLineTextBaseOffset = 0.0
@@ -4433,8 +4433,6 @@ end
 ---------------------------------------------------------------------------------------
 -- [SECTION] TOOLTIPS
 ---------------------------------------------------------------------------------------
-
--- FIXME: tooltip autofit size not working
 
 --- @param tooltip_flags      ImGuiTooltipFlags
 --- @param extra_window_flags ImGuiWindowFlags

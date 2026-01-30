@@ -446,6 +446,8 @@ function ImGui.SmallButton(label)
     return pressed
 end
 
+--- @param id  ImGuiID
+--- @param pos ImVec2
 --- @return bool
 function ImGui.CloseButton(id, pos)
     local g = ImGui.GetCurrentContext()
@@ -453,25 +455,38 @@ function ImGui.CloseButton(id, pos)
     local window = g.CurrentWindow
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
+    local bb_interact = bb:copy()
+    local area_to_visible_ratio = window.OuterRectClipped:GetArea() / bb:GetArea()
+    if area_to_visible_ratio < 1.5 then
+        bb_interact:ExpandV2(ImTruncV2(bb_interact:GetSize() * -0.25))
+    end
 
-    local is_clipped = not ImGui.ItemAdd(bb, id)
+    local is_clipped = not ImGui.ItemAdd(bb_interact, id)
 
-    local pressed, hovered = ImGui.ButtonBehavior(bb, id)
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
     if is_clipped then
         return pressed
     end
 
+    local bg_col
+    if held then
+        bg_col = ImGui.GetColorU32(ImGuiCol.ButtonActive)
+    else
+        bg_col = ImGui.GetColorU32(ImGuiCol.ButtonHovered)
+    end
+
     if hovered then
-        window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.ButtonHovered))
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, bg_col)
     end
 
     --- DrawLine draws lines of different thickness, why? Antialiasing
     -- AddText(window.DrawList, "X", "ImCloseButtonCross", x + w * 0.25, y, ImGui.GetColorU32(ImGuiCol.Text))
     local cross_center = bb:GetCenter() - ImVec2(0.5, 0.5)
     local cross_extent = g.FontSize * 0.5 * 0.7071 - 1
-
-    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, cross_extent), cross_center + ImVec2(-cross_extent, -cross_extent), ImGui.GetColorU32(ImGuiCol.Text), 1)
-    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, -cross_extent), cross_center + ImVec2(-cross_extent, cross_extent), ImGui.GetColorU32(ImGuiCol.Text), 1)
+    local cross_col = ImGui.GetColorU32(ImGuiCol.Text)
+    local cross_thickness = 1.0 -- FIXME-DPI
+    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, cross_extent), cross_center + ImVec2(-cross_extent, -cross_extent), cross_col, cross_thickness)
+    window.DrawList:AddLine(cross_center + ImVec2(cross_extent, -cross_extent), cross_center + ImVec2(-cross_extent, cross_extent), cross_col, cross_thickness)
 
     return pressed
 end
