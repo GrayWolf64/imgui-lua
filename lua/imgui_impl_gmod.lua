@@ -126,6 +126,9 @@ end
 
 --- @param window Panel
 local function ImGui_ImplGMOD_Init(window)
+    --- If lower, the window title cross or arrow will look bad
+    RunConsoleCommand("mat_antialias", "8")
+
     local io = ImGui.GetIO()
 
     local bd = ImGui_ImplGMOD_Data()

@@ -1,6 +1,13 @@
---- If lower, the window title cross or arrow will look awful
--- TODO: let client decide?
-RunConsoleCommand("mat_antialias", "8")
+--- ImGui Sincerely WIP
+-- (Draw Code)
+
+--- @param str string
+--- @return table
+--- @nodiscard
+--- @package
+local function str_to_table(str)
+    local t = {} for i = 1, #str do t[i] = string.sub(str, i, i) end return t
+end
 
 --- @param _c string
 --- @return char
@@ -14,7 +21,7 @@ IM_FONTGLYPH_INDEX_UNUSED    = 0xFFFF
 IM_FONTGLYPH_INDEX_NOT_FOUND = 0xFFFE
 
 --- Original ImGui pixel art!
-FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE(string.ToTable(
+FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE(str_to_table(
     "..-         -XXXXXXX-    X    -           X           -XXXXXXX          -          XXXXXXX-     XX          - XX       XX " ..
     "..-         -X.....X-   X.X   -          X.X          -X.....X          -          X.....X-    X..X         -X..X     X..X" ..
     "---         -XXX.XXX-  X...X  -         X...X         -X....X           -           X....X-    X..X         -X...X   X...X" ..
