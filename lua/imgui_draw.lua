@@ -54,10 +54,10 @@ FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE(str_to_table(
 local MT = ImGui.GetMetatables()
 
 --- @module "imstb_rectpack"
-local stbrp = include("imstb_rectpack.lua")
+local stbrp = IM_INCLUDE("imstb_rectpack.lua")
 
 --- @module "imstb_truetype"
-local stbtt = include("imstb_truetype.lua")
+local stbtt = IM_INCLUDE("imstb_truetype.lua")
 
 function ImGui.StyleColorsDark(dst)
     local style = dst and dst or ImGui.GetStyle()

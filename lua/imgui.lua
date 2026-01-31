@@ -10,13 +10,26 @@ local GImGui = nil
 
 ImGui = ImGui or {}
 
-include"imgui_h.lua"
+--[[
+--- This executes Lua script at _filename and returns the result of the script.
+--- @param _filename string
+--- @return any
+function IM_INCLUDE(_filename)
+end
+]]
 
-include"imgui_internal.lua"
+--- [GMod] Platform specific include function
+if gmod then
+    IM_INCLUDE = include
+end
 
-include"imgui_draw.lua"
+IM_INCLUDE"imgui_h.lua"
 
-include"imgui_widgets.lua"
+IM_INCLUDE"imgui_internal.lua"
+
+IM_INCLUDE"imgui_draw.lua"
+
+IM_INCLUDE"imgui_widgets.lua"
 
 local FONT_DEFAULT_SIZE_BASE = 20
 
@@ -41,35 +54,40 @@ local bit  = bit
 --- Store methods for File object
 ImFile = {}
 
--- function ImFile.close(_file)
---
---     This closes the _file.
---
--- end
+--[[
+--- This closes the _file.
+--- @param _file string
+function ImFile.close(_file)
+end
 
--- function ImFile.size(_file)
---
---     This returns the size of _file in bytes.
---
--- end
+--- This returns the size of _file in bytes.
+--- @param _file any # File object
+--- @return int
+function ImFile.size(_file)
+    return -1
+end
 
--- function ImFile.write(_file, _str)
---
---     This writes _str into _file.
---
--- end
+--- This writes _str into _file.
+--- @param _file any    # File object
+--- @param _str  string
+function ImFile.write(_file, _str)
+end
 
--- function ImFile.read(_file, _count)
---
---     This reads the specified _count of chars and returns them as a binary string.
---
--- end
+--- This reads the specified _count of chars and returns them as a binary string.
+--- @param _file any  # File object
+--- @param _count int
+--- @return string
+function ImFile.read(_file, _count)
+    return ""
+end
 
--- function ImFileOpen(_filename, _mode)
---
---     This opens the file at _filename in _mode and returns the File object.
---
--- end
+--- This opens the file at _filename in _mode and returns the File object.
+--- @param _filename string
+--- @param _mode     string # e.g. "rb"
+--- @return any
+function ImFileOpen(_filename, _mode)
+end
+]]
 
 --- [GMod] Platform specific
 if gmod then

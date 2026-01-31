@@ -6,7 +6,7 @@ local setmetatable = setmetatable
 
 local MT = ImGui.GetMetatables()
 
-local stbrp_context = include"imstb_rectpack.lua".context
+local stbrp_context = IM_INCLUDE"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
 
