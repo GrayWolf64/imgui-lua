@@ -56,7 +56,7 @@ ImFile = {}
 
 --[[
 --- This closes the _file.
---- @param _file string
+--- @param _file any # File object
 function ImFile.close(_file)
 end
 
