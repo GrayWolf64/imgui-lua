@@ -707,6 +707,13 @@ function ImGuiStyle()
         DisplaySafeAreaPadding = ImVec2(3, 3),
         DisplayWindowPadding = ImVec2(19, 19),
 
+        AntiAliasedLines = true,
+        AntiAliasedLinesUseTex = true,
+        AntiAliasedFill = true,
+
+        CurveTessellationTol       = 1.25,
+        CircleTessellationMaxError = 0.30,
+
         PopupBorderSize = 1.0,
 
         Colors = {},
@@ -722,9 +729,6 @@ function ImGuiStyle()
         FrameBorderSize = 1,
         ItemSpacing = ImVec2(8, 4),
         ItemInnerSpacing = ImVec2(4, 4),
-
-        CurveTessellationTol       = 1.25,
-        CircleTessellationMaxError = 0.30,
 
         HoverFlagsForTooltipMouse = bit.bor(ImGuiHoveredFlags_Stationary, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_AllowWhenDisabled),
         HoverFlagsForTooltipNav = bit.bor(ImGuiHoveredFlags_NoSharedDelay, ImGuiHoveredFlags_DelayNormal, ImGuiHoveredFlags_AllowWhenDisabled),

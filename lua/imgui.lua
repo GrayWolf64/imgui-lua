@@ -829,6 +829,12 @@ function ImGui.Unindent(indent_w)
     window.DC.CursorPos.x = window.Pos.x + window.DC.Indent.x + window.DC.ColumnsOffset.x
 end
 
+--- @return float
+function ImGui.GetFrameHeight()
+    local g = GImGui
+    return g.FontSize + g.Style.FramePadding.y * 2.0
+end
+
 --- @return ImVec2
 --- @nodiscard
 function ImGui.GetContentRegionAvail()
@@ -2474,13 +2480,17 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
     window.DC.NavLayerCurrent = ImGuiNavLayer.Main
 end
 
---- ImGui::RenderWindowTitleBarContents
-local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
+--- @param window         ImGuiWindow
+--- @param title_bar_rect ImRect
+--- @param name           string
+--- @param open           bool?
+--- @return bool?
+local function RenderWindowTitleBarContents(window, title_bar_rect, name, open)
     local g = GImGui
     local style = g.Style
     local flags = window.Flags
 
-    local has_close_button = ((p_open ~= nil) and (p_open[1] ~= nil) or false)
+    local has_close_button = (open ~= nil)
     local has_collapse_button = bit.band(flags, ImGuiWindowFlags_NoCollapse) == 0 and (style.WindowMenuButtonPosition ~= ImGuiDir.None)
 
     local item_flags_backup = g.CurrentItemFlags
@@ -2515,7 +2525,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open
         local backup_item_flags = g.CurrentItemFlags
         g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags_NoFocus)
         if ImGui.CloseButton(window:GetID("#CLOSE"), close_button_pos) then
-            p_open[1] = false
+            open = false
         end
         g.CurrentItemFlags = backup_item_flags
     end
@@ -2547,6 +2557,8 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, p_open
     -- end
 
     ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, 1, nil, text_size, style.WindowTitleAlign, clip_r)
+
+    return open
 end
 
 --- @param window         ImGuiWindow
@@ -2906,13 +2918,15 @@ function ImGui.SetWindowViewport(window, viewport)
     window.Viewport = viewport
 end
 
--- `p_open` will be set to false when the close button is pressed.
+--- Push a new Dear ImGui window to add widgets to.
+--- - Passing a non-nil `open` displays a close button on the upper-right corner of the window
 --- @param name     string
---- @param p_open?  bool_ptr
+--- @param open?    bool
 --- @param flags?   ImGuiWindowFlags
---- @return bool
-function ImGui.Begin(name, p_open, flags)
-    if not flags then flags = 0 end
+--- @return bool is_open      # The updated `open` passed in
+--- @return bool is_collapsed # You always need to call `ImGui.End()` even if false is returned
+function ImGui.Begin(name, open, flags)
+    if flags == nil then flags = 0     end
 
     local g = GImGui
     local style = g.Style
@@ -3054,7 +3068,7 @@ function ImGui.Begin(name, p_open, flags)
         local window_is_child_tooltip = (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0)
 
         window.Active = true
-        window.HasCloseButton = ((p_open ~= nil) and (p_open[1] ~= nil) or false)
+        window.HasCloseButton = (open ~= nil)
         window.ClipRect = ImVec4(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX)
 
         window.IDStack:resize(1)
@@ -3424,7 +3438,7 @@ function ImGui.Begin(name, p_open, flags)
         -- TODO: SCROLL
 
         if bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0 then
-            RenderWindowTitleBarContents(window, title_bar_rect, name, p_open)
+            open = RenderWindowTitleBarContents(window, title_bar_rect, name, open)
         end
 
         if bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0 then
@@ -3510,7 +3524,10 @@ function ImGui.Begin(name, p_open, flags)
         window.SkipItems = true
     end
 
-    return not window.SkipItems
+    if     open then open = true  end
+    if not open then open = false end
+
+    return open, not window.SkipItems
 end
 
 function ImGui.End()

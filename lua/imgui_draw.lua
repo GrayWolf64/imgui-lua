@@ -2436,7 +2436,7 @@ function MT.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pix
 end
 
 function MT.ImFontAtlas:AddFontFromMemoryCompressedTTF()
-    -- TODO: 
+    -- TODO:
 end
 
 function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
@@ -2497,7 +2497,7 @@ end
 
 --- @param font_cfg_template ImFontConfig
 function MT.ImFontAtlas:AddFontDefaultVector(font_cfg_template)
-    -- TODO: 
+    -- TODO:
 end
 
 function MT.ImFontAtlas:GetCustomRect(id, out_r)
@@ -2637,10 +2637,12 @@ function MT.ImDrawList:_SetDrawListSharedData(data)
     if data then self._CmdHeader.TexRef = data.FontAtlas.TexRef end
 end
 
+-- TODO:
 function MT.ImDrawList:_ResetForNewFrame()
     self.CmdBuffer:resize(0)
     self.IdxBuffer:resize(0)
     self.VtxBuffer:resize(0)
+    self.Flags = self._Data.InitialFlags
 
     -- GLUA: Keep Reference
     local tex_ref = self._CmdHeader.TexRef
@@ -2714,7 +2716,7 @@ function MT.ImDrawList:_OnChangedClipRect()
 
     IM_ASSERT(curr_cmd.UserCallback == nil)
 
-    -- TODO: 
+    -- TODO:
     -- local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
     -- if (curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil) then
     --     self.CmdBuffer.pop_back()
@@ -2738,7 +2740,7 @@ function MT.ImDrawList:_OnChangedTexture()
         return
     end
 
-    -- TODO: 
+    -- TODO:
     -- local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
     -- if curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil then
     --     self.CmdBuffer:pop_back()
@@ -3857,4 +3859,23 @@ function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
     end
 
     draw_list:AddTriangleFilled(center + a, center + b, center + c, color)
+end
+
+--- @param draw_list ImDrawList
+--- @param pos       ImVec2
+--- @param col       ImU32
+--- @param sz        float
+function ImGui.RenderCheckMark(draw_list, pos, col, sz)
+    local thickness = ImMax(sz / 5.0, 1.0)
+    sz = sz - thickness * 0.5
+    pos = pos + ImVec2(thickness * 0.25, thickness * 0.25)
+
+    local third = sz / 3.0
+    local bx = pos.x + third
+    local by = pos.y + sz - third * 0.5
+
+    draw_list:PathLineTo(ImVec2(bx - third, by - third))
+    draw_list:PathLineTo(ImVec2(bx, by))
+    draw_list:PathLineTo(ImVec2(bx + third * 2.0, by - third * 2.0))
+    draw_list:PathStroke(col, 0, thickness)
 end

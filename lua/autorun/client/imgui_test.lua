@@ -5,8 +5,8 @@ include"imgui.lua"
 
 local ImGui_ImplGMOD = include("imgui_impl_gmod.lua")
 
-local window1_open = {true}
-local window2_open = {true}
+local window1_open = true
+local window2_open = true
 
 local g_ModelMatrix = Matrix()
 local g_ScaleVector = Vector(1, 1, 1)
@@ -47,24 +47,26 @@ concommand.Add("imgui_test", function()
 
         ImGui.NewFrame()
 
-        if window1_open[1] then
+        if window1_open then
             ImGui.PushFont(nil, 40)
 
             ImGui.SetNextWindowSize(ImVec2(550, 400), ImGuiCond_FirstUseEver)
 
-            ImGui.Begin("Hello, World!", window1_open)
+            window1_open = ImGui.Begin("Hello, World!", window1_open)
                 ImGui.Text("Lua Memory Usage: %dKb", math.Round(collectgarbage("count")))
                 ImGui.Text("FPS: %d", g.IO.Framerate)
+                local pressed
+                pressed, window2_open = ImGui.Checkbox("Show Demo Window", window2_open)
             ImGui.End()
 
             ImGui.PopFont()
         end
 
-        if window2_open[1] then
+        if window2_open then
             ImGui.SetNextWindowPos(ImVec2(30, 100), ImGuiCond_FirstUseEver)
             ImGui.SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver)
 
-            ImGui.Begin("ImGui Demo", window2_open)
+            window2_open = ImGui.Begin("ImGui Demo", window2_open)
                 ImGui.PushFont(nil, 30)
 
                 ImGui.TextColored(ImVec4(0, 1, 0, 1), "Dear ImGui says %s!", "Hello")

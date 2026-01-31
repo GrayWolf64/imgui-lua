@@ -516,6 +516,119 @@ function ImGui.CollapseButton(id, pos)
     return pressed
 end
 
+function ImGui.ScrollbarEx(bb_frame, id, axis)
+    -- TODO: 
+end
+
+--- @param axis ImGuiAxis
+function ImGui.Scrollbar(axis)
+    -- TODO: 
+end
+
+--- @param label string
+--- @param v     bool
+--- @return bool is_pressed
+--- @return bool is_checked # The updated `v` passed in
+function ImGui.Checkbox(label, v)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false, v
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local id = window:GetID(label)
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+
+    local square_sz = ImGui.GetFrameHeight()
+    local pos = window.DC.CursorPos:copy()
+    local total_width
+    if label_size.x > 0.0 then
+        total_width = square_sz + style.ItemInnerSpacing.x + label_size.x
+    else
+        total_width = square_sz
+    end
+    local total_bb = ImRect(pos, pos + ImVec2(total_width, label_size.y + style.FramePadding.y * 2.0))
+    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    local is_visible = ImGui.ItemAdd(total_bb, id)
+    local is_multi_select = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_IsMultiSelect) ~= 0)
+    if not is_visible then
+        if not is_multi_select or not g.BoxSelectState.UnclipMode or not g.BoxSelectState.UnclipRect:Overlaps(total_bb) then  -- Extra layer of "no logic clip" for box-select support
+            -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Checkable | (*v ? ImGuiItemStatusFlags_Checked : 0))
+            return false, v
+        end
+    end
+
+    local checked = v
+    if is_multi_select then
+        -- TODO: MultiSelectItemHeader(id, &checked, NULL)
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(total_bb, id)
+
+    if is_multi_select then
+        -- MultiSelectItemFooter(id, &checked, &pressed);
+    elseif pressed then
+        checked = not checked
+    end
+
+    if v ~= checked then
+        v = checked
+        pressed = true
+        -- MarkItemEdited(id);
+    end
+
+    local check_bb = ImRect(pos, pos + ImVec2(square_sz, square_sz))
+    local mixed_value = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_MixedValue) ~= 0)
+    if is_visible then
+        -- ImGui.RenderNavCursor(total_bb, id)
+
+        local frame_col
+        if held and hovered then
+            frame_col = ImGui.GetColorU32(ImGuiCol.FrameBgActive)
+        elseif hovered then
+            frame_col = ImGui.GetColorU32(ImGuiCol.FrameBgHovered)
+        else
+            frame_col = ImGui.GetColorU32(ImGuiCol.FrameBg)
+        end
+
+        ImGui.RenderFrame(check_bb.Min, check_bb.Max, frame_col, true, style.FrameRounding)
+
+        local check_col = ImGui.GetColorU32(ImGuiCol.CheckMark)
+
+        if mixed_value then
+            -- Undocumented tristate/mixed/indeterminate checkbox (#2644)
+            -- This may seem awkwardly designed because the aim is to make ImGuiItemFlags_MixedValue supported by all widgets (not just checkbox)
+            local pad_val = ImMax(1.0, IM_TRUNC(square_sz / 3.6))
+            local pad = ImVec2(pad_val, pad_val)
+            window.DrawList:AddRectFilled(check_bb.Min + pad, check_bb.Max - pad, check_col, style.FrameRounding)
+        elseif v then
+            local pad = ImMax(1.0, IM_TRUNC(square_sz / 6.0))
+            ImGui.RenderCheckMark(window.DrawList, check_bb.Min + ImVec2(pad, pad), check_col, square_sz - pad * 2.0)
+        end
+    end
+
+    local label_pos = ImVec2(check_bb.Max.x + style.ItemInnerSpacing.x, check_bb.Min.y + style.FramePadding.y)
+    if g.LogEnabled then
+        -- local log_text
+        -- if mixed_value then
+        --     log_text = "[~]"
+        -- elseif v then
+        --     log_text = "[x]"
+        -- else
+        --     log_text = "[ ]"
+        -- end
+        -- ImGui.LogRenderedText(label_pos, log_text)
+    end
+
+    if is_visible and label_size.x > 0.0 then
+        ImGui.RenderText(label_pos, label)
+    end
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Checkable | (*v ? ImGuiItemStatusFlags_Checked : 0))
+    return pressed, v
+end
+
 ----------------------------------------------------------------
 -- [SECTION] BASIC PLOTTING
 ----------------------------------------------------------------

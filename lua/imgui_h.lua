@@ -56,7 +56,6 @@ IM_ASSERT_PARANOID = IM_ASSERT
 
 -- TODO: try to reduce its usage
 --- @alias float_ptr float[] # Size = 1
---- @alias bool_ptr  bool[]  # Size = 1
 
 --- @class ImSlice
 --- @field data table
