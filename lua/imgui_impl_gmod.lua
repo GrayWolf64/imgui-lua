@@ -210,6 +210,23 @@ local col0 = ImVec4()
 local col1 = ImVec4()
 local col2 = ImVec4()
 
+local function ImGui_ImplGMOD_SetupRenderState()
+    render.CullMode(MATERIAL_CULLMODE_NONE)
+    render.OverrideBlend(true, BLEND_SRC_ALPHA, BLEND_ONE_MINUS_SRC_ALPHA, BLENDFUNC_ADD, BLEND_ONE, BLEND_ONE_MINUS_SRC_ALPHA, BLENDFUNC_ADD)
+    render.FogMode(MATERIAL_FOG_NONE)
+    render.SetStencilEnable(false)
+    render.SuppressEngineLighting(true)
+    render.PushFilterMin(TEXFILTER.LINEAR)
+    render.PushFilterMag(TEXFILTER.LINEAR)
+end
+
+local function ImGui_ImplGMOD_RestoreRenderState()
+    render.OverrideBlend(false)
+    render.SuppressEngineLighting(false)
+    render.PopFilterMin()
+    render.PopFilterMag()
+end
+
 local function ImGui_ImplGMOD_RenderDrawData(draw_data)
     local bd = ImGui_ImplGMOD_GetBackendData()
 
@@ -224,6 +241,8 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
             end
         end
     end
+
+    ImGui_ImplGMOD_SetupRenderState()
 
     clip_off.x = draw_data.DisplayPos.x; clip_off.y = draw_data.DisplayPos.y
 
@@ -282,6 +301,8 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
         end
     end
 
+    ImGui_ImplGMOD_RestoreRenderState()
+
     -- Display the atlas on my screen
     -- local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
     -- if atlas_tex then
@@ -339,7 +360,11 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
             ["$translucent"] = 1,
             ["$vertexcolor"] = 1,
             ["$vertexalpha"] = 1,
-            ["$ignorez"] = 1
+            ["$ignorez"] = 1,
+            ["$linearwrite"] = 1,         -- Disable broken engine gamma correction for colors
+            ["$linearread_texture1"] = 1, -- Disable broken engine gamma correction for textures
+            ["$linearread_texture2"] = 1,
+            ["$linearread_texture3"] = 1
         })
 
         backend_tex.RenderTarget = render_target
