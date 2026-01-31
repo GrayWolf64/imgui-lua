@@ -569,12 +569,12 @@ local function InitOrLoadWindowSettings(window, settings)
     window.Pos = main_viewport.Pos + ImVec2(60, 60)
     window.SizeFull = ImVec2(0, 0)
     window.Size = ImVec2(0, 0)
-    window.SetWindowPosAllowFlags = bit.bor(ImGuiCond_Always, ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)
+    window.SetWindowPosAllowFlags = bit.bor(ImGuiCond.Always, ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)
     window.SetWindowSizeAllowFlags = window.SetWindowPosAllowFlags
     window.SetWindowCollapsedAllowFlags = window.SetWindowPosAllowFlags
 
     if settings ~= nil then
-        SetWindowConditionAllowFlags(window, ImGuiCond_FirstUseEver, false)
+        SetWindowConditionAllowFlags(window, ImGuiCond.FirstUseEver, false)
         ApplyWindowSettings(window, settings)
     end
     window.DC.CursorStartPos = ImVec2(window.Pos.x, window.Pos.y) -- So first call to CalcWindowContentSizes() doesn't return crazy values
@@ -1342,10 +1342,10 @@ function MT.ImGuiIO:FindLatestInputEvent(ctx, type, arg)
         if e.Type ~= type then
             continue
         end
-        if type == ImGuiInputEventType_Key and e.Key.Key ~= arg then
+        if type == ImGuiInputEventType.Key and e.Key.Key ~= arg then
             continue
         end
-        if type == ImGuiInputEventType_MouseButton and e.MouseButton.Button ~= arg then
+        if type == ImGuiInputEventType.MouseButton and e.MouseButton.Button ~= arg then
             continue
         end
 
@@ -1379,7 +1379,7 @@ function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
         end
     end
 
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType_Key, key)
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Key, key)
     local key_data = ImGui.GetKeyData(g, key)
     local latest_key_down = latest_event and latest_event.Key.Down or key_data.Down
     local latest_key_analog = latest_event and latest_event.Key.AnalogValue or key_data.AnalogValue
@@ -1388,7 +1388,7 @@ function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
     end
 
     local e = ImGuiInputEvent()
-    e.Type = ImGuiInputEventType_Key
+    e.Type = ImGuiInputEventType.Key
     e.Source = ImGui.IsGamepadKey(key) and ImGuiInputSource_Gamepad or ImGuiInputSource_Keyboard
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
@@ -1438,14 +1438,14 @@ function MT.ImGuiIO:AddMousePosEvent(x, y)
         y_val = ImFloor(y)
     end
 
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType_MousePos)
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.MousePos)
     local latest_pos = latest_event and ImVec2(latest_event.MousePos.PosX, latest_event.MousePos.PosY) or self.MousePos
     if latest_pos.x == x_val and latest_pos.y == y_val then
         return
     end
 
     local e = ImGuiInputEvent()
-    e.Type = ImGuiInputEventType_MousePos
+    e.Type = ImGuiInputEventType.MousePos
     e.Source = ImGuiInputSource_Mouse
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
@@ -1475,7 +1475,7 @@ function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
         end
     end
 
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType_MouseButton, mouse_button)
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.MouseButton, mouse_button)
     local latest_button_down = latest_event and latest_event.MouseButton.Down or self.MouseDown[mouse_button]
     if latest_button_down == down then
         return
@@ -1485,7 +1485,7 @@ function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
     -- - Note that this is actual physical Ctrl which is ImGuiMod_Super for us.
     -- - At this point we want from !down to down, so this is handling the initial press.
     if self.ConfigMacOSXBehaviors and mouse_button == 0 and down then
-        local latest_super_event = self:FindLatestInputEvent(g, ImGuiInputEventType_Key, ImGuiMod_Super)
+        local latest_super_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Key, ImGuiMod_Super)
         if latest_super_event and latest_super_event.Key.Down or self.KeySuper then
             -- IMGUI_DEBUG_LOG_IO("[io] Super+Left Click aliased into Right Click\n")
             self.MouseCtrlLeftAsRightClick = true
@@ -1495,7 +1495,7 @@ function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
     end
 
     local e = ImGuiInputEvent()
-    e.Type = ImGuiInputEventType_MouseButton
+    e.Type = ImGuiInputEventType.MouseButton
     e.Source = ImGuiInputSource_Mouse
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
@@ -1516,7 +1516,7 @@ function MT.ImGuiIO:AddMouseWheelEvent(wheel_x, wheel_y)
     end
 
     local e = ImGuiInputEvent()
-    e.Type = ImGuiInputEventType_MouseWheel
+    e.Type = ImGuiInputEventType.MouseWheel
     e.Source = ImGuiInputSource_Mouse
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
@@ -1720,7 +1720,7 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
     local event_n = 1
     while event_n <= g.InputEventsQueue.Size do
         local e = g.InputEventsQueue.Data[event_n]
-        if e.Type == ImGuiInputEventType_MousePos then
+        if e.Type == ImGuiInputEventType.MousePos then
             if g.IO.WantSetMousePos then
                 continue
             end
@@ -1731,7 +1731,7 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             io.MousePos =  event_pos
             io.MouseSource = e.MousePos.MouseSource
             mouse_moved = true
-        elseif e.Type == ImGuiInputEventType_MouseButton then
+        elseif e.Type == ImGuiInputEventType.MouseButton then
             local button = e.MouseButton.Button
             IM_ASSERT(button >= 0 and button < ImGuiMouseButton_COUNT)
             if trickle_fast_inputs and ((bit.band(mouse_button_changed, bit.lshift(1, button)) ~= 0) or mouse_wheeled) then
@@ -2654,7 +2654,7 @@ function ImGui.SetWindowPos(window, pos, cond)
     end
 
     IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
-    window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)))
+    window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)))
     window.SetWindowPosVal = ImVec2(FLT_MAX, FLT_MAX)
 
     local old_pos = window.Pos:copy()
@@ -2685,7 +2685,7 @@ function ImGui.SetWindowSize(window, size, cond)
     end
 
     IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
-    window.SetWindowSizeAllowFlags = bit.band(window.SetWindowSizeAllowFlags, bit.bnot(bit.bor(ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)))
+    window.SetWindowSizeAllowFlags = bit.band(window.SetWindowSizeAllowFlags, bit.bnot(bit.bor(ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)))
 
     if bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) == 0 or window.Appearing or bit.band(window.ChildFlags, ImGuiChildFlags_AlwaysAutoResize) ~= 0 then
         window.AutoFitFramesX = (size.x <= 0.0) and 2 or 0
@@ -2730,7 +2730,7 @@ function ImGui.SetNextWindowPos(pos, cond, pivot)
     g.NextWindowData.HasFlags    = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasPos)
     g.NextWindowData.PosVal      = pos:copy()
     g.NextWindowData.PosPivotVal = pivot:copy()
-    g.NextWindowData.PosCond     = (cond ~= 0) and cond or ImGuiCond_Always
+    g.NextWindowData.PosCond     = (cond ~= 0) and cond or ImGuiCond.Always
 end
 
 --- @param size  ImVec2
@@ -2743,7 +2743,7 @@ function ImGui.SetNextWindowSize(size, cond)
 
     g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize)
     g.NextWindowData.SizeVal  = size:copy()
-    g.NextWindowData.SizeCond = (cond ~= 0) and cond or ImGuiCond_Always
+    g.NextWindowData.SizeCond = (cond ~= 0) and cond or ImGuiCond.Always
 end
 
 --- @param alpha float
@@ -2793,7 +2793,7 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
 
         local moving_window = g.MovingWindow.RootWindow
         if g.IO.MouseDown[0] and ImGui.IsMousePosValid(g.IO.MousePos) then
-            ImGui.SetWindowPos(moving_window, g.IO.MousePos - g.ActiveIdClickOffset, ImGuiCond_Always)
+            ImGui.SetWindowPos(moving_window, g.IO.MousePos - g.ActiveIdClickOffset, ImGuiCond.Always)
             ImGui.FocusWindow(g.MovingWindow)
         else
             ImGui.StopMouseMovingWindow()
@@ -2949,7 +2949,7 @@ function ImGui.Begin(name, open, flags)
 
     window.Appearing = window_just_activated_by_user
     if (window.Appearing) then
-        SetWindowConditionAllowFlags(window, ImGuiCond_Appearing, true)
+        SetWindowConditionAllowFlags(window, ImGuiCond.Appearing, true)
     end
 
     -- Update Flags, LastFrameActive, BeginOrderXXX fields
@@ -3023,7 +3023,7 @@ function ImGui.Begin(name, open, flags)
             -- FIXME: Look into removing the branch so everything can go through this same code path for consistency.
             window.SetWindowPosVal = g.NextWindowData.PosVal:copy()
             window.SetWindowPosPivot = g.NextWindowData.PosPivotVal:copy()
-            window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond_Once, ImGuiCond_FirstUseEver, ImGuiCond_Appearing)))
+            window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)))
         else
             ImGui.SetWindowPos(window, g.NextWindowData.PosVal, g.NextWindowData.PosCond)
         end
@@ -3031,10 +3031,10 @@ function ImGui.Begin(name, open, flags)
     if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize) ~= 0 then
         window_size_x_set_by_api = (bit.band(window.SetWindowSizeAllowFlags, g.NextWindowData.SizeCond) ~= 0) and (g.NextWindowData.SizeVal.x > 0.0)
         window_size_y_set_by_api = (bit.band(window.SetWindowSizeAllowFlags, g.NextWindowData.SizeCond) ~= 0) and (g.NextWindowData.SizeVal.y > 0.0)
-        if (bit.band(window.ChildFlags, ImGuiChildFlags_ResizeX) ~= 0 and bit.band(window.SetWindowSizeAllowFlags, ImGuiCond_FirstUseEver) == 0) then
+        if (bit.band(window.ChildFlags, ImGuiChildFlags_ResizeX) ~= 0 and bit.band(window.SetWindowSizeAllowFlags, ImGuiCond.FirstUseEver) == 0) then
             g.NextWindowData.SizeVal.x = window.SizeFull.x
         end
-        if (bit.band(window.ChildFlags, ImGuiChildFlags_ResizeY) ~= 0 and bit.band(window.SetWindowSizeAllowFlags, ImGuiCond_FirstUseEver) == 0) then
+        if (bit.band(window.ChildFlags, ImGuiChildFlags_ResizeY) ~= 0 and bit.band(window.SetWindowSizeAllowFlags, ImGuiCond.FirstUseEver) == 0) then
             g.NextWindowData.SizeVal.y = window.SizeFull.y
         end
         ImGui.SetWindowSize(window, g.NextWindowData.SizeVal, g.NextWindowData.SizeCond);
@@ -4162,7 +4162,7 @@ function ImGui.NewFrame()
     g.CurrentWindowStack:resize(0)
 
     g.WithinFrameScopeWithImplicitWindow = true
-    ImGui.SetNextWindowSize(ImVec2(400, 400), ImGuiCond_FirstUseEver)
+    ImGui.SetNextWindowSize(ImVec2(400, 400), ImGuiCond.FirstUseEver)
     ImGui.Begin("Debug##Default")
     IM_ASSERT(g.CurrentWindow.IsFallbackWindow == true)
 end
@@ -4535,7 +4535,7 @@ function ImGui.BeginTooltipEx(tooltip_flags, extra_window_flags)
             end
 
             local tooltip_pivot = is_touchscreen and TOOLTIP_DEFAULT_PIVOT_TOUCH or ImVec2(0.0, 0.0)
-            ImGui.SetNextWindowPos(tooltip_pos, ImGuiCond_None, tooltip_pivot)
+            ImGui.SetNextWindowPos(tooltip_pos, ImGuiCond.None, tooltip_pivot)
         end
 
         local bg_alpha = g.Style.Colors[ImGuiCol.PopupBg].w * 0.60

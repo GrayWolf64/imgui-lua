@@ -1084,12 +1084,14 @@ ImGuiMouseSource_TouchScreen = 1
 ImGuiMouseSource_Pen         = 2
 ImGuiMouseSource_COUNT       = 3
 
---- @alias ImGuiCond int
-ImGuiCond_None          = 0
-ImGuiCond_Always        = bit.lshift(1, 0)
-ImGuiCond_Once          = bit.lshift(1, 1)
-ImGuiCond_FirstUseEver  = bit.lshift(1, 2)
-ImGuiCond_Appearing     = bit.lshift(1, 3)
+--- @enum ImGuiCond
+ImGuiCond = {
+    None          = 0,                -- No condition (always set the variable), same as .Always
+    Always        = bit.lshift(1, 0), -- No condition (always set the variable), same as .None
+    Once          = bit.lshift(1, 1), -- Set the variable once per runtime session (only the first call will succeed)
+    FirstUseEver  = bit.lshift(1, 2), -- Set the variable if the object/window has no persistently saved data (no entry in .ini file)
+    Appearing     = bit.lshift(1, 3)  -- Set the variable if the object/window is appearing after being hidden/inactive (or the first time)
+}
 
 --- @alias ImGuiInputFlags int
 ImGuiInputFlags_None                 = 0

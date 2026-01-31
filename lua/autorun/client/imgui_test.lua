@@ -50,7 +50,7 @@ concommand.Add("imgui_test", function()
         if window1_open then
             ImGui.PushFont(nil, 40)
 
-            ImGui.SetNextWindowSize(ImVec2(550, 400), ImGuiCond_FirstUseEver)
+            ImGui.SetNextWindowSize(ImVec2(550, 400), ImGuiCond.FirstUseEver)
 
             window1_open = ImGui.Begin("Hello, World!", window1_open)
                 ImGui.Text("Lua Memory Usage: %dKb", math.Round(collectgarbage("count")))
@@ -63,8 +63,8 @@ concommand.Add("imgui_test", function()
         end
 
         if window2_open then
-            ImGui.SetNextWindowPos(ImVec2(30, 100), ImGuiCond_FirstUseEver)
-            ImGui.SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver)
+            ImGui.SetNextWindowPos(ImVec2(30, 100), ImGuiCond.FirstUseEver)
+            ImGui.SetNextWindowSize(ImVec2(300, 300), ImGuiCond.FirstUseEver)
 
             window2_open = ImGui.Begin("ImGui Demo", window2_open)
                 ImGui.PushFont(nil, 30)

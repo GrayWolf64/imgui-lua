@@ -1410,12 +1410,12 @@ function ImGuiInputEvent()
         EventId = 0,
 
         -- union
-        MousePos    = nil, -- if Type == ImGuiInputEventType_MousePos
-        MouseWheel  = nil, -- if Type == ImGuiInputEventType_MouseWheel
-        MouseButton = nil, -- if Type == ImGuiInputEventType_MouseButton
-        Key         = nil, -- if Type == ImGuiInputEventType_Key
-        Text        = nil, -- if Type == ImGuiInputEventType_Text
-        AppFocused  = nil, -- if Type == ImGuiInputEventType_Focus
+        MousePos    = nil, -- if Type == ImGuiInputEventType.MousePos
+        MouseWheel  = nil, -- if Type == ImGuiInputEventType.MouseWheel
+        MouseButton = nil, -- if Type == ImGuiInputEventType.MouseButton
+        Key         = nil, -- if Type == ImGuiInputEventType.Key
+        Text        = nil, -- if Type == ImGuiInputEventType.Text
+        AppFocused  = nil, -- if Type == ImGuiInputEventType.Focus
     }
 end
 
@@ -1428,15 +1428,17 @@ ImGuiKey_Mouse_END      = ImGuiKey_MouseWheelY + 1
 ImGuiKey_Aliases_BEGIN  = ImGuiKey_Mouse_BEGIN
 ImGuiKey_Aliases_END    = ImGuiKey_Mouse_END
 
---- @alias ImGuiInputEventType int
-ImGuiInputEventType_None        = 0
-ImGuiInputEventType_MousePos    = 1
-ImGuiInputEventType_MouseWheel  = 2
-ImGuiInputEventType_MouseButton = 3
-ImGuiInputEventType_Key         = 4
-ImGuiInputEventType_Text        = 5
-ImGuiInputEventType_Focus       = 6
-ImGuiInputEventType_COUNT       = 7
+--- @enum ImGuiInputEventType
+ImGuiInputEventType = {
+    None        = 0,
+    MousePos    = 1,
+    MouseWheel  = 2,
+    MouseButton = 3,
+    Key         = 4,
+    Text        = 5,
+    Focus       = 6,
+    COUNT       = 7
+}
 
 ImGuiInputFlags_RepeatRateDefault                = bit.lshift(1, 1)
 ImGuiInputFlags_RepeatRateNavMove                = bit.lshift(1, 2)

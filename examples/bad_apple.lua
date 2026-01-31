@@ -43,8 +43,8 @@ if curr_frame > 0 and curr_frame <= #frames then
         local pw = box.w * ratio_x + 15
         local ph = box.h * ratio_y + 8
 
-        ImGui.SetNextWindowPos(ImVec2(px, py), ImGuiCond_Always)
-        ImGui.SetNextWindowSize(ImVec2(pw, ph), ImGuiCond_Always)
+        ImGui.SetNextWindowPos(ImVec2(px, py), ImGuiCond.Always)
+        ImGui.SetNextWindowSize(ImVec2(pw, ph), ImGuiCond.Always)
 
         ImGui.Begin("BA@" .. idx, nil)
         ImGui.End()
@@ -57,8 +57,8 @@ if curr_frame > 0 and curr_frame <= #frames then
         if curr_frame > #frames then curr_frame = 0 end
     end
 else
-    ImGui.SetNextWindowPos(ImVec2(w / 2 - 100, h / 2 - 50), ImGuiCond_Always)
-    ImGui.SetNextWindowSize(ImVec2(100, 100), ImGuiCond_Always)
+    ImGui.SetNextWindowPos(ImVec2(w / 2 - 100, h / 2 - 50), ImGuiCond.Always)
+    ImGui.SetNextWindowSize(ImVec2(100, 100), ImGuiCond.Always)
     if ImGui.Begin("Controls") then
         ImGui.Text("Frames: %d", #frames)
         if ImGui.Button("Play!") then
