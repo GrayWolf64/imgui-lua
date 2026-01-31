@@ -1,10 +1,7 @@
----------------------------
---- stb_truetype in Lua5.1!
----   with imgui patches
----------------------------
+--- ImGui Sincerely
+-- This is a Lua port of original `imstb_truetype.h`
 
--- stb_truetype.h - v1.26 - public domain
--- authored from 2009-2021 by Sean Barrett / RAD Game Tools
+--- STBTT_RASTERIZER_VERSION == 2
 
 --- Note: When calling these functions, you must ensure
 -- the `data` related param is correctly structured:
@@ -27,9 +24,12 @@ local stbtt_GetFontOffsetForIndex
 local stbtt_ScaleForPixelHeight
 local stbtt_FindGlyphIndex
 
----------------------------------------------------------------------------
+------------------------------
+------------------------------
+---
 --- C Array / Pointer Mimicing
----------------------------------------------------------------------------
+---
+---
 
 --- @class stbtt_slice
 --- @field data   table
@@ -303,8 +303,6 @@ local function stbtt__edge()
     }
 end
 
---- XXX: STBTT_RASTERIZER_VERSION == 2
-
 --- @class stbtt__active_edge
 
 --- @return stbtt__active_edge
@@ -380,9 +378,12 @@ local function stbtt_packedchar()
     STBTT_NOT_IMPLEMENTED()
 end
 
----------------------------------------------------------------------------
+----------------------------------------------
+----------------------------------------------
+---
 --- stbtt__buf helpers to parse data from file
----------------------------------------------------------------------------
+---
+---
 
 --- @param b stbtt__buf
 local function stbtt__buf_get8(b)
@@ -561,9 +562,13 @@ local function stbtt__cff_index_get(b, i)
     return stbtt__buf_range(b, 2 + (count + 1) * offsize + start, _end - start)
 end
 
----------------------------------------------------------------------------
+-------------------------------------
+-------------------------------------
+---
 --- Accessors to parse data from file
----------------------------------------------------------------------------
+---
+---
+
 
 local function ttUSHORT(p, offset) local o = offset or 0; return stbtt_uint16(p.data[p.offset + 1 + o] * 256 + p.data[p.offset + 2 + o]) end
 local function ttSHORT(p, offset)  local o = offset or 0; return stbtt_int16(p.data[p.offset + 1 + o] * 256 + p.data[p.offset + 2 + o]) end
@@ -698,8 +703,7 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         stbtt__buf_skip(b, 2)
         stbtt__buf_seek(b, stbtt__buf_get8(b))
 
-        -- TODO: the name INDEX could list multiple fonts,
-        -- but we just use the first one.
+        -- TODO: the name INDEX could list multiple fonts, but we just use the first one.
         stbtt__cff_get_index(b) -- name INDEX
         local topdictidx = stbtt__cff_get_index(b)
         local topdict = stbtt__cff_index_get(topdictidx, 0)
@@ -950,14 +954,14 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
 
     if g < 0 then return 0 end
 
-    local numberOfContours = ttSHORT(ptr_add(data, g))
+    local numberOfContours = ttSHORT(data, g)
 
     if numberOfContours > 0 then
         local endPtsOfContours = ptr_add(data, g + 10)
-        local ins = ttUSHORT(ptr_add(data, g + 10 + numberOfContours * 2))
+        local ins = ttUSHORT(data, g + 10 + numberOfContours * 2)
         local points = ptr_add(data, g + 10 + numberOfContours * 2 + 2 + ins)
 
-        local n = 1 + ttUSHORT(ptr_add(endPtsOfContours, numberOfContours * 2 - 2))
+        local n = 1 + ttUSHORT(endPtsOfContours, numberOfContours * 2 - 2)
         local m = n + 2 * numberOfContours
 
         vertices = {}
@@ -1066,7 +1070,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                 stbtt_setvertex(vertices[num_vertices + 1], STBTT_vmove, sx, sy, 0, 0)
                 num_vertices = num_vertices + 1
                 was_off = 0
-                next_move = 1 + ttUSHORT(ptr_add(endPtsOfContours, j * 2))
+                next_move = 1 + ttUSHORT(endPtsOfContours, j * 2)
                 j = j + 1
             else
                 if bit.band(flags, 1) == 0 then
@@ -1612,43 +1616,7 @@ local function stbtt__GetCoverageIndex(coverageTable, glyph)
 end
 
 local function stbtt__GetGlyphClass(classDefTable, glyph)
-    local classDefFormat = ttUSHORT(classDefTable)
-
-    if classDefFormat == 1 then
-        local startGlyphID = ttUSHORT(ptr_add(classDefTable, 2))
-        local glyphCount = ttUSHORT(ptr_add(classDefTable, 4))
-        local classDef1ValueArray = ptr_add(classDefTable, 6)
-
-        if glyph >= startGlyphID and glyph < startGlyphID + glyphCount then
-            return stbtt_int32(ttUSHORT(ptr_add(classDef1ValueArray, 2 * (glyph - startGlyphID))))
-        end
-    elseif classDefFormat == 2 then
-        local classRangeCount = ttUSHORT(ptr_add(classDefTable, 2))
-        local classRangeRecords = ptr_add(classDefTable, 4)
-
-        -- Binary search
-        local l = 0
-        local r = classRangeCount - 1
-        while l <= r do
-            local m = bit.rshift(l + r, 1)
-            local classRangeRecord = ptr_add(classRangeRecords, 6 * m)
-            local strawStart = ttUSHORT(classRangeRecord)
-            local strawEnd = ttUSHORT(ptr_add(classRangeRecord, 2))
-
-            if glyph < strawStart then
-                r = m - 1
-            elseif glyph > strawEnd then
-                l = m + 1
-            else
-                return stbtt_int32(ttUSHORT(ptr_add(classRangeRecord, 4)))
-            end
-        end
-    else
-        return -1  -- Unsupported definition type
-    end
-
-    -- "All glyphs not assigned to a class fall into class 0". (OpenType spec)
-    return 0
+    STBTT_NOT_IMPLEMENTED()
 end
 
 local function stbtt__GetGlyphGPOSInfoAdvance(info, glyph1, glyph2)
@@ -1663,7 +1631,7 @@ local function stbtt_GetCodepointKernAdvance(info, ch1, ch2)
     STBTT_NOT_IMPLEMENTED()
 end
 
-local function stbtt_GetCodepointHMetrics(info, codepoint) -- const stbtt_fontinfo *info, int codepoint, int *advanceWidth, int *leftSideBearing
+local function stbtt_GetCodepointHMetrics(info, codepoint)
     return stbtt_GetGlyphHMetrics(info, stbtt_FindGlyphIndex(info, codepoint))
 end
 
@@ -1712,9 +1680,13 @@ local function stbtt_GetCodepointSVG(info, unicode_codepoint)
     STBTT_NOT_IMPLEMENTED()
 end
 
----------------------------------------------------------------------------
+------------------------------------
+------------------------------------
+---
 --- Antialiasing software rasterizer
----------------------------------------------------------------------------
+---
+---
+
 
 function stbtt_GetGlyphBitmapBoxSubpixel(font, glyph, scale_x, scale_y, shift_x, shift_y)
     local n, x0, y0, x1, y1 = stbtt_GetGlyphBox(font, glyph)
@@ -1749,9 +1721,13 @@ local function stbtt_GetCodepointBitmapBox(font, codepoint, scale_x, scale_y)
     return stbtt_GetCodepointBitmapBoxSubpixel(font, codepoint, scale_x, scale_y, 0.0, 0.0)
 end
 
----------------------------------------------------------------------------
+--------------
+--------------
+---
 --- Rasterizer
----------------------------------------------------------------------------
+---
+---
+
 
 local function stbtt__handle_clipped_edge(scanline, x, e, x0, y0, x1, y1)
     if y0 == y1 then return end
@@ -2371,9 +2347,12 @@ local function stbtt_MakeCodepointBitmap(info, output, out_w, out_h, out_stride,
     STBTT_NOT_IMPLEMENTED()
 end
 
----------------------------------------------------------------------------
+-----------------
+-----------------
+---
 --- Bitmap baking
----------------------------------------------------------------------------
+---
+---
 
 local function stbtt_BakeFontBitmap_internal(data, offset, pixel_height, pixels, pw, ph, first_char, num_chars, chardata)
     STBTT_NOT_IMPLEMENTED()
@@ -2387,9 +2366,12 @@ local function stbtt_GetBakedQuad(chardata, pw, ph, char_index, xpos, ypos, q, o
     STBTT_NOT_IMPLEMENTED()
 end
 
----------------------------------------------------------------------------
+---------------------------
+---------------------------
+---
 --- Bitmap baking / packing
----------------------------------------------------------------------------
+---
+---
 
 local function stbtt_PackBegin(spc, pixels, pw, ph, stride_in_bytes, padding, alloc_context)
     STBTT_NOT_IMPLEMENTED()
@@ -2516,9 +2498,12 @@ function stbtt_GetPackedQuad(chardata, pw, ph, char_index, xpos, ypos, q, align_
     STBTT_NOT_IMPLEMENTED()
 end
 
----------------------------------------------------------------------------
---- sdf computation
----------------------------------------------------------------------------
+-------------------
+-------------------
+---
+--- SDF computation
+---
+---
 
 -- local STBTT_min = math.min
 -- local STBTT_max = math.max
@@ -2551,9 +2536,12 @@ local function stbtt_GetCodepointSDF(info, scale, codepoint, padding, onedge_val
     STBTT_NOT_IMPLEMENTED()
 end
 
----------------------------------------------------------------------------
+-----------------------------------------------------------------------
+-----------------------------------------------------------------------
+---
 --- (NOT IMPLEMENTED) Font name matching -- recommended not to use this
----------------------------------------------------------------------------
+---
+---
 
 function stbtt_GetFontOffsetForIndex(data, index)
     return stbtt_GetFontOffsetForIndex_internal(data, index)

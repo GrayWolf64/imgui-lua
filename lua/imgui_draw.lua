@@ -299,7 +299,6 @@ function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
     end
 end
 
--- TODO: validate
 --- @param src_pixels ImSlice
 --- @param src_fmt    ImTextureFormat
 --- @param src_pitch  int
@@ -1419,7 +1418,6 @@ function ImFontAtlasPackInit(atlas)
     builder.MaxRectBounds = ImVec2(0, 0) -- ImVec2i
 end
 
--- TODO: validate
 --- @param atlas ImFontAtlas
 function ImFontAtlasBuildUpdateLinesTexData(atlas)
     if bit.band(atlas.Flags, ImFontAtlasFlags.NoBakedLines) ~= 0 then
@@ -1503,7 +1501,6 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
     end
 end
 
--- TODO: validate
 --- @param atlas          ImFontAtlas
 --- @param x              int
 --- @param y              int
@@ -2457,7 +2454,13 @@ function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_templ
 
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
     if not font_cfg.Name or font_cfg.Name == "" then
-        font_cfg.Name = string.GetFileFromFilename(filename) -- TODO: validate
+        for i = #filename, 1, -1 do
+            local c = string.byte(filename, i, i)
+            if (c == 47 or c == 92) then -- '/' or '\\'
+                font_cfg.Name = string.sub(filename, i + 1)
+                break
+            end
+        end
     end
 
     return self:AddFontFromMemoryTTF(data, data_size, size_pixels, font_cfg, glyph_ranges)
