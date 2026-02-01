@@ -24,7 +24,7 @@
 
 ### My Development Platform
 
-`GMod x86-64 branch (2026.1.21)` with `LuaJIT 2.1.0-beta3`, `Lua 5.1`. Recording this is actually necessary, since who knows how GMod Lua APIs will change in the future!
+`GMod x86-64 branch (2026.1.28)` with `LuaJIT 2.1.0-beta3`, `Lua 5.1`. Recording this is actually necessary, since who knows how GMod Lua APIs will change in the future!
 
 The core code(code except backend ones) in [lua/](lua) don't and shouldn't use anything that is exclusive in GMod Lua.
 
