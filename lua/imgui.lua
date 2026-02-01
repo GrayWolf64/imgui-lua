@@ -720,8 +720,8 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     return true
 end
 
---- @param size            ImVec2
---- @param text_baseline_y float
+--- @param size             ImVec2
+--- @param text_baseline_y? float
 function ImGui.ItemSize(size, text_baseline_y)
     if text_baseline_y == nil then text_baseline_y = -1.0 end
 
@@ -763,7 +763,7 @@ function ImGui.ItemSize(size, text_baseline_y)
     window.DC.IsSameLine = false
 
     --- Horizontal layout mode
-    if (window.DC.LayoutType == ImGuiLayoutType_Horizontal) then
+    if (window.DC.LayoutType == ImGuiLayoutType.Horizontal) then
         ImGui.SameLine()
     end
 end
@@ -2269,7 +2269,7 @@ end
 --- @param text_size_if_known? ImVec2
 --- @param align?              ImVec2
 --- @param clip_rect?          ImRect
-local function RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
+function ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
     if not align then align = ImVec2(0, 0) end
 
     local pos = pos_min
@@ -2314,12 +2314,79 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, t
 
     local g = GImGui
     local window = g.CurrentWindow
-    RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
+    ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
     -- if (g.LogEnabled)
     --     LogRenderedText(&pos_min, text, text_display_end);
 end
 
 --- ImGui::RenderMouseCursor
+
+--- Another overly complex function until we reorganize everything into a nice all-in-one helper.
+--- This is made more complex because we have dissociated the layout rectangle (pos_min..pos_max) from 'ellipsis_max_x' which may be beyond it.
+--- This is because in the context of tabs we selectively hide part of the text when the Close Button appears, but we don't want the ellipsis to move.
+--- @param draw_list           ImDrawList
+--- @param pos_min             ImVec2
+--- @param pos_max             ImVec2
+--- @param ellipsis_max_x      float
+--- @param text                string
+--- @param text_end_full?      int
+--- @param text_size_if_known? ImVec2
+function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, text, text_end_full, text_size_if_known)
+    local g = GImGui
+
+    if text_end_full == nil then
+        text_end_full = ImGui.FindRenderedTextEnd(text)
+    end
+
+    local text_size
+    if text_size_if_known then
+        text_size = text_size_if_known:copy()
+    else
+        text_size = ImGui.CalcTextSize(text, text_end_full, false, 0.0)
+    end
+
+    -- draw_list:AddLine(ImVec2(pos_max.x, pos_min.y - 4), ImVec2(pos_max.x, pos_max.y + 6), IM_COL32(0, 0, 255, 255))
+    -- draw_list:AddLine(ImVec2(ellipsis_max_x, pos_min.y - 2), ImVec2(ellipsis_max_x, pos_max.y + 3), IM_COL32(0, 255, 0, 255))
+
+    -- FIXME: We could technically remove (last_glyph->AdvanceX - last_glyph->X1) from text_size.x here and save a few pixels.
+    if text_size.x > pos_max.x - pos_min.x then
+        -- Hello wo...
+        -- |       |   |
+        -- min   max   ellipsis_max
+        --          <-> this is generally some padding value
+
+        local font = draw_list._Data.Font
+        local font_size = draw_list._Data.FontSize
+        local font_scale = draw_list._Data.FontScale
+        local text_end_ellipsis = nil
+        local baked = font:GetFontBaked(font_size)
+        local ellipsis_width = baked:GetCharAdvance(font.EllipsisChar) * font_scale
+
+        -- We can now claim the space between pos_max.x and ellipsis_max.x
+        local text_avail_width = ImMax((ImMax(pos_max.x, ellipsis_max_x) - ellipsis_width) - pos_min.x, 1.0)
+        local text_size_clipped
+        text_size_clipped, text_end_ellipsis = font:CalcTextSizeA(font_size, text_avail_width, 0.0, text, 1, text_end_full)
+        local text_size_clipped_x = text_size_clipped.x
+
+        while text_end_ellipsis > 1 and ImCharIsBlankA(string.byte(text, text_end_ellipsis - 1)) do
+            -- Trim trailing space before ellipsis (FIXME: Supporting non-ascii blanks would be nice, for this we need a function to backtrack in UTF-8 text)
+            text_end_ellipsis = text_end_ellipsis - 1
+            text_size_clipped_x = text_size_clipped_x - font:CalcTextSizeA(font_size, FLT_MAX, 0.0, text, text_end_ellipsis, text_end_ellipsis + 1).x -- Ascii blanks are always 1 byte
+        end
+
+        -- Render text, render ellipsis
+        ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, 1, text_end_ellipsis, text_size, ImVec2(0.0, 0.0))
+        local cpu_fine_clip_rect = ImVec4(pos_min.x, pos_min.y, pos_max.x, pos_max.y)
+        local ellipsis_pos = ImTruncV2(ImVec2(pos_min.x + text_size_clipped_x, pos_min.y))
+        font:RenderChar(draw_list, font_size, ellipsis_pos, ImGui.GetColorU32(ImGuiCol.Text), font.EllipsisChar, cpu_fine_clip_rect)
+    else
+        ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, 1, text_end_full, text_size, ImVec2(0.0, 0.0))
+    end
+
+    if g.LogEnabled then
+        ImGui.LogRenderedText(pos_min, text, text_end_full)
+    end
+end
 
 --- @param p_min    ImVec2
 --- @param p_max    ImVec2
@@ -3411,8 +3478,8 @@ function ImGui.Begin(name, open, flags)
         window.DC.IsSetPos = false
 
         window.DC.ChildWindows:resize(0)
-        window.DC.LayoutType = ImGuiLayoutType_Vertical
-        window.DC.ParentLayoutType = (parent_window ~= nil) and parent_window.DC.LayoutType or ImGuiLayoutType_Vertical
+        window.DC.LayoutType = ImGuiLayoutType.Vertical
+        window.DC.ParentLayoutType = (parent_window ~= nil) and parent_window.DC.LayoutType or ImGuiLayoutType.Vertical
 
         local is_resizable_window = (window.Size.x > 0.0) and (bit.band(flags, ImGuiWindowFlags_Tooltip) == 0) and (bit.band(flags, ImGuiWindowFlags_AlwaysAutoResize) == 0)
         if (is_resizable_window) then

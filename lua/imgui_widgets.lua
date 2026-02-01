@@ -517,12 +517,12 @@ function ImGui.CollapseButton(id, pos)
 end
 
 function ImGui.ScrollbarEx(bb_frame, id, axis)
-    -- TODO: 
+    -- TODO:
 end
 
 --- @param axis ImGuiAxis
 function ImGui.Scrollbar(axis)
-    -- TODO: 
+    -- TODO:
 end
 
 --- @param label string
@@ -627,6 +627,225 @@ function ImGui.Checkbox(label, v)
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Checkable | (*v ? ImGuiItemStatusFlags_Checked : 0))
     return pressed, v
+end
+
+----------------------------------------------------------------
+-- [SECTION] Low-level Layout helpers
+----------------------------------------------------------------
+
+function ImGui.Spacing()
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+    ImGui.ItemSize(ImVec2(0, 0))
+end
+
+--- @param size ImVec2
+function ImGui.Dummy(size)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
+    ImGui.ItemSize(size)
+    ImGui.ItemAdd(bb, 0)
+end
+
+function ImGui.NewLine()
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local backup_layout_type = window.DC.LayoutType
+    window.DC.LayoutType = ImGuiLayoutType.Vertical
+    window.DC.IsSameLine = false
+
+    if window.DC.CurrLineSize.y > 0.0 then
+        -- In the event that we are on a line with items that is smaller that FontSize high, we will preserve its height.
+        ImGui.ItemSize(ImVec2(0, 0))
+    else
+        ImGui.ItemSize(ImVec2(0.0, g.FontSize))
+    end
+
+    window.DC.LayoutType = backup_layout_type
+end
+
+function ImGui.AlignTextToFramePadding()
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    window.DC.CurrLineSize.y = ImMax(window.DC.CurrLineSize.y, g.FontSize + g.Style.FramePadding.y * 2)
+    window.DC.CurrLineTextBaseOffset = ImMax(window.DC.CurrLineTextBaseOffset, g.Style.FramePadding.y)
+end
+
+--- @param flags     ImGuiSeparatorFlags
+--- @param thickness float
+function ImGui.SeparatorEx(flags, thickness)
+    if thickness == nil then thickness = 1.0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, bit.bor(ImGuiSeparatorFlags.Horizontal, ImGuiSeparatorFlags.Vertical)))) -- Check that only 1 option is selected
+    IM_ASSERT(thickness > 0.0)
+
+    if bit.band(flags, ImGuiSeparatorFlags.Vertical) ~= 0 then
+        -- Vertical separator, for menu bars (use current line height).
+        local y1 = window.DC.CursorPos.y
+        local y2 = window.DC.CursorPos.y + window.DC.CurrLineSize.y
+        local bb = ImRect(ImVec2(window.DC.CursorPos.x, y1), ImVec2(window.DC.CursorPos.x + thickness, y2))
+        ImGui.ItemSize(ImVec2(thickness, 0.0))
+        if not ImGui.ItemAdd(bb, 0) then
+            return
+        end
+
+        -- Draw
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Separator))
+        if g.LogEnabled then
+            ImGui.LogText(" |")
+        end
+    elseif bit.band(flags, ImGuiSeparatorFlags.Horizontal) ~= 0 then
+        -- Horizontal Separator
+        local x1 = window.DC.CursorPos.x
+        local x2 = window.WorkRect.Max.x
+
+        -- Preserve legacy behavior inside Columns()
+        -- Before Tables API happened, we relied on Separator() to span all columns of a Columns() set.
+        -- We currently don't need to provide the same feature for tables because tables naturally have border features.
+        local columns = (bit.band(flags, ImGuiSeparatorFlags.SpanAllColumns) ~= 0) and window.DC.CurrentColumns or nil
+        if columns then
+            x1 = window.Pos.x + window.DC.Indent.x  -- Used to be Pos.x before 2023/10/03
+            x2 = window.Pos.x + window.Size.x
+            ImGui.PushColumnsBackground()
+        end
+
+        -- We don't provide our width to the layout so that it doesn't get feed back into AutoFit
+        -- FIXME: This prevents ->CursorMaxPos based bounding box evaluation from working (e.g. TableEndCell)
+        local thickness_for_layout = (thickness == 1.0) and 0.0 or thickness  -- FIXME: See 1.70/1.71 Separator() change: makes legacy 1-px separator not affect layout yet. Should change.
+        local bb = ImRect(ImVec2(x1, window.DC.CursorPos.y), ImVec2(x2, window.DC.CursorPos.y + thickness))
+        ImGui.ItemSize(ImVec2(0.0, thickness_for_layout))
+
+        if ImGui.ItemAdd(bb, 0) then
+            -- Draw
+            window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Separator))
+            if g.LogEnabled then
+                ImGui.LogRenderedText(bb.Min, "--------------------------------\n")
+            end
+        end
+
+        if columns then
+            ImGui.PopColumnsBackground()
+            columns.LineMinY = window.DC.CursorPos.y
+        end
+    end
+end
+
+function ImGui.Separator()
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    if window.SkipItems then
+        return
+    end
+
+    -- Those flags should eventually be configurable by the user
+    -- FIXME: We cannot g.Style.SeparatorTextBorderSize for thickness as it relates to SeparatorText() which is a decorated separator, not defaulting to 1.0f.
+    local flags
+    if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
+        flags = ImGuiSeparatorFlags.Vertical
+    else
+        flags = ImGuiSeparatorFlags.Horizontal
+    end
+
+    -- Only applies to legacy Columns() api as they relied on Separator() a lot.
+    if window.DC.CurrentColumns then
+        flags = bit.bor(flags, ImGuiSeparatorFlags.SpanAllColumns)
+    end
+
+    ImGui.SeparatorEx(flags, 1.0)
+end
+
+--- @param id         ImGuiID
+--- @param label      string
+--- @param label_end? int
+--- @param extra_w    float
+function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    local style = g.Style
+
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
+    local pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y)
+    local padding = style.SeparatorTextPadding
+
+    local separator_thickness = style.SeparatorTextBorderSize
+    local min_size = ImVec2(label_size.x + extra_w + padding.x * 2.0, ImMax(label_size.y + padding.y * 2.0, separator_thickness))
+
+    local bb = ImRect(pos, ImVec2(window.WorkRect.Max.x, pos.y + min_size.y))
+    local text_baseline_y = ImTrunc((bb:GetHeight() - label_size.y) * style.SeparatorTextAlign.y + 0.99999)  -- ImMax(padding.y, ImTrunc((style.SeparatorTextSize - label_size.y) * 0.5f))
+
+    ImGui.ItemSize(min_size, text_baseline_y)
+    if not ImGui.ItemAdd(bb, id) then
+        return
+    end
+
+    local sep1_x1 = pos.x
+    local sep2_x2 = bb.Max.x
+    local seps_y = ImTrunc((bb.Min.y + bb.Max.y) * 0.5 + 0.99999)
+
+    local label_avail_w = ImMax(0.0, sep2_x2 - sep1_x1 - padding.x * 2.0)
+    local label_pos = ImVec2(pos.x + padding.x + ImMax(0.0, (label_avail_w - label_size.x - extra_w) * style.SeparatorTextAlign.x), pos.y + text_baseline_y)  -- FIXME-ALIGN
+
+    -- This allows using SameLine() to position something in the 'extra_w'
+    window.DC.CursorPosPrevLine.x = label_pos.x + label_size.x
+
+    local separator_col = ImGui.GetColorU32(ImGuiCol.Separator)
+
+    if label_size.x > 0.0 then
+        local sep1_x2 = label_pos.x - style.ItemSpacing.x
+        local sep2_x1 = label_pos.x + label_size.x + extra_w + style.ItemSpacing.x
+
+        if sep1_x2 > sep1_x1 and separator_thickness > 0.0 then
+            window.DrawList:AddLine(ImVec2(sep1_x1, seps_y), ImVec2(sep1_x2, seps_y), separator_col, separator_thickness)
+        end
+
+        if sep2_x2 > sep2_x1 and separator_thickness > 0.0 then
+            window.DrawList:AddLine(ImVec2(sep2_x1, seps_y), ImVec2(sep2_x2, seps_y), separator_col, separator_thickness)
+        end
+
+        if g.LogEnabled then
+            ImGui.LogSetNextTextDecoration("---", nil)
+        end
+
+        ImGui.RenderTextEllipsis(window.DrawList, label_pos, ImVec2(bb.Max.x, bb.Max.y + style.ItemSpacing.y), bb.Max.x, label, label_end, label_size)
+    else
+        if g.LogEnabled then
+            ImGui.LogText("---")
+        end
+
+        if separator_thickness > 0.0 then
+            window.DrawList:AddLine(ImVec2(sep1_x1, seps_y), ImVec2(sep2_x2, seps_y), separator_col, separator_thickness)
+        end
+    end
+end
+
+--- @param label string
+function ImGui.SeparatorText(label)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    ImGui.SeparatorTextEx(0, label, ImGui.FindRenderedTextEnd(label), 0.0)
 end
 
 ----------------------------------------------------------------

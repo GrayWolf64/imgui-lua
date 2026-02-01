@@ -31,6 +31,7 @@ local function ImGui_ImplGMOD_CreateMainViewport()
     g_Viewport:SetDraggable(true)
     g_Viewport:Center()
     g_Viewport:SetTitle("ImGui Main Viewport")
+    g_Viewport:SetIcon("icon16/application.png")
 
     g_Viewport.LocalToScreen = function(self, x, y)
         local pos_x, pos_y = self:GetPos()

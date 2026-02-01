@@ -672,9 +672,19 @@ ImGuiNextWindowDataFlags_HasWindowFlags     = bit.lshift(1, 8)
 ImGuiNextWindowDataFlags_HasChildFlags      = bit.lshift(1, 9)
 ImGuiNextWindowDataFlags_HasRefreshPolicy   = bit.lshift(1, 10)
 
---- @alias ImGuiLayoutType int
-ImGuiLayoutType_Horizontal = 0
-ImGuiLayoutType_Vertical   = 1
+--- @enum ImGuiLayoutType
+ImGuiLayoutType = {
+    Horizontal = 0,
+    Vertical   = 1
+}
+
+--- @enum ImGuiSeparatorFlags
+ImGuiSeparatorFlags = {
+    None           = 0,
+    Horizontal     = bit.lshift(1, 0), -- Axis default to current layout type, so generally Horizontal unless e.g. in a menu bar
+    Vertical       = bit.lshift(1, 1),
+    SpanAllColumns = bit.lshift(1, 2)  -- Make separator cover all columns of a legacy Columns() set
+}
 
 --- @class ImGuiStyle
 
@@ -703,6 +713,10 @@ function ImGuiStyle()
         ScrollbarPadding  = 2.0,
 
         WindowBorderHoverPadding = 4.0,
+
+        SeparatorTextBorderSize = 3.0,
+        SeparatorTextAlign      = ImVec2(0.0, 0.5),
+        SeparatorTextPadding    = ImVec2(20.0, 3.0),
 
         DisplaySafeAreaPadding = ImVec2(3, 3),
         DisplayWindowPadding = ImVec2(19, 19),

@@ -2038,6 +2038,18 @@ function MT.ImFont:IsGlyphInFont(c)
     return false
 end
 
+--- @param c ImWchar
+--- @return float
+function MT.ImFontBaked:GetCharAdvance(c)
+    if c < self.IndexAdvanceX.Size then
+        local x = self.IndexAdvanceX.Data[c + 1]
+        if x >= 0.0 then
+            return x
+        end
+    end
+    return ImFontBaked_BuildLoadGlyphAdvanceX(self, c)
+end
+
 function BuildLoadGlyphGetAdvanceOrFallback(baked, codepoint)
     return ImFontBaked_BuildLoadGlyphAdvanceX(baked, codepoint)
 end
@@ -2234,7 +2246,9 @@ end
 --- @param text_end_display int?
 --- @param text_end         int?
 --- @param flags            ImDrawTextFlags
---- @return ImVec2, int, ImVec2
+--- @return ImVec2 text_size
+--- @return int    out_remaining
+--- @return ImVec2 out_offset
 function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begin, text_end_display, text_end, flags)
     if not text_end then
         text_end = #text + 1
@@ -2330,8 +2344,67 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
     return text_size, out_remaining, out_offset
 end
 
+--- @param size       float
+--- @param max_width  float
+--- @param wrap_width float
+--- @param text       string
+--- @param text_begin int
+--- @param text_end?  int
 function MT.ImFont:CalcTextSizeA(size, max_width, wrap_width, text, text_begin, text_end)
     return ImFontCalcTextSizeEx(self, size, max_width, wrap_width, text, text_begin, text_end, text_end, ImDrawTextFlags.None)
+end
+
+--- Note: as with every ImDrawList drawing function, this expects that the font atlas texture is bound.
+--- @param draw_list     ImDrawList
+--- @param size          float
+--- @param pos           ImVec2
+--- @param col           ImU32
+--- @param c             ImWchar
+--- @param cpu_fine_clip ImVec4
+function MT.ImFont:RenderChar(draw_list, size, pos, col, c, cpu_fine_clip)
+    local baked = self:GetFontBaked(size)
+    local glyph = baked:FindGlyph(c)
+    if not glyph or not glyph.Visible then
+        return
+    end
+    if glyph.Colored then
+        col = bit.bor(col, bit.bnot(IM_COL32_A_MASK))
+    end
+
+    local scale
+    if size >= 0.0 then
+        scale = size / baked.Size
+    else
+        scale = 1.0
+    end
+
+    local x = IM_TRUNC(pos.x)
+    local y = IM_TRUNC(pos.y)
+
+    local x1 = x + glyph.X0 * scale
+    local x2 = x + glyph.X1 * scale
+    if cpu_fine_clip and (x1 > cpu_fine_clip.z or x2 < cpu_fine_clip.x) then
+        return
+    end
+
+    local y1 = y + glyph.Y0 * scale
+    local y2 = y + glyph.Y1 * scale
+    local u1 = glyph.U0
+    local v1 = glyph.V0
+    local u2 = glyph.U1
+    local v2 = glyph.V1
+
+    -- Always CPU fine clip. Code extracted from RenderText().
+    -- CPU side clipping used to fit text in their frame when the frame is too small. Only does clipping for axis aligned quads.
+    if cpu_fine_clip then
+        if x1 < cpu_fine_clip.x then u1 = u1 + (1.0 - (x2 - cpu_fine_clip.x) / (x2 - x1)) * (u2 - u1); x1 = cpu_fine_clip.x end
+        if y1 < cpu_fine_clip.y then v1 = v1 + (1.0 - (y2 - cpu_fine_clip.y) / (y2 - y1)) * (v2 - v1); y1 = cpu_fine_clip.y end
+        if x2 > cpu_fine_clip.z then u2 = u1 + ((cpu_fine_clip.z - x1) / (x2 - x1)) * (u2 - u1); x2 = cpu_fine_clip.z end
+        if y2 > cpu_fine_clip.w then v2 = v1 + ((cpu_fine_clip.w - y1) / (y2 - y1)) * (v2 - v1); y2 = cpu_fine_clip.w end
+        if y1 >= y2 then return end
+    end
+    draw_list:PrimReserve(6, 4)
+    draw_list:PrimRectUV(ImVec2(x1, y1), ImVec2(x2, y2), ImVec2(u1, v1), ImVec2(u2, v2), col)
 end
 
 function MT.ImFontAtlas:AddFont(font_cfg_in)

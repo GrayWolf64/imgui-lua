@@ -77,6 +77,8 @@ concommand.Add("imgui_test", function()
                 ImGui.Button("Click Me!")
                 ImGui.SmallButton("Small")
 
+                ImGui.SeparatorText("Basic PlotLines")
+
                 if not animate or refresh_time == 0 then
                     refresh_time = ImGui.GetTime()
                 end
