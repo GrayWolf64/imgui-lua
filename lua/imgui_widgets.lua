@@ -971,7 +971,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
     end
 
     if overlay_text then
-        ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, overlay_text, nil, nil, ImVec2(0.5, 0.0))
+        ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, overlay_text, nil, nil, nil, ImVec2(0.5, 0.0))
     end
 
     if label_size.x > 0.0 then
