@@ -2758,7 +2758,7 @@ end
 function MT.ImDrawList:AddDrawCmd()
     local draw_cmd = ImDrawCmd()
 
-    draw_cmd.ClipRect  = self._CmdHeader.ClipRect
+    draw_cmd.ClipRect  = self._CmdHeader.ClipRect -- Same as calling ImDrawCmd_HeaderCopy()?
     draw_cmd.TexRef    = self._CmdHeader.TexRef
     draw_cmd.VtxOffset = self._CmdHeader.VtxOffset
     draw_cmd.IdxOffset = self.IdxBuffer.Size
@@ -2778,6 +2778,51 @@ function MT.ImDrawList:_PopUnusedDrawCmd()
     end
 end
 
+--- Compare ClipRect, TexRef, VtxOffset
+--- @param CMD_LHS ImDrawCmd|ImDrawCmdHeader
+--- @param CMD_RHS ImDrawCmd|ImDrawCmdHeader
+--- @return bool
+local function ImDrawCmd_HeaderCompare(CMD_LHS, CMD_RHS)
+    if CMD_LHS.ClipRect.x ~= CMD_RHS.ClipRect.x or
+        CMD_LHS.ClipRect.y ~= CMD_RHS.ClipRect.y or
+        CMD_LHS.ClipRect.z ~= CMD_RHS.ClipRect.z or
+        CMD_LHS.ClipRect.w ~= CMD_RHS.ClipRect.w then
+        return false
+    end
+
+    if CMD_LHS.TexRef._TexData ~= CMD_RHS.TexRef._TexData or
+        CMD_LHS.TexRef._TexID ~= CMD_RHS.TexRef._TexID then
+        return false
+    end
+
+    if CMD_LHS.VtxOffset ~= CMD_RHS.VtxOffset then
+        return false
+    end
+
+    return true
+end
+
+--- Copy ClipRect, TexRef, VtxOffset
+--- @param CMD_DST ImDrawCmd|ImDrawCmdHeader
+--- @param CMD_SRC ImDrawCmd|ImDrawCmdHeader
+local function ImDrawCmd_HeaderCopy(CMD_DST, CMD_SRC)
+    CMD_DST.ClipRect.x = CMD_SRC.ClipRect.x
+    CMD_DST.ClipRect.y = CMD_SRC.ClipRect.y
+    CMD_DST.ClipRect.z = CMD_SRC.ClipRect.z
+    CMD_DST.ClipRect.w = CMD_SRC.ClipRect.w
+
+    CMD_DST.TexRef._TexData = CMD_SRC.TexRef._TexData
+    CMD_DST.TexRef._TexID = CMD_SRC.TexRef._TexID
+
+    CMD_DST.VtxOffset = CMD_SRC.VtxOffset
+end
+
+--- @param CMD_0 ImDrawCmd
+--- @param CMD_1 ImDrawCmd
+local function ImDrawCmd_AreSequentialIdxOffset(CMD_0, CMD_1)
+    return CMD_0.IdxOffset + CMD_0.ElemCount == CMD_1.IdxOffset
+end
+
 function MT.ImDrawList:_OnChangedClipRect()
     IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
     local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
@@ -2789,15 +2834,14 @@ function MT.ImDrawList:_OnChangedClipRect()
 
     IM_ASSERT(curr_cmd.UserCallback == nil)
 
-    -- TODO:
-    -- local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
-    -- if (curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil) then
-    --     self.CmdBuffer.pop_back()
+    local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
+    if (curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil) then
+        self.CmdBuffer:pop_back()
 
-    --     return
-    -- end
+        return
+    end
 
-    curr_cmd.ClipRect = self._CmdHeader.ClipRect
+    curr_cmd.ClipRect = self._CmdHeader.ClipRect -- calling :copy() method is probably not needed here?
 end
 
 function MT.ImDrawList:_OnChangedTexture()
@@ -2813,15 +2857,14 @@ function MT.ImDrawList:_OnChangedTexture()
         return
     end
 
-    -- TODO:
-    -- local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
-    -- if curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil then
-    --     self.CmdBuffer:pop_back()
+    local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
+    if curr_cmd.ElemCount == 0 and self.CmdBuffer.Size > 1 and ImDrawCmd_HeaderCompare(self._CmdHeader, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and prev_cmd.UserCallback == nil then
+        self.CmdBuffer:pop_back()
 
-    --     return
-    -- end
+        return
+    end
 
-    curr_cmd.TexRef = self._CmdHeader.TexRef
+    curr_cmd.TexRef = self._CmdHeader.TexRef -- calling :copy() method is probably not needed here?
 end
 
 function MT.ImDrawList:_OnChangedVtxOffset()

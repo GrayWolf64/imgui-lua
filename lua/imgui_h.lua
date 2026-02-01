@@ -253,7 +253,7 @@ MT.ImDrawCmd.__index = MT.ImDrawCmd
 function ImDrawCmd()
     return setmetatable({
         ClipRect               = ImVec4(),
-        TexRef                 = nil, -- TODO: validate
+        TexRef                 = nil,
         VtxOffset              = 0,
         IdxOffset              = 0,
         ElemCount              = 0,
