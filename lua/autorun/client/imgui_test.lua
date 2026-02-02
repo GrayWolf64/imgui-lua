@@ -8,10 +8,6 @@ local ImGui_ImplGMOD = include("imgui_impl_gmod.lua")
 local window1_open = true
 local window2_open = true
 
-local g_ModelMatrix = Matrix()
-local g_ScaleVector = Vector(1, 1, 1)
-
-
 concommand.Add("imgui_test", function()
     local animate = true
     local values = {} for i = 1, 90 do values[i] = 0 end
@@ -24,24 +20,12 @@ concommand.Add("imgui_test", function()
     ImGui.CreateContext()
     local g = ImGui.GetCurrentContext()
 
-    ImGui_ImplGMOD.Init(viewport)
+    local io = ImGui.GetIO()
+    io.ConfigFlags = bit.bor(io.ConfigFlags, ImGuiConfigFlags_ViewportsEnable)
 
-    local old_Paint = viewport.Paint
-    function viewport.Paint(self, w, h)
-        old_Paint(self, w, h)
+    ImGui_ImplGMOD.Init(viewport, true)
 
-        local offset_x, offset_y = self:GetPos()
-        local old_w, old_h = ScrW(), ScrH()
-
-        -- This scales the things we draw, so later we restore it
-        render.SetViewPort(offset_x, offset_y, w, h)
-
-        g_ScaleVector.x = old_w / w
-        g_ScaleVector.y = old_h / h
-        g_ModelMatrix:Scale(g_ScaleVector)
-        cam.PushModelMatrix(g_ModelMatrix)
-        g_ModelMatrix:Identity()
-
+    function viewport.PaintOver(self, w, h)
 
         ImGui_ImplGMOD.NewFrame()
 
@@ -110,9 +94,9 @@ concommand.Add("imgui_test", function()
 
         ImGui_ImplGMOD.RenderDrawData(ImGui.GetDrawData())
 
-
-        render.SetViewPort(0, 0, old_w, old_h)
-
-        cam.PopModelMatrix()
+        if bit.band(io.ConfigFlags, ImGuiConfigFlags_ViewportsEnable) ~= 0 then
+            ImGui.UpdatePlatformWindows()
+            ImGui.RenderPlatformWindowsDefault()
+        end
     end
 end)

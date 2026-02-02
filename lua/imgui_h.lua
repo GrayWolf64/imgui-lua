@@ -788,7 +788,7 @@ end
 --- @alias ImGuiConfigFlags int
 ImGuiConfigFlags_None                   = 0
 ImGuiConfigFlags_NavEnableKeyboard      = bit.lshift(1, 0)  -- Master keyboard navigation enable flag. Enable full Tabbing + directional arrows + space/enter to activate.
-ImGuiConfigFlags_NavEnableGamepad       = bit.lshift(1, 1)  -- Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags_HasGamepad.
+ImGuiConfigFlags_NavEnableGamepad       = bit.lshift(1, 1)  -- Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags.HasGamepad.
 ImGuiConfigFlags_NoMouse                = bit.lshift(1, 4)  -- Instruct dear imgui to disable mouse inputs and interactions.
 ImGuiConfigFlags_NoMouseCursorChange    = bit.lshift(1, 5)  -- Instruct backend to not alter mouse cursor shape and visibility. Use if the backend cursor changes are interfering with yours and you don't want to use SetMouseCursor() to change mouse cursor. You may want to honor requests from imgui by reading GetMouseCursor() yourself instead.
 ImGuiConfigFlags_NoKeyboard             = bit.lshift(1, 6)  -- Instruct dear imgui to disable keyboard inputs and interactions. This is done by ignoring keyboard events and clearing existing states.
@@ -958,12 +958,14 @@ function ImGuiViewport()
         DpiScale = 0,
 
         PlatformHandle = nil,
-        PlatformHandleRaw = nil
+        PlatformHandleRaw = nil,
+        PlatformWindowCreated = false
     }, MT.ImGuiViewport)
 end
 
 --- @class ImGuiPlatformIO
 --- @field Platform_GetClipboardTextFn fun(ctx: ImGuiContext): string
+--- @field Platform_CreateWindow       fun(vp: ImGuiViewport)
 --- @field Platform_OnChangedViewport  fun(vp: ImGuiViewport)
 --- @field Monitors                    ImVector<ImGuiPlatformMonitor>
 --- @field Textures                    ImVector<ImTextureData>
@@ -1561,3 +1563,22 @@ ImGuiPopupFlags_AnyPopup          = bit.bor(ImGuiPopupFlags_AnyPopupId, ImGuiPop
 ImGuiPopupFlags_MouseButtonShift_ = 2
 ImGuiPopupFlags_MouseButtonMask_  = 0x0C
 ImGuiPopupFlags_InvalidMask_      = 0x03
+
+--- @class ImGuiWindowClass
+
+--- @return ImGuiWindowClass
+--- @nodiscard
+function ImGuiWindowClass()
+    return {
+        ClassId                    = 0,
+        ParentViewportId           = 0xFFFFFFFF,
+        FocusRouteParentWindowId   = 0,
+        ViewportFlagsOverrideSet   = 0,
+        ViewportFlagsOverrideClear = 0,
+
+        TabItemFlagsOverrideSet  = 0,
+        DockNodeFlagsOverrideSet = 0,
+        DockingAlwaysTabBar      = false,
+        DockingAllowUnclassed    = true
+    }
+end

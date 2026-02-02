@@ -15,3 +15,5 @@
 12. Actually rewrite the stb ports
 13. Multi-Viewport: `ViewportOwned` related
 14. !! Replace all `continue` with `goto CONTINUE`
+15. I hate cpp mess. Wtf imgui passes ImRect and ImVec4 window.ClipRect so randomly and everything works? I have to use `ImRectFromVec4` which looks ugly and feels bad.
+16. GMod render.MaxTextureWidth/Height()

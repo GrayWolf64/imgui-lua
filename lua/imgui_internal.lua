@@ -147,7 +147,9 @@ function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCo
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
+-- TODO: flags
 function IMGUI_DEBUG_LOG_FONT(_str, ...) print(string.format(_str, ...)) end
+function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) print(string.format(_str, ...)) end
 
 ImGuiKeyOwner_Any     = 0
 ImGuiKeyOwner_NoOwner = 4294967295
@@ -381,6 +383,11 @@ function MT.ImRect:Translate(d)
 end
 
 function MT.ImRect:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
+
+--- @param v ImVec4
+--- @return ImRect
+--- @nodiscard
+function ImRectFromVec4(v) return ImRect(v.x, v.y, v.z, v.w) end
 
 function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
@@ -884,8 +891,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         FallbackMonitor = nil,
 
         CurrentViewport = nil,
-        MouseViewport = nil,
-        MouseLastHoveredViewport = nil,
+        MouseViewport = nil, MouseLastHoveredViewport = nil,
         PlatformLastFocusedViewportId = 1,
         ViewportCreatedCount = 0, PlatformWindowsCreatedCount = 0,
         ViewportFocusedStampCount = 0,
@@ -1081,6 +1087,7 @@ function ImGuiWindow(ctx, name)
         Flags = 0,
 
         ChildFlags = 0,
+        WindowClass = ImGuiWindowClass(),
 
         Pos = nil,
         Size = nil, -- Current size (==SizeFull or collapsed title bar size)
@@ -1329,7 +1336,7 @@ end
 --- @field FontSrcContainsGlyph?      fun(atlas: ImFontAtlas, src: ImFontConfig, codepoint: ImWchar): bool
 --- @field FontBakedInit?             fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any): bool
 --- @field FontBakedDestroy?          fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
---- @field FontBakedLoadGlyph         fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph: ImFontGlyph, out_advance_x: float_ptr): bool
+--- @field FontBakedLoadGlyph         fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph?: ImFontGlyph, out_advance_x?: float_ptr): bool
 --- @field FontBakedSrcLoaderDataSize unsigned_int
 MT.ImFontLoader = {}
 MT.ImFontLoader.__index = MT.ImFontLoader
