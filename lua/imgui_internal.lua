@@ -771,6 +771,8 @@ end
 
 --- @class ImGuiContext
 --- @field CurrentWindowStack ImVector<ImGuiWindowStackData>
+--- @field PlatformIO         ImGuiPlatformIO
+--- @field Viewports          ImVector<ImGuiViewportP>
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -797,6 +799,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         IO = ImGuiIO(),
         PlatformIO = ImGuiPlatformIO(),
+
+        ConfigFlagsCurrFrame = ImGuiConfigFlags_None,
+        ConfigFlagsLastFrame = ImGuiConfigFlags_None,
 
         MouseLastValidPos = ImVec2(),
 
@@ -1134,6 +1139,7 @@ function ImGuiWindow(ctx, name)
 
         RootWindow = nil,
         RootWindowPopupTree = nil,
+        RootWindowDockTree = nil,
 
         ParentWindow = nil,
         ParentWindowInBeginStack = nil,
@@ -1141,6 +1147,7 @@ function ImGuiWindow(ctx, name)
         IDStack = ImVector(),
 
         Viewport = nil,
+        ViewportOwned = nil,
 
         --- struct IMGUI_API ImGuiWindowTempData
         DC = ImGuiWindowTempData(),
@@ -1193,10 +1200,38 @@ local function ImDrawDataBuilder()
 end
 
 --- @class ImGuiViewportP : ImGuiViewport
+--- @field Window?                 ImGuiWindow
+--- @field Idx                     int               # Initial value = -1, then becomes 1-based index
+--- @field LastFrameActive         int
+--- @field LastFocusedStampCount   int
+--- @field LastNameHash            ImGuiID
+--- @field LastPos                 ImVec2
+--- @field LastSize                ImVec2
+--- @field Alpha                   float
+--- @field LastAlpha               float
+--- @field LastFocusedHadNavWindow bool
+--- @field PlatformMonitor         short
+--- @field BgFgDrawListsLastFrame  table<int>        # 1-based, size = 2
+--- @field BgFgDrawLists           table<ImDrawList> # 1-based, size = 2
+--- @field DrawDataP               ImDrawData
+--- @field DrawDataBuilder         ImDrawDataBuilder
+--- @field LastPlatformPos         ImVec2
+--- @field LastPlatformSize        ImVec2
+--- @field LastRendererSize        ImVec2
+--- @field WorkInsetMin            ImVec2
+--- @field WorkInsetMax            ImVec2
+--- @field BuildWorkInsetMin       ImVec2
+--- @field BuildWorkInsetMax       ImVec2
 MT.ImGuiViewportP = {}
 MT.ImGuiViewportP.__index = MT.ImGuiViewportP
 
 setmetatable(MT.ImGuiViewportP, {__index = MT.ImGuiViewport})
+
+function MT.ImGuiViewportP:ClearRequestFlags()
+    self.PlatformRequestClose  = false
+    self.PlatformRequestMove   = false
+    self.PlatformRequestResize = false
+end
 
 function MT.ImGuiViewportP:CalcWorkRectPos(inset_min)
     return ImVec2(self.Pos.x + inset_min.x, self.Pos.y + inset_min.y)
@@ -1235,13 +1270,31 @@ end
 --- @return ImGuiViewportP
 --- @nodiscard
 function ImGuiViewportP()
-    local this = setmetatable(ImGuiViewport(), MT.ImGuiViewportP)
-    --- @cast this ImGuiViewportP
+    local this = setmetatable(ImGuiViewport(), MT.ImGuiViewportP) --- @cast this ImGuiViewportP
+
+    this.Window = nil
+    this.Idx = -1
+
+    this.LastFrameActive       = -1
+    this.LastFocusedStampCount = -1
+    this.LastNameHash          = 0
+    this.LastPos               = nil
+    this.LastSize              = nil
+
+    this.Alpha     = 1.0
+    this.LastAlpha = 1.0
+
+    this.LastFocusedHadNavWindow = false
+    this.PlatformMonitor = -1
 
     this.BgFgDrawListsLastFrame = {-1, -1}
     this.BgFgDrawLists = {nil, nil}
     this.DrawDataP = ImDrawData()
     this.DrawDataBuilder = ImDrawDataBuilder()
+
+    this.LastPlatformPos  = ImVec2(FLT_MAX, FLT_MAX)
+    this.LastPlatformSize = ImVec2(FLT_MAX, FLT_MAX)
+    this.LastRendererSize = ImVec2(FLT_MAX, FLT_MAX)
 
     this.WorkInsetMin = ImVec2(0, 0)
     this.WorkInsetMax = ImVec2(0, 0)
@@ -1253,14 +1306,14 @@ end
 
 --- @class ImFontLoader
 --- @field Name                       string
---- @field LoaderInit?                function(atlas: ImFontAtlas): bool
---- @field LoaderShutdown?            function(atlas: ImFontAtlas)
---- @field FontSrcInit?               function(atlas: ImFontAtlas, src: ImFontConfig): bool
---- @field FontSrcDestroy?            function(atlas: ImFontAtlas, src: ImFontConfig)
---- @field FontSrcContainsGlyph?      function(atlas: ImFontAtlas, src: ImFontConfig, codepoint: ImWchar): bool
---- @field FontBakedInit?             function(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any): bool
---- @field FontBakedDestroy?          function(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
---- @field FontBakedLoadGlyph         function(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph: ImFontGlyph, out_advance_x: float_ptr): bool
+--- @field LoaderInit?                fun(atlas: ImFontAtlas): bool
+--- @field LoaderShutdown?            fun(atlas: ImFontAtlas)
+--- @field FontSrcInit?               fun(atlas: ImFontAtlas, src: ImFontConfig): bool
+--- @field FontSrcDestroy?            fun(atlas: ImFontAtlas, src: ImFontConfig)
+--- @field FontSrcContainsGlyph?      fun(atlas: ImFontAtlas, src: ImFontConfig, codepoint: ImWchar): bool
+--- @field FontBakedInit?             fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any): bool
+--- @field FontBakedDestroy?          fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
+--- @field FontBakedLoadGlyph         fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph: ImFontGlyph, out_advance_x: float_ptr): bool
 --- @field FontBakedSrcLoaderDataSize unsigned_int
 MT.ImFontLoader = {}
 MT.ImFontLoader.__index = MT.ImFontLoader

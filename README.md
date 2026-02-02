@@ -8,9 +8,9 @@
 
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
-| Fonts(ttf) | Completed, syncing with main     |
+| Fonts(ttf) | Completed, syncing with `main`   |
 | Fonts(otf) | Hasn't started yet, not planned  |
-| Viewports  | Currently only one is supported  |
+| Viewports  | Completed, syncing with `docking`|
 | Windows    | WIP                              |
 | Widgets    | WIP                              |
 | Backends   | Currently only have GMod backend |

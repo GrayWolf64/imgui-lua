@@ -188,6 +188,9 @@ local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
 end
 
 local function ImGui_ImplGMOD_Shutdown()
+    local platform_io = ImGui.GetPlatformIO()
+
+    platform_io:ClearPlatformHandlers()
 end
 
 local function ImGui_ImplGMOD_NewFrame()
