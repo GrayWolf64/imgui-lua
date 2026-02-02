@@ -671,6 +671,7 @@ ImGuiNextWindowDataFlags_HasScroll          = bit.lshift(1, 7)
 ImGuiNextWindowDataFlags_HasWindowFlags     = bit.lshift(1, 8)
 ImGuiNextWindowDataFlags_HasChildFlags      = bit.lshift(1, 9)
 ImGuiNextWindowDataFlags_HasRefreshPolicy   = bit.lshift(1, 10)
+ImGuiNextWindowDataFlags_HasViewport        = bit.lshift(1, 11)
 
 --- @enum ImGuiLayoutType
 ImGuiLayoutType = {
@@ -869,6 +870,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         FrameCount = -1,
 
         FrameCountEnded = -1,
+        FrameCountPlatformEnded = -1,
         FrameCountRendered = -1,
 
         Time = 0,
@@ -878,6 +880,15 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         NextWindowData = ImGuiNextWindowData(),
 
         Viewports = ImVector(),
+
+        FallbackMonitor = nil,
+
+        CurrentViewport = nil,
+        MouseViewport = nil,
+        MouseLastHoveredViewport = nil,
+        PlatformLastFocusedViewportId = 1,
+        ViewportCreatedCount = 0, PlatformWindowsCreatedCount = 0,
+        ViewportFocusedStampCount = 0,
 
         Font = nil,
         FontSize = 0.0,
@@ -935,6 +946,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         DragDropWithinSource = false,
         DragDropWithinTarget = false,
         DragDropSourceFlags = 0,
+
+        DragDropAcceptIdPrev = 0, DragDropAcceptIdCurr = 0,
         -- TODO: 
 
         DebugFlashStyleColorIdx = nil,
@@ -1124,11 +1137,10 @@ function ImGuiWindow(ctx, name)
 
         BgClickFlags = 0,
 
-        SetWindowPosAllowFlags = 0,
+        SetWindowPosAllowFlags = 0, SetWindowSizeAllowFlags = 0, SetWindowCollapsedAllowFlags = 0,
         SetWindowPosVal = ImVec2(FLT_MAX, FLT_MAX),
         SetWindowPosPivot = ImVec2(FLT_MAX, FLT_MAX),
-        SetWindowSizeAllowFlags = 0,
-        SetWindowCollapsedAllowFlags = 0,
+
         SettingsOffset = -1,
 
         ScrollbarX = false,
@@ -1146,7 +1158,10 @@ function ImGuiWindow(ctx, name)
 
         IDStack = ImVector(),
 
+        ViewportAllowPlatformMonitorExtend = -1,
         Viewport = nil,
+        ViewportId = 0,
+        ViewportPos = ImVec2(FLT_MAX, FLT_MAX),
         ViewportOwned = nil,
 
         --- struct IMGUI_API ImGuiWindowTempData
@@ -1162,6 +1177,7 @@ function ImGuiWindow(ctx, name)
         ClipRect = nil,
 
         LastFrameActive = -1,
+        LastFrameJustFocused = -1,
         LastTimeActive = -1.0,
 
         WriteAccessed = false,
@@ -1278,8 +1294,8 @@ function ImGuiViewportP()
     this.LastFrameActive       = -1
     this.LastFocusedStampCount = -1
     this.LastNameHash          = 0
-    this.LastPos               = nil
-    this.LastSize              = nil
+    this.LastPos               = ImVec2() -- ImGuiViewport() { memset(this, 0, sizeof(*this)); }
+    this.LastSize              = ImVec2()
 
     this.Alpha     = 1.0
     this.LastAlpha = 1.0
@@ -1497,14 +1513,15 @@ ImGuiKey_Aliases_END    = ImGuiKey_Mouse_END
 
 --- @enum ImGuiInputEventType
 ImGuiInputEventType = {
-    None        = 0,
-    MousePos    = 1,
-    MouseWheel  = 2,
-    MouseButton = 3,
-    Key         = 4,
-    Text        = 5,
-    Focus       = 6,
-    COUNT       = 7
+    None          = 0,
+    MousePos      = 1,
+    MouseWheel    = 2,
+    MouseButton   = 3,
+    MouseViewport = 4,
+    Key           = 5,
+    Text          = 6,
+    Focus         = 7,
+    COUNT         = 8
 }
 
 ImGuiInputFlags_RepeatRateDefault                = bit.lshift(1, 1)

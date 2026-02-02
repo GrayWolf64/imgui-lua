@@ -225,13 +225,15 @@ function ImHashData(data, size, seed)
 end
 
 -- Use FNV1a, as one ImGui FIXME suggested
---- @param str string
+--- @param str  string
 --- @param seed int?
+--- @param size int?
 --- @return int
-function ImHashStr(str, seed)
-    local len = #str
-    local data = {string.byte(str, 1, len)}
-    return ImHashData(data, len, seed)
+function ImHashStr(str, seed, size)
+    if size == nil then size = #str end
+
+    local data = {string.byte(str, 1, size)}
+    return ImHashData(data, size, seed)
 end
 
 --- @param in_text     string
@@ -486,7 +488,12 @@ function ImGui.Initialize()
 
     local viewport = ImGuiViewportP()
     viewport.ID = IMGUI_VIEWPORT_DEFAULT_ID
+    viewport.Idx = 1
+    viewport.PlatformWindowCreated = true
+    viewport.Flags = ImGuiViewportFlags_OwnedByApp
     g.Viewports:push_back(viewport)
+    g.ViewportCreatedCount = g.ViewportCreatedCount + 1
+    g.PlatformIO.Viewports:push_back(g.Viewports.Data[1])
 
     local atlas = g.IO.Fonts
     g.DrawListSharedData.Context = g
@@ -551,7 +558,13 @@ end
 --- @param window ImGuiWindow
 --- @param settings ImGuiWindowSettings
 local function ApplyWindowSettings(window, settings)
-    window.Pos = ImVec2(ImTrunc(settings.Pos.x), ImTrunc(settings.Pos.y))
+    local main_viewport = ImGui.GetMainViewport()
+    window.ViewportPos = main_viewport.Pos
+    if (settings.ViewportId ~= 0) then
+        window.ViewportId = settings.ViewportId
+        window.ViewportPos = ImVec2(settings.ViewportPos.x, settings.ViewportPos.y)
+    end
+    window.Pos = ImTruncV2(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
     if settings.Size.x > 0 and settings.Size.y > 0 then
         local size = ImVec2(ImTrunc(settings.Size.x), ImTrunc(settings.Size.y))
         window.Size = size
@@ -567,8 +580,9 @@ local function InitOrLoadWindowSettings(window, settings)
     -- Use SetNextWindowPos() with the appropriate condition flag to change the initial position of a window.
     local main_viewport = ImGui.GetMainViewport()
     window.Pos = main_viewport.Pos + ImVec2(60, 60)
-    window.SizeFull = ImVec2(0, 0)
     window.Size = ImVec2(0, 0)
+    window.SizeFull = ImVec2(0, 0)
+    window.ViewportPos = main_viewport.Pos
     window.SetWindowPosAllowFlags = bit.bor(ImGuiCond.Always, ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)
     window.SetWindowSizeAllowFlags = window.SetWindowPosAllowFlags
     window.SetWindowCollapsedAllowFlags = window.SetWindowPosAllowFlags
@@ -626,6 +640,16 @@ local function CreateNewWindow(name, flags)
     return window
 end
 
+--- @param window ImGuiWindow
+--- @return ImGuiWindow?
+local function GetWindowForTitleDisplay(window)
+    if window.DockNodeAsHost then
+        return window.DockNodeAsHost.VisibleWindow
+    else
+        return window
+    end
+end
+
 --- @param id ImGuiID
 function ImGui.KeepAliveID(id)
     local g = GImGui
@@ -653,6 +677,9 @@ local function IsMouseHoveringRect(r_min, r_max, clip)
     end
 
     if not rect_clipped:ContainsWithPad(g.IO.MousePos, g.Style.TouchExtraPadding) then
+        return false
+    end
+    if (not g.MouseViewport:GetMainRect():Overlaps(rect_clipped)) then
         return false
     end
 
@@ -962,7 +989,25 @@ function ImGui.SetFocusID(id, window)
 end
 
 function ImGui.StopMouseMovingWindow()
-    GImGui.MovingWindow = nil
+    local g = GImGui
+    local window = g.MovingWindow
+
+    if window and window.Viewport then
+        if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) ~= 0 then
+            ImGui.UpdateTryMergeWindowIntoHostViewport(window.RootWindowDockTree, g.MouseViewport)
+        end
+
+        if (not ImGui.IsDragDropPayloadBeingAccepted()) then
+            g.MouseViewport = window.Viewport
+        end
+
+        local window_can_use_inputs = bit.band(window.Flags, ImGuiWindowFlags_NoMouseInputs) == 0 or bit.band(window.Flags, ImGuiWindowFlags_NoNavInputs) == 0
+        if window_can_use_inputs then
+            window.Viewport.Flags = bit.band(window.Viewport.Flags, bit.bnot(ImGuiViewportFlags_NoInputs))
+        end
+    end
+
+    g.MovingWindow = nil
 end
 
 --- @param id      ImGuiID
@@ -1080,8 +1125,8 @@ function ImGui.IsWindowContentHoverable(window, flags)
     -- FIXME-OPT: This could be cached/stored within the window.
     local g = GImGui
     if g.NavWindow then
-        local focused_root_window = g.NavWindow.RootWindow
-        if focused_root_window.WasActive and focused_root_window ~= window.RootWindow then
+        local focused_root_window = g.NavWindow.RootWindowDockTree
+        if focused_root_window.WasActive and focused_root_window ~= window.RootWindowDockTree then
             -- For the purpose of those flags we differentiate "standard popup" from "modal popup"
             -- NB: The 'else' is important because Modal windows are also Popups.
             local want_inhibit = false
@@ -1099,6 +1144,14 @@ function ImGui.IsWindowContentHoverable(window, flags)
             end
         end
     end
+
+    -- Filter by viewport
+    if (window.Viewport ~= g.MouseViewport) then
+        if (g.MovingWindow == nil or window.RootWindowDockTree ~= g.MovingWindow.RootWindowDockTree) then
+            return false
+        end
+    end
+
     return true
 end
 
@@ -1417,6 +1470,34 @@ function MT.ImGuiIO:AddMouseSourceEvent(source)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
     g.InputEventsNextMouseSource = source
+end
+
+--- @param viewport_id ImGuiID
+function MT.ImGuiIO:AddMouseViewportEvent(viewport_id)
+    IM_ASSERT(self.Ctx ~= nil)
+    local g = self.Ctx
+    -- IM_ASSERT(g.IO.BackendFlags & ImGuiBackendFlags_HasMouseHoveredViewport);
+    if (not self.AppAcceptingEvents) then
+        return
+    end
+
+    -- Filter duplicate
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType_MouseViewport)
+    local latest_viewport_id
+    if latest_event then
+        latest_viewport_id = latest_event.MouseViewport.HoveredViewportID
+    else
+        latest_viewport_id = g.IO.MouseHoveredViewport
+    end
+    if (latest_viewport_id == viewport_id) then
+        return
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType_MouseViewport
+    e.Source = ImGuiInputSource_Mouse
+    e.MouseViewport.HoveredViewportID = viewport_id
+    g.InputEventsQueue:push_back(e)
 end
 
 --- @param x float
@@ -1755,6 +1836,18 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             io.MouseDown[button] = e.MouseButton.Down
             io.MouseSource = e.MouseButton.MouseSource
             mouse_button_changed = bit.bor(mouse_button_changed, bit.lshift(1, button))
+        elseif e.Type == ImGuiInputEventType.MouseWheel then
+            -- TODO: 
+        elseif e.Type == ImGuiInputEventType.MouseViewport then
+            io.MouseHoveredViewport = e.MouseViewport.HoveredViewportID
+        elseif e.Type == ImGuiInputEventType.Key then
+            
+        elseif e.Type == ImGuiInputEventType.Text then
+            
+        elseif e.Type == ImGuiInputEventType.Focus then
+            
+        else
+            IM_ASSERT(false, "Unknown event!")
         end
 
         event_n = event_n + 1
@@ -1857,12 +1950,15 @@ local function CalcWindowAutoFitSize(window, size_contents, axis_mask)
     size_desired.x = (bit.band(axis_mask, 1) ~= 0) and (size_contents.x + size_pad.x + decoration_w_without_scrollbars) or window.Size.x
     size_desired.y = (bit.band(axis_mask, 2) ~= 0) and (size_contents.y + size_pad.y + decoration_h_without_scrollbars) or window.Size.y
 
-    local size_max
-    if (bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0) and (bit.band(window.Flags, ImGuiWindowFlags_Popup) == 0) then
-        size_max = ImVec2(FLT_MAX, FLT_MAX)
-    else
-        local main_viewport = g.Viewports:at(1)
-        size_max = ImVec2(main_viewport.WorkSize.x - style.DisplaySafeAreaPadding.x * 2, main_viewport.WorkSize.y - style.DisplaySafeAreaPadding.y * 2)
+    local size_max = ImVec2(FLT_MAX, FLT_MAX)
+    if bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) == 0 or bit.band(window.Flags, ImGuiWindowFlags_Popup) ~= 0 then
+        if not window.ViewportOwned then
+            size_max = ImGui.GetMainViewport().WorkSize - style.DisplaySafeAreaPadding * 2.0
+        end
+        local monitor_idx = window.ViewportAllowPlatformMonitorExtend
+        if monitor_idx >= 1 and monitor_idx <= g.PlatformIO.Monitors.Size then
+            size_max = g.PlatformIO.Monitors.Data[monitor_idx].WorkSize - style.DisplaySafeAreaPadding * 2.0
+        end
     end
 
     if bit.band(window.Flags, ImGuiWindowFlags_Tooltip) ~= 0 then
@@ -1987,6 +2083,17 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
 
     local pos_target = ImVec2(FLT_MAX, FLT_MAX)
     local size_target = ImVec2(FLT_MAX, FLT_MAX)
+
+    -- Clip mouse interaction rectangles within the viewport rectangle (in practice the narrowing is going to happen most of the time).
+    -- - Not narrowing would mostly benefit the situation where OS windows _without_ decoration have a threshold for hovering when outside their limits.
+    --   This is however not the case with current backends under Win32, but a custom borderless window implementation would benefit from it.
+    -- - When decoration are enabled we typically benefit from that distance, but then our resize elements would be conflicting with OS resize elements, so we also narrow.
+    -- - Note that we are unable to tell if the platform setup allows hovering with a distance threshold (on Win32, decorated window have such threshold).
+    -- We only clip interaction so we overwrite window->ClipRect, cannot call PushClipRect() yet as DrawList is not yet setup.
+    local clip_with_viewport_rect = bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasMouseHoveredViewport) == 0 or g.IO.MouseHoveredViewport ~= window.ViewportId or bit.band(window.Viewport.Flags, ImGuiViewportFlags_NoDecoration) == 0
+    if (clip_with_viewport_rect) then
+        window.ClipRect = window.Viewport:GetMainRect()
+    end
 
     local clamp_rect = visibility_rect:copy()
     local window_move_from_title_bar = (bit.band(window.BgClickFlags, ImGuiWindowBgClickFlags.Move) == 0) and (bit.band(window.Flags, ImGuiWindowFlags_NoTitleBar) == 0)
@@ -2214,6 +2321,7 @@ end
 
 --- @param text string
 --- @param text_end int?
+--- @return int # Exclusive upper bound
 function ImGui.FindRenderedTextEnd(text, text_end)
     local text_display_end = 1
     if not text_end then
@@ -3205,9 +3313,11 @@ function ImGui.Begin(name, open, flags)
             end
         end
 
-        local viewport = ImGui.GetMainViewport()
-        ImGui.SetWindowViewport(window, viewport)
+        -- SELECT VIEWPORT
+        ImGui.WindowSelectViewport(window)
+        ImGui.SetWindowViewport(window, window.Viewport)
         SetCurrentWindow(window)
+        flags = window.Flags
 
         if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
             window.WindowBorderSize = style.ChildBorderSize
@@ -3324,8 +3434,26 @@ function ImGui.Begin(name, open, flags)
             window.Pos = ImGui.FindBestWindowPosForPopup(window)
         end
 
-        local viewport_rect = viewport:GetMainRect()
-        local viewport_work_rect = viewport:GetWorkRect()
+        -- Late create viewport if we don't fit within our current host viewport.
+        if window.ViewportAllowPlatformMonitorExtend >= 0 and not window.ViewportOwned and bit.band(window.Viewport.Flags, ImGuiViewportFlags_IsMinimized) == 0 then
+            if not window.Viewport:GetMainRect():Contains(window:Rect()) then
+                -- This is based on the assumption that the DPI will be known ahead (same as the DPI of the selection done in UpdateSelectWindowViewport)
+                -- local old_viewport = window.Viewport
+                window.Viewport = ImGui.AddUpdateViewport(window, window.ID, window.Pos, window.Size, ImGuiViewportFlags_NoFocusOnAppearing)
+
+                -- FIXME-DPI
+                -- IM_ASSERT(old_viewport.DpiScale == window.Viewport.DpiScale) -- FIXME-DPI: Something went wrong
+                ImGui.SetCurrentViewport(window, window.Viewport)
+                SetCurrentWindow(window)
+            end
+        end
+
+        if window.ViewportOwned then
+            ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
+        end
+
+        local viewport_rect = window.Viewport:GetMainRect()
+        local viewport_work_rect = window.Viewport:GetWorkRect()
         local visibility_padding = ImMaxVec2(style.DisplayWindowPadding, style.DisplaySafeAreaPadding)
         local visibility_rect = ImRect(viewport_work_rect.Min + visibility_padding, viewport_work_rect.Max - visibility_padding)
 
@@ -3384,6 +3512,21 @@ function ImGui.Begin(name, open, flags)
         end
         window.ResizeBorderHovered = border_hovered
         window.ResizeBorderHeld = border_held
+
+        -- Synchronize window --> viewport again and one last time (clamping and manual resize may have affected either)
+        if window.ViewportOwned then
+            if not window.Viewport.PlatformRequestMove then
+                window.Viewport.Pos = window.Pos
+            end
+            if not window.Viewport.PlatformRequestResize then
+                window.Viewport.Size = window.Size
+            end
+            window.Viewport:UpdateWorkRect()
+            viewport_rect = window.Viewport:GetMainRect()
+        end
+
+        -- Save last known viewport position within the window itself (so it can be saved in .ini file and restored)
+        window.ViewportPos = window.Viewport.Pos
 
         local host_rect = (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Popup) == 0 and not window_is_child_tooltip) and parent_window.ClipRect or viewport_rect
         local outer_rect = window:Rect()
@@ -3554,7 +3697,9 @@ function ImGui.Begin(name, open, flags)
         -- if (window->SkipRefresh)
         --     SetWindowActiveForSkipRefresh(window);
 
+        ImGui.SetCurrentViewport(window, window.Viewport)
         SetCurrentWindow(window)
+        g.NextWindowData:ClearFlags()
         -- SetLastItemDataForWindow(window, window->TitleBarRect());
     end
 
@@ -3673,8 +3818,15 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
     local hovered_window = nil
     local hovered_window_under_moving_window = nil
 
-    if not find_first_and_in_any_viewport and g.MovingWindow and bit.band(g.MovingWindow.Flags, ImGuiWindowFlags_NoMouseInputs) == 0 then
-        hovered_window = g.MovingWindow
+    -- Special handling for the window being moved: Ignore the mouse viewport check (because it may reset/lose its viewport during the undocking frame)
+    hovered_window = g.MovingWindow
+    local backup_moving_window_viewport = nil
+    if (find_first_and_in_any_viewport == false and g.MovingWindow) then
+        backup_moving_window_viewport = g.MovingWindow.Viewport
+        g.MovingWindow.Viewport = g.MouseViewport
+        if (bit.band(g.MovingWindow.Flags, ImGuiWindowFlags_NoMouseInputs) == 0) then
+            hovered_window = g.MovingWindow
+        end
     end
 
     local padding_regular = g.Style.TouchExtraPadding
@@ -3685,10 +3837,14 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
     for i = g.Windows.Size, 1, -1 do
         window = g.Windows.Data[i]
         if not window.WasActive or window.Hidden then
-            continue
+            goto CONTINUE
         end
         if bit.band(window.Flags, ImGuiWindowFlags_NoMouseInputs) ~= 0 then
-            continue
+            goto CONTINUE
+        end
+        IM_ASSERT(window.Viewport)
+        if (window.Viewport ~= g.MouseViewport) then
+            goto CONTINUE
         end
         local hit_padding
         if bit.band(window.Flags, bit.bor(ImGuiWindowFlags_NoResize, ImGuiWindowFlags_AlwaysAutoResize)) ~= 0 then
@@ -3697,7 +3853,7 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
             hit_padding = padding_for_resize
         end
         if not window.OuterRectClipped:ContainsWithPad(pos, hit_padding) then
-            continue
+            goto CONTINUE
         end
 
         if window.HitTestHoleSize.x ~= 0 then
@@ -3712,7 +3868,7 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
                 hovered_window = window
             end
 
-            if hovered_window_under_moving_window == nil and (not g.MovingWindow or window.RootWindow ~= g.MovingWindow.RootWindow) then
+            if hovered_window_under_moving_window == nil and (not g.MovingWindow or window.RootWindowDockTree ~= g.MovingWindow.RootWindowDockTree) then
                 hovered_window_under_moving_window = window
             end
 
@@ -3720,6 +3876,12 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
                 break
             end
         end
+
+        :: CONTINUE ::
+    end
+
+    if (find_first_and_in_any_viewport == false and g.MovingWindow) then
+        g.MovingWindow.Viewport = backup_moving_window_viewport
     end
 
     return hovered_window, hovered_window_under_moving_window
@@ -3733,6 +3895,7 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags(mouse_pos)
     g.WindowsBorderHoverPadding = ImMax(ImMax(g.Style.TouchExtraPadding.x, g.Style.TouchExtraPadding.y), g.Style.WindowBorderHoverPadding)
 
     g.HoveredWindow, g.HoveredWindowUnderMovingWindow = FindHoveredWindowEx(mouse_pos, false)
+    IM_ASSERT(g.HoveredWindow == nil or g.HoveredWindow == g.MovingWindow or g.HoveredWindow.Viewport == g.MouseViewport)
 
     local mouse_earliest_down = -1
     local mouse_any_down = false
@@ -3957,18 +4120,35 @@ local function InitViewportDrawData(viewport)
     local io = ImGui.GetIO()
     local draw_data = viewport.DrawDataP
 
+    viewport.DrawData = draw_data
     viewport.DrawDataBuilder.Layers[1] = draw_data.CmdLists
     viewport.DrawDataBuilder.Layers[2] = viewport.DrawDataBuilder.LayerData1
     viewport.DrawDataBuilder.Layers[1]:resize(0)
     viewport.DrawDataBuilder.Layers[2]:resize(0)
+
+    -- When minimized, we report draw_data->DisplaySize as zero to be consistent with non-viewport mode,
+    -- and to allow applications/backends to easily skip rendering.
+    -- FIXME: Note that we however do NOT attempt to report "zero drawlist / vertices" into the ImDrawData structure.
+    -- This is because the work has been done already, and its wasted! We should fix that and add optimizations for
+    -- it earlier in the pipeline, rather than pretend to hide the data at the end of the pipeline.
+    local is_minimized = bit.band(viewport.Flags, ImGuiViewportFlags_IsMinimized) ~= 0
 
     draw_data.Valid            = true
     draw_data.CmdListsCount    = 0
     draw_data.TotalVtxCount    = 0
     draw_data.TotalIdxCount    = 0
     draw_data.DisplayPos       = viewport.Pos
-    draw_data.DisplaySize      = viewport.Size
-    draw_data.FramebufferScale = io.DisplayFramebufferScale
+    if is_minimized then
+        draw_data.DisplaySize = ImVec2(0.0, 0.0)
+    else
+        draw_data.DisplaySize = viewport.Size
+    end
+    if viewport.FramebufferScale.x ~= 0.0 then
+        draw_data.FramebufferScale = viewport.FramebufferScale
+    else
+        draw_data.FramebufferScale = io.DisplayFramebufferScale
+    end
+
     draw_data.OwnerViewport    = viewport
     draw_data.Textures         = ImGui.GetPlatformIO().Textures
 end
@@ -4004,6 +4184,7 @@ end
 --- @param viewport      ImGuiViewportP
 --- @param drawlist_no   size_t         # background(1), foreground(2)
 --- @param drawlist_name string
+--- @return ImDrawList
 local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
     local g = GImGui
     IM_ASSERT(drawlist_no <= 2) -- IM_COUNTOF(viewport->BgFgDrawLists)
@@ -4024,30 +4205,33 @@ local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
     return draw_list
 end
 
+--- @param viewport? ImGuiViewport
 function ImGui.GetBackgroundDrawList(viewport)
     local g = GImGui
 
-    if viewport ~= nil then
-        return GetViewportBgFgDrawList(viewport, 1, "##Background")
+    if (viewport == nil) then
+        viewport = g.CurrentWindow.Viewport
     end
 
-    return GetViewportBgFgDrawList(g.Viewports:at(1), 1, "##Background")
+    --- @cast viewport ImGuiViewportP
+    return GetViewportBgFgDrawList(viewport, 1, "##Background")
 end
 
+--- @param viewport? ImGuiViewport
 function ImGui.GetForegroundDrawList(viewport)
     local g = GImGui
 
-    if viewport ~= nil then
-        return GetViewportBgFgDrawList(viewport, 2, "##Foreground")
+    if (viewport == nil) then
+        viewport = g.CurrentWindow.Viewport
     end
 
-    return GetViewportBgFgDrawList(g.Viewports:at(1), 2, "##Foreground")
+    --- @cast viewport ImGuiViewportP
+    return GetViewportBgFgDrawList(viewport, 2, "##Foreground")
 end
 
---- static void AddWindowToDrawData(ImGuiWindow* window, int layer)
 local function AddWindowToDrawData(window, layer)
     local g = GImGui
-    local viewport = g.Viewports:at(1)
+    local viewport = window.Viewport
     g.IO.MetricsRenderWindows = g.IO.MetricsRenderWindows + 1
     -- TODO: splitter
     ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[layer], window.DrawList)
@@ -4129,7 +4313,9 @@ function ImGui.NewFrame()
 
     g.WithinFrameScope = true
 
+    -- Mark rendering data as invalid to prevent user who may have a handle on it to use it.
     for _, viewport in g.Viewports:iter() do
+        viewport.DrawData = nil
         viewport.DrawDataP.Valid = false
     end
 
@@ -4257,10 +4443,12 @@ function ImGui.EndFrame()
     end
 
     g.WithinFrameScopeWithImplicitWindow = false
-    if (g.CurrentWindow and not g.CurrentWindow.WriteAccessed) then
+    if (g.CurrentWindow and g.CurrentWindow.IsFallbackWindow and g.CurrentWindow.WriteAccessed == false) then
         g.CurrentWindow.Active = false
     end
     ImGui.End()
+
+    ImGui.SetCurrentViewport(nil, nil)
 
     -- Drag and Drop: Fallback for missing source tooltip. This is not ideal but better than nothing.
     -- If you want to handle source item disappearing: instead of submitting your description tooltip
@@ -4317,7 +4505,7 @@ function ImGui.Render()
     -- TODO: RenderDimmedBackgrounds()
 
     local windows_to_render_top_most = {nil, nil}
-    windows_to_render_top_most[1] = (g.NavWindowingTarget and (bit.band(g.NavWindowingTarget.Flags, ImGuiWindowFlags_NoBringToFrontOnFocus) == 0)) and g.NavWindowingTarget.RootWindow or nil
+    windows_to_render_top_most[1] = (g.NavWindowingTarget and (bit.band(g.NavWindowingTarget.Flags, ImGuiWindowFlags_NoBringToFrontOnFocus) == 0)) and g.NavWindowingTarget.RootWindowDockTree or nil
     windows_to_render_top_most[2] = g.NavWindowingTarget and g.NavWindowingListWindow or nil
     for _, window in g.Windows:iter() do
         if ImGui.IsWindowActiveAndVisible(window) and (bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) == 0) and window ~= windows_to_render_top_most[1] and window ~= windows_to_render_top_most[2] then
@@ -4392,7 +4580,7 @@ function ImGui.GetTime()
     return GImGui.Time
 end
 
---- void ImGui::Shutdown()
+-- TODO: void ImGui::Shutdown()
 
 function ImGui.GetIO() return GImGui.IO end
 
@@ -4951,6 +5139,15 @@ end
 
 function ImGui.NavMoveRequestCancel()
     -- TODO:
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] DRAG AND DROP
+---------------------------------------------------------------------------------------
+
+function ImGui.IsDragDropPayloadBeingAccepted()
+    local g = GImGui
+    return g.DragDropActive and g.DragDropAcceptIdPrev ~= 0
 end
 
 ---------------------------------------------------------------------------------------
@@ -5593,4 +5790,384 @@ function ImGui.DestroyViewport(viewport)
     IM_ASSERT(g.Viewports.Data[viewport.Idx] == viewport)
     g.Viewports:erase(viewport.Idx)
     -- IM_DELETE(viewport)
+end
+
+--- @param window ImGuiWindow
+function ImGui.WindowSelectViewport(window)
+    local g = GImGui
+    local flags = window.Flags
+    window.ViewportAllowPlatformMonitorExtend = -1
+
+    -- Restore main viewport if multi-viewport is not supported by the backend
+    local main_viewport = ImGui.GetMainViewport()
+    if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) == 0 then
+        ImGui.SetWindowViewport(window, main_viewport)
+        return
+    end
+    window.ViewportOwned = false
+
+    -- Appearing popups reset their viewport so they can inherit again
+    if bit.band(flags, bit.bor(ImGuiWindowFlags_Popup, ImGuiWindowFlags_Tooltip)) ~= 0 and window.Appearing then
+        window.Viewport = nil
+        window.ViewportId = 0
+    end
+
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasViewport) == 0 then
+        -- By default inherit from parent window
+        if window.Viewport == nil and window.ParentWindow and (not window.ParentWindow.IsFallbackWindow or window.ParentWindow.WasActive) then
+            window.Viewport = window.ParentWindow.Viewport
+        end
+
+        -- Attempt to restore saved viewport id (= window that hasn't been activated yet), try to restore the viewport based on saved 'window->ViewportPos' restored from .ini file
+        if window.Viewport == nil and window.ViewportId ~= 0 then
+            window.Viewport = ImGui.FindViewportByID(window.ViewportId)
+            if window.Viewport == nil and window.ViewportPos.x ~= FLT_MAX and window.ViewportPos.y ~= FLT_MAX then
+                window.Viewport = ImGui.AddUpdateViewport(window, window.ID, window.ViewportPos, window.Size, ImGuiViewportFlags_None)
+            end
+        end
+    end
+
+    local lock_viewport = false
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasViewport) ~= 0 then
+        -- Code explicitly request a viewport
+        window.Viewport = ImGui.FindViewportByID(g.NextWindowData.ViewportId)
+        window.ViewportId = g.NextWindowData.ViewportId  -- Store ID even if Viewport isn't resolved yet.
+        if window.Viewport and bit.band(window.Flags, ImGuiWindowFlags_DockNodeHost) ~= 0 and window.Viewport.Window ~= nil then
+            window.Viewport.Window = window
+            window.Viewport.ID = window.ID
+            window.ViewportId = window.ID  -- Overwrite ID (always owned by node)
+        end
+        lock_viewport = true
+    elseif bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 or bit.band(flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+        -- Always inherit viewport from parent window
+        if window.DockNode and window.DockNode.HostWindow then
+            IM_ASSERT(window.DockNode.HostWindow.Viewport == window.ParentWindow.Viewport)
+        end
+        window.Viewport = window.ParentWindow.Viewport
+    elseif window.DockNode and window.DockNode.HostWindow then
+        -- This covers the "always inherit viewport from parent window" case for when a window reattach to a node that was just created mid-frame
+        window.Viewport = window.DockNode.HostWindow.Viewport
+    elseif bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0 then
+        window.Viewport = g.MouseViewport
+    elseif ImGui.GetWindowAlwaysWantOwnViewport(window) then
+        window.Viewport = ImGui.AddUpdateViewport(window, window.ID, window.Pos, window.Size, ImGuiViewportFlags_None)
+    elseif g.MovingWindow and g.MovingWindow.RootWindowDockTree == window and ImGui.IsMousePosValid() then
+        if window.Viewport ~= nil and window.Viewport.Window == window then
+            window.Viewport = ImGui.AddUpdateViewport(window, window.ID, window.Pos, window.Size, ImGuiViewportFlags_None)
+        end
+    else
+        -- Merge into host viewport?
+        -- We cannot test window->ViewportOwned as it set lower in the function.
+        -- Testing (g.ActiveId == 0 || g.ActiveIdAllowOverlap) to avoid merging during a short-term widget interaction. Main intent was to avoid during resize (see #4212)
+        local try_to_merge_into_host_viewport = (window.Viewport and window == window.Viewport.Window and (g.ActiveId == 0 or g.ActiveIdAllowOverlap))
+        if try_to_merge_into_host_viewport then
+            ImGui.UpdateTryMergeWindowIntoHostViewports(window)
+        end
+    end
+
+    -- Fallback: merge in default viewport if z-order matches, otherwise create a new viewport
+    if window.Viewport == nil then
+        --- @cast main_viewport ImGuiViewportP
+        if not ImGui.UpdateTryMergeWindowIntoHostViewport(window, main_viewport) then
+            window.Viewport = ImGui.AddUpdateViewport(window, window.ID, window.Pos, window.Size, ImGuiViewportFlags_None)
+        end
+    end
+
+    -- Mark window as allowed to protrude outside of its viewport and into the current monitor
+    if not lock_viewport then
+        if bit.band(flags, bit.bor(ImGuiWindowFlags_Tooltip, ImGuiWindowFlags_Popup)) ~= 0 then
+            -- We need to take account of the possibility that mouse may become invalid.
+            -- Popups/Tooltip always set ViewportAllowPlatformMonitorExtend so GetWindowAllowedExtentRect() will return full monitor bounds.
+            local mouse_ref = bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0 and g.IO.MousePos or g.BeginPopupStack.Data[g.BeginPopupStack.Size].OpenMousePos
+            local use_mouse_ref = not g.NavCursorVisible or not g.NavHighlightItemUnderNav or not g.NavWindow
+            local mouse_valid = ImGui.IsMousePosValid(mouse_ref)
+            if (window.Appearing or bit.band(flags, bit.bor(ImGuiWindowFlags_Tooltip, ImGuiWindowFlags_ChildMenu)) ~= 0) and (not use_mouse_ref or mouse_valid) then
+                local pos_to_use = (use_mouse_ref and mouse_valid) and mouse_ref or ImGui.NavCalcPreferredRefPos(window.Flags)
+                window.ViewportAllowPlatformMonitorExtend = ImGui.FindPlatformMonitorForPos(pos_to_use)
+            else
+                window.ViewportAllowPlatformMonitorExtend = window.Viewport.PlatformMonitor
+            end
+        elseif window.Viewport and window ~= window.Viewport.Window and window.Viewport.Window and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0 and window.DockNode == nil then
+            -- When called from Begin() we don't have access to a proper version of the Hidden flag yet, so we replicate this code.
+            local will_be_visible = (window.DockIsActive and not window.DockTabIsVisible) and false or true
+            if bit.band(window.Flags, ImGuiWindowFlags_DockNodeHost) ~= 0 and window.Viewport.LastFrameActive < g.FrameCount and will_be_visible then
+                -- Steal/transfer ownership
+                -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Window '%s' steal Viewport %08X from Window '%s'\n", window.Name, window.Viewport.ID, window.Viewport.Window.Name)
+                window.Viewport.Window = window
+                window.Viewport.ID = window.ID
+                window.Viewport.LastNameHash = 0
+            elseif not ImGui.UpdateTryMergeWindowIntoHostViewports(window) then  -- Merge?
+                -- New viewport
+                window.Viewport = ImGui.AddUpdateViewport(window, window.ID, window.Pos, window.Size, ImGuiViewportFlags_NoFocusOnAppearing)
+            end
+        elseif window.ViewportAllowPlatformMonitorExtend < 0 and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0 then
+            -- Regular (non-child, non-popup) windows by default are also allowed to protrude
+            -- Child windows are kept contained within their parent.
+            window.ViewportAllowPlatformMonitorExtend = window.Viewport.PlatformMonitor
+        end
+    end
+
+    -- Update flags
+    window.ViewportOwned = (window == window.Viewport.Window)
+    window.ViewportId = window.Viewport.ID
+
+    -- If the OS window has a title bar, hide our imgui title bar
+    -- if window.ViewportOwned and bit.band(window.Viewport.Flags, ImGuiViewportFlags_NoDecoration) == 0 then
+    --     window.Flags = bit.bor(window.Flags, ImGuiWindowFlags_NoTitleBar)
+    -- end
+end
+
+--- @param window                  ImGuiWindow
+--- @param parent_window_in_stack? ImGuiWindow
+function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
+    local g = GImGui
+    local viewport_rect_changed = false
+
+    -- Synchronize window --> viewport in most situations
+    -- Synchronize viewport -> window in case the platform window has been moved or resized from the OS/WM
+    if window.Viewport.PlatformRequestMove then
+        window.Pos = window.Viewport.Pos
+        -- ImGui.MarkIniSettingsDirty(window)
+    elseif window.Viewport.Pos.x ~= window.Pos.x or window.Viewport.Pos.y ~= window.Pos.y then
+        viewport_rect_changed = true
+        window.Viewport.Pos = ImVec2(window.Pos.x, window.Pos.y)
+    end
+
+    if window.Viewport.PlatformRequestResize then
+        window.Size = window.Viewport.Size
+        window.SizeFull = window.Viewport.Size
+        -- ImGui.MarkIniSettingsDirty(window)
+    elseif window.Viewport.Size.x ~= window.Size.x or window.Viewport.Size.y ~= window.Size.y then
+        viewport_rect_changed = true
+        window.Viewport.Size = ImVec2(window.Size.x, window.Size.y)
+    end
+    window.Viewport:UpdateWorkRect()
+
+    -- The viewport may have changed monitor since the global update in UpdateViewportsNewFrame()
+    -- Either a SetNextWindowPos() call in the current frame or a SetWindowPos() call in the previous frame may have this effect.
+    if viewport_rect_changed then
+        ImGui.UpdateViewportPlatformMonitor(window.Viewport)
+    end
+
+    -- Update common viewport flags
+    local viewport_flags_to_clear = bit.bor(ImGuiViewportFlags_TopMost, ImGuiViewportFlags_NoTaskBarIcon, ImGuiViewportFlags_NoDecoration, ImGuiViewportFlags_NoRendererClear)
+    local viewport_flags = bit.band(window.Viewport.Flags, bit.bnot(viewport_flags_to_clear))
+    local window_flags = window.Flags
+    local is_modal = bit.band(window_flags, ImGuiWindowFlags_Modal) ~= 0
+    local is_short_lived_floating_window = bit.band(window_flags, bit.bor(ImGuiWindowFlags_ChildMenu, ImGuiWindowFlags_Tooltip, ImGuiWindowFlags_Popup)) ~= 0
+
+    if bit.band(window_flags, ImGuiWindowFlags_Tooltip) ~= 0 then
+        viewport_flags = bit.bor(viewport_flags, ImGuiViewportFlags_TopMost)
+    end
+
+    if (g.IO.ConfigViewportsNoTaskBarIcon or is_short_lived_floating_window) and not is_modal then
+        viewport_flags = bit.bor(viewport_flags, ImGuiViewportFlags_NoTaskBarIcon)
+    end
+
+    if g.IO.ConfigViewportsNoDecoration or is_short_lived_floating_window then
+        viewport_flags = bit.bor(viewport_flags, ImGuiViewportFlags_NoDecoration)
+    end
+
+    -- Not correct to set modal as topmost because:
+    -- - Because other popups can be stacked above a modal (e.g. combo box in a modal)
+    -- - ImGuiViewportFlags_TopMost is currently handled different in backends: in Win32 it is "appear top most" whereas in GLFW and SDL it is "stay topmost"
+    -- if bit.band(window_flags, ImGuiWindowFlags_Modal) ~= 0 then
+    --     viewport_flags = bit.bor(viewport_flags, ImGuiViewportFlags_TopMost)
+    -- end
+
+    -- For popups and menus that may be protruding out of their parent viewport, we enable _NoFocusOnClick so that clicking on them
+    -- won't steal the OS focus away from their parent window (which may be reflected in OS the title bar decoration).
+    -- Setting _NoFocusOnClick would technically prevent us from bringing back to front in case they are being covered by an OS window from a different app,
+    -- but it shouldn't be much of a problem considering those are already popups that are closed when clicking elsewhere.
+    if is_short_lived_floating_window and not is_modal then
+        viewport_flags = bit.bor(viewport_flags, ImGuiViewportFlags_NoFocusOnAppearing, ImGuiViewportFlags_NoFocusOnClick)
+    end
+
+    -- We can overwrite viewport flags using ImGuiWindowClass (advanced users)
+    if window.WindowClass.ViewportFlagsOverrideSet ~= 0 then
+        viewport_flags = bit.bor(viewport_flags, window.WindowClass.ViewportFlagsOverrideSet)
+    end
+    if window.WindowClass.ViewportFlagsOverrideClear ~= 0 then
+        viewport_flags = bit.band(viewport_flags, bit.bnot(window.WindowClass.ViewportFlagsOverrideClear))
+    end
+
+    -- We can also tell the backend that clearing the platform window won't be necessary,
+    -- as our window background is filling the viewport and we have disabled BgAlpha.
+    -- FIXME: Work on support for per-viewport transparency (#2766)
+    if bit.band(window_flags, ImGuiWindowFlags_NoBackground) == 0 then
+        viewport_flags = bit.bor(viewport_flags, ImGuiViewportFlags_NoRendererClear)
+    end
+
+    window.Viewport.Flags = viewport_flags
+
+    -- Update parent viewport ID
+    -- (the !IsFallbackWindow test mimic the one done in WindowSelectViewport())
+    if window.WindowClass.ParentViewportId ~= 0xFFFFFFFF then
+        local old_parent_viewport_id = window.Viewport.ParentViewportId
+        window.Viewport.ParentViewportId = window.WindowClass.ParentViewportId
+        if window.Viewport.ParentViewportId ~= old_parent_viewport_id then
+            window.Viewport.ParentViewport = ImGui.FindViewportByID(window.Viewport.ParentViewportId)
+        end
+    elseif bit.band(window_flags, bit.bor(ImGuiWindowFlags_Popup, ImGuiWindowFlags_Tooltip)) ~= 0 and parent_window_in_stack and (not parent_window_in_stack.IsFallbackWindow or parent_window_in_stack.WasActive) then
+        window.Viewport.ParentViewport = parent_window_in_stack.Viewport
+        window.Viewport.ParentViewportId = parent_window_in_stack.Viewport.ID
+    else
+        if g.IO.ConfigViewportsNoDefaultParent then
+            window.Viewport.ParentViewport = nil
+        else
+            window.Viewport.ParentViewport = ImGui.GetMainViewport()
+        end
+        window.Viewport.ParentViewportId = g.IO.ConfigViewportsNoDefaultParent and 0 or IMGUI_VIEWPORT_DEFAULT_ID
+    end
+end
+
+function ImGui.UpdatePlatformWindows()
+    local g = GImGui
+    IM_ASSERT(g.FrameCountEnded == g.FrameCount, "Forgot to call Render() or EndFrame() before UpdatePlatformWindows()?")
+    IM_ASSERT(g.FrameCountPlatformEnded < g.FrameCount)
+    g.FrameCountPlatformEnded = g.FrameCount
+    if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) == 0 then
+        return
+    end
+
+    -- Create/resize/destroy platform windows to match each active viewport.
+    -- Skip the main viewport (index 0), which is always fully handled by the application!
+    for i = 2, g.Viewports.Size do
+        local viewport = g.Viewports.Data[i]
+
+        -- Destroy platform window if the viewport hasn't been submitted or if it is hosting a hidden window
+        -- (the implicit/fallback Debug##Default window will be registering its viewport then be disabled, causing a dummy DestroyPlatformWindow to be made each frame)
+        local destroy_platform_window = false
+        destroy_platform_window = destroy_platform_window or (viewport.LastFrameActive < g.FrameCount - 1)
+        destroy_platform_window = destroy_platform_window or (viewport.Window and not ImGui.IsWindowActiveAndVisible(viewport.Window))
+        if destroy_platform_window then
+            ImGui.DestroyPlatformWindow(viewport)
+            goto CONTINUE
+        end
+
+        -- New windows that appears directly in a new viewport won't always have a size on their first frame
+        if viewport.LastFrameActive < g.FrameCount or viewport.Size.x <= 0 or viewport.Size.y <= 0 then
+            goto CONTINUE
+        end
+
+        -- Create window
+        local is_new_platform_window = not viewport.PlatformWindowCreated
+        if is_new_platform_window then
+            -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Create Platform Window %08X '%s'\n", viewport.ID, viewport.Window ? viewport.Window.Name : "n/a")
+            g.PlatformIO.Platform_CreateWindow(viewport)
+            if g.PlatformIO.Renderer_CreateWindow ~= nil then
+                g.PlatformIO.Renderer_CreateWindow(viewport)
+            end
+            g.PlatformWindowsCreatedCount = g.PlatformWindowsCreatedCount + 1
+            viewport.LastNameHash = 0
+            viewport.LastPlatformPos = ImVec2(FLT_MAX, FLT_MAX)
+            viewport.LastPlatformSize = ImVec2(FLT_MAX, FLT_MAX)  -- By clearing those we'll enforce a call to Platform_SetWindowPos/Size below, before Platform_ShowWindow (FIXME: Is that necessary?)
+            viewport.LastRendererSize = ImVec2(viewport.Size.x, viewport.Size.y)  -- We don't need to call Renderer_SetWindowSize() as it is expected Renderer_CreateWindow() already did it.
+            viewport.PlatformWindowCreated = true
+        end
+
+        -- Apply Position and Size (from ImGui to Platform/Renderer backends)
+        if (viewport.LastPlatformPos.x ~= viewport.Pos.x or viewport.LastPlatformPos.y ~= viewport.Pos.y) and not viewport.PlatformRequestMove then
+            g.PlatformIO.Platform_SetWindowPos(viewport, viewport.Pos)
+        end
+        if (viewport.LastPlatformSize.x ~= viewport.Size.x or viewport.LastPlatformSize.y ~= viewport.Size.y) and not viewport.PlatformRequestResize then
+            g.PlatformIO.Platform_SetWindowSize(viewport, viewport.Size)
+        end
+        if (viewport.LastRendererSize.x ~= viewport.Size.x or viewport.LastRendererSize.y ~= viewport.Size.y) and g.PlatformIO.Renderer_SetWindowSize ~= nil then
+            g.PlatformIO.Renderer_SetWindowSize(viewport, viewport.Size)
+        end
+        viewport.LastPlatformPos = ImVec2(viewport.Pos.x, viewport.Pos.y)
+        viewport.LastPlatformSize = ImVec2(viewport.Size.x, viewport.Size.y)
+        viewport.LastRendererSize = ImVec2(viewport.Size.x, viewport.Size.y)
+
+        -- Update title bar (if it changed)
+        local window_for_title = GetWindowForTitleDisplay(viewport.Window)
+        if window_for_title ~= nil then
+            local title = window_for_title.Name
+            local title_begin = 1
+            local title_end = ImGui.FindRenderedTextEnd(title)
+            local title_hash = ImHashStr(title, nil, title_end - title_begin)
+            if viewport.LastNameHash ~= title_hash then
+                -- This still creates new strings
+                g.PlatformIO.Platform_SetWindowTitle(viewport, string.sub(title, title_begin, title_end - 1))
+                viewport.LastNameHash = title_hash
+            end
+        end
+
+        -- Update alpha (if it changed)
+        if viewport.LastAlpha ~= viewport.Alpha and g.PlatformIO.Platform_SetWindowAlpha ~= nil then
+            g.PlatformIO.Platform_SetWindowAlpha(viewport, viewport.Alpha)
+        end
+        viewport.LastAlpha = viewport.Alpha
+
+        -- Optional, general purpose call to allow the backend to perform general book-keeping even if things haven't changed.
+        if g.PlatformIO.Platform_UpdateWindow ~= nil then
+            g.PlatformIO.Platform_UpdateWindow(viewport)
+        end
+
+        if is_new_platform_window then
+            -- On startup ensure new platform window don't steal focus (give it a few frames, as nested contents may lead to viewport being created a few frames late)
+            if g.FrameCount < 3 then
+                viewport.Flags = bit.bor(viewport.Flags, ImGuiViewportFlags_NoFocusOnAppearing)
+            end
+
+            -- Show window
+            g.PlatformIO.Platform_ShowWindow(viewport)
+        end
+
+        -- Clear request flags
+        viewport:ClearRequestFlags()
+
+        ::CONTINUE::
+    end
+end
+
+--- @param rect ImRect
+--- @return int # Returns 0 if 1 monitor, -1 if 0 monitor, or a 1-based index if >= 2 monitors
+function ImGui.FindPlatformMonitorForRect(rect)
+    local g = GImGui
+    local monitor_count = g.PlatformIO.Monitors.Size
+
+    if monitor_count <= 1 then
+        return monitor_count - 1
+    end
+
+    -- Use a minimum threshold of 1.0f so a zero-sized rect won't false positive, and will still find the correct monitor given its position.
+    -- This is necessary for tooltips which always resize down to zero at first.
+    local surface_threshold = math.max(rect:GetWidth() * rect:GetHeight() * 0.5, 1.0)
+    local best_monitor_n = 1  -- Default to the first monitor as fallback
+    local best_monitor_surface = 0.001
+
+    for monitor_n = 1, g.PlatformIO.Monitors.Size do
+        if best_monitor_surface >= surface_threshold then
+            break
+        end
+
+        local monitor = g.PlatformIO.Monitors.Data[monitor_n]
+        local monitor_rect = ImRect(monitor.MainPos, monitor.MainPos + monitor.MainSize)
+
+        if monitor_rect:Contains(rect) then
+            return monitor_n
+        end
+
+        local overlapping_rect = ImRect(rect.Min.x, rect.Min.y, rect.Max.x, rect.Max.y)
+        overlapping_rect:ClipWithFull(monitor_rect)
+        local overlapping_surface = overlapping_rect:GetWidth() * overlapping_rect:GetHeight()
+
+        if overlapping_surface <= best_monitor_surface then
+            goto CONTINUE
+        end
+
+        best_monitor_surface = overlapping_surface
+        best_monitor_n = monitor_n
+
+        ::CONTINUE::
+    end
+
+    return best_monitor_n
+end
+
+--- @param viewport ImGuiViewportP
+function ImGui.UpdateViewportPlatformMonitor(viewport)
+    viewport.PlatformMonitor = ImGui.FindPlatformMonitorForRect(viewport:GetMainRect())
 end

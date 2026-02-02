@@ -841,6 +841,12 @@ function ImGuiIO()
         ConfigInputTrickleEventQueue = true,
         ConfigWindowsResizeFromEdges = true,
 
+        ConfigViewportsNoAutoMerge = false,
+        ConfigViewportsNoTaskBarIcon = false,
+        ConfigViewportsNoDecoration = true,
+        ConfigViewportsNoDefaultParent = true,
+        ConfigViewportsPlatformFocusSetsImGuiFocus = true,
+
         MouseDrawCursor = false,
 
         MouseClicked          = {[0] = false, [1] = false, [2] = false},
@@ -946,8 +952,10 @@ function ImGuiViewport()
         Flags    = 0,
         Pos      = ImVec2(),
         Size     = ImVec2(),
+        FramebufferScale = ImVec2(),
         WorkPos  = ImVec2(),
         WorkSize = ImVec2(),
+        DpiScale = 0,
 
         PlatformHandle = nil,
         PlatformHandleRaw = nil
@@ -957,6 +965,7 @@ end
 --- @class ImGuiPlatformIO
 --- @field Platform_GetClipboardTextFn fun(ctx: ImGuiContext): string
 --- @field Platform_OnChangedViewport  fun(vp: ImGuiViewport)
+--- @field Monitors                    ImVector<ImGuiPlatformMonitor>
 --- @field Textures                    ImVector<ImTextureData>
 --- @field Viewports                   ImVector<ImGuiViewport>
 MT.ImGuiPlatformIO = {}
@@ -977,6 +986,7 @@ function ImGuiPlatformIO()
 
         Renderer_RenderState = nil,
 
+        Monitors = ImVector(),
         Textures = ImVector(),
         Viewports = ImVector(),
 
@@ -986,6 +996,28 @@ function ImGuiPlatformIO()
     }
 
     return setmetatable(this, MT.ImGuiPlatformIO)
+end
+
+--- @class ImGuiPlatformMonitor
+--- @field MainPos        ImVec2
+--- @field MainSize       ImVec2
+--- @field WorkPos        ImVec2
+--- @field WorkSize       ImVec2
+--- @field DpiScale       float
+--- @field PlatformHandle any
+
+--- @return ImGuiPlatformMonitor
+--- @nodiscard
+function ImGuiPlatformMonitor()
+    return {
+        MainPos  = ImVec2(0, 0),
+        MainSize = ImVec2(0, 0),
+        WorkPos  = ImVec2(0, 0),
+        WorkSize = ImVec2(0, 0),
+        DpiScale = 1.0,
+
+        PlatformHandle = nil
+    }
 end
 
 --- @enum ImGuiDir

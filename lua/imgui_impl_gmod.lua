@@ -141,6 +141,8 @@ local function ImGui_ImplGMOD_Init(window)
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset)
+
+    bd.WantUpdateMonitors = true -- TODO:
 end
 
 --- @param io           ImGuiIO
@@ -187,6 +189,18 @@ local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
     return true
 end
 
+local function ImGui_ImplGMOD_UpdateMonitors()
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    local io = ImGui.GetPlatformIO()
+    io.Monitors:resize(0)
+
+    local imgui_monitor = ImGuiPlatformMonitor()
+
+    io.Monitors:push_back(imgui_monitor)
+
+    bd.WantUpdateMonitors = false
+end
+
 local function ImGui_ImplGMOD_Shutdown()
     local platform_io = ImGui.GetPlatformIO()
 
@@ -198,6 +212,10 @@ local function ImGui_ImplGMOD_NewFrame()
     local bd = ImGui_ImplGMOD_GetBackendData()
 
     io.DisplaySize = ImVec2(ScrW(), ScrH()) -- TODO: is this correct?
+    if bd.WantUpdateMonitors then
+        ImGui_ImplGMOD_UpdateMonitors()
+    end
+
     local main_viewport = ImGui.GetMainViewport()
 
     local current_time = SysTime()
