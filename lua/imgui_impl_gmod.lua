@@ -1,5 +1,8 @@
 --- All the things strongly related to GMod go here
 
+-- `input.GetCursorPos()` has issues in MacOS:
+-- https://github.com/Facepunch/garrysmod-issues/issues/4964
+
 local cam     = cam
 local render  = render
 local surface = surface
@@ -55,12 +58,14 @@ local function ImGui_ImplGMOD_CreateMainViewport()
 
     local old_OnMousePressed = derma_window.OnMousePressed
     derma_window.OnMousePressed = function(self, key_code)
+        self:MouseCapture(true)
         old_OnMousePressed(self, key_code)
         ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil)
     end
 
     local old_OnMouseReleased = derma_window.OnMouseReleased
     derma_window.OnMouseReleased = function(self, key_code)
+        self:MouseCapture(false)
         old_OnMouseReleased(self, key_code)
         ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
     end
@@ -180,16 +185,15 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     local vd = ImGui_ImplGMOD_ViewportData()
     viewport.PlatformUserData = vd
 
-    vd.DermaWindowParent = ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport.ParentViewport)
-    vd.DermaWindow = vgui.Create("EditablePanel", vd.DermaWindowParent, "ImGui Platform")
+    -- VGUI treats child windows as "inside" the parent
+    -- vd.DermaWindowParent = ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport.ParentViewport)
+    vd.DermaWindow = vgui.Create("EditablePanel", nil, "ImGui Platform")
 
     vd.DermaWindow:SetPos(viewport.Pos.x, viewport.Pos.y)
     vd.DermaWindow:SetSize(viewport.Size.x, viewport.Size.y)
     vd.DermaWindowOwned = true
 
     vd.DermaWindow.OnCursorMoved = function()
-        -- This has issues in MacOS:
-        -- https://github.com/Facepunch/garrysmod-issues/issues/4964
         local x, y = input.GetCursorPos()
         ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y)
     end
@@ -330,7 +334,7 @@ local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     io.BackendPlatformUserData = bd
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.PlatformHasViewports)
-    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasParentViewport)
+    -- io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasParentViewport)
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset)
@@ -407,7 +411,7 @@ local function ImGui_ImplGMOD_NewFrame()
     local io = ImGui.GetIO()
     local bd = ImGui_ImplGMOD_GetBackendData()
 
-    io.DisplaySize = ImVec2(ScrW(), ScrH())
+    io.DisplaySize = ImVec2(bd.Window:GetSize())
     if bd.WantUpdateMonitors then
         ImGui_ImplGMOD_UpdateMonitors()
     end
