@@ -30,7 +30,7 @@ end
 
 local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, derma_window)
     for _, viewport in platform_io.Viewports:iter() do
-        if (viewport.PlatformHandle == hwnd) then
+        if (viewport.PlatformHandle == derma_window) then
             return viewport
         end
     end
@@ -46,7 +46,7 @@ local function ImGui_ImplGMOD_CreateMainViewport()
     derma_window:MakePopup()
     derma_window:SetDraggable(true)
     derma_window:Center()
-    derma_window:SetTitle("ImGui Main derma_window")
+    derma_window:SetTitle("ImGui Main Viewport")
     derma_window:SetIcon("icon16/application.png")
 
     derma_window.OnCursorMoved = function(self, x, y)
@@ -65,9 +65,7 @@ local function ImGui_ImplGMOD_CreateMainViewport()
         ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
     end
 
-    local old_OnScreenSizeChanged = derma_window.OnScreenSizeChanged
     derma_window.OnScreenSizeChanged = function(old_w, old_h, new_w, new_h)
-        old_OnScreenSizeChanged(old_w, old_h, new_w, new_h)
         ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, true)
     end
 
@@ -344,6 +342,15 @@ local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
 end
 
+-- We don't have a game-level cursor setter in GMod, so just set cursor for the hovered panel that happens to be our viewport
+local function ImGui_ImplGMOD_DermaSetCursor(cursor_type)
+    local io = ImGui.GetPlatformIO()
+    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in our use case
+    if ImGui_ImplGMOD_FindViewportByPlatformHandle(io, hovered_panel) then
+        hovered_panel:SetCursor(cursor_type)
+    end
+end
+
 --- @param io           ImGuiIO
 --- @param imgui_cursor ImGuiMouseCursor
 local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
@@ -354,7 +361,7 @@ local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
     local bd = ImGui_ImplGMOD_GetBackendData()
 
     if imgui_cursor == ImGuiMouseCursor.None or io.MouseDrawCursor then
-        bd.Window:SetCursor("blank")
+        ImGui_ImplGMOD_DermaSetCursor("blank")
     else
         local gmod_cursor = "arrow"
 
@@ -382,7 +389,7 @@ local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
             gmod_cursor = "no"
         end
 
-        bd.Window:SetCursor(gmod_cursor)
+        ImGui_ImplGMOD_DermaSetCursor(gmod_cursor)
     end
 
     return true
