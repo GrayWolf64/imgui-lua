@@ -192,13 +192,12 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     end
 
     vd.DermaWindow.OnMousePressed = function(self, key_code)
-        if bit.band(viewport.Flags, ImGuiViewportFlags_NoInputs) ~= 0 then
-            return true
-        end
+        self:MouseCapture(true)
         ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil)
     end
 
     vd.DermaWindow.OnMouseReleased = function(self, key_code)
+        self:MouseCapture(false)
         ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
     end
 
