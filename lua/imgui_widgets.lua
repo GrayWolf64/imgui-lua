@@ -892,11 +892,13 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
         for i = 1, values_count do
             local v = values_getter(data, i)
             if type(v) ~= "number" then -- Probably doesn't do proper NaN check
-                continue
+                goto CONTINUE
             end
 
             v_min = ImMin(v_min, v)
             v_max = ImMax(v_max, v)
+
+            :: CONTINUE ::
         end
         if scale_min == FLT_MAX then
             scale_min = v_min

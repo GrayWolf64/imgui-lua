@@ -1290,13 +1290,15 @@ function MT.ImGuiIO:ClearInputKeys()
     local g = self.Ctx
     for key = ImGuiKey_NamedKey_BEGIN, ImGuiKey_NamedKey_END - 1 do
         if ImGui.IsMouseKey(key) then
-            continue
+            goto CONTINUE
         end
 
         local key_data = g.IO.KeysData[key - ImGuiKey_NamedKey_BEGIN]
         key_data.Down = false
         key_data.DownDuration = -1.0
         key_data.DownDurationPrev = -1.0
+
+        :: CONTINUE ::
     end
     self.KeyCtrl  = false
     self.KeyShift = false
@@ -4055,7 +4057,7 @@ local function FlattenDrawDataIntoSingleLayer(builder)
     for layer_n = 2, #builder.Layers do
         local layer = builder.Layers[layer_n]
         if layer:empty() then
-            continue
+            goto CONTINUE
         end
 
         for i = 1, layer.Size do
@@ -4065,6 +4067,8 @@ local function FlattenDrawDataIntoSingleLayer(builder)
         n = n + layer.Size
 
         layer:resize(0)
+
+        :: CONTINUE ::
     end
 end
 
