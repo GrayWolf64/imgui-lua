@@ -679,6 +679,8 @@ ImGuiNextWindowDataFlags_HasWindowFlags     = bit.lshift(1, 8)
 ImGuiNextWindowDataFlags_HasChildFlags      = bit.lshift(1, 9)
 ImGuiNextWindowDataFlags_HasRefreshPolicy   = bit.lshift(1, 10)
 ImGuiNextWindowDataFlags_HasViewport        = bit.lshift(1, 11)
+ImGuiNextWindowDataFlags_HasDock            = bit.lshift(1, 12)
+ImGuiNextWindowDataFlags_HasWindowClass     = bit.lshift(1, 13)
 
 --- @enum ImGuiLayoutType
 ImGuiLayoutType = {

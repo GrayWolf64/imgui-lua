@@ -949,7 +949,7 @@ function ImGui.BringWindowToDisplayFront(window)
 
     local current_front_window = g.Windows:back()
 
-    if current_front_window == window then return end
+    if current_front_window == window or current_front_window.RootWindowDockTree == window then return end
 
     for i, this_window in g.Windows:iter() do
         if this_window == window then
@@ -3155,8 +3155,14 @@ function ImGui.Begin(name, open, flags)
     end
 
     -- Update Flags, LastFrameActive, BeginOrderXXX fields
+    local window_was_appearing = window.Appearing
     if first_begin_of_the_frame then
         -- UpdateWindowInFocusOrderList(window, window_just_created, flags)
+        window.Appearing = window_just_activated_by_user
+        if (window.Appearing) then
+            SetWindowConditionAllowFlags(window, ImGuiCond.Appearing, true)
+        end
+        window.FlagsPreviousFrame = window.Flags
         window.Flags = flags
         window.ChildFlags = (bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasChildFlags) ~= 0) and g.NextWindowData.ChildFlags or 0
         window.LastFrameActive = current_frame
@@ -3255,6 +3261,9 @@ function ImGui.Begin(name, open, flags)
         window.ContentSizeExplicit = g.NextWindowData.ContentSizeVal:copy()
     elseif first_begin_of_the_frame then
         window.ContentSizeExplicit = ImVec2(0.0, 0.0)
+    end
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasWindowClass) ~= 0 then
+        window.WindowClass = g.NextWindowData.WindowClass
     end
 
     -- [EXPERIMENTAL] Skip Refresh mode
@@ -5012,10 +5021,10 @@ function ImGui.GetPopupAllowedExtentRect(window)
     local g = GImGui
     local r_screen = ImRect()
 
-    if window.ViewportAllowPlatformMonitorExtend >= 0 then
+    if window.ViewportAllowPlatformMonitorExtend >= 1 then
         -- Extent with be in the frame of reference of the given viewport (so Min is likely to be negative here)
         local monitor = g.PlatformIO.Monitors.Data[window.ViewportAllowPlatformMonitorExtend]
-        r_screen.Min = monitor.WorkPos
+        r_screen.Min = monitor.WorkPos:copy() -- Don't modify the WorkPos!
         r_screen.Max = monitor.WorkPos + monitor.WorkSize
     else
         -- Use the full viewport area (not work area) for popups
@@ -5039,8 +5048,7 @@ function ImGui.FindBestWindowPosForPopup(window)
     if bit.band(window.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
         -- Child menus typically request _any_ position within the parent menu item, and then we move the new menu outside the parent bounds.
         -- This is how we end up with child menus appearing (most-commonly) on the right of the parent menu.
-        IM_ASSERT(g.CurrentWindow == window)
-        local parent_window = g.CurrentWindowStack.Data[g.CurrentWindowStack.Size - 1].Window
+        local parent_window = window.ParentWindow
         local horizontal_overlap = g.Style.ItemInnerSpacing.x  -- We want some overlap to convey the relative depth of each menu (currently the amount of overlap is hard-coded to style.ItemSpacing.x).
 
         local r_avoid
