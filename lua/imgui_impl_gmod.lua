@@ -187,8 +187,11 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     vd.DermaWindow:SetSize(viewport.Size.x, viewport.Size.y)
     vd.DermaWindowOwned = true
 
-    vd.DermaWindow.OnCursorMoved = function(self, x, y)
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, Derma_LocalToScreen(vd.DermaWindow, x, y))
+    vd.DermaWindow.OnCursorMoved = function()
+        -- This has issues in MacOS:
+        -- https://github.com/Facepunch/garrysmod-issues/issues/4964
+        local x, y = input.GetCursorPos()
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y)
     end
 
     vd.DermaWindow.OnMousePressed = function(self, key_code)
