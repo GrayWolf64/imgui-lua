@@ -33,7 +33,7 @@ concommand.Add("imgui_test", function()
 
         if window1_open then
             ImGui.PushFont(nil, 40)
-
+            ImGui.SetNextWindowPos(ImVec2(70, 200), ImGuiCond.FirstUseEver)
             ImGui.SetNextWindowSize(ImVec2(550, 400), ImGuiCond.FirstUseEver)
 
             window1_open = ImGui.Begin("Hello, World!", window1_open)

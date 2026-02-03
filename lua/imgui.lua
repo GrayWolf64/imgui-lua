@@ -568,7 +568,7 @@ local function ApplyWindowSettings(window, settings)
     if settings.Size.x > 0 and settings.Size.y > 0 then
         local size = ImVec2(ImTrunc(settings.Size.x), ImTrunc(settings.Size.y))
         window.Size = size
-        window.SizeFull = size
+        window.SizeFull = size:copy()
     end
     window.Collapsed = settings.Collapsed
 end
@@ -2961,12 +2961,12 @@ local function StartMouseMovingWindow(window)
     if (g.IO.ConfigNavCursorVisibleAuto) then
         g.NavCursorVisible = false
     end
-    g.ActiveIdClickOffset = g.IO.MouseClickedPos[0] - window.RootWindow.Pos
+    g.ActiveIdClickOffset = g.IO.MouseClickedPos[0] - window.RootWindowDockTree.Pos
     g.ActiveIdNoClearOnFocusLoss = true
     ImGui.SetActiveIdUsingAllKeyboardKeys()
 
     local can_move_window = true
-    if bit.band(window.Flags, ImGuiWindowFlags_NoMove) ~= 0 or bit.band(window.RootWindow.Flags, ImGuiWindowFlags_NoMove) ~= 0 then
+    if bit.band(window.Flags, ImGuiWindowFlags_NoMove) ~= 0 or bit.band(window.RootWindowDockTree.Flags, ImGuiWindowFlags_NoMove) ~= 0 then
         can_move_window = false
     end
     if can_move_window then
@@ -3528,7 +3528,12 @@ function ImGui.Begin(name, open, flags)
         -- Save last known viewport position within the window itself (so it can be saved in .ini file and restored)
         window.ViewportPos = window.Viewport.Pos:copy()
 
-        local host_rect = (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Popup) == 0 and not window_is_child_tooltip) and parent_window.ClipRect or viewport_rect
+        local host_rect
+        if (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Popup) == 0 and not window_is_child_tooltip) then
+            host_rect = parent_window.ClipRect
+        else
+            host_rect = viewport_rect
+        end
         local outer_rect = window:Rect()
         local title_bar_rect = window:TitleBarRect()
         window.OuterRectClipped = outer_rect:copy()
@@ -5018,7 +5023,7 @@ function ImGui.GetPopupAllowedExtentRect(window)
     end
 
     local padding = g.Style.DisplaySafeAreaPadding
-    r_screen:Expand(ImVec2((r_screen:GetWidth() > padding.x * 2) and -padding.x or 0.0, (r_screen:GetHeight() > padding.y * 2) and -padding.y or 0.0))
+    r_screen:ExpandV2(ImVec2((r_screen:GetWidth() > padding.x * 2) and -padding.x or 0.0, (r_screen:GetHeight() > padding.y * 2) and -padding.y or 0.0))
 
     return r_screen
 end
@@ -5219,7 +5224,7 @@ function ImGui.SetCurrentViewport(current_window, viewport)
     g.CurrentDpiScale = viewport and viewport.DpiScale or 1.0
     g.CurrentViewport = viewport
     IM_ASSERT(g.CurrentDpiScale > 0.0 and g.CurrentDpiScale < 99.0)  -- Typical correct values would be between 1.0f and 4.0f
-    -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] SetCurrentViewport changed '%s' 0x%08X\n", current_window ? current_window->Name : NULL, viewport ? viewport->ID : 0)
+    -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] SetCurrentViewport changed '%s' 0x%08X", current_window and current_window.Name or "NULL", viewport and viewport.ID or 0)
 
     if g.IO.ConfigDpiScaleFonts then
         g.Style.FontScaleDpi = g.CurrentDpiScale
@@ -5332,7 +5337,7 @@ function ImGui.UpdateTryMergeWindowIntoHostViewport(window, viewport_dst)
     end
 
     -- Move to the existing viewport, Move child/hosted windows as well (FIXME-OPT: iterate child)
-    -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Window '%s' merge into Viewport 0X%08X\n", window.Name, viewport_dst.ID)
+    IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Window '%s' merge into Viewport 0X%08X", window.Name, viewport_dst.ID)
     if window.ViewportOwned then
         for n = 1, g.Windows.Size do
             if g.Windows.Data[n].Viewport == viewport_src then
@@ -5367,7 +5372,7 @@ end
 --- @param new_size ImVec2
 function ImGui.TranslateWindowsInViewport(viewport, old_pos, new_pos, old_size, new_size)
     local g = GImGui
-    -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] TranslateWindowsInViewport 0x%08X\n", viewport.ID)
+    -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] TranslateWindowsInViewport 0x%08X", viewport.ID)
     IM_ASSERT(viewport.Window == nil and (bit.band(viewport.Flags, ImGuiViewportFlags_CanHostOtherWindows) ~= 0))
 
     -- 1) We test if ImGuiConfigFlags_ViewportsEnable was just toggled, which allows us to conveniently
@@ -5442,7 +5447,7 @@ function ImGui.UpdateViewportsNewFrame()
 
         -- Focused viewport has changed?
         if focused_viewport and g.PlatformLastFocusedViewportId ~= focused_viewport.ID then
-            -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Focused viewport changed %08X -> %08X '%s', attempting to apply our focus.\n", g.PlatformLastFocusedViewportId, focused_viewport.ID, focused_viewport.Window ? focused_viewport.Window.Name : "n/a")
+            IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Focused viewport changed %08X -> %08X '%s', attempting to apply our focus.", g.PlatformLastFocusedViewportId, focused_viewport.ID, focused_viewport.Window and focused_viewport.Window.Name or "n/a")
             local prev_focused_viewport = ImGui.FindViewportByID(g.PlatformLastFocusedViewportId)
             local prev_focused_has_been_destroyed = (prev_focused_viewport == nil) or (not prev_focused_viewport.PlatformWindowCreated)
 
@@ -5762,7 +5767,7 @@ function ImGui.AddUpdateViewport(window, id, pos, size, flags)
         ImGui.UpdateViewportPlatformMonitor(viewport)
         g.Viewports:push_back(viewport)
         g.ViewportCreatedCount = g.ViewportCreatedCount + 1
-        -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Add Viewport %08X '%s'\n", id, window ? window.Name : "<NULL>")
+        IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Add Viewport %08X '%s'", id, window and window.Name or "<NULL>")
 
         -- We assume the window becomes front-most (even when ImGuiViewportFlags_NoFocusOnAppearing is used).
         -- This is useful for our platform z-order heuristic when io.MouseHoveredViewport is not available.
@@ -5812,7 +5817,7 @@ function ImGui.DestroyViewport(viewport)
     end
 
     -- Destroy
-    -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Delete Viewport %08X '%s'\n", viewport.ID, viewport.Window ? viewport.Window.Name : "n/a")
+    IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Delete Viewport %08X '%s'", viewport.ID, viewport.Window and viewport.Window.Name or "n/a")
     ImGui.DestroyPlatformWindow(viewport)  -- In most circumstances the platform window will already be destroyed here.
     IM_ASSERT(not g.PlatformIO.Viewports:contains(viewport))
     IM_ASSERT(g.Viewports.Data[viewport.Idx] == viewport)
@@ -5920,7 +5925,7 @@ function ImGui.WindowSelectViewport(window)
             local will_be_visible = (window.DockIsActive and not window.DockTabIsVisible) and false or true
             if bit.band(window.Flags, ImGuiWindowFlags_DockNodeHost) ~= 0 and window.Viewport.LastFrameActive < g.FrameCount and will_be_visible then
                 -- Steal/transfer ownership
-                -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Window '%s' steal Viewport %08X from Window '%s'\n", window.Name, window.Viewport.ID, window.Viewport.Window.Name)
+                IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Window '%s' steal Viewport %08X from Window '%s'", window.Name, window.Viewport.ID, window.Viewport.Window.Name)
                 window.Viewport.Window = window
                 window.Viewport.ID = window.ID
                 window.Viewport.LastNameHash = 0
@@ -6081,7 +6086,7 @@ function ImGui.UpdatePlatformWindows()
         -- Create window
         local is_new_platform_window = not viewport.PlatformWindowCreated
         if is_new_platform_window then
-            -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Create Platform Window %08X '%s'\n", viewport.ID, viewport.Window ? viewport.Window.Name : "n/a")
+            IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Create Platform Window %08X '%s'", viewport.ID, viewport.Window and viewport.Window.Name or "n/a")
             g.PlatformIO.Platform_CreateWindow(viewport)
             if g.PlatformIO.Renderer_CreateWindow ~= nil then
                 g.PlatformIO.Renderer_CreateWindow(viewport)
@@ -6276,7 +6281,7 @@ end
 function ImGui.DestroyPlatformWindow(viewport)
     local g = GImGui
     if viewport.PlatformWindowCreated then
-        IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Destroy Platform Window %08X '%s'\n", viewport.ID, viewport.Window and viewport.Window.Name or "n/a")
+        IMGUI_DEBUG_LOG_VIEWPORT("[viewport] Destroy Platform Window %08X '%s'", viewport.ID, viewport.Window and viewport.Window.Name or "n/a")
         if g.PlatformIO.Renderer_DestroyWindow then
             g.PlatformIO.Renderer_DestroyWindow(viewport)
         end

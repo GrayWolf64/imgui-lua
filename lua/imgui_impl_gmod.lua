@@ -12,10 +12,10 @@ local ImGui_ImplGMOD_DestroyTexture
 local ImGui_ImplGMOD_UpdateTexture
 
 --- @type function
-local ImGui_ImplGMOD_ProcessEvent
+local ImGui_ImplGMOD_RenderDrawData
 
---- @type Panel?
-local g_Viewport = nil
+--- @type function
+local ImGui_ImplGMOD_ProcessEvent
 
 local function ImGui_ImplGMOD_GetBackendData()
     return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
@@ -28,56 +28,58 @@ local function Derma_LocalToScreen(window, x, y)
     return pos_x + x, pos_y + y
 end
 
---- @return Panel?
-local function ImGui_ImplGMOD_CreateMainViewport()
-    if IsValid(g_Viewport) then
-        g_Viewport:Remove()
-    end
-
-    g_Viewport = vgui.Create("DFrame")
-
-    g_Viewport:SetSizable(true)
-    g_Viewport:SetSize(ScrW() / 2, ScrH() / 2)
-    g_Viewport:MakePopup()
-    g_Viewport:SetDraggable(true)
-    g_Viewport:Center()
-    g_Viewport:SetTitle("ImGui Main Viewport")
-    g_Viewport:SetIcon("icon16/application.png")
-
-    g_Viewport.OnCursorMoved = function(self, x, y)
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, Derma_LocalToScreen(g_Viewport, x, y))
-    end
-
-    local old_OnMousePressed = g_Viewport.OnMousePressed
-    g_Viewport.OnMousePressed = function(self, key_code)
-        old_OnMousePressed(self, key_code)
-        ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil)
-        if self.Dragging then
-            g_Viewport.PlatformRequestMove = true
+local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, derma_window)
+    for _, viewport in platform_io.Viewports:iter() do
+        if (viewport.PlatformHandle == hwnd) then
+            return viewport
         end
     end
 
-    local old_OnMouseReleased = g_Viewport.OnMouseReleased
-    g_Viewport.OnMouseReleased = function(self, key_code)
+    return nil
+end
+
+local function ImGui_ImplGMOD_CreateMainViewport()
+    local derma_window = vgui.Create("DFrame")
+
+    derma_window:SetSizable(true)
+    derma_window:SetSize(ScrW() / 2, ScrH() / 2)
+    derma_window:MakePopup()
+    derma_window:SetDraggable(true)
+    derma_window:Center()
+    derma_window:SetTitle("ImGui Main derma_window")
+    derma_window:SetIcon("icon16/application.png")
+
+    derma_window.OnCursorMoved = function(self, x, y)
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, Derma_LocalToScreen(derma_window, x, y))
+    end
+
+    local old_OnMousePressed = derma_window.OnMousePressed
+    derma_window.OnMousePressed = function(self, key_code)
+        old_OnMousePressed(self, key_code)
+        ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil)
+    end
+
+    local old_OnMouseReleased = derma_window.OnMouseReleased
+    derma_window.OnMouseReleased = function(self, key_code)
         old_OnMouseReleased(self, key_code)
         ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
     end
 
-    local old_OnScreenSizeChanged = g_Viewport.OnScreenSizeChanged
-    g_Viewport.OnScreenSizeChanged = function(old_w, old_h, new_w, new_h)
+    local old_OnScreenSizeChanged = derma_window.OnScreenSizeChanged
+    derma_window.OnScreenSizeChanged = function(old_w, old_h, new_w, new_h)
         old_OnScreenSizeChanged(old_w, old_h, new_w, new_h)
         ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, true)
     end
 
     local clear_color = ImVec4(0.45, 0.55, 0.60, 1.00) * 255
-    local old_Paint = g_Viewport.Paint
-    g_Viewport.Paint = function(self, w, h)
+    local old_Paint = derma_window.Paint
+    derma_window.Paint = function(self, w, h)
         old_Paint(self, w, h)
         surface.SetDrawColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w)
         surface.DrawRect(0, 0, w, h)
     end
 
-    return g_Viewport
+    return derma_window
 end
 
 function ImGui_ImplGMOD_UpdateMouseData(io, platform_io)
@@ -181,11 +183,34 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     viewport.PlatformUserData = vd
 
     vd.DermaWindowParent = ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport.ParentViewport)
-    vd.DermaWindow = vgui.Create("DFrame", vd.DermaWindowParent, "ImGui Platform")
+    vd.DermaWindow = vgui.Create("EditablePanel", vd.DermaWindowParent, "ImGui Platform")
 
     vd.DermaWindow:SetPos(viewport.Pos.x, viewport.Pos.y)
     vd.DermaWindow:SetSize(viewport.Size.x, viewport.Size.y)
     vd.DermaWindowOwned = true
+
+    vd.DermaWindow.OnCursorMoved = function(self, x, y)
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, Derma_LocalToScreen(vd.DermaWindow, x, y))
+    end
+
+    vd.DermaWindow.OnMousePressed = function(self, key_code)
+        if bit.band(viewport.Flags, ImGuiViewportFlags_NoInputs) ~= 0 then
+            return true
+        end
+        ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil)
+    end
+
+    vd.DermaWindow.OnMouseReleased = function(self, key_code)
+        ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
+    end
+
+    vd.DermaWindow.OnScreenSizeChanged = function(old_w, old_h, new_w, new_h)
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, true)
+    end
+
+    vd.DermaWindow.Paint = function(self, w, h)
+        return true
+    end
 
     viewport.PlatformRequestResize = false
 
@@ -193,10 +218,27 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     viewport.PlatformHandleRaw = vd.DermaWindow
 end
 
+local function ImGui_ImplGMOD_DestroyWindow(viewport)
+    local vd = viewport.PlatformUserData
+    if vd then
+        if IsValid(vd.DermaWindow) and vd.DermaWindowOwned then
+            vd.DermaWindow:Remove()
+        end
+        vd.DermaWindow = nil
+    end
+    viewport.PlatformUserData = nil
+
+    vd = viewport.RendererUserData
+    if vd then
+
+    end
+    viewport.RendererUserData = nil
+end
+
 local function ImGui_ImplGMOD_ShowWindow(viewport)
     local vd = viewport.PlatformUserData
     IM_ASSERT(IsValid(vd.DermaWindow))
-    vd.DermaWindow:Show()
+    vd.DermaWindow:MakePopup()
 end
 
 local function ImGui_ImplGMOD_SetWindowPos(viewport, pos)
@@ -228,11 +270,11 @@ end
 local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
     local vd = viewport.PlatformUserData
     IM_ASSERT(IsValid(vd.DermaWindow))
-    vd.DermaWindow:SetTitle(title)
+    vd.DermaWindow:SetName(title)
 end
 
-local function ImGui_ImplGMOD_RenderWindow()
-    return
+local function ImGui_ImplGMOD_RenderWindow(viewport)
+    ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
 end
 
 local function ImGui_ImplGMOD_SwapBuffers()
@@ -243,6 +285,7 @@ end
 local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     local platform_io = ImGui.GetPlatformIO()
     platform_io.Platform_CreateWindow = ImGui_ImplGMOD_CreateWindow
+    platform_io.Platform_DestroyWindow = ImGui_ImplGMOD_DestroyWindow
     platform_io.Platform_ShowWindow = ImGui_ImplGMOD_ShowWindow
     platform_io.Platform_SetWindowPos = ImGui_ImplGMOD_SetWindowPos
     platform_io.Platform_SetWindowSize = ImGui_ImplGMOD_SetWindowSize
@@ -285,6 +328,9 @@ local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     local bd = ImGui_ImplGMOD_Data()
     bd.Window = window
     io.BackendPlatformUserData = bd
+
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.PlatformHasViewports)
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasParentViewport)
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset)
@@ -364,13 +410,6 @@ local function ImGui_ImplGMOD_NewFrame()
     ImGui_ImplGMOD_UpdateMouseCursor(io, ImGui.GetMouseCursor())
 end
 
-local clip_min = ImVec2()
-local clip_max = ImVec2()
-local clip_off = ImVec2()
-local col0 = ImVec4()
-local col1 = ImVec4()
-local col2 = ImVec4()
-
 local function ImGui_ImplGMOD_SetupRenderState()
     render.SetViewPort(0, 0, ScrW(), ScrH())
 
@@ -392,7 +431,11 @@ local function ImGui_ImplGMOD_RestoreRenderState()
     render.PopFilterMag()
 end
 
-local function ImGui_ImplGMOD_RenderDrawData(draw_data)
+local col0 = ImVec4()
+local col1 = ImVec4()
+local col2 = ImVec4()
+
+function ImGui_ImplGMOD_RenderDrawData(draw_data)
     local bd = ImGui_ImplGMOD_GetBackendData()
 
     if (draw_data.DisplaySize.x <= 0.0 or draw_data.DisplaySize.y <= 0.0) then
@@ -409,18 +452,15 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
     ImGui_ImplGMOD_SetupRenderState()
 
-    clip_off.x = draw_data.DisplayPos.x; clip_off.y = draw_data.DisplayPos.y
-
     for _, draw_list in draw_data.CmdLists:iter() do
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.ElemCount > 0 then
-                clip_min.x = pcmd.ClipRect.x - clip_off.x; clip_min.y = pcmd.ClipRect.y - clip_off.y
-                clip_max.x = pcmd.ClipRect.z - clip_off.x; clip_max.y = pcmd.ClipRect.w - clip_off.y
-                if clip_max.x <= clip_min.x or clip_max.y <= clip_min.y then
+                if pcmd.ClipRect.z <= pcmd.ClipRect.x or pcmd.ClipRect.w <= pcmd.ClipRect.y then
                     continue
                 end
 
-                render.SetScissorRect(clip_min.x, clip_min.y, clip_max.x, clip_max.y, true)
+                -- GMod SetScissorRect expects screen-space coords
+                render.SetScissorRect(pcmd.ClipRect.x, pcmd.ClipRect.y, pcmd.ClipRect.z, pcmd.ClipRect.w, true)
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
