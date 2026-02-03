@@ -6303,3 +6303,10 @@ function ImGui.DestroyPlatformWindow(viewport)
     viewport.PlatformHandle = nil
     viewport:ClearRequestFlags()
 end
+
+function ImGui.DestroyPlatformWindows()
+    local g = GImGui
+    for _, viewport in g.Viewports:iter() do
+        ImGui.DestroyPlatformWindow(viewport)
+    end
+end
