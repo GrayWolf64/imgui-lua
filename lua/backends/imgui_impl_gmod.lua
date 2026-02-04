@@ -190,7 +190,7 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
 
     ImGui_ImplGMOD_SetupPanelHooks(vd.DermaWindow)
 
-    vd.DermaWindow.Paint = function(self, w, h)
+    vd.DermaWindow.Paint = function(self, w, h) -- FIXME: other means? this looks bad
         ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
     end
 

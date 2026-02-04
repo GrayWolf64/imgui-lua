@@ -3,7 +3,7 @@
 
 include"imgui.lua"
 
-local ImGui_ImplGMOD = include("imgui_impl_gmod.lua")
+local ImGui_ImplGMOD = include("backends/imgui_impl_gmod.lua")
 
 local function CreateMainViewport()
     local derma_window = vgui.Create("DFrame")
