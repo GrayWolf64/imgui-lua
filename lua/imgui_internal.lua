@@ -1454,11 +1454,7 @@ ImGuiInputSource_COUNT    = 4
 --- @return ImGuiInputEventMousePos
 --- @nodiscard
 function ImGuiInputEventMousePos()
-    return {
-        PosX = 0,
-        PosY = 0,
-        MouseSource = ImGuiMouseSource_Mouse
-    }
+    return { PosX = 0, PosY = 0, MouseSource = ImGuiMouseSource_Mouse }
 end
 
 --- @class ImGuiInputEventMouseButton
@@ -1469,11 +1465,7 @@ end
 --- @return ImGuiInputEventMouseButton
 --- @nodiscard
 function ImGuiInputEventMouseButton()
-    return {
-        Button = 0,
-        Down = false,
-        MouseSource = ImGuiMouseSource_Mouse
-    }
+    return { Button = 0, Down = false, MouseSource = ImGuiMouseSource_Mouse }
 end
 
 --- @class ImGuiInputEventMouseWheel
@@ -1484,11 +1476,27 @@ end
 --- @return ImGuiInputEventMouseWheel
 --- @nodiscard
 function ImGuiInputEventMouseWheel()
-    return {
-        WheelX = 0,
-        WheelY = 0,
-        MouseSource = ImGuiMouseSource_Mouse
-    }
+    return { WheelX = 0, WheelY = 0, MouseSource = ImGuiMouseSource_Mouse }
+end
+
+--- @class ImGuiInputEventKey
+--- @field Key         ImGuiKey
+--- @field Down        bool
+--- @field AnalogValue float
+
+--- @return ImGuiInputEventKey
+--- @nodiscard
+function ImGuiInputEventKey()
+    return { Key = 0, Down = false, AnalogValue = 0 }
+end
+
+--- @class ImGuiInputEventMouseViewport
+--- @field HoveredViewportID ImGuiID
+
+--- @return ImGuiInputEventMouseViewport
+--- @nodiscard
+function ImGuiInputEventMouseViewport()
+    return { HoveredViewportID = 0 }
 end
 
 --- @class ImGuiInputEvent
@@ -1502,12 +1510,13 @@ function ImGuiInputEvent()
         EventId = 0,
 
         -- union
-        MousePos    = nil, -- if Type == ImGuiInputEventType.MousePos
-        MouseWheel  = nil, -- if Type == ImGuiInputEventType.MouseWheel
-        MouseButton = nil, -- if Type == ImGuiInputEventType.MouseButton
-        Key         = nil, -- if Type == ImGuiInputEventType.Key
-        Text        = nil, -- if Type == ImGuiInputEventType.Text
-        AppFocused  = nil, -- if Type == ImGuiInputEventType.Focus
+        MousePos      = nil,   -- if Type == ImGuiInputEventType.MousePos
+        MouseWheel    = nil,   -- if Type == ImGuiInputEventType.MouseWheel
+        MouseButton   = nil,   -- if Type == ImGuiInputEventType.MouseButton
+        MouseViewport = nil,   -- if Type == ImGuiInputEventType.MouseViewport
+        Key           = nil,   -- if Type == ImGuiInputEventType.Key
+        Text          = nil,   -- if Type == ImGuiInputEventType.Text
+        AppFocused    = nil,   -- if Type == ImGuiInputEventType.Focus
     }
 end
 

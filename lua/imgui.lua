@@ -943,13 +943,15 @@ end
 
 -- end
 
---- void ImGui::BringWindowToDisplayFront(ImGuiWindow* window)
+--- @param window ImGuiWindow
 function ImGui.BringWindowToDisplayFront(window)
     local g = GImGui
 
     local current_front_window = g.Windows:back()
 
-    if current_front_window == window or current_front_window.RootWindowDockTree == window then return end
+    if current_front_window == window or current_front_window.RootWindowDockTree == window then
+        return
+    end
 
     for i, this_window in g.Windows:iter() do
         if this_window == window then
@@ -961,19 +963,12 @@ function ImGui.BringWindowToDisplayFront(window)
     g.Windows:push_back(window)
 end
 
---- void ImGui::SetNavWindow
-local function SetNavWindow(window)
-    if GImGui.NavWindow ~= window then
-        GImGui.NavWindow = window
-    end
-end
-
---- void ImGui::FocusWindow
-function ImGui.FocusWindow(window, flags) -- TODO:
+-- TODO:
+function ImGui.FocusWindow(window, flags)
     local g = GImGui
 
     if g.NavWindow ~= window then
-        SetNavWindow(window)
+        ImGui.SetNavWindow(window)
     end
 
     if not window then return end
@@ -985,6 +980,11 @@ end
 function ImGui.SetFocusID(id, window)
     local g = GImGui
     IM_ASSERT(id ~= 0)
+
+    if g.NavWindow ~= window then
+        ImGui.SetNavWindow(window)
+    end
+
     -- TODO:
 end
 
@@ -1449,6 +1449,7 @@ function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
     e.Source = ImGui.IsGamepadKey(key) and ImGuiInputSource_Gamepad or ImGuiInputSource_Keyboard
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.Key = ImGuiInputEventKey()
     e.Key.Key = key
     e.Key.Down = down
     e.Key.AnalogValue = analog_value
@@ -1486,7 +1487,7 @@ function MT.ImGuiIO:AddMouseViewportEvent(viewport_id)
     end
 
     -- Filter duplicate
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType_MouseViewport)
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.MouseViewport)
     local latest_viewport_id
     if latest_event then
         latest_viewport_id = latest_event.MouseViewport.HoveredViewportID
@@ -1498,8 +1499,9 @@ function MT.ImGuiIO:AddMouseViewportEvent(viewport_id)
     end
 
     local e = ImGuiInputEvent()
-    e.Type = ImGuiInputEventType_MouseViewport
+    e.Type = ImGuiInputEventType.MouseViewport
     e.Source = ImGuiInputSource_Mouse
+    e.MouseViewport = ImGuiInputEventMouseViewport()
     e.MouseViewport.HoveredViewportID = viewport_id
     g.InputEventsQueue:push_back(e)
 end
@@ -5126,6 +5128,13 @@ end
 -- [SECTION] NAVIGATION
 ---------------------------------------------------------------------------------------
 
+--- @param window ImGuiWindow
+function ImGui.SetNavWindow(window)
+    if GImGui.NavWindow ~= window then
+        GImGui.NavWindow = window
+    end
+end
+
 --- @param window_type ImGuiWindowFlags
 --- @return ImGuiInputSource
 function ImGui.NavCalcPreferredRefPosSource(window_type)
@@ -5242,6 +5251,8 @@ function ImGui.FindViewportByID(viewport_id)
     return nil
 end
 
+--- @param current_window? ImGuiWindow
+--- @param viewport?       ImGuiViewportP
 function ImGui.SetCurrentViewport(current_window, viewport)
     local g = GImGui
 
@@ -5444,7 +5455,6 @@ function ImGui.UpdateViewportsNewFrame()
     -- Update Minimized status (we need it first in order to decide if we'll apply Pos/Size of the main viewport)
     -- Update Focused status
     local viewports_enabled = (bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) ~= 0)
-
     if viewports_enabled then
         local focused_viewport = nil
 

@@ -27,13 +27,6 @@ local function ImGui_ImplGMOD_GetBackendData()
     return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
 end
 
---- - Single-viewport mode: mouse position in GMod Derma window coordinates
---- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
-local function Derma_LocalToScreen(window, x, y)
-    local pos_x, pos_y = window:GetPos()
-    return pos_x + x, pos_y + y
-end
-
 local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, derma_window)
     for _, viewport in platform_io.Viewports:iter() do
         if (viewport.PlatformHandle == derma_window) then
@@ -50,7 +43,7 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
     panel.OnCursorMoved = function(self, x, y)
         if old_OnCursorMoved then old_OnCursorMoved(self, x, y) end
         x, y = input.GetCursorPos()
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y)
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y, nil, nil)
     end
 
     local old_OnMousePressed = panel.OnMousePressed
@@ -82,19 +75,16 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
     end
 end
 
-function ImGui_ImplGMOD_UpdateMouseData(io, platform_io)
-    local bd = ImGui_ImplGMOD_GetBackendData()
-    IM_ASSERT(IsValid(bd.Window))
-
-    local mouse_screen_pos = ImVec2(input.GetCursorPos())
-    local has_mouse_screen_pos = true
-
-    local mouse_viewport_id = 0
-    if has_mouse_screen_pos then
-        -- TODO:
+function ImGui_ImplGMOD_UpdateMouseData(io)
+    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
+    local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), hovered_panel)
+    if vp then
+        io:AddMouseViewportEvent(vp.ID)
     end
 end
 
+--- - Single-viewport mode: mouse position in GMod Derma window coordinates
+--- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
 function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed)
     local bd = ImGui_ImplGMOD_GetBackendData()
     local io = ImGui.GetIO()
@@ -193,7 +183,7 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     ImGui_ImplGMOD_SetupPanelHooks(vd.DermaWindow)
 
     vd.DermaWindow.Paint = function(self, w, h)
-        return true
+        ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
     end
 
     viewport.PlatformRequestResize = false
@@ -238,17 +228,19 @@ local function ImGui_ImplGMOD_GetWindowPos(viewport)
     local vd = viewport.PlatformUserData
     IM_ASSERT(IsValid(vd.DermaWindow))
 
-    if IsValid(vd.DermaWindowParent) then
-        return ImVec2(Derma_LocalToScreen(vd.DermaWindowParent, vd.DermaWindow:GetPos()))
-    else
-        return ImVec2(vd.DermaWindow:GetPos())
-    end
+    return ImVec2(vd.DermaWindow:GetPos())
 end
 
 local function ImGui_ImplGMOD_SetWindowSize(viewport, size)
     local vd = viewport.PlatformUserData
     IM_ASSERT(IsValid(vd.DermaWindow))
     vd.DermaWindow:SetSize(size.x, size.y)
+end
+
+local function ImGui_ImplGMOD_SetWindowFocus(viewport)
+    local vd = viewport.PlatformUserData
+    IM_ASSERT(IsValid(vd.DermaWindow))
+    vd:MakePopup()
 end
 
 local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
@@ -258,7 +250,8 @@ local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
 end
 
 local function ImGui_ImplGMOD_RenderWindow(viewport)
-    ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
+    local vd = viewport.PlatformUserData
+    -- TODO: validate
 end
 
 local function ImGui_ImplGMOD_SwapBuffers()
@@ -273,6 +266,7 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     platform_io.Platform_ShowWindow = ImGui_ImplGMOD_ShowWindow
     platform_io.Platform_SetWindowPos = ImGui_ImplGMOD_SetWindowPos
     platform_io.Platform_SetWindowSize = ImGui_ImplGMOD_SetWindowSize
+    platform_io.Platform_SetWindowFocus = ImGui_ImplGMOD_SetWindowFocus
     platform_io.Platform_SetWindowTitle = ImGui_ImplGMOD_SetWindowTitle
 
     platform_io.Platform_GetWindowPos = ImGui_ImplGMOD_GetWindowPos
@@ -318,6 +312,7 @@ local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     io.BackendPlatformUserData = bd
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.PlatformHasViewports)
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasMouseHoveredViewport)
     -- io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasParentViewport)
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
@@ -335,7 +330,7 @@ end
 -- We don't have a game-level cursor setter in GMod, so just set cursor for the hovered panel that happens to be our viewport
 local function ImGui_ImplGMOD_DermaSetCursor(cursor_type)
     local io = ImGui.GetPlatformIO()
-    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in our use case
+    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
     if ImGui_ImplGMOD_FindViewportByPlatformHandle(io, hovered_panel) then
         hovered_panel:SetCursor(cursor_type)
     end
@@ -413,6 +408,7 @@ local function ImGui_ImplGMOD_NewFrame()
     io.DeltaTime = current_time - bd.Time
     bd.Time = current_time
 
+    ImGui_ImplGMOD_UpdateMouseData(io)
     ImGui_ImplGMOD_UpdateMouseCursor(io, ImGui.GetMouseCursor())
 end
 
