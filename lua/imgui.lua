@@ -1339,19 +1339,21 @@ function MT.ImGuiIO:FindLatestInputEvent(ctx, type, arg)
 
     local g = ctx
     for n = g.InputEventsQueue.Size, 1, -1 do
+    repeat
         local e = g.InputEventsQueue.Data[n]
 
         if e.Type ~= type then
-            continue
+            do break end --[[continue]]
         end
         if type == ImGuiInputEventType.Key and e.Key.Key ~= arg then
-            continue
+            do break end --[[continue]]
         end
         if type == ImGuiInputEventType.MouseButton and e.MouseButton.Button ~= arg then
-            continue
+            do break end --[[continue]]
         end
 
         return e
+    until true
     end
 
     return nil
@@ -1724,7 +1726,7 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         local e = g.InputEventsQueue.Data[event_n]
         if e.Type == ImGuiInputEventType.MousePos then
             if g.IO.WantSetMousePos then
-                continue
+                goto CONTINUE
             end
             if trickle_fast_inputs and (mouse_button_changed ~= 0 or mouse_wheeled or key_changed or text_inputted) then
                 break
@@ -1749,6 +1751,8 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         end
 
         event_n = event_n + 1
+
+        :: CONTINUE ::
     end
 
     if event_n == g.InputEventsQueue.Size + 1 then
@@ -2051,7 +2055,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
     end
     for border_n = 0, 3 do
         if bit.band(resize_border_mask, bit.lshift(1, border_n)) == 0 then
-            continue
+            goto CONTINUE
         end
         local def = ImGuiResizeBorderDef[border_n + 1]
         local axis
@@ -2152,6 +2156,8 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         if held then
             border_held = border_n
         end
+
+        :: CONTINUE ::
     end
     ImGui.PopID()
 
@@ -2529,7 +2535,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
         if handle_borders_and_resize_grips and (bit.band(flags, ImGuiWindowFlags_NoResize) == 0) then
             for i = 1, #ImGuiResizeGripDef do
                 local col = resize_grip_col[i]
-                if bit.band(col, IM_COL32_A_MASK) == 0 then continue end
+                if bit.band(col, IM_COL32_A_MASK) == 0 then goto CONTINUE end
 
                 local inner_dir = ImGuiResizeGripDef[i].InnerDir
                 local corner = window.Pos + ImGuiResizeGripDef[i].CornerPosN * window.Size
@@ -2538,6 +2544,8 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
                 window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
                 window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImGuiResizeGripDef[i].AngleMin12, ImGuiResizeGripDef[i].AngleMax12)
                 window.DrawList:PathFillConvex(col)
+
+                :: CONTINUE ::
             end
         end
 
@@ -3660,10 +3668,10 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
     for i = g.Windows.Size, 1, -1 do
         window = g.Windows.Data[i]
         if not window.WasActive or window.Hidden then
-            continue
+            goto CONTINUE
         end
         if bit.band(window.Flags, ImGuiWindowFlags_NoMouseInputs) ~= 0 then
-            continue
+            goto CONTINUE
         end
         local hit_padding
         if bit.band(window.Flags, bit.bor(ImGuiWindowFlags_NoResize, ImGuiWindowFlags_AlwaysAutoResize)) ~= 0 then
@@ -3672,7 +3680,7 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
             hit_padding = padding_for_resize
         end
         if not window.OuterRectClipped:ContainsWithPad(pos, hit_padding) then
-            continue
+            goto CONTINUE
         end
 
         if window.HitTestHoleSize.x ~= 0 then
@@ -3695,6 +3703,8 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
                 break
             end
         end
+
+        :: CONTINUE ::
     end
 
     return hovered_window, hovered_window_under_moving_window
@@ -4686,6 +4696,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
         local dir_preferred_order = {ImGuiDir.Down, ImGuiDir.Right, ImGuiDir.Left, ImGuiDir.Up}
 
         for n = (last_dir ~= ImGuiDir.None) and 0 or 1, ImGuiDir.COUNT do
+        repeat
             local dir
             if n == 0 then
                 dir = last_dir
@@ -4694,7 +4705,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             end
 
             if n ~= 0 and dir == last_dir then  -- Already tried this direction?
-                continue
+                do break end --[[continue]]
             end
 
             local pos
@@ -4709,11 +4720,12 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             end
 
             if not r_outer:Contains(ImRect(pos, pos + size)) then
-                continue
+                do break end --[[continue]]
             end
 
             last_dir = dir
             return pos, last_dir
+        until true
         end
     end
 
@@ -4723,6 +4735,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
         local dir_preferred_order = {ImGuiDir.Right, ImGuiDir.Down, ImGuiDir.Up, ImGuiDir.Left}
 
         for n = (last_dir ~= ImGuiDir.None) and 0 or 1, ImGuiDir.COUNT do
+        repeat
             local dir
             if n == 0 then
                 dir = last_dir
@@ -4731,7 +4744,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             end
 
             if n ~= 0 and dir == last_dir then  -- Already tried this direction?
-                continue
+                do break end --[[continue]]
             end
 
             local avail_w, avail_h
@@ -4754,10 +4767,10 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
 
             -- If there's not enough room on one axis, there's no point in positioning on a side on this axis (e.g. when not enough width, use a top/bottom position to maximize available width)
             if avail_w < size.x and (dir == ImGuiDir.Left or dir == ImGuiDir.Right) then
-                continue
+                do break end --[[continue]]
             end
             if avail_h < size.y and (dir == ImGuiDir.Up or dir == ImGuiDir.Down) then
-                continue
+                do break end --[[continue]]
             end
 
             local pos = ImVec2()
@@ -4783,6 +4796,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
 
             last_dir = dir
             return pos, last_dir
+        until true
         end
     end
 

@@ -10,9 +10,6 @@
         "unused-local"
     ],
     "checkThirdParty": false,
-    "runtime.nonstandardSymbol": [
-        "continue"
-    ],
     "runtime.special": {
         "include": "dofile",
         "IncludeCS": "dofile"
