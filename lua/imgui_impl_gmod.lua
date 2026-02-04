@@ -43,7 +43,7 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
     panel.OnCursorMoved = function(self, x, y)
         if old_OnCursorMoved then old_OnCursorMoved(self, x, y) end
         x, y = input.GetCursorPos()
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y, nil, nil)
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y)
     end
 
     local old_OnMousePressed = panel.OnMousePressed
@@ -60,9 +60,15 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
         ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
     end
 
+    local old_OnMouseWheeled = panel.OnMouseWheeled
+    panel.OnMouseWheeled = function(self, scroll_delta)
+        if old_OnMouseWheeled then old_OnMouseWheeled(self, scroll_delta) end
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, nil, scroll_delta)
+    end
+
     local old_OnScreenSizeChanged = panel.OnScreenSizeChanged
-    panel.OnScreenSizeChanged = function(old_w, old_h, new_w, new_h)
-        if old_OnScreenSizeChanged then old_OnScreenSizeChanged(old_w, old_h, new_w, new_h) end
+    panel.OnScreenSizeChanged = function(self, old_w, old_h, new_w, new_h)
+        if old_OnScreenSizeChanged then old_OnScreenSizeChanged(self, old_w, old_h, new_w, new_h) end
         ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, true)
     end
 
@@ -85,7 +91,7 @@ end
 
 --- - Single-viewport mode: mouse position in GMod Derma window coordinates
 --- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
-function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed)
+function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed, scroll_delta)
     local bd = ImGui_ImplGMOD_GetBackendData()
     local io = ImGui.GetIO()
 
@@ -109,6 +115,8 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed
         io:AddMousePosEvent(x, y)
     elseif is_display_changed then
         bd.WantUpdateMonitors = true
+    elseif scroll_delta then
+        io:AddMouseWheelEvent(0.0, scroll_delta / 120) -- TODO: validate
     end
 end
 

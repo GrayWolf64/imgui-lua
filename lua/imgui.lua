@@ -1843,11 +1843,18 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             io.MouseSource = e.MouseButton.MouseSource
             mouse_button_changed = bit.bor(mouse_button_changed, bit.lshift(1, button))
         elseif e.Type == ImGuiInputEventType.MouseWheel then
-            -- TODO: 
+            if trickle_fast_inputs and (mouse_moved or mouse_button_changed ~= 0) then
+                break
+            end
+
+            io.MouseWheelH = io.MouseWheelH + e.MouseWheel.WheelX
+            io.MouseWheel = io.MouseWheel + e.MouseWheel.WheelY
+            io.MouseSource = e.MouseWheel.MouseSource
+            mouse_wheeled = true
         elseif e.Type == ImGuiInputEventType.MouseViewport then
             io.MouseHoveredViewport = e.MouseViewport.HoveredViewportID
         elseif e.Type == ImGuiInputEventType.Key then
-            
+            -- TODO:
         elseif e.Type == ImGuiInputEventType.Text then
             
         elseif e.Type == ImGuiInputEventType.Focus then
