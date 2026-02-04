@@ -5,12 +5,31 @@ include"imgui.lua"
 
 local ImGui_ImplGMOD = include("imgui_impl_gmod.lua")
 
+local function CreateMainViewport()
+    local derma_window = vgui.Create("DFrame")
+
+    derma_window:SetSizable(true)
+    derma_window:SetSize(ScrW() / 2, ScrH() / 2)
+    derma_window:MakePopup()
+    derma_window:SetDraggable(true)
+    derma_window:Center()
+    derma_window:SetTitle("ImGui Example")
+    derma_window:SetIcon("icon16/application.png")
+    derma_window:SetDeleteOnClose(true)
+
+    local clear_color = ImVec4(0.45, 0.55, 0.60, 1.00) * 255
+    local old_Paint = derma_window.Paint
+    derma_window.Paint = function(self, w, h)
+        old_Paint(self, w, h)
+        surface.SetDrawColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w)
+        surface.DrawRect(0, 0, w, h)
+    end
+
+    return derma_window
+end
+
 local window1_open = true
 local window2_open = true
-
-local g_ModelMatrix = Matrix()
-local g_ScaleVector = Vector(1, 1, 1)
-
 
 concommand.Add("imgui_test", function()
     local animate = true
@@ -19,29 +38,18 @@ concommand.Add("imgui_test", function()
     local refresh_time = 0
     local phase = 0
 
-    local viewport = ImGui_ImplGMOD.CreateMainViewport()
+    local viewport = CreateMainViewport()
+    ImGui_ImplGMOD.SetupPanelHooks(viewport, true)
 
     ImGui.CreateContext()
     local g = ImGui.GetCurrentContext()
 
-    ImGui_ImplGMOD.Init(viewport)
+    local io = ImGui.GetIO()
+    io.ConfigFlags = bit.bor(io.ConfigFlags, ImGuiConfigFlags_ViewportsEnable)
 
-    local old_Paint = viewport.Paint
-    function viewport.Paint(self, w, h)
-        old_Paint(self, w, h)
+    ImGui_ImplGMOD.Init(viewport, true)
 
-        local offset_x, offset_y = self:GetPos()
-        local old_w, old_h = ScrW(), ScrH()
-
-        -- This scales the things we draw, so later we restore it
-        render.SetViewPort(offset_x, offset_y, w, h)
-
-        g_ScaleVector.x = old_w / w
-        g_ScaleVector.y = old_h / h
-        g_ModelMatrix:Scale(g_ScaleVector)
-        cam.PushModelMatrix(g_ModelMatrix)
-        g_ModelMatrix:Identity()
-
+    function viewport.PaintOver(self, w, h)
 
         ImGui_ImplGMOD.NewFrame()
 
@@ -49,7 +57,7 @@ concommand.Add("imgui_test", function()
 
         if window1_open then
             ImGui.PushFont(nil, 40)
-
+            ImGui.SetNextWindowPos(ImVec2(70, 200), ImGuiCond.FirstUseEver)
             ImGui.SetNextWindowSize(ImVec2(550, 400), ImGuiCond.FirstUseEver)
 
             window1_open = ImGui.Begin("Hello, World!", window1_open)
@@ -110,9 +118,9 @@ concommand.Add("imgui_test", function()
 
         ImGui_ImplGMOD.RenderDrawData(ImGui.GetDrawData())
 
-
-        render.SetViewPort(0, 0, old_w, old_h)
-
-        cam.PopModelMatrix()
+        if bit.band(io.ConfigFlags, ImGuiConfigFlags_ViewportsEnable) ~= 0 then
+            ImGui.UpdatePlatformWindows()
+            ImGui.RenderPlatformWindowsDefault()
+        end
     end
 end)

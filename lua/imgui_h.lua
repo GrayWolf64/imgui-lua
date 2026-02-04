@@ -788,10 +788,11 @@ end
 --- @alias ImGuiConfigFlags int
 ImGuiConfigFlags_None                   = 0
 ImGuiConfigFlags_NavEnableKeyboard      = bit.lshift(1, 0)  -- Master keyboard navigation enable flag. Enable full Tabbing + directional arrows + space/enter to activate.
-ImGuiConfigFlags_NavEnableGamepad       = bit.lshift(1, 1)  -- Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags_HasGamepad.
+ImGuiConfigFlags_NavEnableGamepad       = bit.lshift(1, 1)  -- Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags.HasGamepad.
 ImGuiConfigFlags_NoMouse                = bit.lshift(1, 4)  -- Instruct dear imgui to disable mouse inputs and interactions.
 ImGuiConfigFlags_NoMouseCursorChange    = bit.lshift(1, 5)  -- Instruct backend to not alter mouse cursor shape and visibility. Use if the backend cursor changes are interfering with yours and you don't want to use SetMouseCursor() to change mouse cursor. You may want to honor requests from imgui by reading GetMouseCursor() yourself instead.
 ImGuiConfigFlags_NoKeyboard             = bit.lshift(1, 6)  -- Instruct dear imgui to disable keyboard inputs and interactions. This is done by ignoring keyboard events and clearing existing states.
+ImGuiConfigFlags_ViewportsEnable        = bit.lshift(1, 10)
 ImGuiConfigFlags_IsSRGB                 = bit.lshift(1, 20) -- Application is SRGB-aware.
 ImGuiConfigFlags_IsTouchScreen          = bit.lshift(1, 21) -- Application is using a touch screen instead of a mouse.
 
@@ -811,8 +812,8 @@ function ImGuiIO()
 
         KeyMods  = nil,
 
-        BackendFlags = 0,
-        ConfigFlags  = 0,
+        BackendFlags = ImGuiBackendFlags.None,
+        ConfigFlags  = ImGuiConfigFlags_None,
         DisplaySize = ImVec2(-1.0, -1.0),
 
         DeltaTime = 1.0 / 60.0,
@@ -839,6 +840,12 @@ function ImGuiIO()
         ConfigNavCursorVisibleAuto = true,
         ConfigInputTrickleEventQueue = true,
         ConfigWindowsResizeFromEdges = true,
+
+        ConfigViewportsNoAutoMerge = false,
+        ConfigViewportsNoTaskBarIcon = false,
+        ConfigViewportsNoDecoration = true,
+        ConfigViewportsNoDefaultParent = true,
+        ConfigViewportsPlatformFocusSetsImGuiFocus = true,
 
         MouseDrawCursor = false,
 
@@ -908,10 +915,22 @@ ImGuiMouseCursor = {
 }
 
 --- @alias ImGuiViewportFlags int
-ImGuiViewportFlags_None              = 0
-ImGuiViewportFlags_IsPlatformWindow  = bit.lshift(1, 0)
-ImGuiViewportFlags_IsPlatformMonitor = bit.lshift(1, 1)
-ImGuiViewportFlags_OwnedByApp        = bit.lshift(1, 2)
+ImGuiViewportFlags_None                = 0
+ImGuiViewportFlags_IsPlatformWindow    = bit.lshift(1, 0)
+ImGuiViewportFlags_IsPlatformMonitor   = bit.lshift(1, 1)
+ImGuiViewportFlags_OwnedByApp          = bit.lshift(1, 2)
+ImGuiViewportFlags_NoDecoration        = bit.lshift(1, 3)
+ImGuiViewportFlags_NoTaskBarIcon       = bit.lshift(1, 4)
+ImGuiViewportFlags_NoFocusOnAppearing  = bit.lshift(1, 5)
+ImGuiViewportFlags_NoFocusOnClick      = bit.lshift(1, 6)
+ImGuiViewportFlags_NoInputs            = bit.lshift(1, 7)
+ImGuiViewportFlags_NoRendererClear     = bit.lshift(1, 8)
+ImGuiViewportFlags_NoAutoMerge         = bit.lshift(1, 9)
+ImGuiViewportFlags_TopMost             = bit.lshift(1, 10)
+ImGuiViewportFlags_CanHostOtherWindows = bit.lshift(1, 11)
+
+ImGuiViewportFlags_IsMinimized = bit.lshift(1, 12)
+ImGuiViewportFlags_IsFocused   = bit.lshift(1, 13)
 
 --- @class ImGuiViewport
 MT.ImGuiViewport = {}
@@ -933,27 +952,73 @@ function ImGuiViewport()
         Flags    = 0,
         Pos      = ImVec2(),
         Size     = ImVec2(),
+        FramebufferScale = ImVec2(),
         WorkPos  = ImVec2(),
         WorkSize = ImVec2(),
+        DpiScale = 0,
 
         PlatformHandle = nil,
-        PlatformHandleRaw = nil
+        PlatformHandleRaw = nil,
+        PlatformWindowCreated = false
     }, MT.ImGuiViewport)
 end
 
 --- @class ImGuiPlatformIO
+--- @field Platform_GetClipboardTextFn fun(ctx: ImGuiContext): string
+--- @field Platform_CreateWindow       fun(vp: ImGuiViewport)
+--- @field Platform_OnChangedViewport  fun(vp: ImGuiViewport)
+--- @field Monitors                    ImVector<ImGuiPlatformMonitor>
+--- @field Textures                    ImVector<ImTextureData>
+--- @field Viewports                   ImVector<ImGuiViewport>
+MT.ImGuiPlatformIO = {}
+MT.ImGuiPlatformIO.__index = MT.ImGuiPlatformIO
 
 --- @return ImGuiPlatformIO
+--- @nodiscard
 function ImGuiPlatformIO()
-    return {
+    local this = {
+        Platform_GetClipboardTextFn = nil,
+        Platform_SetClipboardTextFn = nil,
+
+        Platform_OpenInShellFn = nil,
+        Platform_OpenInShellUserData = nil,
+
         Renderer_TextureMaxWidth = 0,
         Renderer_TextureMaxHeight = 0,
 
         Renderer_RenderState = nil,
 
+        Monitors = ImVector(),
         Textures = ImVector(),
+        Viewports = ImVector(),
 
-        Platform_LocaleDecimalPoint = '.'
+        Platform_LocaleDecimalPoint = '.',
+
+        Platform_OnChangedViewport = nil,
+    }
+
+    return setmetatable(this, MT.ImGuiPlatformIO)
+end
+
+--- @class ImGuiPlatformMonitor
+--- @field MainPos        ImVec2
+--- @field MainSize       ImVec2
+--- @field WorkPos        ImVec2
+--- @field WorkSize       ImVec2
+--- @field DpiScale       float
+--- @field PlatformHandle any
+
+--- @return ImGuiPlatformMonitor
+--- @nodiscard
+function ImGuiPlatformMonitor()
+    return {
+        MainPos  = ImVec2(0, 0),
+        MainSize = ImVec2(0, 0),
+        WorkPos  = ImVec2(0, 0),
+        WorkSize = ImVec2(0, 0),
+        DpiScale = 1.0,
+
+        PlatformHandle = nil
     }
 end
 
@@ -993,6 +1058,7 @@ ImGuiWindowFlags_AlwaysHorizontalScrollbar = bit.lshift(1, 15)
 ImGuiWindowFlags_NoNavInputs               = bit.lshift(1, 16)
 ImGuiWindowFlags_NoNavFocus                = bit.lshift(1, 17)
 ImGuiWindowFlags_UnsavedDocument           = bit.lshift(1, 18)
+ImGuiWindowFlags_DockNodeHost              = bit.lshift(1, 23)
 ImGuiWindowFlags_ChildWindow               = bit.lshift(1, 24)
 ImGuiWindowFlags_Tooltip                   = bit.lshift(1, 25)
 ImGuiWindowFlags_Popup                     = bit.lshift(1, 26)
@@ -1440,7 +1506,13 @@ ImGuiBackendFlags = {
     HasMouseCursors       = bit.lshift(1, 1),
     HasSetMousePos        = bit.lshift(1, 2),
     RendererHasVtxOffset  = bit.lshift(1, 3),
-    RendererHasTextures   = bit.lshift(1, 4)
+    RendererHasTextures   = bit.lshift(1, 4),
+
+    -- [BETA] Multi-Viewports
+    RendererHasViewports    = bit.lshift(1, 10),
+    PlatformHasViewports    = bit.lshift(1, 11),
+    HasMouseHoveredViewport = bit.lshift(1, 12),
+    HasParentViewport       = bit.lshift(1, 13)
 }
 
 --- @alias ImGuiDragDropFlags int
@@ -1491,3 +1563,22 @@ ImGuiPopupFlags_AnyPopup          = bit.bor(ImGuiPopupFlags_AnyPopupId, ImGuiPop
 ImGuiPopupFlags_MouseButtonShift_ = 2
 ImGuiPopupFlags_MouseButtonMask_  = 0x0C
 ImGuiPopupFlags_InvalidMask_      = 0x03
+
+--- @class ImGuiWindowClass
+
+--- @return ImGuiWindowClass
+--- @nodiscard
+function ImGuiWindowClass()
+    return {
+        ClassId                    = 0,
+        ParentViewportId           = 0xFFFFFFFF,
+        FocusRouteParentWindowId   = 0,
+        ViewportFlagsOverrideSet   = 0,
+        ViewportFlagsOverrideClear = 0,
+
+        TabItemFlagsOverrideSet  = 0,
+        DockNodeFlagsOverrideSet = 0,
+        DockingAlwaysTabBar      = false,
+        DockingAllowUnclassed    = true
+    }
+end

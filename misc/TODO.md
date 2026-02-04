@@ -13,3 +13,7 @@
 10. Enclose some flags into tables when they don't rely on each other, e.g. no bit.* ops
 11. Currently some basic functions in core code still depends on GMod
 12. Actually rewrite the stb ports
+13. Multi-Viewport: `ViewportOwned` related
+14. !! Replace all `continue` with `goto CONTINUE`
+15. I hate cpp mess. Wtf imgui passes ImRect and ImVec4 window.ClipRect so randomly and everything works? I have to use `ImRectFromVec4` which looks ugly and feels bad.
+16. GMod render.MaxTextureWidth/Height()

@@ -1,5 +1,8 @@
 --- All the things strongly related to GMod go here
 
+-- `input.GetCursorPos()` has issues in MacOS:
+-- https://github.com/Facepunch/garrysmod-issues/issues/4964
+
 local cam     = cam
 local render  = render
 local surface = surface
@@ -12,60 +15,88 @@ local ImGui_ImplGMOD_DestroyTexture
 local ImGui_ImplGMOD_UpdateTexture
 
 --- @type function
-local ImGui_ImplGMOD_InputEventHandler
+local ImGui_ImplGMOD_RenderDrawData
 
---- @type Panel? # We are at non-docking branch, only one viewport is supported
-local g_Viewport = nil
+--- @type function
+local ImGui_ImplGMOD_ProcessEvent
 
---- @return Panel?
-local function ImGui_ImplGMOD_CreateMainViewport()
-    if IsValid(g_Viewport) then
-        g_Viewport:Remove()
-    end
+--- @type function
+local ImGui_ImplGMOD_Shutdown
 
-    g_Viewport = vgui.Create("DFrame")
-
-    g_Viewport:SetSizable(true)
-    g_Viewport:SetSize(ScrW() / 2, ScrH() / 2)
-    g_Viewport:MakePopup()
-    g_Viewport:SetDraggable(true)
-    g_Viewport:Center()
-    g_Viewport:SetTitle("ImGui Main Viewport")
-    g_Viewport:SetIcon("icon16/application.png")
-
-    g_Viewport.LocalToScreen = function(self, x, y)
-        local pos_x, pos_y = self:GetPos()
-        return pos_x + x, pos_y + y
-    end
-
-    g_Viewport.OnCursorMoved = function(self, x, y)
-        ImGui_ImplGMOD_InputEventHandler(nil, nil, x, y)
-    end
-
-    local old_OnMousePressed = g_Viewport.OnMousePressed
-    g_Viewport.OnMousePressed = function(self, key_code)
-        old_OnMousePressed(self, key_code)
-        ImGui_ImplGMOD_InputEventHandler(key_code, true, nil, nil)
-    end
-
-    local old_OnMouseReleased = g_Viewport.OnMouseReleased
-    g_Viewport.OnMouseReleased = function(self, key_code)
-        old_OnMouseReleased(self, key_code)
-        ImGui_ImplGMOD_InputEventHandler(key_code, false, nil, nil)
-    end
-
-    local clear_color = ImVec4(0.45, 0.55, 0.60, 1.00) * 255
-    local old_Paint = g_Viewport.Paint
-    g_Viewport.Paint = function(self, w, h)
-        old_Paint(self, w, h)
-        surface.SetDrawColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w)
-        surface.DrawRect(0, 0, w, h)
-    end
-
-    return g_Viewport
+local function ImGui_ImplGMOD_GetBackendData()
+    return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
 end
 
-function ImGui_ImplGMOD_InputEventHandler(key_code, is_down, x, y)
+--- - Single-viewport mode: mouse position in GMod Derma window coordinates
+--- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
+local function Derma_LocalToScreen(window, x, y)
+    local pos_x, pos_y = window:GetPos()
+    return pos_x + x, pos_y + y
+end
+
+local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, derma_window)
+    for _, viewport in platform_io.Viewports:iter() do
+        if (viewport.PlatformHandle == derma_window) then
+            return viewport
+        end
+    end
+
+    return nil
+end
+
+--- @param panel Panel
+local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
+    local old_OnCursorMoved = panel.OnCursorMoved
+    panel.OnCursorMoved = function(self, x, y)
+        if old_OnCursorMoved then old_OnCursorMoved(self, x, y) end
+        x, y = input.GetCursorPos()
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y)
+    end
+
+    local old_OnMousePressed = panel.OnMousePressed
+    panel.OnMousePressed = function(self, key_code)
+        if old_OnMousePressed then old_OnMousePressed(self, key_code) end
+        self:MouseCapture(true)
+        ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil)
+    end
+
+    local old_OnMouseReleased = panel.OnMouseReleased
+    panel.OnMouseReleased = function(self, key_code)
+        if old_OnMouseReleased then old_OnMouseReleased(self, key_code) end
+        self:MouseCapture(false)
+        ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
+    end
+
+    local old_OnScreenSizeChanged = panel.OnScreenSizeChanged
+    panel.OnScreenSizeChanged = function(old_w, old_h, new_w, new_h)
+        if old_OnScreenSizeChanged then old_OnScreenSizeChanged(old_w, old_h, new_w, new_h) end
+        ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, true)
+    end
+
+    if is_main_viewport then
+        local old_OnRemove = panel.OnRemove
+        panel.OnRemove = function()
+            if old_OnRemove then old_OnRemove() end
+            ImGui_ImplGMOD_Shutdown()
+        end
+    end
+end
+
+function ImGui_ImplGMOD_UpdateMouseData(io, platform_io)
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    IM_ASSERT(IsValid(bd.Window))
+
+    local mouse_screen_pos = ImVec2(input.GetCursorPos())
+    local has_mouse_screen_pos = true
+
+    local mouse_viewport_id = 0
+    if has_mouse_screen_pos then
+        -- TODO:
+    end
+end
+
+function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed)
+    local bd = ImGui_ImplGMOD_GetBackendData()
     local io = ImGui.GetIO()
 
     if key_code then -- Mouse button or keyboard key
@@ -83,9 +114,11 @@ function ImGui_ImplGMOD_InputEventHandler(key_code, is_down, x, y)
         else
             -- TODO: 
         end
-    else -- cursor position update
+    elseif x and y then -- cursor position update
         io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
         io:AddMousePosEvent(x, y)
+    elseif is_display_changed then
+        bd.WantUpdateMonitors = true
     end
 end
 
@@ -121,12 +154,160 @@ local function ImGui_ImplGMOD_Data()
     }
 end
 
-local function ImGui_ImplGMOD_GetBackendData()
-    return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
+--- @class ImGui_ImplGMOD_ViewportData
+--- @field DermaWindow        Panel
+--- @field DermaWindowParent? Panel
+--- @field DermaWindowOwned   bool
+
+--- @return ImGui_ImplGMOD_ViewportData
+--- @nodiscard
+local function ImGui_ImplGMOD_ViewportData()
+    return {
+        DermaWindow       = nil,
+        DermaWindowParent = nil,
+        DermaWindowOwned  = false
+    }
+end
+
+--- @param viewport ImGuiViewport
+--- @return Panel?
+local function ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport)
+    if viewport ~= nil then
+        return viewport.PlatformHandle
+    end
+    return nil
+end
+
+local function ImGui_ImplGMOD_CreateWindow(viewport)
+    local vd = ImGui_ImplGMOD_ViewportData()
+    viewport.PlatformUserData = vd
+
+    -- VGUI treats child windows as "inside" the parent
+    -- vd.DermaWindowParent = ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport.ParentViewport)
+    vd.DermaWindow = vgui.Create("EditablePanel", nil, "ImGui Platform")
+
+    vd.DermaWindow:SetPos(viewport.Pos.x, viewport.Pos.y)
+    vd.DermaWindow:SetSize(viewport.Size.x, viewport.Size.y)
+    vd.DermaWindowOwned = true
+
+    ImGui_ImplGMOD_SetupPanelHooks(vd.DermaWindow)
+
+    vd.DermaWindow.Paint = function(self, w, h)
+        return true
+    end
+
+    viewport.PlatformRequestResize = false
+
+    viewport.PlatformHandle    = vd.DermaWindow
+    viewport.PlatformHandleRaw = vd.DermaWindow
+end
+
+local function ImGui_ImplGMOD_DestroyWindow(viewport)
+    local vd = viewport.PlatformUserData
+    if vd then
+        if IsValid(vd.DermaWindow) and vd.DermaWindowOwned then
+            vd.DermaWindow:Remove()
+        end
+        vd.DermaWindow = nil
+    end
+    viewport.PlatformUserData = nil
+
+    vd = viewport.RendererUserData
+    if vd then
+
+    end
+    viewport.RendererUserData = nil
+end
+
+local function ImGui_ImplGMOD_ShowWindow(viewport)
+    local vd = viewport.PlatformUserData
+    IM_ASSERT(IsValid(vd.DermaWindow))
+    vd.DermaWindow:MakePopup()
+end
+
+local function ImGui_ImplGMOD_SetWindowPos(viewport, pos)
+    local vd = viewport.PlatformUserData
+    IM_ASSERT(IsValid(vd.DermaWindow))
+    vd.DermaWindow:SetPos(pos.x, pos.y)
+end
+
+--- @param viewport ImGuiViewport
+--- @return ImVec2
+--- @nodiscard
+local function ImGui_ImplGMOD_GetWindowPos(viewport)
+    local vd = viewport.PlatformUserData
+    IM_ASSERT(IsValid(vd.DermaWindow))
+
+    if IsValid(vd.DermaWindowParent) then
+        return ImVec2(Derma_LocalToScreen(vd.DermaWindowParent, vd.DermaWindow:GetPos()))
+    else
+        return ImVec2(vd.DermaWindow:GetPos())
+    end
+end
+
+local function ImGui_ImplGMOD_SetWindowSize(viewport, size)
+    local vd = viewport.PlatformUserData
+    IM_ASSERT(IsValid(vd.DermaWindow))
+    vd.DermaWindow:SetSize(size.x, size.y)
+end
+
+local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
+    local vd = viewport.PlatformUserData
+    IM_ASSERT(IsValid(vd.DermaWindow))
+    vd.DermaWindow:SetName(title)
+end
+
+local function ImGui_ImplGMOD_RenderWindow(viewport)
+    ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
+end
+
+local function ImGui_ImplGMOD_SwapBuffers()
+    return
+end
+
+--- @param platform_has_own_dc bool
+local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
+    local platform_io = ImGui.GetPlatformIO()
+    platform_io.Platform_CreateWindow = ImGui_ImplGMOD_CreateWindow
+    platform_io.Platform_DestroyWindow = ImGui_ImplGMOD_DestroyWindow
+    platform_io.Platform_ShowWindow = ImGui_ImplGMOD_ShowWindow
+    platform_io.Platform_SetWindowPos = ImGui_ImplGMOD_SetWindowPos
+    platform_io.Platform_SetWindowSize = ImGui_ImplGMOD_SetWindowSize
+    platform_io.Platform_SetWindowTitle = ImGui_ImplGMOD_SetWindowTitle
+
+    platform_io.Platform_GetWindowPos = ImGui_ImplGMOD_GetWindowPos
+
+    platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
+    platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
+
+    local main_viewport = ImGui.GetMainViewport()
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    local vd = ImGui_ImplGMOD_ViewportData()
+    vd.DermaWindow = bd.Window
+    vd.DermaWindowOwned = false
+    main_viewport.PlatformUserData = vd
+end
+
+local function ImGui_ImplGMOD_ShutdownMultiViewportSupport()
+    ImGui.DestroyPlatformWindows()
+end
+
+local function ImGui_ImplGMOD_UpdateMonitors()
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    local io = ImGui.GetPlatformIO()
+    io.Monitors:resize(0)
+
+    local imgui_monitor = ImGuiPlatformMonitor()
+    imgui_monitor.MainSize = ImVec2(ScrW(), ScrH())
+    imgui_monitor.WorkSize = ImVec2(ScrW(), ScrH())
+
+    io.Monitors:push_back(imgui_monitor)
+
+    bd.WantUpdateMonitors = false
 end
 
 --- @param window Panel
-local function ImGui_ImplGMOD_Init(window)
+local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     --- If lower, the window title cross or arrow will look bad
     RunConsoleCommand("mat_antialias", "8")
 
@@ -136,11 +317,28 @@ local function ImGui_ImplGMOD_Init(window)
     bd.Window = window
     io.BackendPlatformUserData = bd
 
-    -- local main_viewport = ImGui.GetMainViewport()
-    -- main_viewport.PlatformHandle = window
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.PlatformHasViewports)
+    -- io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasParentViewport)
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset)
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasViewports)
+
+    ImGui_ImplGMOD_UpdateMonitors()
+
+    local main_viewport = ImGui.GetMainViewport()
+    main_viewport.PlatformHandle = bd.Window
+    main_viewport.PlatformHandleRaw = bd.Window
+    ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
+end
+
+-- We don't have a game-level cursor setter in GMod, so just set cursor for the hovered panel that happens to be our viewport
+local function ImGui_ImplGMOD_DermaSetCursor(cursor_type)
+    local io = ImGui.GetPlatformIO()
+    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in our use case
+    if ImGui_ImplGMOD_FindViewportByPlatformHandle(io, hovered_panel) then
+        hovered_panel:SetCursor(cursor_type)
+    end
 end
 
 --- @param io           ImGuiIO
@@ -153,7 +351,7 @@ local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
     local bd = ImGui_ImplGMOD_GetBackendData()
 
     if imgui_cursor == ImGuiMouseCursor.None or io.MouseDrawCursor then
-        bd.Window:SetCursor("blank")
+        ImGui_ImplGMOD_DermaSetCursor("blank")
     else
         local gmod_cursor = "arrow"
 
@@ -181,21 +379,35 @@ local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
             gmod_cursor = "no"
         end
 
-        bd.Window:SetCursor(gmod_cursor)
+        ImGui_ImplGMOD_DermaSetCursor(gmod_cursor)
     end
 
     return true
 end
 
-local function ImGui_ImplGMOD_Shutdown()
+function ImGui_ImplGMOD_Shutdown()
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    IM_ASSERT(bd ~= nil, "No platform backend to shutdown, or already shutdown?")
+
+    local io = ImGui.GetIO()
+    local platform_io = ImGui.GetPlatformIO()
+
+    ImGui_ImplGMOD_ShutdownMultiViewportSupport()
+
+    io.BackendPlatformName = nil
+    io.BackendPlatformUserData = nil
+    io.BackendFlags = bit.band(io.BackendFlags, bit.bnot(bit.bor(ImGuiBackendFlags.HasMouseCursors, ImGuiBackendFlags.HasSetMousePos, ImGuiBackendFlags.HasGamepad, ImGuiBackendFlags.PlatformHasViewports, ImGuiBackendFlags.HasMouseHoveredViewport, ImGuiBackendFlags.HasParentViewport)))
+    platform_io:ClearPlatformHandlers()
 end
 
 local function ImGui_ImplGMOD_NewFrame()
     local io = ImGui.GetIO()
     local bd = ImGui_ImplGMOD_GetBackendData()
 
-    io.DisplaySize = ImVec2(ScrW(), ScrH()) -- TODO: is this correct?
-    local main_viewport = ImGui.GetMainViewport()
+    io.DisplaySize = ImVec2(bd.Window:GetSize())
+    if bd.WantUpdateMonitors then
+        ImGui_ImplGMOD_UpdateMonitors()
+    end
 
     local current_time = SysTime()
     io.DeltaTime = current_time - bd.Time
@@ -204,14 +416,9 @@ local function ImGui_ImplGMOD_NewFrame()
     ImGui_ImplGMOD_UpdateMouseCursor(io, ImGui.GetMouseCursor())
 end
 
-local clip_min = ImVec2()
-local clip_max = ImVec2()
-local clip_off = ImVec2()
-local col0 = ImVec4()
-local col1 = ImVec4()
-local col2 = ImVec4()
-
 local function ImGui_ImplGMOD_SetupRenderState()
+    render.SetViewPort(0, 0, ScrW(), ScrH())
+
     render.CullMode(MATERIAL_CULLMODE_NONE)
     render.OverrideBlend(true, BLEND_SRC_ALPHA, BLEND_ONE_MINUS_SRC_ALPHA, BLENDFUNC_ADD, BLEND_ONE, BLEND_ONE_MINUS_SRC_ALPHA, BLENDFUNC_ADD)
     render.FogMode(MATERIAL_FOG_NONE)
@@ -230,7 +437,11 @@ local function ImGui_ImplGMOD_RestoreRenderState()
     render.PopFilterMag()
 end
 
-local function ImGui_ImplGMOD_RenderDrawData(draw_data)
+local col0 = ImVec4()
+local col1 = ImVec4()
+local col2 = ImVec4()
+
+function ImGui_ImplGMOD_RenderDrawData(draw_data)
     local bd = ImGui_ImplGMOD_GetBackendData()
 
     if (draw_data.DisplaySize.x <= 0.0 or draw_data.DisplaySize.y <= 0.0) then
@@ -247,21 +458,15 @@ local function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
     ImGui_ImplGMOD_SetupRenderState()
 
-    clip_off.x = draw_data.DisplayPos.x; clip_off.y = draw_data.DisplayPos.y
-
     for _, draw_list in draw_data.CmdLists:iter() do
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.ElemCount > 0 then
-                clip_min.x = pcmd.ClipRect.x - clip_off.x; clip_min.y = pcmd.ClipRect.y - clip_off.y
-                clip_max.x = pcmd.ClipRect.z - clip_off.x; clip_max.y = pcmd.ClipRect.w - clip_off.y
-                if clip_max.x <= clip_min.x or clip_max.y <= clip_min.y then
+                if pcmd.ClipRect.z <= pcmd.ClipRect.x or pcmd.ClipRect.w <= pcmd.ClipRect.y then
                     continue
                 end
 
-                -- This uses screen-space coords
-                local clip_min_x, clip_min_y = bd.Window:LocalToScreen(clip_min.x, clip_min.y)
-                local clip_max_x, clip_max_y = bd.Window:LocalToScreen(clip_max.x, clip_max.y)
-                render.SetScissorRect(clip_min_x, clip_min_y, clip_max_x, clip_max_y, true)
+                -- GMod SetScissorRect expects screen-space coords
+                render.SetScissorRect(pcmd.ClipRect.x, pcmd.ClipRect.y, pcmd.ClipRect.z, pcmd.ClipRect.w, true)
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
@@ -453,7 +658,7 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 end
 
 return {
-    CreateMainViewport = ImGui_ImplGMOD_CreateMainViewport,
+    SetupPanelHooks = ImGui_ImplGMOD_SetupPanelHooks,
 
     Init           = ImGui_ImplGMOD_Init,
     Shutdown       = ImGui_ImplGMOD_Shutdown,
