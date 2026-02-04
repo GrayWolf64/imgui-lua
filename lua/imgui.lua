@@ -4675,7 +4675,8 @@ end
 --- @param r_outer  ImRect
 --- @param r_avoid  ImRect
 --- @param policy   ImGuiPopupPositionPolicy
---- @return ImVec2
+--- @return ImVec2 # Best Window Pos For Popup
+--- @return int    # Updated last_dir
 --- @nodiscard
 function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_avoid, policy)
     local base_pos_clamped = ImClampV2(ref_pos, r_outer.Min, r_outer.Max - size)
@@ -4712,7 +4713,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             end
 
             last_dir = dir
-            return pos
+            return pos, last_dir
         end
     end
 
@@ -4781,7 +4782,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             pos.y = ImMax(pos.y, r_outer.Min.y)
 
             last_dir = dir
-            return pos
+            return pos, last_dir
         end
     end
 
@@ -4790,14 +4791,14 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
 
     -- For tooltip we prefer avoiding the cursor at all cost even if it means that part of the tooltip won't be visible.
     if policy == ImGuiPopupPositionPolicy.Tooltip then
-        return ref_pos + ImVec2(2, 2)
+        return ref_pos + ImVec2(2, 2), last_dir
     end
 
     -- Otherwise try to keep within display
     local pos = ImVec2(ref_pos.x, ref_pos.y)
     pos.x = ImMax(ImMin(pos.x + size.x, r_outer.Max.x) - size.x, r_outer.Min.x)
     pos.y = ImMax(ImMin(pos.y + size.y, r_outer.Max.y) - size.y, r_outer.Min.y)
-    return pos
+    return pos, last_dir
 end
 
 --- @param window ImGuiWindow
@@ -4836,11 +4837,15 @@ function ImGui.FindBestWindowPosForPopup(window)
             r_avoid = ImRect(parent_window.Pos.x + horizontal_overlap, -FLT_MAX, parent_window.Pos.x + parent_window.Size.x - horizontal_overlap - parent_window.ScrollbarSizes.x, FLT_MAX)
         end
 
-        return ImGui.FindBestWindowPosForPopupEx(window.Pos, window.Size, window.AutoPosLastDirection, r_outer, r_avoid, ImGuiPopupPositionPolicy.Default)
+        local pos
+        pos, window.AutoPosLastDirection = ImGui.FindBestWindowPosForPopupEx(window.Pos, window.Size, window.AutoPosLastDirection, r_outer, r_avoid, ImGuiPopupPositionPolicy.Default)
+        return pos
     end
 
     if bit.band(window.Flags, ImGuiWindowFlags_Popup) ~= 0 then
-        return ImGui.FindBestWindowPosForPopupEx(window.Pos, window.Size, window.AutoPosLastDirection, r_outer, ImRect(window.Pos, window.Pos), ImGuiPopupPositionPolicy.Default)  -- Ideally we'd disable r_avoid here
+        local pos
+        pos, window.AutoPosLastDirection = ImGui.FindBestWindowPosForPopupEx(window.Pos, window.Size, window.AutoPosLastDirection, r_outer, ImRect(window.Pos, window.Pos), ImGuiPopupPositionPolicy.Default)  -- Ideally we'd disable r_avoid here
+        return pos
     end
 
     if bit.band(window.Flags, ImGuiWindowFlags_Tooltip) ~= 0 then
@@ -4869,7 +4874,9 @@ function ImGui.FindBestWindowPosForPopup(window)
             r_avoid = ImRect(ref_pos.x - 16, ref_pos.y - 8, ref_pos.x + 24 * scale, ref_pos.y + 24 * scale)  -- FIXME: Hard-coded based on mouse cursor shape expectation. Exact dimension not very important.
         end
 
-        return ImGui.FindBestWindowPosForPopupEx(tooltip_pos, window.Size, window.AutoPosLastDirection, r_outer, r_avoid, ImGuiPopupPositionPolicy.Tooltip)
+        local pos
+        pos, window.AutoPosLastDirection = ImGui.FindBestWindowPosForPopupEx(tooltip_pos, window.Size, window.AutoPosLastDirection, r_outer, r_avoid, ImGuiPopupPositionPolicy.Tooltip)
+        return pos
     end
 
     IM_ASSERT(false)
