@@ -472,6 +472,9 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 -- GMod SetScissorRect expects screen-space coords
                 render.SetScissorRect(pcmd.ClipRect.x, pcmd.ClipRect.y, pcmd.ClipRect.z, pcmd.ClipRect.w, true)
 
+                local tex_id = pcmd:GetTexID()
+                render.SetMaterial(bd.TextureRegistry[tex_id].Material)
+
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
                 for i = 0, pcmd.ElemCount - 1, 3 do
@@ -482,10 +485,6 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     local vtx0 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx0]
                     local vtx1 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx1]
                     local vtx2 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx2]
-
-                    local tex_id = pcmd:GetTexID()
-
-                    render.SetMaterial(bd.TextureRegistry[tex_id].Material)
 
                     mesh.Position(vtx0.pos.x, vtx0.pos.y, 0)
                     mesh.TexCoord(0, vtx0.uv.x, vtx0.uv.y)
