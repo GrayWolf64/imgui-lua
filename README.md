@@ -4,7 +4,7 @@
 
 ## Current State
 
-![Stress Testing Example](misc/images/2026-2-1.png)
+![Stress Testing Example](misc/images/2026-2-5.png)
 
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
