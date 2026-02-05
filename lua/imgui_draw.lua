@@ -4017,3 +4017,31 @@ function ImGui.RenderCheckMark(draw_list, pos, col, sz)
     draw_list:PathLineTo(ImVec2(bx + third * 2.0, by - third * 2.0))
     draw_list:PathStroke(col, 0, thickness)
 end
+
+--- @param r_in      ImRect
+--- @param r_outer   ImRect
+--- @param threshold float
+--- @return ImDrawFlags
+function ImGui.CalcRoundingFlagsForRectInRect(r_in, r_outer, threshold)
+    local round_l = r_in.Min.x <= r_outer.Min.x + threshold
+    local round_r = r_in.Max.x >= r_outer.Max.x - threshold
+    local round_t = r_in.Min.y <= r_outer.Min.y + threshold
+    local round_b = r_in.Max.y >= r_outer.Max.y - threshold
+
+    local flags = ImDrawFlags_RoundCornersNone
+
+    if round_t and round_l then
+        flags = bit.bor(flags, ImDrawFlags_RoundCornersTopLeft)
+    end
+    if round_t and round_r then
+        flags = bit.bor(flags, ImDrawFlags_RoundCornersTopRight)
+    end
+    if round_b and round_l then
+        flags = bit.bor(flags, ImDrawFlags_RoundCornersBottomLeft)
+    end
+    if round_b and round_r then
+        flags = bit.bor(flags, ImDrawFlags_RoundCornersBottomRight)
+    end
+
+    return flags
+end

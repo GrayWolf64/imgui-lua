@@ -173,7 +173,7 @@ function ImGui.TextWrapped(fmt, ...)
 end
 
 ----------------------------------------------------------------
--- [SECTION] BUTTONS
+-- [SECTION] BUTTONS, SCROLLBARS
 ----------------------------------------------------------------
 
 --- @param bb     ImRect
@@ -516,13 +516,189 @@ function ImGui.CollapseButton(id, pos)
     return pressed
 end
 
-function ImGui.ScrollbarEx(bb_frame, id, axis)
-    -- TODO:
+--- @param window ImGuiWindow
+--- @param axis   ImGuiAxis
+--- @return ImGuiID
+function ImGui.GetWindowScrollbarID(window, axis)
+    if axis == ImGuiAxis.X then
+        return window:GetID("#SCROLLX")
+    else
+        return window:GetID("#SCROLLY")
+    end
+end
+
+--- @param window ImGuiWindow
+--- @param axis   ImGuiAxis
+--- @return ImRect
+--- @nodiscard
+function ImGui.GetWindowScrollbarRect(window, axis)
+    local g = GImGui
+    local outer_rect = window:Rect()
+    local inner_rect = window.InnerRect
+
+    -- (ScrollbarSizes.x = width of Y scrollbar; ScrollbarSizes.y = height of X scrollbar)
+    local scrollbar_size = window.ScrollbarSizes[ImAxisToStr[axis == ImGuiAxis.X and ImGuiAxis.Y or ImGuiAxis.X]]
+    IM_ASSERT(scrollbar_size >= 0.0)
+
+    local border_size = IM_ROUND(window.WindowBorderSize * 0.5)
+    local border_top = (bit.band(window.Flags, ImGuiWindowFlags_MenuBar) ~= 0) and IM_ROUND(g.Style.FrameBorderSize * 0.5) or 0.0
+
+    if axis == ImGuiAxis.X then
+        return ImRect(inner_rect.Min.x + border_size, ImMax(outer_rect.Min.y + border_size, outer_rect.Max.y - border_size - scrollbar_size), inner_rect.Max.x - border_size, outer_rect.Max.y - border_size)
+    else
+        return ImRect(ImMax(outer_rect.Min.x, outer_rect.Max.x - border_size - scrollbar_size), inner_rect.Min.y + border_top, outer_rect.Max.x - border_size, inner_rect.Max.y - border_size)
+    end
+end
+
+--- @param bb_frame            ImRect
+--- @param id                  ImGuiID
+--- @param axis                ImGuiAxis
+--- @param p_scroll_v          ImS64
+--- @param size_visible_v      ImS64
+--- @param size_contents_v     ImS64
+--- @param draw_rounding_flags ImDrawFlags
+--- @return bool  is_held
+--- @return ImS64 scroll_v # Updated p_scroll_v
+function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_contents_v, draw_rounding_flags)
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    if window.SkipItems then
+        return false, p_scroll_v
+    end
+
+    local bb_frame_width = bb_frame:GetWidth()
+    local bb_frame_height = bb_frame:GetHeight()
+    if bb_frame_width <= 0.0 or bb_frame_height <= 0.0 then
+        return false, p_scroll_v
+    end
+
+    local alpha = 1.0
+    if axis == ImGuiAxis.Y and bb_frame_height < bb_frame_width then
+        alpha = ImSaturate(bb_frame_height / ImMax(bb_frame_width * 2.0, 1.0))
+    end
+    if alpha <= 0.0 then
+        return false, p_scroll_v
+    end
+
+    local style = g.Style
+    local allow_interaction = (alpha >= 1.0)
+
+    local bb = bb_frame:copy()
+    local padding = IM_TRUNC(ImMin(style.ScrollbarPadding, ImMin(bb_frame_width, bb_frame_height) * 0.5))
+    bb:Expand(-padding)
+
+    -- V denote the main, longer axis of the scrollbar (= height for a vertical scrollbar)
+    local scrollbar_size_v
+    if axis == ImGuiAxis.X then
+        scrollbar_size_v = bb:GetWidth()
+    else
+        scrollbar_size_v = bb:GetHeight()
+    end
+
+    if scrollbar_size_v < 1.0 then
+        return false, p_scroll_v
+    end
+
+    IM_ASSERT(ImMax(size_contents_v, size_visible_v) > 0.0)
+    local win_size_v = ImMax(ImMax(size_contents_v, size_visible_v), 1)
+    local grab_h_minsize = ImMin(bb:GetSize()[ImAxisToStr[axis]], style.GrabMinSize)
+    local grab_h_pixels = ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v)
+    local grab_h_norm = grab_h_pixels / scrollbar_size_v
+
+    ImGui.ItemAdd(bb_frame, id, nil, ImGuiItemFlags_NoNav)
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, ImGuiButtonFlags_NoNavFocus)
+
+    local scroll_max = ImMax(1, size_contents_v - size_visible_v)
+    local scroll_ratio = ImSaturate(p_scroll_v / scroll_max)
+    local grab_v_norm = scroll_ratio * (scrollbar_size_v - grab_h_pixels) / scrollbar_size_v
+    if held and allow_interaction and grab_h_norm < 1.0 then
+        local scrollbar_pos_v = bb.Min[ImAxisToStr[axis]]
+        local mouse_pos_v = g.IO.MousePos[ImAxisToStr[axis]]
+        local clicked_v_norm = ImSaturate((mouse_pos_v - scrollbar_pos_v) / scrollbar_size_v)
+
+        local held_dir
+        if clicked_v_norm < grab_v_norm then
+            held_dir = -1
+        elseif clicked_v_norm > grab_v_norm + grab_h_norm then
+            held_dir = 1
+        else
+            held_dir = 0
+        end
+        if g.ActiveIdIsJustActivated then
+            local scroll_to_clicked_location = (g.IO.ConfigScrollbarScrollByPage == false) or g.IO.KeyShift or held_dir == 0
+
+            if scroll_to_clicked_location then
+                g.ScrollbarSeekMode = 0
+            else
+                g.ScrollbarSeekMode = held_dir
+            end
+
+            if held_dir == 0 and not g.IO.KeyShift then
+                g.ScrollbarClickDeltaToGrabCenter = clicked_v_norm - grab_v_norm - grab_h_norm * 0.5
+            else
+                g.ScrollbarClickDeltaToGrabCenter = 0.0
+            end
+        end
+
+        if g.ScrollbarSeekMode == 0 then
+            scroll_v_norm = ImSaturate((clicked_v_norm - g.ScrollbarClickDeltaToGrabCenter - grab_h_norm * 0.5) / (1.0 - grab_h_norm))
+            p_scroll_v = scroll_v_norm * scroll_max
+        else
+            if ImGui.IsMouseClicked(ImGuiMouseButton_Left, nil, ImGuiInputFlags_Repeat) and held_dir == g.ScrollbarSeekMode then
+                local page_dir
+                if g.ScrollbarSeekMode > 0.0 then
+                    page_dir = 1.0
+                else
+                    page_dir = -1.0
+                end
+                p_scroll_v = ImClamp(p_scroll_v + page_dir * size_visible_v, 0, scroll_max)
+            end
+        end
+
+        scroll_ratio = ImSaturate(p_scroll_v / scroll_max)
+        grab_v_norm = scroll_ratio * (scrollbar_size_v - grab_h_pixels) / scrollbar_size_v
+    end
+
+    local bg_col = ImGui.GetColorU32(ImGuiCol.ScrollbarBg)
+    local grab_col
+    if held then
+        grab_col = ImGui.GetColorU32(ImGuiCol.ScrollbarGrabActive, alpha)
+    elseif hovered then
+        grab_col = ImGui.GetColorU32(ImGuiCol.ScrollbarGrabHovered, alpha)
+    else
+        grab_col = ImGui.GetColorU32(ImGuiCol.ScrollbarGrab, alpha)
+    end
+    window.DrawList:AddRectFilled(bb_frame.Min, bb_frame.Max, bg_col, window.WindowRounding, draw_rounding_flags)
+    local grab_rect
+    if axis == ImGuiAxis_X then
+        local x1 = ImLerp(bb.Min.x, bb.Max.x, grab_v_norm)
+        grab_rect = ImRect(x1, bb.Min.y, x1 + grab_h_pixels, bb.Max.y)
+    else
+        local y1 = ImLerp(bb.Min.y, bb.Max.y, grab_v_norm)
+        grab_rect = ImRect(bb.Min.x, y1, bb.Max.x, y1 + grab_h_pixels)
+    end
+
+    window.DrawList:AddRectFilled(grab_rect.Min, grab_rect.Max, grab_col, style.ScrollbarRounding)
+
+    return held, p_scroll_v
 end
 
 --- @param axis ImGuiAxis
 function ImGui.Scrollbar(axis)
-    -- TODO:
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    local id = ImGui.GetWindowScrollbarID(window, axis)
+
+    -- Calculate scrollbar bounding box
+    local bb = ImGui.GetWindowScrollbarRect(window, axis)
+    local axis_str = ImAxisToStr[axis]
+    local rounding_corners = ImGui.CalcRoundingFlagsForRectInRect(bb, window:Rect(), g.Style.WindowBorderSize)
+    local size_visible = window.InnerRect.Max[axis_str] - window.InnerRect.Min[axis_str]
+    local size_contents = window.ContentSize[axis_str] + window.WindowPadding[axis_str] * 2.0
+    local scroll = window.Scroll[axis_str]
+    local held
+    held, scroll = ImGui.ScrollbarEx(bb, id, axis, scroll, size_visible, size_contents, rounding_corners)
+    window.Scroll[axis_str] = scroll
 end
 
 --- @param label string

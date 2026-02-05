@@ -6,6 +6,7 @@
 --- @alias ImU32          integer
 --- @alias ImU64          integer
 --- @alias ImS8           integer
+--- @alias ImS64          integer
 --- @alias float          number
 
 --- @alias int            integer

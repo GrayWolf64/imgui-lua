@@ -366,6 +366,12 @@ function MT.ImRect:Add(p)
     end
 end
 
+--- @param amount float
+function MT.ImRect:Expand(amount)
+    self.Min.x = self.Min.x - amount; self.Min.y = self.Min.y - amount
+    self.Max.x = self.Max.x + amount; self.Max.y = self.Max.y + amount
+end
+
 --- @param amount ImVec2
 function MT.ImRect:ExpandV2(amount)
     self.Min.x = self.Min.x - amount.x; self.Min.y = self.Min.y - amount.y
@@ -721,6 +727,8 @@ function ImGuiStyle()
         ScrollbarSize     = 14.0,
         ScrollbarRounding = 9.0,
         ScrollbarPadding  = 2.0,
+        GrabMinSize = 12.0,
+        GrabRounding = 0.0,
 
         WindowBorderHoverPadding = 4.0,
 
@@ -934,6 +942,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         WindowResizeBorderExpectedRect = ImRect(),
         WindowResizeRelativeMode = false,
 
+        ScrollbarSeekMode = 0,
+        ScrollbarClickDeltaToGrabCenter = 0.0,
+
         TooltipOverrideCount = 0,
         TooltipPreviousWindow = nil,
 
@@ -1132,9 +1143,6 @@ function ImGuiWindow(ctx, name)
         DecoOuterSizeX2 = 0, DecoOuterSizeY2 = 0,
         DecoInnerSizeX1 = 0, DecoInnerSizeY1 = 0,
 
-        ScrollbarSizes = ImVec2(),
-        Scroll = ImVec2(),
-
         ContentSize = ImVec2(),
         ContentSizeIdeal = ImVec2(),
         ContentSizeExplicit = ImVec2(),
@@ -1152,8 +1160,16 @@ function ImGuiWindow(ctx, name)
 
         SettingsOffset = -1,
 
+        ScrollbarSizes = ImVec2(),
+        Scroll = ImVec2(),
+
         ScrollbarX = false,
         ScrollbarY = false,
+        ScrollMax = ImVec2(),
+        ScrollTarget = ImVec2(FLT_MAX, FLT_MAX),
+        ScrollTargetCenterRatio = ImVec2(0.5, 0.5),
+
+        ScrollbarXStabilizeToggledHistory = 0,
 
         DrawList = nil,
         DrawListInst = ImDrawList(ctx.DrawListSharedData),
@@ -1573,6 +1589,10 @@ ImGuiAxis = {
     None = -1,
     X    = 0,
     Y    = 1
+}
+
+ImAxisToStr = {
+    [0] = "x", [1] = "y"
 }
 
 --- @enum ImGuiPlotType

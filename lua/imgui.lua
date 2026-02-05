@@ -152,6 +152,9 @@ if not IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS then
     end
 end
 
+--- Forward Declaration
+local CalcNextScrollFromScrollTargetAndClamp
+
 local MT = ImGui.GetMetatables()
 
 local ImGuiResizeGripDef = {
@@ -2315,8 +2318,6 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
     return ret_auto_fit_mask, border_hovered, border_held
 end
 
---- TODO: AutoFit -> ScrollBar() -> Text()
-
 --- @param pos        ImVec2
 --- @param wrap_pos_x float
 --- @return float
@@ -2657,7 +2658,12 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- TODO: Menu bar
 
-        -- TODO: Scrollbars
+        if window.ScrollbarX then
+            ImGui.Scrollbar(ImGuiAxis.X)
+        end
+        if window.ScrollbarY then
+            ImGui.Scrollbar(ImGuiAxis.Y)
+        end
 
         -- Resize grip(s)
         if handle_borders_and_resize_grips and (bit.band(flags, ImGuiWindowFlags_NoResize) == 0) then
@@ -3556,6 +3562,54 @@ function ImGui.Begin(name, open, flags)
         -- Save last known viewport position within the window itself (so it can be saved in .ini file and restored)
         window.ViewportPos = window.Viewport.Pos:copy()
 
+        --- SCROLLBAR VISIBILITY
+        -- Update scrollbar visibility (based on the Size that was effective during last frame or the auto-resized Size)
+        if not window.Collapsed then
+            -- When reading the current size we need to read it after size constraints have been applied.
+            -- Intentionally use previous frame values for InnerRect and ScrollbarSizes.
+            -- And when we use window.DecoOuterSizeY1 here it doesn't have ScrollbarSizes.y applied yet.
+            local avail_size_from_current_frame = ImVec2(window.SizeFull.x, window.SizeFull.y - (window.DecoOuterSizeY1 + window.DecoOuterSizeY2))
+            local avail_size_from_last_frame = window.InnerRect:GetSize() + scrollbar_sizes_from_last_frame
+            local needed_size_from_last_frame = window_just_created and ImVec2(0, 0) or window.ContentSize + window.WindowPadding * 2.0
+
+            local size_x_for_scrollbars = use_current_size_for_scrollbar_x and avail_size_from_current_frame.x or avail_size_from_last_frame.x
+            local size_y_for_scrollbars = use_current_size_for_scrollbar_y and avail_size_from_current_frame.y or avail_size_from_last_frame.y
+
+            local scrollbar_x_prev = window.ScrollbarX
+            -- local scrollbar_y_from_last_frame = window.ScrollbarY -- FIXME: May want to use that in the ScrollbarX expression? How many pros vs cons?
+
+            window.ScrollbarY = (bit.band(flags, ImGuiWindowFlags_AlwaysVerticalScrollbar) ~= 0) or ((needed_size_from_last_frame.y > size_y_for_scrollbars) and not (bit.band(flags, ImGuiWindowFlags_NoScrollbar) ~= 0))
+            window.ScrollbarX = (bit.band(flags, ImGuiWindowFlags_AlwaysHorizontalScrollbar) ~= 0) or ((needed_size_from_last_frame.x > size_x_for_scrollbars - (window.ScrollbarY and style.ScrollbarSize or 0.0)) and not (bit.band(flags, ImGuiWindowFlags_NoScrollbar) ~= 0) and (bit.band(flags, ImGuiWindowFlags_HorizontalScrollbar) ~= 0))
+
+            -- Track when ScrollbarX visibility keeps toggling, which is a sign of a feedback loop, and stabilize by enforcing visibility (#3285, #8488)
+            -- (Feedback loops of this sort can manifest in various situations, but combining horizontal + vertical scrollbar + using a clipper with varying width items is one frequent cause.
+            --  The better solution is to, either (1) enforce visibility by using ImGuiWindowFlags_AlwaysHorizontalScrollbar or (2) declare stable contents width with SetNextWindowContentSize(), if you can compute it)
+            window.ScrollbarXStabilizeToggledHistory = bit.lshift(window.ScrollbarXStabilizeToggledHistory, 1)
+            if scrollbar_x_prev ~= window.ScrollbarX then
+                window.ScrollbarXStabilizeToggledHistory = bit.bor(window.ScrollbarXStabilizeToggledHistory, 0x01)
+            end
+
+            local scrollbar_x_stabilize = (window.ScrollbarXStabilizeToggledHistory ~= 0) and ImCountSetBits(window.ScrollbarXStabilizeToggledHistory) >= 4 -- 4 == half of bits in our U8 history.
+            if scrollbar_x_stabilize then
+                window.ScrollbarX = true
+            end
+
+            -- if scrollbar_x_stabilize and not window.ScrollbarXStabilizeEnabled then
+            --     IMGUI_DEBUG_LOG("[scroll] Stabilize ScrollbarX for Window '%s'\n", window.Name)
+            -- end
+            window.ScrollbarXStabilizeEnabled = scrollbar_x_stabilize
+
+            if window.ScrollbarX and not window.ScrollbarY then
+                window.ScrollbarY = (needed_size_from_last_frame.y > size_y_for_scrollbars - style.ScrollbarSize) and not (bit.band(flags, ImGuiWindowFlags_NoScrollbar) ~= 0)
+            end
+
+            window.ScrollbarSizes = ImVec2(window.ScrollbarY and style.ScrollbarSize or 0.0, window.ScrollbarX and style.ScrollbarSize or 0.0)
+
+            -- Amend the partially filled window.DecoOuterSizeX2 values.
+            window.DecoOuterSizeX2 = window.DecoOuterSizeX2 + window.ScrollbarSizes.x
+            window.DecoOuterSizeY2 = window.DecoOuterSizeY2 + window.ScrollbarSizes.y
+        end
+
         local host_rect
         if (bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags_Popup) == 0 and not window_is_child_tooltip) then
             host_rect = parent_window.ClipRect
@@ -3579,6 +3633,18 @@ function ImGui.Begin(name, open, flags)
         window.InnerClipRect.Max.x = ImFloor(window.InnerRect.Max.x - window.WindowBorderSize * 0.5)
         window.InnerClipRect.Max.y = ImFloor(window.InnerRect.Max.y - window.WindowBorderSize * 0.5)
         window.InnerClipRect:ClipWithFull(host_rect)
+
+        --- Scrolling
+        -- Lock down maximum scrolling
+        -- The value of ScrollMax are ahead from ScrollbarX/ScrollbarY which is intentionally using InnerRect from previous rect in order to accommodate
+        -- for right/bottom aligned items without creating a scrollbar.
+        window.ScrollMax.x = ImMax(0.0, window.ContentSize.x + window.WindowPadding.x * 2.0 - window.InnerRect:GetWidth())
+        window.ScrollMax.y = ImMax(0.0, window.ContentSize.y + window.WindowPadding.y * 2.0 - window.InnerRect:GetHeight())
+
+        -- Apply scrolling
+        CalcNextScrollFromScrollTargetAndClamp(window)
+        window.ScrollTarget = ImVec2(FLT_MAX, FLT_MAX)
+        window.DecoInnerSizeX1 = 0.0; window.DecoInnerSizeY1 = 0.0
 
         IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer.Data[1].ElemCount == 0)
         window.DrawList:PushTexture(g.Font.OwnerAtlas.TexRef)
@@ -3704,8 +3770,6 @@ function ImGui.Begin(name, open, flags)
         if want_focus then
             ImGui.FocusWindow(window)
         end
-
-        -- TODO: SCROLL
 
         if bit.band(flags, ImGuiWindowFlags_NoTitleBar) == 0 then
             open = RenderWindowTitleBarContents(window, title_bar_rect, name, open)
@@ -4815,6 +4879,54 @@ function ImGui.ScaleWindowsInViewport(viewport, scale)
     for _, window in g.Windows:iter() do
         if window.Viewport == viewport then
             ScaleWindow(window, scale)
+        end
+    end
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] SCROLLING
+---------------------------------------------------------------------------------------
+
+--- @param target         float
+--- @param snap_min       float
+--- @param snap_max       float
+--- @param snap_threshold float
+--- @param center_ratio   float
+local function CalcScrollEdgeSnap(target, snap_min, snap_max, snap_threshold, center_ratio)
+    if target <= snap_min + snap_threshold then
+        return ImLerp(snap_min, target, center_ratio)
+    end
+    if target >= snap_max - snap_threshold then
+        return ImLerp(target, snap_max, center_ratio)
+    end
+    return target
+end
+
+--- Updates window.Scroll
+--- @param window ImGuiWindow
+function CalcNextScrollFromScrollTargetAndClamp(window)
+    local scroll = window.Scroll
+    local decoration_size = ImVec2(window.DecoOuterSizeX1 + window.DecoInnerSizeX1 + window.DecoOuterSizeX2, window.DecoOuterSizeY1 + window.DecoInnerSizeY1 + window.DecoOuterSizeY2)
+
+    local axis
+    for i = 0, 1 do
+        axis = ImAxisToStr[i]
+
+        if window.ScrollTarget[axis] < FLT_MAX then
+            local center_ratio = window.ScrollTargetCenterRatio[axis]
+            local scroll_target = window.ScrollTarget[axis]
+
+            if window.ScrollTargetEdgeSnapDist[axis] > 0.0 then
+                local snap_min = 0.0
+                local snap_max = window.ScrollMax[axis] + window.SizeFull[axis] - decoration_size[axis]
+                scroll_target = CalcScrollEdgeSnap(scroll_target, snap_min, snap_max, window.ScrollTargetEdgeSnapDist[axis], center_ratio)
+            end
+
+            scroll[axis] = scroll_target - center_ratio * (window.SizeFull[axis] - decoration_size[axis])
+        end
+        scroll[axis] = ImRound(ImMax(scroll[axis], 0.0))
+        if not window.Collapsed and not window.SkipItems then
+            scroll[axis] = ImMin(scroll[axis], window.ScrollMax[axis])
         end
     end
 end
