@@ -11,9 +11,6 @@
 8. Exposed a lot of globals. Quite messy.
 9. Don't have overloads for functions. So follow a convention like: if there's a function ImMax for numbers, then ImMaxV2 is for ImVec2s. When it takes in many params, better name it like ImLerpV2V2V2. This helps me avoid type checking in these helper functions and also keep the code clear.
 10. Enclose some flags into tables when they don't rely on each other, e.g. no bit.* ops
-11. Currently some basic functions in core code still depends on GMod
-12. Actually rewrite the stb ports
-13. Multi-Viewport: `ViewportOwned` related
-14. !! Replace all `continue` with `goto CONTINUE`
-15. I hate cpp mess. Wtf imgui passes ImRect and ImVec4 window.ClipRect so randomly and everything works? I have to use `ImRectFromVec4` which looks ugly and feels bad.
-16. GMod render.MaxTextureWidth/Height()
+11. Actually rewrite the stb ports
+12. I hate cpp mess. Wtf imgui passes ImRect and ImVec4 window.ClipRect so randomly and everything works? I have to use `ImRectFromVec4` which looks ugly and feels bad.
+13. GMod render.MaxTextureWidth/Height()
