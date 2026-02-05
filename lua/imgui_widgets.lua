@@ -1031,10 +1031,10 @@ end
 --- @param plot_type     ImGuiPlotType
 --- @param label         string
 --- @param values_getter function(data: table, idx: int): float
---- @param data          table                                  # 1-based table
+--- @param data?         table                                  # 1-based table
 --- @param values_count  int
 --- @param values_offset int
---- @param overlay_text  string
+--- @param overlay_text? string
 --- @param scale_min     float
 --- @param scale_max     float
 --- @param size_arg      ImVec2
@@ -1182,20 +1182,52 @@ local function Plot_ArrayGetter(data, idx)
     return data.Values[idx * data.Stride]
 end
 
---- @param label         string
---- @param values        table  # 1-based table
---- @param values_count  int
---- @param values_offset int
---- @param overlay_text  string
---- @param scale_min?    float
---- @param scale_max?    float
---- @param stride?       int    # Defaults to 1
-function ImGui.PlotLines(label, values, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size, stride)
-    if scale_min  == nil then scale_min  = FLT_MAX      end
-    if scale_max  == nil then scale_max  = FLT_MAX      end
-    if graph_size == nil then graph_size = ImVec2(0, 0) end
-    if stride     == nil then stride     = 1            end
+--- @param label            string
+--- @param values_or_getter table|fun(data:table, i:int)  # 1-based table or a function
+--- @param data?            table                         # 1-based table
+--- @param values_count     int
+--- @param values_offset?   int                           # Defaults to 0
+--- @param overlay_text?    string
+--- @param scale_min?       float                         # Defaults to FLT_MAX
+--- @param scale_max?       float                         # Defaults to FLT_MAX
+--- @param graph_size?      ImVec2                        # Defaults to ImVec2(0, 0)
+--- @param stride?          int                           # Defaults to 1
+function ImGui.PlotLines(label, values_or_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size, stride)
+    if values_offset == nil then values_offset = 0         end
+    if scale_min     == nil then scale_min  = FLT_MAX      end
+    if scale_max     == nil then scale_max  = FLT_MAX      end
+    if graph_size    == nil then graph_size = ImVec2(0, 0) end
+    if stride        == nil then stride     = 1            end
 
-    local data = ImGuiPlotArrayGetterData(values, stride)
-    ImGui.PlotEx(ImGuiPlotType.Lines, label, Plot_ArrayGetter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size)
+    if type(values_or_getter) == "function" then
+        ImGui.PlotEx(ImGuiPlotType.Lines, label, values_or_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size)
+    else
+        data = ImGuiPlotArrayGetterData(values_or_getter, stride)
+        ImGui.PlotEx(ImGuiPlotType.Lines, label, Plot_ArrayGetter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size)
+    end
+end
+
+--- @param label            string
+--- @param values_or_getter table|fun(data:table, i:int)  # 1-based table or a function
+--- @param data?            table                         # 1-based table
+--- @param values_count     int
+--- @param values_offset?   int                           # Defaults to 0
+--- @param overlay_text?    string
+--- @param scale_min?       float                         # Defaults to FLT_MAX
+--- @param scale_max?       float                         # Defaults to FLT_MAX
+--- @param graph_size?      ImVec2                        # Defaults to ImVec2(0, 0)
+--- @param stride?          int                           # Defaults to 1
+function ImGui.PlotHistogram(label, values_or_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size, stride)
+    if values_offset == nil then values_offset = 0         end
+    if scale_min     == nil then scale_min  = FLT_MAX      end
+    if scale_max     == nil then scale_max  = FLT_MAX      end
+    if graph_size    == nil then graph_size = ImVec2(0, 0) end
+    if stride        == nil then stride     = 1            end
+
+    if type(values_or_getter) == "function" then
+        ImGui.PlotEx(ImGuiPlotType.Histogram, label, values_or_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size)
+    else
+        data = ImGuiPlotArrayGetterData(values_or_getter, stride)
+        ImGui.PlotEx(ImGuiPlotType.Histogram, label, Plot_ArrayGetter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size)
+    end
 end

@@ -38,6 +38,8 @@ concommand.Add("imgui_test", function()
     local refresh_time = 0
     local phase = 0
 
+    local function sin(_, i) return math.sin(i * 0.1) end
+
     local viewport = CreateMainViewport()
     ImGui_ImplGMOD.SetupPanelHooks(viewport, true)
 
@@ -105,7 +107,8 @@ concommand.Add("imgui_test", function()
                     average = average / 90
 
                     local overlay = string.format("avg %.6f", average)
-                    ImGui.PlotLines("Lines", values, 90, values_offset, overlay, -1.0, 1.0, ImVec2(0, 90.0))
+                    ImGui.PlotLines("Lines", values, nil, 90, values_offset, overlay, -1.0, 1.0, ImVec2(0, 80.0))
+                    ImGui.PlotHistogram("Sine Saws", sin, nil, 90, nil, nil, -1.0, 1.0, ImVec2(0, 80.0))
                 end
 
                 ImGui.PopFont()
