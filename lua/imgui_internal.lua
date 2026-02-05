@@ -746,6 +746,8 @@ function ImGuiStyle()
         CurveTessellationTol       = 1.25,
         CircleTessellationMaxError = 0.30,
 
+        HoverStationaryDelay = 0.15,
+
         PopupBorderSize = 1.0,
 
         Colors = {},
@@ -873,6 +875,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         HoveredIdTimer = 0.0,
         HoveredIdNotActiveTimer = 0.0,
         HoveredIdAllowOverlap = false,
+
+        HoverItemDelayId = 0, HoverItemDelayIdPreviousFrame = 0, HoverItemUnlockedStationaryId = 0, HoverWindowUnlockedStationaryId = 0,
+        HoverItemDelayTimer = 0.0, HoverItemDelayClearTimer = 0.0,
 
         ActiveIdAllowOverlap = false,
 

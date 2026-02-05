@@ -4471,33 +4471,32 @@ function ImGui.NewFrame()
     -- Record when we have been stationary as this state is preserved while over same item.
     -- FIXME: The way this is expressed means user cannot alter HoverStationaryDelay during the frame to use varying values.
     -- To allow this we should store HoverItemMaxStationaryTime+ID and perform the >= check in IsItemHovered() function.
-    -- if g.HoverItemDelayId ~= 0 and g.MouseStationaryTimer >= g.Style.HoverStationaryDelay then
-    --     g.HoverItemUnlockedStationaryId = g.HoverItemDelayId
-    -- elseif g.HoverItemDelayId == 0 then
-    --     g.HoverItemUnlockedStationaryId = 0
-    -- end
+    if g.HoverItemDelayId ~= 0 and g.MouseStationaryTimer >= g.Style.HoverStationaryDelay then
+        g.HoverItemUnlockedStationaryId = g.HoverItemDelayId
+    elseif g.HoverItemDelayId == 0 then
+        g.HoverItemUnlockedStationaryId = 0
+    end
+    if g.HoveredWindow ~= nil and g.MouseStationaryTimer >= g.Style.HoverStationaryDelay then
+        g.HoverWindowUnlockedStationaryId = g.HoveredWindow.ID
+    elseif g.HoveredWindow == nil then
+        g.HoverWindowUnlockedStationaryId = 0
+    end
 
-    -- if g.HoveredWindow ~= nil and g.MouseStationaryTimer >= g.Style.HoverStationaryDelay then
-    --     g.HoverWindowUnlockedStationaryId = g.HoveredWindow.ID
-    -- elseif g.HoveredWindow == nil then
-    --     g.HoverWindowUnlockedStationaryId = 0
-    -- end
-
-    -- -- Update hover delay for IsItemHovered() with delays and tooltips
-    -- g.HoverItemDelayIdPreviousFrame = g.HoverItemDelayId
-    -- if g.HoverItemDelayId ~= 0 then
-    --     g.HoverItemDelayTimer = g.HoverItemDelayTimer + g.IO.DeltaTime
-    --     g.HoverItemDelayClearTimer = 0.0
-    --     g.HoverItemDelayId = 0
-    -- elseif g.HoverItemDelayTimer > 0.0 then
-    --     -- This gives a little bit of leeway before clearing the hover timer, allowing mouse to cross gaps
-    --     -- We could expose 0.25f as style.HoverClearDelay but I am not sure of the logic yet, this is particularly subtle.
-    --     g.HoverItemDelayClearTimer = g.HoverItemDelayClearTimer + g.IO.DeltaTime
-    --     if g.HoverItemDelayClearTimer >= math.max(0.25, g.IO.DeltaTime * 2.0) then  -- ~7 frames at 30 Hz + allow for low framerate
-    --         g.HoverItemDelayTimer = 0.0
-    --         g.HoverItemDelayClearTimer = 0.0  -- May want a decaying timer, in which case need to clamp at max first, based on max of caller last requested timer.
-    --     end
-    -- end
+    -- Update hover delay for IsItemHovered() with delays and tooltips
+    g.HoverItemDelayIdPreviousFrame = g.HoverItemDelayId
+    if g.HoverItemDelayId ~= 0 then
+        g.HoverItemDelayTimer = g.HoverItemDelayTimer + g.IO.DeltaTime
+        g.HoverItemDelayClearTimer = 0.0
+        g.HoverItemDelayId = 0
+    elseif g.HoverItemDelayTimer > 0.0 then
+        -- This gives a little bit of leeway before clearing the hover timer, allowing mouse to cross gaps
+        -- We could expose 0.25f as style.HoverClearDelay but I am not sure of the logic yet, this is particularly subtle.
+        g.HoverItemDelayClearTimer = g.HoverItemDelayClearTimer + g.IO.DeltaTime
+        if g.HoverItemDelayClearTimer >= ImMax(0.25, g.IO.DeltaTime * 2.0) then  -- ~7 frames at 30 Hz + allow for low framerate
+            g.HoverItemDelayTimer = 0.0
+            g.HoverItemDelayClearTimer = 0.0  -- May want a decaying timer, in which case need to clamp at max first, based on max of caller last requested timer.
+        end
+    end
 
     ImGui.UpdateKeyboardInputs()
 
