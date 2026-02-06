@@ -1345,12 +1345,12 @@ end
 
 function MT.ImGuiIO:ClearInputKeys()
     local g = self.Ctx
-    for key = ImGuiKey_NamedKey_BEGIN, ImGuiKey_NamedKey_END - 1 do
+    for key = ImGuiKey.NamedKey_BEGIN, ImGuiKey.NamedKey_END - 1 do
         if ImGui.IsMouseKey(key) then
             goto CONTINUE
         end
 
-        local key_data = g.IO.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+        local key_data = g.IO.KeysData[key - ImGuiKey.NamedKey_BEGIN]
         key_data.Down = false
         key_data.DownDuration = -1.0
         key_data.DownDurationPrev = -1.0
@@ -1367,7 +1367,7 @@ end
 
 function MT.ImGuiIO:ClearInputMouse()
     for key = ImGuiKey_Mouse_BEGIN, ImGuiKey_Mouse_END - 1 do
-        local key_data = self.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+        local key_data = self.KeysData[key - ImGuiKey.NamedKey_BEGIN]
         if key_data then
             key_data.Down = false
             key_data.DownDuration = -1.0
@@ -1421,7 +1421,7 @@ end
 --- @param analog_value float
 function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
     IM_ASSERT(self.Ctx ~= nil)
-    if key == ImGuiKey_None or not self.AppAcceptingEvents then
+    if key == ImGuiKey.None or not self.AppAcceptingEvents then
         return
     end
 
@@ -1433,10 +1433,10 @@ function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
     if (g.IO.ConfigMacOSXBehaviors) then
         if (key == ImGuiMod_Super)          then key = ImGuiMod_Ctrl
         elseif (key == ImGuiMod_Ctrl)       then key = ImGuiMod_Super
-        elseif (key == ImGuiKey_LeftSuper)  then key = ImGuiKey_LeftCtrl
-        elseif (key == ImGuiKey_RightSuper) then key = ImGuiKey_RightCtrl
-        elseif (key == ImGuiKey_LeftCtrl)   then key = ImGuiKey_LeftSuper
-        elseif (key == ImGuiKey_RightCtrl)  then key = ImGuiKey_RightSuper
+        elseif (key == ImGuiKey.LeftSuper)  then key = ImGuiKey.LeftCtrl
+        elseif (key == ImGuiKey.RightSuper) then key = ImGuiKey.RightCtrl
+        elseif (key == ImGuiKey.LeftCtrl)   then key = ImGuiKey.LeftSuper
+        elseif (key == ImGuiKey.RightCtrl)  then key = ImGuiKey.RightSuper
         end
     end
 
@@ -1629,7 +1629,7 @@ function ImGui.GetKeyData(ctx, key)
     end
 
     IM_ASSERT(ImGui.IsNamedKey(key), "Support for user key indices was dropped in favor of ImGuiKey. Please update backend & user code.")
-    return ctx.IO.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+    return ctx.IO.KeysData[key - ImGuiKey.NamedKey_BEGIN]
 end
 
 --- @param key      ImGuiKey
@@ -4056,8 +4056,8 @@ function ImGui.UpdateKeyboardInputs()
     for n = 0, 2 do -- TODO: ImGuiMouseButton.COUNT - 1
         ImGui.UpdateAliasKey(ImGui.MouseButtonToKey(n), io.MouseDown[n], io.MouseDown[n] and 1.0 or 0.0)
     end
-    ImGui.UpdateAliasKey(ImGuiKey_MouseWheelX, io.MouseWheelH ~= 0.0, io.MouseWheelH)
-    ImGui.UpdateAliasKey(ImGuiKey_MouseWheelY, io.MouseWheel ~= 0.0, io.MouseWheel)
+    ImGui.UpdateAliasKey(ImGuiKey.MouseWheelX, io.MouseWheelH ~= 0.0, io.MouseWheelH)
+    ImGui.UpdateAliasKey(ImGuiKey.MouseWheelY, io.MouseWheel ~= 0.0, io.MouseWheel)
 
     -- Synchronize io.KeyMods and io.KeyCtrl/io.KeyShift/etc. values
     local prev_key_mods = io.KeyMods
@@ -4076,14 +4076,14 @@ function ImGui.UpdateKeyboardInputs()
     -- Clear gamepad data if disabled
     if bit.band(io.BackendFlags, ImGuiBackendFlags.HasGamepad) == 0 then
         for key = ImGuiKey_Gamepad_BEGIN, ImGuiKey_Gamepad_END - 1 do
-            io.KeysData[key - ImGuiKey_NamedKey_BEGIN].Down = false
-            io.KeysData[key - ImGuiKey_NamedKey_BEGIN].AnalogValue = 0.0
+            io.KeysData[key - ImGuiKey.NamedKey_BEGIN].Down = false
+            io.KeysData[key - ImGuiKey.NamedKey_BEGIN].AnalogValue = 0.0
         end
     end
 
     -- Update keys
-    for key = ImGuiKey_NamedKey_BEGIN, ImGuiKey_NamedKey_END - 1 do
-        local key_data = io.KeysData[key - ImGuiKey_NamedKey_BEGIN]
+    for key = ImGuiKey.NamedKey_BEGIN, ImGuiKey.NamedKey_END - 1 do
+        local key_data = io.KeysData[key - ImGuiKey.NamedKey_BEGIN]
         key_data.DownDurationPrev = key_data.DownDuration
         if key_data.Down then
             if key_data.DownDuration < 0.0 then
@@ -4097,16 +4097,16 @@ function ImGui.UpdateKeyboardInputs()
         if key_data.DownDuration == 0.0 then
             if ImGui.IsKeyboardKey(key) then
                 g.LastKeyboardKeyPressTime = g.Time
-            elseif key == ImGuiKey_ReservedForModCtrl or key == ImGuiKey_ReservedForModShift or key == ImGuiKey_ReservedForModAlt or key == ImGuiKey_ReservedForModSuper then
+            elseif key == ImGuiKey.ReservedForModCtrl or key == ImGuiKey.ReservedForModShift or key == ImGuiKey.ReservedForModAlt or key == ImGuiKey.ReservedForModSuper then
                 g.LastKeyboardKeyPressTime = g.Time
             end
         end
     end
 
     -- Update keys/input owner (named keys only): one entry per key
-    for key = ImGuiKey_NamedKey_BEGIN, ImGuiKey_NamedKey_END - 1 do
-        local key_data = io.KeysData[key - ImGuiKey_NamedKey_BEGIN]
-        local owner_data = g.KeysOwnerData[key - ImGuiKey_NamedKey_BEGIN]
+    for key = ImGuiKey.NamedKey_BEGIN, ImGuiKey.NamedKey_END - 1 do
+        local key_data = io.KeysData[key - ImGuiKey.NamedKey_BEGIN]
+        local owner_data = g.KeysOwnerData[key - ImGuiKey.NamedKey_BEGIN]
         owner_data.OwnerCurr = owner_data.OwnerNext
         if not key_data.Down then -- Important: ownership is released on the frame after a release. Ensure a 'MouseDown -> CloseWindow -> MouseUp' chain doesn't lead to someone else seeing the MouseUp.
             owner_data.OwnerNext = ImGuiKeyOwner_NoOwner
@@ -4267,8 +4267,8 @@ function ImGui.UpdateMouseWheel()
     end
 
     local wheel = ImVec2()
-    wheel.x = ImGui.TestKeyOwner(ImGuiKey_MouseWheelX, ImGuiKeyOwner_NoOwner) and g.IO.MouseWheelH or 0.0
-    wheel.y = ImGui.TestKeyOwner(ImGuiKey_MouseWheelY, ImGuiKeyOwner_NoOwner) and g.IO.MouseWheel or 0.0
+    wheel.x = ImGui.TestKeyOwner(ImGuiKey.MouseWheelX, ImGuiKeyOwner_NoOwner) and g.IO.MouseWheelH or 0.0
+    wheel.y = ImGui.TestKeyOwner(ImGuiKey.MouseWheelY, ImGuiKeyOwner_NoOwner) and g.IO.MouseWheel or 0.0
 
     local mouse_window = g.WheelingWindow and g.WheelingWindow or g.HoveredWindow
     if not mouse_window or mouse_window.Collapsed then

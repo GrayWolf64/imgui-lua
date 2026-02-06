@@ -12,7 +12,7 @@ local stbrp_context = IM_INCLUDE"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
 
-FLT_MAX = math.huge
+FLT_MAX = 3.40282346638529e+38
 IM_PI   = math.pi
 ImAbs   = math.abs
 ImFabs  = math.abs
@@ -23,7 +23,7 @@ ImMin = math.min
 --- @param b ImVec2
 --- @return ImVec2
 --- @nodiscard
-function ImMinVec2(a, b) return ImVec2(math.min(a.x, b.x), math.min(a.y, b.y)) end
+function ImMinVec2(a, b) return ImVec2(ImMin(a.x, b.x), ImMin(a.y, b.y)) end
 
 ImMax = math.max
 
@@ -31,7 +31,7 @@ ImMax = math.max
 --- @param b ImVec2
 --- @return ImVec2
 --- @nodiscard
-function ImMaxVec2(a, b) return ImVec2(math.max(a.x, b.x), math.max(a.y, b.y)) end
+function ImMaxVec2(a, b) return ImVec2(ImMax(a.x, b.x), ImMax(a.y, b.y)) end
 
 ImRound = math.Round
 ImCeil  = math.ceil
@@ -168,11 +168,11 @@ ImGuiKeyOwner_NoOwner = 4294967295
 
 --- @param button ImGuiMouseButton
 --- @return ImGuiKey
-function ImGui.MouseButtonToKey(button) IM_ASSERT(button >= 0 and button < ImGuiMouseButton.COUNT) return ImGuiKey_MouseLeft + button end
+function ImGui.MouseButtonToKey(button) IM_ASSERT(button >= 0 and button < ImGuiMouseButton.COUNT) return ImGuiKey.MouseLeft + button end
 
 --- @param key ImGuiKey
 function ImGui.IsNamedKey(key)
-    return key >= ImGuiKey_NamedKey_BEGIN and key < ImGuiKey_NamedKey_END
+    return key >= ImGuiKey.NamedKey_BEGIN and key < ImGuiKey.NamedKey_END
 end
 
 --- @param key ImGuiKey
@@ -198,19 +198,20 @@ end
 --- @param key ImGuiKey
 --- @return bool
 function ImGui.IsNamedKeyOrMod(key)
-    return (key >= ImGuiKey_NamedKey_BEGIN and key < ImGuiKey_NamedKey_END) or key == ImGuiMod_Ctrl or key == ImGuiMod_Shift or key == ImGuiMod_Alt or key == ImGuiMod_Super
+    return (key >= ImGuiKey.NamedKey_BEGIN and key < ImGuiKey.NamedKey_END) or key == ImGuiMod_Ctrl or key == ImGuiMod_Shift or key == ImGuiMod_Alt or key == ImGuiMod_Super
 end
 
 --- @param key ImGuiKey
+--- @return ImGuiKey
 function ImGui.ConvertSingleModFlagToKey(key)
     if key == ImGuiMod_Ctrl then
-        return ImGuiKey_ReservedForModCtrl
+        return ImGuiKey.ReservedForModCtrl
     elseif key == ImGuiMod_Shift then
-        return ImGuiKey_ReservedForModShift
+        return ImGuiKey.ReservedForModShift
     elseif key == ImGuiMod_Alt then
-        return ImGuiKey_ReservedForModAlt
+        return ImGuiKey.ReservedForModAlt
     elseif key == ImGuiMod_Super then
-        return ImGuiKey_ReservedForModSuper
+        return ImGuiKey.ReservedForModSuper
     end
     return key
 end
@@ -220,7 +221,7 @@ end
 function ImGui.GetKeyOwnerData(ctx, key)
     if bit.band(key, ImGuiMod_Mask_) ~= 0 then key = ImGui.ConvertSingleModFlagToKey(key) end
     IM_ASSERT(ImGui.IsNamedKey(key))
-    return ctx.KeysOwnerData[key - ImGuiKey_NamedKey_BEGIN]
+    return ctx.KeysOwnerData[key - ImGuiKey.NamedKey_BEGIN]
 end
 
 --- @class ImGuiKeyOwnerData
@@ -838,7 +839,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         MouseLastValidPos = ImVec2(),
 
-        KeysOwnerData = {}, -- size = ImGuiKey_NamedKey_COUNT
+        KeysOwnerData = {}, -- size = ImGuiKey.NamedKey_COUNT
 
         InputEventsQueue = ImVector(),
 
@@ -1001,7 +1002,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         this.IO.Fonts.OwnerContext = this
     end
 
-    for i = 0, ImGuiKey_NamedKey_COUNT - 1 do
+    for i = 0, ImGuiKey.NamedKey_COUNT - 1 do
         this.KeysOwnerData[i] = ImGuiKeyOwnerData()
     end
 
@@ -1563,12 +1564,12 @@ function ImGuiInputEvent()
     }
 end
 
-ImGuiKey_Keyboard_BEGIN = ImGuiKey_NamedKey_BEGIN
-ImGuiKey_Keyboard_END   = ImGuiKey_GamepadStart
-ImGuiKey_Gamepad_BEGIN  = ImGuiKey_GamepadStart
-ImGuiKey_Gamepad_END    = ImGuiKey_GamepadRStickDown + 1
-ImGuiKey_Mouse_BEGIN    = ImGuiKey_MouseLeft
-ImGuiKey_Mouse_END      = ImGuiKey_MouseWheelY + 1
+ImGuiKey_Keyboard_BEGIN = ImGuiKey.NamedKey_BEGIN
+ImGuiKey_Keyboard_END   = ImGuiKey.GamepadStart
+ImGuiKey_Gamepad_BEGIN  = ImGuiKey.GamepadStart
+ImGuiKey_Gamepad_END    = ImGuiKey.GamepadRStickDown + 1
+ImGuiKey_Mouse_BEGIN    = ImGuiKey.MouseLeft
+ImGuiKey_Mouse_END      = ImGuiKey.MouseWheelY + 1
 ImGuiKey_Aliases_BEGIN  = ImGuiKey_Mouse_BEGIN
 ImGuiKey_Aliases_END    = ImGuiKey_Mouse_END
 

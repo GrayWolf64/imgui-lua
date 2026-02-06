@@ -872,7 +872,7 @@ function ImGuiIO()
         KeyRepeatDelay          = 0.275,
         KeyRepeatRate           = 0.050,
 
-        KeysData = {}, -- size = ImGuiKey_NamedKey_COUNT
+        KeysData = {}, -- size = ImGuiKey.NamedKey_COUNT
 
         WantCaptureMouse    = nil,
         WantCaptureKeyboard = nil,
@@ -893,7 +893,7 @@ function ImGuiIO()
         AppAcceptingEvents = true
     }
 
-    for i = 0, ImGuiKey_NamedKey_COUNT - 1 do
+    for i = 0, ImGuiKey.NamedKey_COUNT - 1 do
         this.KeysData[i] = ImGuiKeyData()
     end
 
@@ -1268,171 +1268,113 @@ ImGuiHoveredFlags_AllowedMaskForIsItemHovered = bit.bor(
     ImGuiHoveredFlags_DelayMask_
 )
 
---- @alias ImGuiKey int
-ImGuiKey_None           = 0
-ImGuiKey_NamedKey_BEGIN = 512
+--- @enum ImGuiKey
+ImGuiKey = {
+    None = 0,
 
-ImGuiKey_Tab            = 512
-ImGuiKey_LeftArrow      = 513
-ImGuiKey_RightArrow     = 514
-ImGuiKey_UpArrow        = 515
-ImGuiKey_DownArrow      = 516
-ImGuiKey_PageUp         = 517
-ImGuiKey_PageDown       = 518
-ImGuiKey_Home           = 519
-ImGuiKey_End            = 520
-ImGuiKey_Insert         = 521
-ImGuiKey_Delete         = 522
-ImGuiKey_Backspace      = 523
-ImGuiKey_Space          = 524
-ImGuiKey_Enter          = 525
-ImGuiKey_Escape         = 526
-ImGuiKey_LeftCtrl       = 527
-ImGuiKey_LeftShift      = 528
-ImGuiKey_LeftAlt        = 529
-ImGuiKey_LeftSuper      = 530
-ImGuiKey_RightCtrl      = 531
-ImGuiKey_RightShift     = 532
-ImGuiKey_RightAlt       = 533
-ImGuiKey_RightSuper     = 534
-ImGuiKey_Menu           = 535
-ImGuiKey_0              = 536
-ImGuiKey_1              = 537
-ImGuiKey_2              = 538
-ImGuiKey_3              = 539
-ImGuiKey_4              = 540
-ImGuiKey_5              = 541
-ImGuiKey_6              = 542
-ImGuiKey_7              = 543
-ImGuiKey_8              = 544
-ImGuiKey_9              = 545
-ImGuiKey_A              = 546
-ImGuiKey_B              = 547
-ImGuiKey_C              = 548
-ImGuiKey_D              = 549
-ImGuiKey_E              = 550
-ImGuiKey_F              = 551
-ImGuiKey_G              = 552
-ImGuiKey_H              = 553
-ImGuiKey_I              = 554
-ImGuiKey_J              = 555
-ImGuiKey_K              = 556
-ImGuiKey_L              = 557
-ImGuiKey_M              = 558
-ImGuiKey_N              = 559
-ImGuiKey_O              = 560
-ImGuiKey_P              = 561
-ImGuiKey_Q              = 562
-ImGuiKey_R              = 563
-ImGuiKey_S              = 564
-ImGuiKey_T              = 565
-ImGuiKey_U              = 566
-ImGuiKey_V              = 567
-ImGuiKey_W              = 568
-ImGuiKey_X              = 569
-ImGuiKey_Y              = 570
-ImGuiKey_Z              = 571
-ImGuiKey_F1             = 572
-ImGuiKey_F2             = 573
-ImGuiKey_F3             = 574
-ImGuiKey_F4             = 575
-ImGuiKey_F5             = 576
-ImGuiKey_F6             = 577
-ImGuiKey_F7             = 578
-ImGuiKey_F8             = 579
-ImGuiKey_F9             = 580
-ImGuiKey_F10            = 581
-ImGuiKey_F11            = 582
-ImGuiKey_F12            = 583
-ImGuiKey_F13            = 584
-ImGuiKey_F14            = 585
-ImGuiKey_F15            = 586
-ImGuiKey_F16            = 587
-ImGuiKey_F17            = 588
-ImGuiKey_F18            = 589
-ImGuiKey_F19            = 590
-ImGuiKey_F20            = 591
-ImGuiKey_F21            = 592
-ImGuiKey_F22            = 593
-ImGuiKey_F23            = 594
-ImGuiKey_F24            = 595
-ImGuiKey_Apostrophe     = 596
-ImGuiKey_Comma          = 597
-ImGuiKey_Minus          = 598
-ImGuiKey_Period         = 599
-ImGuiKey_Slash          = 600
-ImGuiKey_Semicolon      = 601
-ImGuiKey_Equal          = 602
-ImGuiKey_LeftBracket    = 603
-ImGuiKey_Backslash      = 604
-ImGuiKey_RightBracket   = 605
-ImGuiKey_GraveAccent    = 606
-ImGuiKey_CapsLock       = 607
-ImGuiKey_ScrollLock     = 608
-ImGuiKey_NumLock        = 609
-ImGuiKey_PrintScreen    = 610
-ImGuiKey_Pause          = 611
-ImGuiKey_Keypad0        = 612
-ImGuiKey_Keypad1        = 613
-ImGuiKey_Keypad2        = 614
-ImGuiKey_Keypad3        = 615
-ImGuiKey_Keypad4        = 616
-ImGuiKey_Keypad5        = 617
-ImGuiKey_Keypad6        = 618
-ImGuiKey_Keypad7        = 619
-ImGuiKey_Keypad8        = 620
-ImGuiKey_Keypad9        = 621
-ImGuiKey_KeypadDecimal  = 622
-ImGuiKey_KeypadDivide   = 623
-ImGuiKey_KeypadMultiply = 624
-ImGuiKey_KeypadSubtract = 625
-ImGuiKey_KeypadAdd      = 626
-ImGuiKey_KeypadEnter    = 627
-ImGuiKey_KeypadEqual    = 628
-ImGuiKey_AppBack        = 629
-ImGuiKey_AppForward     = 630
-ImGuiKey_Oem102         = 631
+    NamedKey_BEGIN = 512,
 
-ImGuiKey_GamepadStart       = 632
-ImGuiKey_GamepadBack        = 633
-ImGuiKey_GamepadFaceLeft    = 634
-ImGuiKey_GamepadFaceRight   = 635
-ImGuiKey_GamepadFaceUp      = 636
-ImGuiKey_GamepadFaceDown    = 637
-ImGuiKey_GamepadDpadLeft    = 638
-ImGuiKey_GamepadDpadRight   = 639
-ImGuiKey_GamepadDpadUp      = 640
-ImGuiKey_GamepadDpadDown    = 641
-ImGuiKey_GamepadL1          = 642
-ImGuiKey_GamepadR1          = 643
-ImGuiKey_GamepadL2          = 644
-ImGuiKey_GamepadR2          = 645
-ImGuiKey_GamepadL3          = 646
-ImGuiKey_GamepadR3          = 647
-ImGuiKey_GamepadLStickLeft  = 648
-ImGuiKey_GamepadLStickRight = 649
-ImGuiKey_GamepadLStickUp    = 650
-ImGuiKey_GamepadLStickDown  = 651
-ImGuiKey_GamepadRStickLeft  = 652
-ImGuiKey_GamepadRStickRight = 653
-ImGuiKey_GamepadRStickUp    = 654
-ImGuiKey_GamepadRStickDown  = 655
+    Tab        = 512,
+    LeftArrow  = 513,
+    RightArrow = 514,
+    UpArrow    = 515,
+    DownArrow  = 516,
+    PageUp     = 517,
+    PageDown   = 518,
+    Home       = 519,
+    End        = 520,
+    Insert     = 521,
+    Delete     = 522,
+    Backspace  = 523,
+    Space      = 524,
+    Enter      = 525,
+    Escape     = 526,
+    LeftCtrl   = 527, LeftShift  = 528, LeftAlt  = 529, LeftSuper  = 530,
+    RightCtrl  = 531, RightShift = 532, RightAlt = 533, RightSuper = 534,
+    Menu       = 535,
 
-ImGuiKey_MouseLeft   = 656
-ImGuiKey_MouseRight  = 657
-ImGuiKey_MouseMiddle = 658
-ImGuiKey_MouseX1     = 659
-ImGuiKey_MouseX2     = 660
-ImGuiKey_MouseWheelX = 661
-ImGuiKey_MouseWheelY = 662
+    -- 1 ~ 9
+    K0 = 536, K1 = 537, K2 = 538, K3 = 539, K4 = 540, K5 = 541, K6 = 542, K7 = 543, K8 = 544, K9 = 545,
 
-ImGuiKey_ReservedForModCtrl  = 663
-ImGuiKey_ReservedForModShift = 664
-ImGuiKey_ReservedForModAlt   = 665
-ImGuiKey_ReservedForModSuper = 666
+    A = 546, B = 547, C = 548, D = 549, E = 550, F = 551, G = 552, H = 553, I = 554, J = 555,
+    K = 556, L = 557, M = 558, N = 559, O = 560, P = 561, Q = 562, R = 563, S = 564, T = 565,
+    U = 566, V = 567, W = 568, X = 569, Y = 570, Z = 571,
 
-ImGuiKey_NamedKey_END   = 667
-ImGuiKey_NamedKey_COUNT = ImGuiKey_NamedKey_END - ImGuiKey_NamedKey_BEGIN
+    F1  = 572, F2  = 573, F3  = 574, F4  = 575, F5  = 576, F6  = 577,
+    F7  = 578, F8  = 579, F9  = 580, F10 = 581, F11 = 582, F12 = 583,
+    F13 = 584, F14 = 585, F15 = 586, F16 = 587, F17 = 588, F18 = 589,
+    F19 = 590, F20 = 591, F21 = 592, F22 = 593, F23 = 594, F24 = 595,
+
+    Apostrophe     = 596,
+    Comma          = 597,
+    Minus          = 598,
+    Period         = 599,
+    Slash          = 600,
+    Semicolon      = 601,
+    Equal          = 602,
+    LeftBracket    = 603,
+    Backslash      = 604,
+    RightBracket   = 605,
+    GraveAccent    = 606,
+    CapsLock       = 607,
+    ScrollLock     = 608,
+    NumLock        = 609,
+    PrintScreen    = 610,
+    Pause          = 611,
+    Keypad0        = 612,
+    Keypad1        = 613,
+    Keypad2        = 614,
+    Keypad3        = 615,
+    Keypad4        = 616,
+    Keypad5        = 617,
+    Keypad6        = 618,
+    Keypad7        = 619,
+    Keypad8        = 620,
+    Keypad9        = 621,
+    KeypadDecimal  = 622,
+    KeypadDivide   = 623,
+    KeypadMultiply = 624,
+    KeypadSubtract = 625,
+    KeypadAdd      = 626,
+    KeypadEnter    = 627,
+    KeypadEqual    = 628,
+    AppBack        = 629,
+    AppForward     = 630,
+    Oem102         = 631,
+
+    GamepadStart       = 632,
+    GamepadBack        = 633,
+    GamepadFaceLeft    = 634,
+    GamepadFaceRight   = 635,
+    GamepadFaceUp      = 636,
+    GamepadFaceDown    = 637,
+    GamepadDpadLeft    = 638,
+    GamepadDpadRight   = 639,
+    GamepadDpadUp      = 640,
+    GamepadDpadDown    = 641,
+    GamepadL1          = 642,
+    GamepadR1          = 643,
+    GamepadL2          = 644,
+    GamepadR2          = 645,
+    GamepadL3          = 646,
+    GamepadR3          = 647,
+    GamepadLStickLeft  = 648,
+    GamepadLStickRight = 649,
+    GamepadLStickUp    = 650,
+    GamepadLStickDown  = 651,
+    GamepadRStickLeft  = 652,
+    GamepadRStickRight = 653,
+    GamepadRStickUp    = 654,
+    GamepadRStickDown  = 655,
+
+    MouseLeft = 656, MouseRight = 657, MouseMiddle = 658, MouseX1 = 659, MouseX2 = 660, MouseWheelX = 661, MouseWheelY = 662,
+
+    ReservedForModCtrl = 663, ReservedForModShift = 664, ReservedForModAlt = 665, ReservedForModSuper = 666,
+
+    NamedKey_END = 667
+}
+
+ImGuiKey.NamedKey_COUNT = ImGuiKey.NamedKey_END - ImGuiKey.NamedKey_BEGIN
 
 ImGuiMod_None  = 0
 ImGuiMod_Ctrl  = bit.lshift(1, 12)
