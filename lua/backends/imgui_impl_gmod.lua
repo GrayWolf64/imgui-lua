@@ -97,13 +97,13 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed
 
     if key_code then -- Mouse button or keyboard key
         if key_code >= MOUSE_FIRST and key_code <= MOUSE_LAST then
-            io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
+            io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
 
             local mouse_button
             if key_code == MOUSE_LEFT then
-                mouse_button = ImGuiMouseButton_Left
+                mouse_button = ImGuiMouseButton.Left
             elseif key_code == MOUSE_RIGHT then
-                mouse_button = ImGuiMouseButton_Right
+                mouse_button = ImGuiMouseButton.Right
             end
 
             io:AddMouseButtonEvent(mouse_button, is_down)
@@ -111,7 +111,7 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed
             -- TODO: 
         end
     elseif x and y then -- cursor position update
-        io:AddMouseSourceEvent(ImGuiMouseSource_Mouse)
+        io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
         io:AddMousePosEvent(x, y)
     elseif is_display_changed then
         bd.WantUpdateMonitors = true

@@ -1060,9 +1060,9 @@ function ImGui.SetActiveID(id, window)
         if g.NavActivateId == id or g.NavJustMovedToId == id then
             g.ActiveIdSource = g.NavInputSource
         else
-            g.ActiveIdSource = ImGuiInputSource_Mouse
+            g.ActiveIdSource = ImGuiInputSource.Mouse
         end
-        IM_ASSERT(g.ActiveIdSource ~= ImGuiInputSource_None)
+        IM_ASSERT(g.ActiveIdSource ~= ImGuiInputSource.None)
     end
 
     g.ActiveIdUsingNavDirMask = 0x00
@@ -1450,7 +1450,7 @@ function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
 
     local e = ImGuiInputEvent()
     e.Type = ImGuiInputEventType.Key
-    e.Source = ImGui.IsGamepadKey(key) and ImGuiInputSource_Gamepad or ImGuiInputSource_Keyboard
+    e.Source = ImGui.IsGamepadKey(key) and ImGuiInputSource.Gamepad or ImGuiInputSource.Keyboard
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
     e.Key = ImGuiInputEventKey()
@@ -1504,7 +1504,7 @@ function MT.ImGuiIO:AddMouseViewportEvent(viewport_id)
 
     local e = ImGuiInputEvent()
     e.Type = ImGuiInputEventType.MouseViewport
-    e.Source = ImGuiInputSource_Mouse
+    e.Source = ImGuiInputSource.Mouse
     e.MouseViewport = ImGuiInputEventMouseViewport()
     e.MouseViewport.HoveredViewportID = viewport_id
     g.InputEventsQueue:push_back(e)
@@ -1537,7 +1537,7 @@ function MT.ImGuiIO:AddMousePosEvent(x, y)
 
     local e = ImGuiInputEvent()
     e.Type = ImGuiInputEventType.MousePos
-    e.Source = ImGuiInputSource_Mouse
+    e.Source = ImGuiInputSource.Mouse
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
     e.MousePos = ImGuiInputEventMousePos()
@@ -1552,7 +1552,7 @@ end
 function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
-    IM_ASSERT(mouse_button >= 0 and mouse_button < ImGuiMouseButton_COUNT)
+    IM_ASSERT(mouse_button >= 0 and mouse_button < ImGuiMouseButton.COUNT)
     if not self.AppAcceptingEvents then
         return
     end
@@ -1587,7 +1587,7 @@ function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
 
     local e = ImGuiInputEvent()
     e.Type = ImGuiInputEventType.MouseButton
-    e.Source = ImGuiInputSource_Mouse
+    e.Source = ImGuiInputSource.Mouse
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
     e.MouseButton = ImGuiInputEventMouseButton()
@@ -1608,7 +1608,7 @@ function MT.ImGuiIO:AddMouseWheelEvent(wheel_x, wheel_y)
 
     local e = ImGuiInputEvent()
     e.Type = ImGuiInputEventType.MouseWheel
-    e.Source = ImGuiInputSource_Mouse
+    e.Source = ImGuiInputSource.Mouse
     e.EventId = g.InputEventsNextEventId
     g.InputEventsNextEventId = g.InputEventsNextEventId + 1
     e.MouseWheel = ImGuiInputEventMouseWheel()
@@ -1835,11 +1835,11 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             mouse_moved = true
         elseif e.Type == ImGuiInputEventType.MouseButton then
             local button = e.MouseButton.Button
-            IM_ASSERT(button >= 0 and button < ImGuiMouseButton_COUNT)
+            IM_ASSERT(button >= 0 and button < ImGuiMouseButton.COUNT)
             if trickle_fast_inputs and ((bit.band(mouse_button_changed, bit.lshift(1, button)) ~= 0) or mouse_wheeled) then
                 break
             end
-            if trickle_fast_inputs and e.MouseButton.MouseSource == ImGuiMouseSource_TouchScreen and mouse_moved then
+            if trickle_fast_inputs and e.MouseButton.MouseSource == ImGuiMouseSource.TouchScreen and mouse_moved then
                 break
             end
 
@@ -4053,7 +4053,7 @@ function ImGui.UpdateKeyboardInputs()
         io:ClearInputKeys()
     end
 
-    for n = 0, 2 do -- TODO: ImGuiMouseButton_COUNT - 1
+    for n = 0, 2 do -- TODO: ImGuiMouseButton.COUNT - 1
         ImGui.UpdateAliasKey(ImGui.MouseButtonToKey(n), io.MouseDown[n], io.MouseDown[n] and 1.0 or 0.0)
     end
     ImGui.UpdateAliasKey(ImGuiKey_MouseWheelX, io.MouseWheelH ~= 0.0, io.MouseWheelH)
@@ -5119,7 +5119,7 @@ function ImGui.BeginTooltipEx(tooltip_flags, extra_window_flags)
 
     local is_dragdrop_tooltip = g.DragDropWithinSource or g.DragDropWithinTarget
     if is_dragdrop_tooltip then
-        local is_touchscreen = (g.IO.MouseSource == ImGuiMouseSource_TouchScreen)
+        local is_touchscreen = (g.IO.MouseSource == ImGuiMouseSource.TouchScreen)
 
         if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasPos) == 0 then
             local tooltip_pos
@@ -5395,7 +5395,7 @@ function ImGui.FindBestWindowPosForPopup(window)
         local scale = g.Style.MouseCursorScale
         local ref_pos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags_Tooltip)
 
-        if g.IO.MouseSource == ImGuiMouseSource_TouchScreen and ImGui.NavCalcPreferredRefPosSource(ImGuiWindowFlags_Tooltip) == ImGuiInputSource_Mouse then
+        if g.IO.MouseSource == ImGuiMouseSource.TouchScreen and ImGui.NavCalcPreferredRefPosSource(ImGuiWindowFlags_Tooltip) == ImGuiInputSource.Mouse then
             local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - (TOOLTIP_DEFAULT_PIVOT_TOUCH * window.Size)
             if r_outer:Contains(ImRect(tooltip_pos, tooltip_pos + window.Size)) then
                 return tooltip_pos
@@ -5439,13 +5439,13 @@ function ImGui.NavCalcPreferredRefPosSource(window_type)
 
     local activated_shortcut = g.ActiveId ~= 0 and g.ActiveIdFromShortcut and g.ActiveId == g.LastItemData.ID
     if (bit.band(window_type, ImGuiWindowFlags_Popup) ~= 0) and activated_shortcut then
-        return ImGuiInputSource_Keyboard
+        return ImGuiInputSource.Keyboard
     end
 
     if not g.NavCursorVisible or not g.NavHighlightItemUnderNav or not window then
-        return ImGuiInputSource_Mouse
+        return ImGuiInputSource.Mouse
     else
-        return ImGuiInputSource_Keyboard  -- or Nav in general
+        return ImGuiInputSource.Keyboard  -- or Nav in general
     end
 end
 
@@ -5457,7 +5457,7 @@ function ImGui.NavCalcPreferredRefPos(window_type)
     local window = g.NavWindow
     local source = ImGui.NavCalcPreferredRefPosSource(window_type)
 
-    if source == ImGuiInputSource_Mouse then
+    if source == ImGuiInputSource.Mouse then
         -- Mouse (we need a fallback in case the mouse becomes invalid after being used)
         -- The +1.0f offset when stored by OpenPopupEx() allows reopening this or another popup (same or another mouse button) while not moving the mouse, it is pretty standard.
         -- In theory we could move that +1.0f offset in OpenPopupEx()

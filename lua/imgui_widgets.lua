@@ -249,6 +249,8 @@ function ImGui.ButtonBehavior(bb, id, flags)
         local mods_ok = (bit.band(flags, ImGuiButtonFlags_NoKeyModsAllowed) == 0) or (not g.IO.KeyCtrl and not g.IO.KeyShift and not g.IO.KeyAlt)
         if mods_ok then
             if mouse_button_clicked ~= -1 and g.ActiveId ~= id then
+                --- @cast mouse_button_clicked ImGuiMouseButton
+
                 if bit.band(flags, ImGuiButtonFlags_NoSetKeyOwner) == 0 then
                     ImGui.SetKeyOwner(ImGui.MouseButtonToKey(mouse_button_clicked), id)
                 end
@@ -317,7 +319,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
 
     local held = false
     if g.ActiveId == id then
-        if g.ActiveIdSource == ImGuiInputSource_Mouse then
+        if g.ActiveIdSource == ImGuiInputSource.Mouse then
             if g.ActiveIdIsJustActivated then
                 g.ActiveIdClickOffset = g.IO.MousePos - bb.Min
             end
@@ -351,7 +353,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
             if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 and g.IO.ConfigNavCursorVisibleAuto then
                 g.NavCursorVisible = false
             end
-        elseif g.ActiveIdSource == ImGuiInputSource_Keyboard or g.ActiveIdSource == ImGuiInputSource_Gamepad then
+        elseif g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
             -- When activated using Nav, we hold on the ActiveID until activation button is released
             if g.NavActivateDownId == id then
                 held = true  -- hovered == true not true as we are already likely hovered on direct activation.
@@ -644,7 +646,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
             scroll_v_norm = ImSaturate((clicked_v_norm - g.ScrollbarClickDeltaToGrabCenter - grab_h_norm * 0.5) / (1.0 - grab_h_norm))
             p_scroll_v = scroll_v_norm * scroll_max
         else
-            if ImGui.IsMouseClicked(ImGuiMouseButton_Left, nil, ImGuiInputFlags_Repeat) and held_dir == g.ScrollbarSeekMode then
+            if ImGui.IsMouseClicked(ImGuiMouseButton.Left, nil, ImGuiInputFlags_Repeat) and held_dir == g.ScrollbarSeekMode then
                 local page_dir
                 if g.ScrollbarSeekMode > 0.0 then
                     page_dir = 1.0
@@ -1030,7 +1032,7 @@ end
 
 --- @param plot_type     ImGuiPlotType
 --- @param label         string
---- @param values_getter function(data: table, idx: int): float
+--- @param values_getter fun(data?: table, idx: int): float
 --- @param data?         table                                  # 1-based table
 --- @param values_count  int
 --- @param values_offset int

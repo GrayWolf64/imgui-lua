@@ -2,6 +2,8 @@
 -- I won't implement type checks, since I ensure that types are correct in internal usage,
 -- and runtime type checking is very slow
 
+--- @meta
+
 local setmetatable = setmetatable
 
 local MT = ImGui.GetMetatables()
@@ -166,7 +168,7 @@ ImGuiKeyOwner_NoOwner = 4294967295
 
 --- @param button ImGuiMouseButton
 --- @return ImGuiKey
-function ImGui.MouseButtonToKey(button) IM_ASSERT(button >= 0 and button < ImGuiMouseButton_COUNT) return ImGuiKey_MouseLeft + button end
+function ImGui.MouseButtonToKey(button) IM_ASSERT(button >= 0 and button < ImGuiMouseButton.COUNT) return ImGuiKey_MouseLeft + button end
 
 --- @param key ImGuiKey
 function ImGui.IsNamedKey(key)
@@ -800,14 +802,15 @@ function ImGuiWindowStackData()
 end
 
 --- @class ImGuiContext
---- @field CurrentWindowStack ImVector<ImGuiWindowStackData>
---- @field PlatformIO         ImGuiPlatformIO
---- @field Viewports          ImVector<ImGuiViewportP>
+--- @field ActiveIdMouseButton ImS8
+--- @field CurrentWindowStack  ImVector<ImGuiWindowStackData>
+--- @field PlatformIO          ImGuiPlatformIO
+--- @field Viewports           ImVector<ImGuiViewportP>
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
 --- @nodiscard
-function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
+function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this structure
     local this = {
         Style = ImGuiStyle(),
         ColorStack = ImVector(),
@@ -839,7 +842,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         InputEventsQueue = ImVector(),
 
-        InputEventsNextMouseSource = ImGuiMouseSource_Mouse,
+        InputEventsNextMouseSource = ImGuiMouseSource.Mouse,
         InputEventsNextEventId = 1,
 
         MovingWindow = nil,
@@ -859,8 +862,10 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
 
         ActiveIdFromShortcut = false,
 
-        ActiveId = 0, -- Active widget
-        ActiveIdWindow = nil, -- Active window
+        ActiveId = 0,
+        ActiveIdWindow = nil,
+
+        ActiveIdMouseButton = -1,
 
         ActiveIdIsJustActivated = false,
 
@@ -987,7 +992,6 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         DragDropSourceFlags = 0,
 
         DragDropAcceptIdPrev = 0, DragDropAcceptIdCurr = 0,
-        -- TODO: 
 
         DebugFlashStyleColorIdx = nil,
     }
@@ -1476,12 +1480,14 @@ function ImFontAtlasPostProcessData(atlas, font, font_src, font_baked, glyph, pi
     }
 end
 
---- @alias ImGuiInputSource int
-ImGuiInputSource_None     = 0
-ImGuiInputSource_Mouse    = 1
-ImGuiInputSource_Keyboard = 2
-ImGuiInputSource_Gamepad  = 3
-ImGuiInputSource_COUNT    = 4
+--- @enum ImGuiInputSource
+ImGuiInputSource = {
+    None     = 0,
+    Mouse    = 1,
+    Keyboard = 2,
+    Gamepad  = 3,
+    COUNT    = 4
+}
 
 --- @class ImGuiInputEventMousePos
 --- @field PosX float
@@ -1491,18 +1497,18 @@ ImGuiInputSource_COUNT    = 4
 --- @return ImGuiInputEventMousePos
 --- @nodiscard
 function ImGuiInputEventMousePos()
-    return { PosX = 0, PosY = 0, MouseSource = ImGuiMouseSource_Mouse }
+    return { PosX = 0, PosY = 0, MouseSource = ImGuiMouseSource.Mouse }
 end
 
 --- @class ImGuiInputEventMouseButton
 --- @field Button int
---- @field Down bool
+--- @field Down   bool
 --- @field MouseSource ImGuiMouseSource
 
 --- @return ImGuiInputEventMouseButton
 --- @nodiscard
 function ImGuiInputEventMouseButton()
-    return { Button = 0, Down = false, MouseSource = ImGuiMouseSource_Mouse }
+    return { Button = 0, Down = false, MouseSource = ImGuiMouseSource.Mouse }
 end
 
 --- @class ImGuiInputEventMouseWheel
@@ -1513,7 +1519,7 @@ end
 --- @return ImGuiInputEventMouseWheel
 --- @nodiscard
 function ImGuiInputEventMouseWheel()
-    return { WheelX = 0, WheelY = 0, MouseSource = ImGuiMouseSource_Mouse }
+    return { WheelX = 0, WheelY = 0, MouseSource = ImGuiMouseSource.Mouse }
 end
 
 --- @class ImGuiInputEventKey

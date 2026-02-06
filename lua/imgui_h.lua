@@ -1,6 +1,8 @@
 --- ImGui Sincerely WIP
 -- (Definitions)
 
+--- @meta
+
 --- @alias ImU8           integer
 --- @alias ImU16          integer
 --- @alias ImU32          integer
@@ -1032,11 +1034,13 @@ ImGuiDir = {
     COUNT = 4
 }
 
---- @alias ImGuiMouseButton int
-ImGuiMouseButton_Left   = 0
-ImGuiMouseButton_Right  = 1
-ImGuiMouseButton_Middle = 2
-ImGuiMouseButton_COUNT  = 5
+--- @enum ImGuiMouseButton
+ImGuiMouseButton = {
+    Left   = 0,
+    Right  = 1,
+    Middle = 2,
+    COUNT  = 5
+}
 
 --- @alias ImGuiWindowFlags integer
 ImGuiWindowFlags_None                      = 0
@@ -1145,11 +1149,13 @@ ImFontFlags = {
     LockBakedSizes = bit.lshift(1, 3)
 }
 
---- @alias ImGuiMouseSource int # This is probably impractical in GMod
-ImGuiMouseSource_Mouse       = 0
-ImGuiMouseSource_TouchScreen = 1
-ImGuiMouseSource_Pen         = 2
-ImGuiMouseSource_COUNT       = 3
+--- @enum ImGuiMouseSource
+ImGuiMouseSource = {
+    Mouse       = 0,
+    TouchScreen = 1,
+    Pen         = 2,
+    COUNT       = 3
+}
 
 --- @enum ImGuiCond
 ImGuiCond = {
