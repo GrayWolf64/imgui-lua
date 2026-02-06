@@ -4,7 +4,7 @@
 
 ## Current State
 
-![Stress Testing Example](misc/images/2026-2-5.png)
+![Example](misc/images/2026-2-5.png)
 
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
@@ -17,6 +17,12 @@
 | Backends   | Currently only have GMod backend |
 
 Loading [FreeType](https://github.com/freetype/freetype) fonts and `Docking` might be too advanced for GMod/Games that enable Lua scripting. I don't think people need that. And they take a lot of time to re-write in Lua so anybody can resort to real binary modules!
+
+### Notes
+
+Roadmap and task list: [TODO](misc/TODO.md)
+
+Things to pay attention to: [PORT](misc/PORT.md)
 
 ### How to Try it in GMOD?
 

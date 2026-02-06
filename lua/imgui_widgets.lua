@@ -1027,6 +1027,24 @@ function ImGui.SeparatorText(label)
 end
 
 ----------------------------------------------------------------
+-- [SECTION] COMBO BOX
+----------------------------------------------------------------
+
+--- @param items_count float
+--- @return float
+local function CalcMaxPopupHeightFromItemCount(items_count)
+    local g = GImGui
+    if items_count <= 0 then
+        return FLT_MAX
+    end
+    return (g.FontSize + g.Style.ItemSpacing.y) * items_count - g.Style.ItemSpacing.y + (g.Style.WindowPadding.y * 2)
+end
+
+function ImGui.BeginComboPopup(popup_id, bb, flags)
+    -- TODO:
+end
+
+----------------------------------------------------------------
 -- [SECTION] BASIC PLOTTING
 ----------------------------------------------------------------
 

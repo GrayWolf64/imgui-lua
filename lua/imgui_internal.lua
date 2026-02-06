@@ -948,6 +948,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         OpenPopupStack = ImVector(),
         BeginPopupStack = ImVector(),
 
+        BeginMenuDepth = 0, BeginComboDepth = 0,
+
         DrawListSharedData = ImDrawListSharedData(),
 
         -- StackSizesInBeginForCurrentWindow = nil,

@@ -1,5 +1,7 @@
 # Porting From C/C++ to (G)Lua 5.1 with JIT
 
+Note that *this is quite old and outdated material*
+
 ```lua
 --- This is no longer used
 local CValue do
@@ -34,7 +36,7 @@ end
 
 ## Notes
 
-1. It's very important to pay attention to `=` operators. Sometimes `:copy()` is necessary in Lua instead of simply using `=` on tables(structures)
+- It's very important to pay attention to `=` operators. Sometimes `:copy()` is necessary in Lua instead of simply using `=` on tables(structures)
 
 Search for "GLUA:" to see (G)Lua specific changes!
 
