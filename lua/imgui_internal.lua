@@ -102,6 +102,16 @@ function ImUpperPowerOfTwo(v)
     return v + 1
 end
 
+--- @param avg    float
+--- @param sample float
+--- @param n      int
+--- @return float
+function ImExponentialMovingAverage(avg, sample, n)
+    avg = avg - avg / n
+    avg = avg + sample / n
+    return avg
+end
+
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
 IM_F32_TO_INT8_SAT = function(val) return math.floor(ImSaturate(val) * 255.0 + 0.5) end
@@ -835,6 +845,11 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up this structure
         MovingWindow = nil,
 
         WheelingWindow = nil,
+        WheelingWindowStartFrame = -1, WheelingWindowScrolledFrame = -1,
+        WheelingWindowReleaseTimer = 0.0,
+        WheelingWindowRefMousePos = nil,
+        WheelingWindowWheelRemainder = ImVec2(),
+        WheelingAxisAvg = ImVec2(),
 
         ActiveIdClickOffset = ImVec2(),
 
@@ -1173,6 +1188,7 @@ function ImGuiWindow(ctx, name)
         ScrollMax = ImVec2(),
         ScrollTarget = ImVec2(FLT_MAX, FLT_MAX),
         ScrollTargetCenterRatio = ImVec2(0.5, 0.5),
+        ScrollTargetEdgeSnapDist = ImVec2(),
 
         ScrollbarXStabilizeToggledHistory = 0,
 

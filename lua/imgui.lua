@@ -34,6 +34,7 @@ IM_INCLUDE"imgui_widgets.lua"
 local FONT_DEFAULT_SIZE_BASE = 20
 
 local WINDOWS_RESIZE_FROM_EDGES_FEEDBACK_TIMER = 0.04
+local WINDOWS_MOUSE_WHEEL_SCROLL_LOCK_TIMER    = 0.70
 
 local TOOLTIP_DEFAULT_OFFSET_MOUSE = ImVec2(16, 10)   -- Multiplied by g.Style.MouseCursorScale
 local TOOLTIP_DEFAULT_OFFSET_TOUCH = ImVec2(0, -20)   -- Multiplied by g.Style.MouseCursorScale
@@ -4191,6 +4192,165 @@ function ImGui.UpdateMouseInputs()
     end
 end
 
+--- @param window?      ImGuiWindow
+--- @param wheel_amount float
+local function LockWheelingWindow(window, wheel_amount)
+    local g = GImGui
+    if window then
+        g.WheelingWindowReleaseTimer = ImMin(g.WheelingWindowReleaseTimer + ImAbs(wheel_amount) * WINDOWS_MOUSE_WHEEL_SCROLL_LOCK_TIMER, WINDOWS_MOUSE_WHEEL_SCROLL_LOCK_TIMER)
+    else
+        g.WheelingWindowReleaseTimer = 0.0
+    end
+    if (g.WheelingWindow == window) then
+        return
+    end
+    -- IMGUI_DEBUG_LOG_IO("[io] LockWheelingWindow() \"%s\"\n", window ? window->Name : "NULL")
+    g.WheelingWindow = window
+    g.WheelingWindowRefMousePos = g.IO.MousePos:copy()
+    if window == nil then
+        g.WheelingWindowStartFrame = -1
+        g.WheelingAxisAvg = ImVec2(0.0, 0.0)
+    end
+end
+
+--- @param wheel ImVec2
+--- @return ImGuiWindow?
+local function FindBestWheelingWindow(wheel)
+    local g = GImGui
+    local windows = {nil, nil}
+    for axis = 0, 1 do
+        if wheel[ImAxisToStr[axis]] ~= 0.0 then
+            windows[axis + 1] = g.HoveredWindow
+            local window = g.HoveredWindow
+            while bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0 do
+                local has_scrolling = (window.ScrollMax[ImAxisToStr[axis]] ~= 0.0)
+                local inputs_disabled = (bit.band(window.Flags, ImGuiWindowFlags_NoScrollWithMouse) ~= 0) and not (bit.band(window.Flags, ImGuiWindowFlags_NoMouseInputs) ~= 0)
+
+                if has_scrolling and not inputs_disabled then
+                    break -- select this window
+                end
+
+                windows[axis + 1] = window.ParentWindow
+                window = window.ParentWindow
+            end
+        end
+    end
+    if windows[1] == nil and windows[2] == nil then
+        return nil
+    end
+
+    if (windows[1] == windows[2] or windows[1] == nil or windows[2] == nil) then
+        return windows[2] and windows[2] or windows[1]
+    end
+
+    if (g.WheelingWindowStartFrame == -1) then
+        g.WheelingWindowStartFrame = g.FrameCount
+    end
+    if ((g.WheelingWindowStartFrame == g.FrameCount and wheel.x ~= 0.0 and wheel.y ~= 0.0) or (g.WheelingAxisAvg.x == g.WheelingAxisAvg.y)) then
+        g.WheelingWindowWheelRemainder = wheel
+        return nil
+    end
+    return (g.WheelingAxisAvg.x > g.WheelingAxisAvg.y) and windows[1] or windows[2]
+end
+
+function ImGui.UpdateMouseWheel()
+    local g = GImGui
+    if g.WheelingWindow ~= nil then
+        g.WheelingWindowReleaseTimer = g.WheelingWindowReleaseTimer - g.IO.DeltaTime
+        if ImGui.IsMousePosValid() and ImLengthSqr(g.IO.MousePos - g.WheelingWindowRefMousePos) > g.IO.MouseDragThreshold * g.IO.MouseDragThreshold then
+            g.WheelingWindowReleaseTimer = 0.0
+        end
+
+        if g.WheelingWindowReleaseTimer <= 0.0 then
+            LockWheelingWindow(nil, 0.0)
+        end
+    end
+
+    local wheel = ImVec2()
+    wheel.x = ImGui.TestKeyOwner(ImGuiKey_MouseWheelX, ImGuiKeyOwner_NoOwner) and g.IO.MouseWheelH or 0.0
+    wheel.y = ImGui.TestKeyOwner(ImGuiKey_MouseWheelY, ImGuiKeyOwner_NoOwner) and g.IO.MouseWheel or 0.0
+
+    local mouse_window = g.WheelingWindow and g.WheelingWindow or g.HoveredWindow
+    if not mouse_window or mouse_window.Collapsed then
+        return
+    end
+
+    -- Zoom / Scale window
+    -- FIXME-OBSOLETE: This is an old feature, it still works but pretty much nobody is using it and may be best redesigned
+    if wheel.y ~= 0.0 and g.IO.KeyCtrl and g.IO.FontAllowUserScaling then
+        LockWheelingWindow(mouse_window, wheel.y)
+        local window = mouse_window
+        local new_font_scale = ImClamp(window.FontWindowScale + g.IO.MouseWheel * 0.10, 0.50, 2.50)
+        local scale = new_font_scale / window.FontWindowScale
+        window.FontWindowScale = new_font_scale
+        if window == window.RootWindow then
+            local offset = window.Size * (1.0 - scale) * (g.IO.MousePos - window.Pos) / window.Size
+            ImGui.SetWindowPos(window, window.Pos + offset, 0)
+            -- MarkIniSettingsDirty(window)
+        end
+        return
+    end
+    if g.IO.KeyCtrl then
+        return
+    end
+
+    -- Mouse wheel scrolling
+    if (g.IO.MouseWheelRequestAxisSwap) then
+        wheel = ImVec2(wheel.y, 0.0)
+    end
+
+    -- Maintain a rough average of moving magnitude on both axes
+    -- FIXME: should by based on wall clock time rather than frame-counter
+    g.WheelingAxisAvg.x = ImExponentialMovingAverage(g.WheelingAxisAvg.x, ImAbs(wheel.x), 30)
+    g.WheelingAxisAvg.y = ImExponentialMovingAverage(g.WheelingAxisAvg.y, ImAbs(wheel.y), 30)
+
+    -- In the rare situation where FindBestWheelingWindow() had to defer first frame of wheeling due to ambiguous main axis, reinject it now
+    wheel = wheel + g.WheelingWindowWheelRemainder
+    g.WheelingWindowWheelRemainder = ImVec2(0.0, 0.0)
+    if (wheel.x == 0.0 and wheel.y == 0.0) then
+        return
+    end
+
+    -- Mouse wheel scrolling: find target and apply
+    -- - don't renew lock if axis doesn't apply on the window.
+    -- - select a main axis when both axes are being moved.
+    local window
+    if g.WheelingWindow then
+        window = g.WheelingWindow
+    else
+        window = FindBestWheelingWindow(wheel)
+    end
+    if window then
+        if not (bit.band(window.Flags, ImGuiWindowFlags_NoScrollWithMouse) ~= 0) and not (bit.band(window.Flags, ImGuiWindowFlags_NoMouseInputs) ~= 0) then
+            local do_scroll = { wheel.x ~= 0.0 and window.ScrollMax.x ~= 0.0, wheel.y ~= 0.0 and window.ScrollMax.y ~= 0.0 }
+
+            if do_scroll[ImGuiAxis.X + 1] and do_scroll[ImGuiAxis.Y + 1] then
+                if g.WheelingAxisAvg.x > g.WheelingAxisAvg.y then
+                    do_scroll[ImGuiAxis.Y + 1] = false
+                else
+                    do_scroll[ImGuiAxis.X + 1] = false
+                end
+            end
+
+            if do_scroll[ImGuiAxis.X + 1] then
+                LockWheelingWindow(window, wheel.x)
+                local max_step = window.InnerRect:GetWidth() * 0.67
+                local scroll_step = ImTrunc(ImMin(2 * window.FontRefSize, max_step))
+                ImGui.SetScrollX(window, window.Scroll.x - wheel.x * scroll_step)
+                g.WheelingWindowScrolledFrame = g.FrameCount
+            end
+
+            if do_scroll[ImGuiAxis.Y + 1] then
+                LockWheelingWindow(window, wheel.y)
+                local max_step = window.InnerRect:GetHeight() * 0.67
+                local scroll_step = ImTrunc(ImMin(5 * window.FontRefSize, max_step))
+                ImGui.SetScrollY(window, window.Scroll.y - wheel.y * scroll_step)
+                g.WheelingWindowScrolledFrame = g.FrameCount
+            end
+        end
+    end
+end
+
 local function SetupDrawListSharedData()
     local g = GImGui
     local virtual_space = ImRect(FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX)
@@ -4517,6 +4677,8 @@ function ImGui.NewFrame()
     ImGui.UpdateHoveredWindowAndCaptureFlags(g.IO.MousePos)
 
     ImGui.UpdateMouseMovingWindowNewFrame()
+
+    ImGui.UpdateMouseWheel()
 
     g.MouseCursor = ImGuiMouseCursor.Arrow
     g.WantCaptureMouseNextFrame = -1
@@ -4928,6 +5090,22 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
             scroll[axis] = ImMin(scroll[axis], window.ScrollMax[axis])
         end
     end
+end
+
+--- @param window   ImGuiWindow
+--- @param scroll_x float
+function ImGui.SetScrollX(window, scroll_x)
+    window.ScrollTarget.x = scroll_x
+    window.ScrollTargetCenterRatio.x = 0.0
+    window.ScrollTargetEdgeSnapDist.x = 0.0
+end
+
+--- @param window   ImGuiWindow
+--- @param scroll_y float
+function ImGui.SetScrollY(window, scroll_y)
+    window.ScrollTarget.y = scroll_y
+    window.ScrollTargetCenterRatio.y = 0.0
+    window.ScrollTargetEdgeSnapDist.y = 0.0
 end
 
 ---------------------------------------------------------------------------------------

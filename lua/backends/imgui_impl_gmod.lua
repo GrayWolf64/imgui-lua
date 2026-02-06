@@ -116,7 +116,7 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed
     elseif is_display_changed then
         bd.WantUpdateMonitors = true
     elseif scroll_delta then
-        io:AddMouseWheelEvent(0.0, scroll_delta / 120) -- TODO: validate
+        io:AddMouseWheelEvent(0.0, scroll_delta)
     end
 end
 
