@@ -161,7 +161,7 @@ function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, MT.ImVec2) e
 
 function MT.ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
 function MT.ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
-function MT.ImVec2:__mul(other) if isnumber(self) then return ImVec2(self * other.x, self * other.y) elseif isnumber(other) then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
+function MT.ImVec2:__mul(other) if type(self) == "number" then return ImVec2(self * other.x, self * other.y) elseif type(other) == "number" then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
 function MT.ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
 function MT.ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
 function MT.ImVec2:copy() return ImVec2(self.x, self.y) end
@@ -180,8 +180,9 @@ function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z o
 
 function MT.ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
 function MT.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
-function MT.ImVec4:__mul(other) if isnumber(self) then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif isnumber(other) then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
+function MT.ImVec4:__mul(other) if type(self) == "number" then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif type(other) == "number" then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
 function MT.ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
+function MT.ImVec4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", self.x, self.y, self.z, self.w) end
 function MT.ImVec4:copy() return ImVec4(self.x, self.y, self.z, self.w) end
 
 --- A compact ImVector clone
