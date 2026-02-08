@@ -800,6 +800,7 @@ function ImGuiStyle()
         Colors = {},
 
         ButtonTextAlign = ImVec2(0.5, 0.5),
+        SelectableTextAlign = ImVec2(0.0, 0.0),
 
         WindowMinSize = ImVec2(32, 32),
         WindowTitleAlign = ImVec2(0.0, 0.5),
@@ -1154,23 +1155,33 @@ local function ImGuiWindowTempData()
 end
 
 --- @class ImGuiWindow
---- @field Ctx                 ImGuiContext
---- @field Name                string
---- @field ID                  ImGuiID
---- @field Flags               ImGuiWindowFlags
---- @field FlagsPreviousFrame  ImGuiWindowFlags
---- @field ChildFlags          ImGuiChildFlags
---- @field WindowClass         ImGuiWindowClass
---- @field IsExplicitChild     bool
---- @field FocusOrder          short               # 1-based, order within WindowsFocusOrder, altered when windows are focused. Can be -1
---- @field IDStack             ImVector<ImGuiID>
---- @field DC                  ImGuiWindowTempData
---- @field DrawList            ImDrawList          # Points to DrawListInst
---- @field DrawListInst        ImDrawList
---- @field ParentWindow?       ImGuiWindow
---- @field RootWindow          ImGuiWindow
---- @field RootWindowPopupTree ImGuiWindow
---- @field RootWindowDockTree  ImGuiWindow
+--- @field Ctx                                ImGuiContext
+--- @field Name                               string
+--- @field ID                                 ImGuiID
+--- @field Flags                              ImGuiWindowFlags
+--- @field FlagsPreviousFrame                 ImGuiWindowFlags
+--- @field ChildFlags                         ImGuiChildFlags
+--- @field WindowClass                        ImGuiWindowClass
+--- @field Viewport                           ImGuiViewportP
+--- @field ViewportId                         ImGuiID
+--- @field ViewportPos                        ImVec2
+--- @field ViewportAllowPlatformMonitorExtend int
+--- @field Pos                                ImVec2
+--- @field Size                               ImVec2
+--- @field SizeFull                           ImVec2
+--- @field ContentSize                        ImVec2
+--- @field ContentSizeIdeal                   ImVec2
+--- @field ContentSizeExplicit                ImVec2
+--- @field IsExplicitChild                    bool
+--- @field FocusOrder                         short               # 1-based, order within WindowsFocusOrder, altered when windows are focused. Can be -1
+--- @field IDStack                            ImVector<ImGuiID>
+--- @field DC                                 ImGuiWindowTempData
+--- @field DrawList                           ImDrawList          # Points to DrawListInst
+--- @field DrawListInst                       ImDrawList
+--- @field ParentWindow?                      ImGuiWindow
+--- @field RootWindow                         ImGuiWindow
+--- @field RootWindowPopupTree                ImGuiWindow
+--- @field RootWindowDockTree                 ImGuiWindow
 MT.ImGuiWindow = {}
 MT.ImGuiWindow.__index = MT.ImGuiWindow
 
@@ -1773,4 +1784,12 @@ ImGuiWindowRefreshFlags = {
     TryToAvoidRefresh = bit.lshift(1, 0),
     RefreshOnHover    = bit.lshift(1, 1),
     RefreshOnFocus    = bit.lshift(1, 2)
+}
+
+--- @enum ImGuiNavRenderCursorFlags
+ImGuiNavRenderCursorFlags = {
+    None       = 0,
+    Compact    = bit.lshift(1, 1), -- Compact highlight, no padding/distance from focused item
+    AlwaysDraw = bit.lshift(1, 2), -- Draw rectangular highlight if (g.NavId == id) even when g.NavCursorVisible == false, aka even when using the mouse
+    NoRounding = bit.lshift(1, 3),
 }

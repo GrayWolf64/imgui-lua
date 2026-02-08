@@ -1592,6 +1592,26 @@ ImGuiComboFlags_HeightMask_ = bit.bor(ImGuiComboFlags_HeightSmall, ImGuiComboFla
 
 ImGuiComboFlags_CustomPreview = bit.lshift(1, 20)
 
+--- @enum ImGuiSelectableFlags
+ImGuiSelectableFlags = {
+    None              = 0,
+    NoAutoClosePopups = bit.lshift(1, 0), -- Clicking this doesn't close parent popup window (overrides ImGuiItemFlags_AutoClosePopups)
+    SpanAllColumns    = bit.lshift(1, 1), -- Frame will span all columns of its container table (text will still fit in current column)
+    AllowDoubleClick  = bit.lshift(1, 2), -- Generate press events on double clicks too
+    Disabled          = bit.lshift(1, 3), -- Cannot be selected, display grayed out text
+    AllowOverlap      = bit.lshift(1, 4), -- (WIP) Hit testing to allow subsequent widgets to overlap this one
+    Highlight         = bit.lshift(1, 5), -- Make the item be displayed as if it is hovered
+    SelectOnNav       = bit.lshift(1, 6), -- Auto-select when moved into, unless Ctrl is held. Automatic when in a BeginMultiSelect() block
+
+    NoHoldingActiveID    = bit.lshift(1, 20),
+    SelectOnClick        = bit.lshift(1, 22), -- Override button behavior to react on Click (default is Click+Release)
+    SelectOnRelease      = bit.lshift(1, 23), -- Override button behavior to react on Release (default is Click+Release)
+    SpanAvailWidth       = bit.lshift(1, 24), -- Span all avail width even if we declared less for layout purpose. FIXME: We may be able to remove this (added in 6251d379, 2bcafc86 for menus)
+    SetNavIdOnHover      = bit.lshift(1, 25), -- Set Nav/Focus ID on mouse hover (used by MenuItem)
+    NoPadWithHalfSpacing = bit.lshift(1, 26), -- Disable padding each side with ItemSpacing * 0.5f
+    NoSetKeyOwner        = bit.lshift(1, 27), -- Don't set key/input owner on the initial click (note: mouse buttons are keys! often, the key in question will be ImGuiKey_MouseLeft!)
+}
+
 --- @class ImGuiWindowClass
 
 --- @return ImGuiWindowClass

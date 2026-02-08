@@ -1231,6 +1231,33 @@ local function ApplyHoverFlagsForTooltip(user_flags, shared_flags)
     return bit.bor(user_flags, shared_flags)
 end
 
+--- @param id ImGuiID
+function ImGui.MarkItemEdited(id)
+    -- This marking is to be able to provide info for IsItemDeactivatedAfterEdit().
+    -- ActiveId might have been released by the time we call this (as in the typical press/release button behavior) but still need to fill the data.
+    local g = GImGui
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_NoMarkEdited) ~= 0 then
+        return
+    end
+
+    if g.ActiveId == id or g.ActiveId == 0 then
+        -- FIXME: Can't we fully rely on LastItemData yet?
+        g.ActiveIdHasBeenEditedThisFrame = true
+        g.ActiveIdHasBeenEditedBefore = true
+        if g.DeactivatedItemData.ID == id then
+            g.DeactivatedItemData.HasBeenEditedBefore = true
+        end
+    end
+
+    -- We accept a MarkItemEdited() on drag and drop targets (see https://github.com/ocornut/imgui/issues/1875#issuecomment-978243343)
+    -- We accept 'ActiveIdPreviousFrame == id' for InputText() returning an edit after it has been taken ActiveId away (#4714)
+    -- FIXME: This assert is getting a bit meaningless over time. It helped detect some unusual use cases but eventually it is becoming an unnecessary restriction.
+    IM_ASSERT(g.DragDropActive or g.ActiveId == id or g.ActiveId == 0 or g.ActiveIdPreviousFrame == id or g.NavJustMovedToId or (g.CurrentMultiSelect ~= nil and g.BoxSelectState.IsActive))
+
+    -- IM_ASSERT(g.CurrentWindow.DC.LastItemId == id)
+    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_Edited)
+end
+
 --- @param window ImGuiWindow
 --- @param flags  ImGuiHoveredFlags
 function ImGui.IsWindowContentHoverable(window, flags)
@@ -5572,6 +5599,44 @@ function ImGui.ClosePopupToLevel(remaining, restore_focus_to_window_under_popup)
     end
 end
 
+-- Close the popup we have Begin-ed into
+function ImGui.CloseCurrentPopup()
+    local g = GImGui
+    local popup_idx = g.BeginPopupStack.Size
+    if popup_idx < 0 or popup_idx >= g.OpenPopupStack.Size or g.BeginPopupStack.Data[popup_idx].PopupId ~= g.OpenPopupStack.Data[popup_idx].PopupId then
+        return
+    end
+
+    -- Closing a menu closes its top-most parent popup (unless a modal)
+    while popup_idx > 0 do
+        local popup_window = g.OpenPopupStack.Data[popup_idx].Window
+        local parent_popup_window = g.OpenPopupStack.Data[popup_idx - 1].Window
+        local close_parent = false
+        if popup_window and bit.band(popup_window.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+            if parent_popup_window and not (bit.band(parent_popup_window.Flags, ImGuiWindowFlags_MenuBar) ~= 0) then
+                close_parent = true
+            end
+        end
+
+        if not close_parent then
+            break
+        end
+
+        popup_idx = popup_idx - 1
+    end
+
+    -- IMGUI_DEBUG_LOG_POPUP("[popup] CloseCurrentPopup %d -> %d\n", g.BeginPopupStack.Size - 1, popup_idx)
+    ImGui.ClosePopupToLevel(popup_idx, true)
+
+    -- A common pattern is to close a popup when selecting a menu item/selectable that will open another window.
+    -- To improve this usage pattern, we avoid nav highlight for a single frame in the parent window.
+    -- Similarly, we could avoid mouse hover highlight in this window but it is less visually problematic.
+    local window = g.NavWindow
+    if window then
+        window.DC.NavHideHighlightOneFrame = true
+    end
+end
+
 function ImGui.EndPopup()
     local g = GImGui
     local window = g.CurrentWindow
@@ -5825,8 +5890,10 @@ end
 
 --- @param window? ImGuiWindow
 function ImGui.SetNavWindow(window)
-    if GImGui.NavWindow ~= window then
-        GImGui.NavWindow = window
+    local g = GImGui
+    if g.NavWindow ~= window then
+        -- TODO:
+        g.NavWindow = window
     end
 end
 
@@ -5975,7 +6042,7 @@ function ImGui.SetCurrentViewport(current_window, viewport)
 end
 
 --- @param window   ImGuiWindow
---- @param viewport ImGuiViewport
+--- @param viewport ImGuiViewportP
 function ImGui.SetWindowViewport(window, viewport)
     -- Abandon viewport
     if window.ViewportOwned and window.Viewport.Window == window then
@@ -6568,7 +6635,7 @@ function ImGui.WindowSelectViewport(window)
     window.ViewportAllowPlatformMonitorExtend = -1
 
     -- Restore main viewport if multi-viewport is not supported by the backend
-    local main_viewport = ImGui.GetMainViewport()
+    local main_viewport = ImGui.GetMainViewport() --[[@as ImGuiViewportP]]
     if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) == 0 then
         ImGui.SetWindowViewport(window, main_viewport)
         return
@@ -6589,7 +6656,7 @@ function ImGui.WindowSelectViewport(window)
 
         -- Attempt to restore saved viewport id (= window that hasn't been activated yet), try to restore the viewport based on saved 'window->ViewportPos' restored from .ini file
         if window.Viewport == nil and window.ViewportId ~= 0 then
-            window.Viewport = ImGui.FindViewportByID(window.ViewportId)
+            window.Viewport = ImGui.FindViewportByID(window.ViewportId) --[[@as ImGuiViewportP]]
             if window.Viewport == nil and window.ViewportPos.x ~= FLT_MAX and window.ViewportPos.y ~= FLT_MAX then
                 window.Viewport = ImGui.AddUpdateViewport(window, window.ID, window.ViewportPos, window.Size, ImGuiViewportFlags_None)
             end
@@ -6599,7 +6666,7 @@ function ImGui.WindowSelectViewport(window)
     local lock_viewport = false
     if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasViewport) ~= 0 then
         -- Code explicitly request a viewport
-        window.Viewport = ImGui.FindViewportByID(g.NextWindowData.ViewportId)
+        window.Viewport = ImGui.FindViewportByID(g.NextWindowData.ViewportId) --[[@as ImGuiViewportP]]
         window.ViewportId = g.NextWindowData.ViewportId  -- Store ID even if Viewport isn't resolved yet.
         if window.Viewport and bit.band(window.Flags, ImGuiWindowFlags_DockNodeHost) ~= 0 and window.Viewport.Window ~= nil then
             window.Viewport.Window = window
