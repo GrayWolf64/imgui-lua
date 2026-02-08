@@ -1033,7 +1033,7 @@ end
 --- @param items_count float
 --- @return float
 local function CalcMaxPopupHeightFromItemCount(items_count)
-    local g = GImGui
+    local g = ImGui.GetCurrentContext()
     if items_count <= 0 then
         return FLT_MAX
     end
@@ -1121,7 +1121,7 @@ function ImGui.BeginCombo(label, preview_value, flags)
         window.DrawList:AddRectFilled(ImVec2(value_x2, bb.Min.y), bb.Max, bg_col, style.FrameRounding, (w <= arrow_size) and ImDrawFlags_RoundCornersAll or ImDrawFlags_RoundCornersRight)
 
         if value_x2 + arrow_size - style.FramePadding.x <= bb.Max.x then
-            ImGui.RenderArrow(window.DrawList, ImVec2(value_x2 + style.FramePadding.y, bb.Min.y + style.FramePadding.y), text_col, ImGuiDir_Down, 1.0)
+            ImGui.RenderArrow(window.DrawList, ImVec2(value_x2 + style.FramePadding.y, bb.Min.y + style.FramePadding.y), text_col, ImGuiDir.Down, 1.0)
         end
     end
 
@@ -1312,10 +1312,10 @@ end
 -- But you need to make sure the ID is unique, e.g. enclose calls in PushID/PopID or use ##unique_id.
 -- With this scheme, ImGuiSelectableFlags_SpanAllColumns and ImGuiSelectableFlags_AllowOverlap are also frequently used flags.
 -- FIXME: Selectable() with (size.x == 0.0f) and (SelectableTextAlign.x > 0.0f) followed by SameLine() is currently not supported.
---- @param label    string
---- @param selected bool
---- @param flags    ImGuiSelectableFlags
---- @param size_arg any
+--- @param label     string
+--- @param selected  bool
+--- @param flags?    ImGuiSelectableFlags
+--- @param size_arg? any
 --- @return bool is_pressed
 --- @return bool is_selected # Updated `selected`
 function ImGui.Selectable(label, selected, flags, size_arg)

@@ -111,6 +111,23 @@ concommand.Add("imgui_test", function()
                     ImGui.PlotHistogram("Sine Saws", sin, nil, 90, nil, nil, -1.0, 1.0, ImVec2(0, 80.0))
                 end
 
+                local items = {"A", "B", "C", "D"}
+                local current_item = items[1]
+
+                if ImGui.BeginCombo("Select Letter", current_item) then
+                    for _, item in ipairs(items) do
+                        local pressed, selected = ImGui.Selectable(item, current_item == item)
+                        if selected then
+                            current_item = item
+                        end
+                        -- Set initial focus when opening the combo (scroll + keyboard navigation focus)
+                        -- if current_item == item then
+                        --     ImGui.SetItemDefaultFocus()
+                        -- end
+                    end
+                    ImGui.EndCombo()
+                end
+
                 ImGui.PopFont()
             ImGui.End()
         end

@@ -199,7 +199,7 @@ local function GetResizeBorderRect(window, border_n, perp_padding, thickness)
 end
 
 --- @param data table|number
---- @param size int?
+--- @param size int?         # size = -1 to indicate that `data` is a single number
 --- @param seed int?
 --- @return int
 function ImHashData(data, size, seed)
@@ -210,7 +210,7 @@ function ImHashData(data, size, seed)
 
     local hash = bit.bxor(FNV_OFFSET_BASIS, seed)
 
-    if size == 1 then --- @cast data number
+    if size == -1 then --- @cast data number
         hash = bit.bxor(hash, data)
         hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
     else
@@ -1205,7 +1205,7 @@ function MT.ImGuiWindow:GetID(id)
     if t == "string" then
         return ImHashStr(id, seed)
     elseif t == "number" then
-        return ImHashData(id, 1, seed)
+        return ImHashData(id, -1, seed)
     else
         error("GetID: expected string or number, got " .. t)
     end
@@ -3378,6 +3378,11 @@ function ImGui.Begin(name, open, flags)
     window.IsFallbackWindow = (g.CurrentWindowStack.Size == 0 and g.WithinFrameScopeWithImplicitWindow)
 
     local window_just_activated_by_user = (window.LastFrameActive < (current_frame - 1))
+    if bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 then
+        local popup_ref = g.OpenPopupStack.Data[g.BeginPopupStack.Size + 1]
+        window_just_activated_by_user = window_just_activated_by_user or (window.PopupId ~= popup_ref.PopupId) -- We recycle popups so treat window as activated if popup id changed
+        window_just_activated_by_user = window_just_activated_by_user or (window ~= popup_ref.Window)
+    end
 
     window.Appearing = window_just_activated_by_user
     if (window.Appearing) then
@@ -3450,6 +3455,15 @@ function ImGui.Begin(name, open, flags)
         else
             window.FontWindowScaleParents = 1.0
         end
+    end
+
+    -- Add to popup stacks: update OpenPopupStack data, push to BeginPopupStack
+    if bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 then
+        local popup_ref = g.OpenPopupStack.Data[g.BeginPopupStack.Size + 1]
+        popup_ref.Window = window
+        popup_ref.ParentNavLayer = parent_window_in_stack.DC.NavLayerCurrent
+        g.BeginPopupStack:push_back(popup_ref)
+        window.PopupId = popup_ref.PopupId
     end
 
     local window_pos_set_by_api = false
@@ -3652,6 +3666,16 @@ function ImGui.Begin(name, open, flags)
 
         window.SizeFull = CalcWindowSizeAfterConstraint(window, window.SizeFull)
         window.Size = (window.Collapsed and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0) and window:TitleBarRect():GetSize() or window.SizeFull
+
+        -- POSITION
+
+        -- Popup latch its initial position, will position itself when it appears next frame
+        if window_just_activated_by_user then
+            window.AutoPosLastDirection = ImGuiDir.None
+            if bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 and bit.band(flags, ImGuiWindowFlags_Modal) == 0 and not window_pos_set_by_api then -- FIXME: BeginPopup() could use SetNextWindowPos()
+                window.Pos = g.BeginPopupStack:back().OpenPopupPos
+            end
+        end
 
         if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
             IM_ASSERT(parent_window and parent_window.Active)
@@ -4080,6 +4104,7 @@ function ImGui.End()
 
         return
     end
+    local window_stack_data = g.CurrentWindowStack:back()
 
     if not window.SkipRefresh then
         ImGui.PopClipRect()
@@ -4088,6 +4113,15 @@ function ImGui.End()
     if (window.SkipRefresh) then
         IM_ASSERT(window.DrawList == nil)
         window.DrawList = window.DrawListInst
+    end
+
+    -- Pop from window stack
+    g.LastItemData = window_stack_data.ParentLastItemDataBackup
+    if bit.band(window.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+        g.BeginMenuDepth = g.BeginMenuDepth - 1
+    end
+    if bit.band(window.Flags, ImGuiWindowFlags_Popup) ~= 0 then
+        g.BeginPopupStack:pop_back()
     end
 
     g.CurrentWindowStack:pop_back()
@@ -4883,14 +4917,18 @@ function ImGui.NewFrame()
 
     ImGui.UpdateMouseMovingWindowNewFrame()
 
-    ImGui.UpdateMouseWheel()
-
     g.MouseCursor = ImGuiMouseCursor.Arrow
     g.WantCaptureMouseNextFrame = -1
     g.WantCaptureKeyboardNextFrame = -1
     g.WantTextInputNextFrame = -1
 
+    ImGui.UpdateMouseWheel()
+
     g.CurrentWindowStack:resize(0)
+    g.BeginPopupStack:resize(0)
+    g.ItemFlagsStack:resize(0)
+    g.ItemFlagsStack:push_back(ImGuiItemFlags_AutoClosePopups)
+    g.CurrentItemFlags = g.ItemFlagsStack:back()
 
     g.WithinFrameScopeWithImplicitWindow = true
     ImGui.SetNextWindowSize(ImVec2(400, 400), ImGuiCond.FirstUseEver)
@@ -5897,6 +5935,9 @@ function ImGui.SetNavWindow(window)
     end
 end
 
+function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
+end
+
 --- @param window_type ImGuiWindowFlags
 --- @return ImGuiInputSource
 function ImGui.NavCalcPreferredRefPosSource(window_type)
@@ -5937,11 +5978,7 @@ function ImGui.NavCalcPreferredRefPos(window_type)
         if activated_shortcut and (bit.band(window_type, ImGuiWindowFlags_Popup) ~= 0) then
             ref_rect = g.LastItemData.NavRect
         elseif window ~= nil then
-            if g.NavLayer == 0 then
-                ref_rect = ImGui.WindowRectRelToAbs(window, window.NavRectRel.x)
-            elseif g.NavLayer == 1 then
-                ref_rect = ImGui.WindowRectRelToAbs(window, window.NavRectRel.y)
-            end
+            ref_rect = ImGui.WindowRectRelToAbs(window, window.NavRectRel[ImAxisToStr[g.NavLayer]])
         end
 
         -- Take account of upcoming scrolling (maybe set mouse pos should be done in EndFrame?)
@@ -5951,9 +5988,14 @@ function ImGui.NavCalcPreferredRefPos(window_type)
         end
 
         local pos = ImVec2(ref_rect.Min.x + ImMin(g.Style.FramePadding.x * 4, ref_rect:GetWidth()), ref_rect.Max.y - ImMin(g.Style.FramePadding.y, ref_rect:GetHeight()))
+        if window ~= nil then
+            local viewport = window.Viewport
+            if viewport then
+                pos = ImClampV2(pos, viewport.Pos, viewport.Pos + viewport.Size)
+            end
+        end
 
-        local viewport = ImGui.GetMainViewport()
-        return ImTruncV2(ImClampV2(pos, viewport.Pos, viewport.Pos + viewport.Size))  -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
+        return ImTruncV2(pos)  -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
     end
 end
 

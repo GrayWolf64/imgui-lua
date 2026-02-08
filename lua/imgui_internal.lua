@@ -243,6 +243,12 @@ end
 --- @return float
 function ImGui.GetRoundedFontSize(size) return IM_ROUND(size) end
 
+--- @param window ImGuiWindow
+--- @param r      ImRect
+--- @return ImRect
+--- @nodiscard
+function ImGui.WindowRectAbsToRel(window, r) local off = window.DC.CursorStartPos return ImRect(r.Min.x - off.x, r.Min.y - off.y, r.Max.x - off.x, r.Max.y - off.y) end
+
 --- @param c char
 --- @return bool # True if this character is a ' ' or '\t'
 function ImCharIsBlankA(c) return c == 32 or c == 9 end
@@ -350,6 +356,7 @@ function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (s
 function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
 function MT.ImRect:GetHeight() return self.Max.y - self.Min.y end
 function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
+function MT.ImRect:GetBL() return ImVec2(self.Min.x, self.Max.y) end
 
 function MT.ImRect:ClipWith(r)
     if r.Min then -- ImRect
@@ -599,6 +606,8 @@ function ImGuiStyleMod(idx, v)
     else -- ImVec2
         this.BackupVal[1] = v.x; this.BackupVal[2] = v.y
     end
+
+    return this
 end
 
 --- @class ImGuiLastItemData
