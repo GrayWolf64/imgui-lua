@@ -1040,8 +1040,266 @@ local function CalcMaxPopupHeightFromItemCount(items_count)
     return (g.FontSize + g.Style.ItemSpacing.y) * items_count - g.Style.ItemSpacing.y + (g.Style.WindowPadding.y * 2)
 end
 
+--- @param label          string
+--- @param preview_value? string
+--- @param flags?         ImGuiComboFlags
+function ImGui.BeginCombo(label, preview_value, flags)
+    if flags == nil then flags = 0 end
+
+    local g = ImGui.GetCurrentContext()
+    local window = ImGui.GetCurrentWindow()
+
+    local backup_next_window_data_flags = g.NextWindowData.HasFlags
+    g.NextWindowData:ClearFlags()
+    if window.SkipItems then
+        return false
+    end
+
+    local style = g.Style
+    local id = window:GetID(label)
+    IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags_NoArrowButton, ImGuiComboFlags_NoPreview)) ~= bit.bor(ImGuiComboFlags_NoArrowButton, ImGuiComboFlags_NoPreview)) -- Can't use both flags together
+    if bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0 then
+        IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags_NoPreview, ImGuiComboFlags_CustomPreview)) == 0)
+    end
+
+    local arrow_size
+    if (bit.band(flags, ImGuiComboFlags_NoArrowButton) ~= 0) then
+        arrow_size = 0.0
+    else
+        arrow_size = ImGui.GetFrameHeight()
+    end
+
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+
+    local preview_width
+    if ((bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0) and (preview_value ~= nil)) then
+        preview_width = ImGui.CalcTextSize(preview_value, nil, true).x
+    else
+        preview_width = 0.0
+    end
+
+    local w
+    if bit.band(flags, ImGuiComboFlags_NoPreview) ~= 0 then
+        w = arrow_size
+    elseif bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0 then
+        w = arrow_size + preview_width + style.FramePadding.x * 2.0
+    else
+        w = ImGui.CalcItemWidth()
+    end
+
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0))
+    local label_offset = (label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0
+    local total_bb = ImRect(bb.Min, bb.Max + ImVec2(label_offset, 0.0))
+
+    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    if not ImGui.ItemAdd(total_bb, id, bb) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
+    local popup_id = ImHashStr("##ComboPopup", id)
+    local popup_open = ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags_None)
+    if pressed and not popup_open then
+        ImGui.OpenPopupEx(popup_id, ImGuiPopupFlags_None)
+        popup_open = true
+    end
+
+    -- Render shape
+    local frame_col = ImGui.GetColorU32(hovered and ImGuiCol.FrameBgHovered or ImGuiCol.FrameBg)
+    local value_x2 = ImMax(bb.Min.x, bb.Max.x - arrow_size)
+
+    ImGui.RenderNavCursor(bb, id)
+
+    if bit.band(flags, ImGuiComboFlags_NoPreview) == 0 then
+        window.DrawList:AddRectFilled(bb.Min, ImVec2(value_x2, bb.Max.y), frame_col, style.FrameRounding, (bit.band(flags, ImGuiComboFlags_NoArrowButton) ~= 0) and ImDrawFlags_RoundCornersAll or ImDrawFlags_RoundCornersLeft)
+    end
+
+    if bit.band(flags, ImGuiComboFlags_NoArrowButton) == 0 then
+        local bg_col = ImGui.GetColorU32((popup_open or hovered) and ImGuiCol.ButtonHovered or ImGuiCol.Button)
+        local text_col = ImGui.GetColorU32(ImGuiCol.Text)
+
+        window.DrawList:AddRectFilled(ImVec2(value_x2, bb.Min.y), bb.Max, bg_col, style.FrameRounding, (w <= arrow_size) and ImDrawFlags_RoundCornersAll or ImDrawFlags_RoundCornersRight)
+
+        if value_x2 + arrow_size - style.FramePadding.x <= bb.Max.x then
+            ImGui.RenderArrow(window.DrawList, ImVec2(value_x2 + style.FramePadding.y, bb.Min.y + style.FramePadding.y), text_col, ImGuiDir_Down, 1.0)
+        end
+    end
+
+    ImGui.RenderFrameBorder(bb.Min, bb.Max, style.FrameRounding)
+
+    -- Custom preview
+    if bit.band(flags, ImGuiComboFlags_CustomPreview) ~= 0 then
+        g.ComboPreviewData.PreviewRect = ImRect(bb.Min.x, bb.Min.y, value_x2, bb.Max.y)
+        IM_ASSERT(preview_value == nil or preview_value == "")
+        preview_value = nil
+    end
+
+    -- Render preview and label
+    if preview_value ~= nil and bit.band(flags, ImGuiComboFlags_NoPreview) == 0 then
+        if g.LogEnabled then
+            ImGui.LogSetNextTextDecoration("{", "}")
+        end
+        ImGui.RenderTextClipped(bb.Min + style.FramePadding, ImVec2(value_x2, bb.Max.y), preview_value, 1, nil, nil)
+    end
+
+    if label_size.x > 0 then
+        ImGui.RenderText(ImVec2(bb.Max.x + style.ItemInnerSpacing.x, bb.Min.y + style.FramePadding.y), label)
+    end
+
+    if not popup_open then
+        return false
+    end
+
+    g.NextWindowData.HasFlags = backup_next_window_data_flags
+    return ImGui.BeginComboPopup(popup_id, bb, flags)
+end
+
+--- @param popup_id ImGuiID
+--- @param bb       ImRect
+--- @param flags    ImGuiComboFlags
 function ImGui.BeginComboPopup(popup_id, bb, flags)
-    -- TODO:
+    local g = ImGui.GetCurrentContext()
+    if not ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags_None) then
+        g.NextWindowData:ClearFlags()
+        return false
+    end
+
+    local w = bb:GetWidth()
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint) ~= 0 then
+        g.NextWindowData.SizeConstraintRect.Min.x = ImMax(g.NextWindowData.SizeConstraintRect.Min.x, w)
+    else
+        if bit.band(flags, ImGuiComboFlags_HeightMask_) == 0 then
+            flags = bit.bor(flags, ImGuiComboFlags_HeightRegular)
+        end
+        IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiComboFlags_HeightMask_)))
+        local popup_max_height_in_items = -1
+        if bit.band(flags, ImGuiComboFlags_HeightRegular) ~= 0 then
+            popup_max_height_in_items = 8
+        elseif bit.band(flags, ImGuiComboFlags_HeightSmall) ~= 0 then
+            popup_max_height_in_items = 4
+        elseif bit.band(flags, ImGuiComboFlags_HeightLarge) ~= 0 then
+            popup_max_height_in_items = 20
+        end
+        local constraint_min = ImVec2(0.0, 0.0)
+        local constraint_max = ImVec2(FLT_MAX, FLT_MAX)
+        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize) == 0 or g.NextWindowData.SizeVal.x <= 0.0 then
+            constraint_min.x = w
+        end
+        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize) == 0 or g.NextWindowData.SizeVal.y <= 0.0 then
+            constraint_max.y = CalcMaxPopupHeightFromItemCount(popup_max_height_in_items)
+        end
+        ImGui.SetNextWindowSizeConstraints(constraint_min, constraint_max)
+    end
+
+    -- This is essentially a specialized version of BeginPopupEx()
+    local name = ImFormatString("##Combo_%02d", g.BeginComboDepth)
+
+    -- Set position given a custom constraint (peak into expected window size so we can position it)
+    -- FIXME: This might be easier to express with an hypothetical SetNextWindowPosConstraints() function?
+    -- FIXME: This might be moved to Begin() or at least around the same spot where Tooltips and other Popups are calling FindBestWindowPosForPopupEx()?
+    local popup_window = ImGui.FindWindowByName(name)
+    if popup_window then
+        if popup_window.WasActive then
+            -- Always override 'AutoPosLastDirection' to not leave a chance for a past value to affect us.
+            local size_expected = ImGui.CalcWindowNextAutoFitSize(popup_window)
+            popup_window.AutoPosLastDirection = (bit.band(flags, ImGuiComboFlags_PopupAlignLeft) ~= 0) and ImGuiDir.Left or ImGuiDir.Down
+            local r_outer = ImGui.GetPopupAllowedExtentRect(popup_window)
+            local pos
+            pos, popup_window.AutoPosLastDirection = ImGui.FindBestWindowPosForPopupEx(bb:GetBL(), size_expected, popup_window.AutoPosLastDirection, r_outer, bb, ImGuiPopupPositionPolicy.ComboBox)
+            ImGui.SetNextWindowPos(pos)
+        end
+    end
+
+    -- We don't use BeginPopupEx() solely because we have a custom name string, which we could make an argument to BeginPopupEx()
+    local window_flags = bit.bor(ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_Popup, ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_NoMove)
+    ImGui.PushStyleVarX(ImGuiStyleVar.WindowPadding, g.Style.FramePadding.x) -- Horizontally align ourselves with the framed text
+    local _, ret = ImGui.Begin(name, nil, window_flags)
+    ImGui.PopStyleVar()
+    if not ret then
+        ImGui.EndPopup()
+        if not g.IO.ConfigDebugBeginReturnValueOnce and not g.IO.ConfigDebugBeginReturnValueLoop then
+            -- Begin may only return false with those debug tools activated.
+            IM_ASSERT(false) -- This should never happen as we tested for IsPopupOpen() above
+        end
+        return false
+    end
+
+    g.BeginComboDepth = g.BeginComboDepth + 1
+
+    return true
+end
+
+function ImGui.EndCombo()
+    local g = ImGui.GetCurrentContext()
+    g.BeginComboDepth = g.BeginComboDepth - 1
+
+    local name = ImFormatString("##Combo_%02d", g.BeginComboDepth) -- FIXME: Move those to helpers?
+
+    if g.CurrentWindow.Name ~= name then
+        IM_ASSERT_USER_ERROR_RET(false, "Calling EndCombo() in wrong window!")
+    end
+
+    ImGui.EndPopup()
+end
+
+-- Call directly after the BeginCombo/EndCombo block. The preview is designed to only host non-interactive elements
+-- (Experimental, see GitHub issues: #1658, #4168)
+function ImGui.BeginComboPreview()
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    local preview_data = g.ComboPreviewData
+
+    if window.SkipItems or not (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_Visible) ~= 0) then
+        return false
+    end
+
+    IM_ASSERT(g.LastItemData.Rect.Min.x == preview_data.PreviewRect.Min.x and g.LastItemData.Rect.Min.y == preview_data.PreviewRect.Min.y) -- Didn't call after BeginCombo/EndCombo block or forgot to pass ImGuiComboFlags_CustomPreview flag?
+
+    if not window.ClipRect:Overlaps(preview_data.PreviewRect) then -- Narrower test (optional)
+        return false
+    end
+
+    -- FIXME: This could be contained in a PushWorkRect() api
+    preview_data.BackupCursorPos              = window.DC.CursorPos:copy()
+    preview_data.BackupCursorMaxPos           = window.DC.CursorMaxPos:copy()
+    preview_data.BackupCursorPosPrevLine      = window.DC.CursorPosPrevLine:copy()
+    preview_data.BackupPrevLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
+    preview_data.BackupLayout                 = window.DC.LayoutType
+
+    window.DC.CursorPos    = preview_data.PreviewRect.Min + g.Style.FramePadding
+    window.DC.CursorMaxPos = window.DC.CursorPos:copy()
+    window.DC.LayoutType   = ImGuiLayoutType.Horizontal
+    window.DC.IsSameLine   = false
+
+    ImGui.PushClipRect(preview_data.PreviewRect.Min, preview_data.PreviewRect.Max, true)
+
+    return true
+end
+
+function ImGui.EndComboPreview()
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    local preview_data = g.ComboPreviewData
+
+    local draw_list = window.DrawList
+    if window.DC.CursorMaxPos.x < preview_data.PreviewRect.Max.x and window.DC.CursorMaxPos.y < preview_data.PreviewRect.Max.y then
+        if draw_list.CmdBuffer.Size > 1 then -- Unlikely case that the PushClipRect() didn't create a command
+            draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size - 1].ClipRect
+            draw_list._CmdHeader.ClipRect = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect
+            draw_list:_TryMergeDrawCmds()
+        end
+    end
+
+    ImGui.PopClipRect()
+
+    window.DC.CursorPos              = preview_data.BackupCursorPos
+    window.DC.CursorMaxPos           = ImMaxVec2(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos)
+    window.DC.CursorPosPrevLine      = preview_data.BackupCursorPosPrevLine
+    window.DC.PrevLineTextBaseOffset = preview_data.BackupPrevLineTextBaseOffset
+    window.DC.LayoutType             = preview_data.BackupLayout
+    window.DC.IsSameLine             = false
+
+    preview_data.PreviewRect = ImRect()
 end
 
 ----------------------------------------------------------------

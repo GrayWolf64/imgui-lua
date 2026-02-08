@@ -1,6 +1,6 @@
 --- Some internal structures
--- I won't implement type checks, since I ensure that types are correct in internal usage,
--- and runtime type checking is very slow
+-- I will avoid extensive type checks, since I ensure that types are correct in internal usage,
+-- and runtime type checking is probably slow
 
 --- @meta
 
@@ -77,6 +77,7 @@ function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
 --- @nodiscard
 function ImTruncV2(v) return ImVec2(ImTrunc(v.x), ImTrunc(v.y)) end
 
+--- @param f float
 function ImTrunc64(f) return ImTrunc(f) end
 
 function IM_ROUNDUP_TO_EVEN(n) return (ImCeil((n) / 2) * 2) end
@@ -87,6 +88,7 @@ function IM_ROUND(VAL) return math.floor(VAL + 0.5) end
 
 function ImFloor(f) if f >= 0 or math.floor(f) == f then return math.floor(f) else return math.floor(f) - 1 end end
 
+--- @param v int
 function ImIsPowerOfTwo(v)
     return (v ~= 0) and (bit.band(v, (v - 1)) == 0)
 end
@@ -159,7 +161,7 @@ function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCo
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
--- TODO: flags
+-- TODO: flags, IMGUI_DEBUG_LOG_POPUP
 function IMGUI_DEBUG_LOG_FONT(_str, ...) print(string.format(_str, ...)) end
 function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) print(string.format(_str, ...)) end
 
@@ -567,6 +569,38 @@ function ImFontStackData(font, font_size_before_scaling, font_size_after_scaling
     }
 end
 
+--- `GetVarPtr()` is currently only used on `g.Style` in Dear ImGui, and we don't have pointers!
+--- @class ImGuiStyleVarInfo
+--- @field Count    ImU32
+--- @field DataType ImGuiDataType
+--- @field Key      string        # 0-based, key in parent structure. Note that the cpp Dear ImGui uses `ImU32 Offset`!
+
+--- @param count     ImU32
+--- @param data_type ImGuiDataType
+--- @param key       string
+--- @return ImGuiStyleVarInfo
+--- @nodiscard
+function ImGuiStyleVarInfo(count, data_type, key)
+    return { Count = count, DataType = data_type, Key = key }
+end
+
+--- @class ImGuiStyleMod
+--- @field VarIdx       ImGuiStyleVar
+--- @field BackupVal    table
+
+--- @param idx ImGuiStyleVar
+--- @param v   int|float|ImVec2
+function ImGuiStyleMod(idx, v)
+    local this = { VarIdx = idx, BackupVal = {nil, nil} }
+    --- @cast this ImGuiStyleMod
+
+    if type(v) == "number" then
+        this.BackupVal[1] = v
+    else -- ImVec2
+        this.BackupVal[1] = v.x; this.BackupVal[2] = v.y
+    end
+end
+
 --- @class ImGuiLastItemData
 
 --- @return ImGuiLastItemData
@@ -803,10 +837,22 @@ function ImGuiWindowStackData()
 end
 
 --- @class ImGuiContext
---- @field ActiveIdMouseButton ImS8
---- @field CurrentWindowStack  ImVector<ImGuiWindowStackData>
---- @field PlatformIO          ImGuiPlatformIO
---- @field Viewports           ImVector<ImGuiViewportP>
+--- @field Initialized                        bool
+--- @field WithinFrameScope                   bool
+--- @field WithinFrameScopeWithImplicitWindow bool
+--- @field FrameCount                         int
+--- @field FrameCountEnded                    int
+--- @field CurrentWindow                      ImGuiWindow
+--- @field Style                              ImGuiStyle
+--- @field StyleVarStack                      ImVector
+--- @field ActiveIdMouseButton                ImS8
+--- @field Windows                            ImVector<ImGuiWindow>
+--- @field WindowsFocusOrder                  ImVector<ImGuiWindow>
+--- @field CurrentWindowStack                 ImVector<ImGuiWindowStackData>
+--- @field OpenPopupStack                     ImVector<ImGuiPopupData>
+--- @field BeginPopupStack                    ImVector<ImGuiPopupData>
+--- @field PlatformIO                         ImGuiPlatformIO
+--- @field Viewports                          ImVector<ImGuiViewportP>
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -815,6 +861,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
     local this = {
         Style = ImGuiStyle(),
         ColorStack = ImVector(),
+        StyleVarStack = ImVector(),
 
         Config = nil,
         Initialized = false,
@@ -830,6 +877,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         CurrentWindowStack = ImVector(),
         CurrentWindow = nil,
+
+        WindowsFocusOrder = ImVector(),
 
         IO = ImGuiIO(),
         PlatformIO = ImGuiPlatformIO(),
@@ -948,6 +997,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         OpenPopupStack = ImVector(),
         BeginPopupStack = ImVector(),
 
+        WithinEndChildID = 0,
+
         BeginMenuDepth = 0, BeginComboDepth = 0,
 
         DrawListSharedData = ImDrawListSharedData(),
@@ -966,6 +1017,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         MouseCursor = ImGuiMouseCursor.Arrow,
         MouseStationaryTimer = 0.0,
+
+        ComboPreviewData = ImGuiComboPreviewData(),
 
         WindowResizeBorderExpectedRect = ImRect(),
         WindowResizeRelativeMode = false,
@@ -1057,11 +1110,12 @@ end
 --- @field Indent                  ImVec1
 --- @field ColumnsOffset           ImVec1
 --- @field GroupOffset             ImVec1
---- @field CursorStartPosLossyness ImVec1
+--- @field CursorStartPosLossyness ImVec2
 --- @field TextWrapPos             float
 --- @field TextWrapPosStack        ImVector
 --- @field MenuBarOffset           ImVec2
 --- @field ChildWindows            ImVector<ImGuiWindow>
+--- @field LayoutType              ImGuiLayoutType
 
 --- @return ImGuiWindowTempData
 --- @nodiscard
@@ -1093,11 +1147,30 @@ local function ImGuiWindowTempData()
 
         MenuBarOffset = ImVec2(),
 
-        ChildWindows = ImVector()
+        ChildWindows = ImVector(),
+
+        LayoutType = nil
     }
 end
 
 --- @class ImGuiWindow
+--- @field Ctx                 ImGuiContext
+--- @field Name                string
+--- @field ID                  ImGuiID
+--- @field Flags               ImGuiWindowFlags
+--- @field FlagsPreviousFrame  ImGuiWindowFlags
+--- @field ChildFlags          ImGuiChildFlags
+--- @field WindowClass         ImGuiWindowClass
+--- @field IsExplicitChild     bool
+--- @field FocusOrder          short               # 1-based, order within WindowsFocusOrder, altered when windows are focused. Can be -1
+--- @field IDStack             ImVector<ImGuiID>
+--- @field DC                  ImGuiWindowTempData
+--- @field DrawList            ImDrawList          # Points to DrawListInst
+--- @field DrawListInst        ImDrawList
+--- @field ParentWindow?       ImGuiWindow
+--- @field RootWindow          ImGuiWindow
+--- @field RootWindowPopupTree ImGuiWindow
+--- @field RootWindowDockTree  ImGuiWindow
 MT.ImGuiWindow = {}
 MT.ImGuiWindow.__index = MT.ImGuiWindow
 
@@ -1147,6 +1220,8 @@ function ImGuiWindow(ctx, name)
         Hidden = false,
         IsFallbackWindow = false,
 
+        IsExplicitChild = nil,
+
         ResizeBorderHovered = -1,
         ResizeBorderHeld = -1,
 
@@ -1154,6 +1229,8 @@ function ImGuiWindow(ctx, name)
         BeginCountPreviousFrame = 0,
         BeginOrderWithinParent = 0,
         BeginOrderWithinContext = 0,
+
+        FocusOrder = nil,
 
         HiddenFramesCanSkipItems = 0,
         HiddenFramesCannotSkipItems = 0,
@@ -1631,6 +1708,27 @@ ImGuiPlotType = {
     Histogram = 1
 }
 
+--- @class ImGuiComboPreviewData
+--- @field PreviewRect                  ImRect
+--- @field BackupCursorPos              ImVec2
+--- @field BackupCursorMaxPos           ImVec2
+--- @field BackupCursorPosPrevLine      ImVec2
+--- @field BackupPrevLineTextBaseOffset float
+--- @field BackupLayout                 ImGuiLayoutType
+
+--- @return ImGuiComboPreviewData
+--- @nodiscard
+function ImGuiComboPreviewData()
+    return {
+        PreviewRect                  = ImRect(),
+        BackupCursorPos              = ImVec2(),
+        BackupCursorMaxPos           = ImVec2(),
+        BackupCursorPosPrevLine      = ImVec2(),
+        BackupPrevLineTextBaseOffset = 0.0,
+        BackupLayout                 = 0
+    }
+end
+
 --- @enum ImGuiTooltipFlags
 ImGuiTooltipFlags = {
     None             = 0,
@@ -1643,6 +1741,31 @@ ImGuiPopupPositionPolicy = {
     ComboBox = 1,
     Tooltip  = 2
 }
+
+--- @class ImGuiPopupData
+--- @field PopupId          ImGuiID
+--- @field Window           ImGuiWindow
+--- @field RestoreNavWindow ImGuiWindow
+--- @field ParentNavLayer   int
+--- @field OpenFrameCount   int
+--- @field OpenParentId     ImGuiID
+--- @field OpenPopupPos     ImVec2
+--- @field OpenMousePos     ImVec2
+
+--- @return ImGuiPopupData
+--- @nodiscard
+function ImGuiPopupData()
+    return {
+        PopupId          = 0,
+        Window           = nil,
+        RestoreNavWindow = nil,
+        ParentNavLayer   = -1,
+        OpenFrameCount   = -1,
+        OpenParentId     = 0,
+        OpenPopupPos     = nil,
+        OpenMousePos     = nil
+    }
+end
 
 --- @enum ImGuiWindowRefreshFlags
 ImGuiWindowRefreshFlags = {

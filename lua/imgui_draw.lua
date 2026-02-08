@@ -2841,6 +2841,16 @@ local function ImDrawCmd_AreSequentialIdxOffset(CMD_0, CMD_1)
     return CMD_0.IdxOffset + CMD_0.ElemCount == CMD_1.IdxOffset
 end
 
+function MT.ImDrawList:_TryMergeDrawCmds()
+    IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
+    local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
+    if ImDrawCmd_HeaderCompare(curr_cmd, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and curr_cmd.UserCallback == nil and prev_cmd.UserCallback == nil then
+        prev_cmd.ElemCount = prev_cmd.ElemCount + curr_cmd.ElemCount
+        self.CmdBuffer:pop_back()
+    end
+end
+
 function MT.ImDrawList:_OnChangedClipRect()
     IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
     local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]

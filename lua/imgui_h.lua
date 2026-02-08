@@ -1217,6 +1217,51 @@ ImGuiButtonFlags_PressedOnMask_ = bit.bor(
 ImGuiButtonFlags_PressedOnDefault_ = ImGuiButtonFlags_PressedOnClickRelease
 ImGuiButtonFlags_NoKeyModifiers    = ImGuiButtonFlags_NoKeyModsAllowed
 
+--- @enum ImGuiStyleVar
+ImGuiStyleVar = {
+    Alpha                       = 0,
+    DisabledAlpha               = 1,
+    WindowPadding               = 2,
+    WindowRounding              = 3,
+    WindowBorderSize            = 4,
+    WindowMinSize               = 5,
+    WindowTitleAlign            = 6,
+    ChildRounding               = 7,
+    ChildBorderSize             = 8,
+    PopupRounding               = 9,
+    PopupBorderSize             = 10,
+    FramePadding                = 11,
+    FrameRounding               = 12,
+    FrameBorderSize             = 13,
+    ItemSpacing                 = 14,
+    ItemInnerSpacing            = 15,
+    IndentSpacing               = 16,
+    CellPadding                 = 17,
+    ScrollbarSize               = 18,
+    ScrollbarRounding           = 19,
+    ScrollbarPadding            = 20,
+    GrabMinSize                 = 21,
+    GrabRounding                = 22,
+    ImageRounding               = 23,
+    ImageBorderSize             = 24,
+    TabRounding                 = 25,
+    TabBorderSize               = 26,
+    TabMinWidthBase             = 27,
+    TabMinWidthShrink           = 28,
+    TabBarBorderSize            = 29,
+    TabBarOverlineSize          = 30,
+    TableAngledHeadersAngle     = 31,
+    TableAngledHeadersTextAlign = 32,
+    TreeLinesSize               = 33,
+    TreeLinesRounding           = 34,
+    ButtonTextAlign             = 35,
+    SelectableTextAlign         = 36,
+    SeparatorTextBorderSize     = 37,
+    SeparatorTextAlign          = 38,
+    SeparatorTextPadding        = 39,
+    COUNT                       = 40
+}
+
 --- @alias ImGuiHoveredFlags int
 ImGuiHoveredFlags_None                         = 0
 ImGuiHoveredFlags_ChildWindows                 = bit.lshift(1, 0)
@@ -1483,6 +1528,24 @@ ImGuiDragDropFlags_AcceptDrawAsHovered     = bit.lshift(1, 13)
 
 ImGuiDragDropFlags_AcceptPeekOnly = bit.bor(ImGuiDragDropFlags_AcceptBeforeDelivery, ImGuiDragDropFlags_AcceptNoDrawDefaultRect)
 
+--- A primary data type
+--- @enum ImGuiDataType
+ImGuiDataType = {
+    S8     = 0,  -- signed char / char
+    U8     = 1,  -- unsigned char
+    S16    = 2,  -- short
+    U16    = 3,  -- unsigned short
+    S32    = 4,  -- int
+    U32    = 5,  -- unsigned int
+    S64    = 6,  -- long long / __int64
+    U64    = 7,  -- unsigned long long / unsigned __int64
+    Float  = 8,  -- float
+    Double = 9,  -- double
+    Bool   = 10, -- bool (provided for user convenience, not supported by scalar widgets)
+    String = 11, -- string (provided for user convenience, not supported by scalar widgets)
+    COUNT  = 12
+}
+
 IM_COL32_R_SHIFT = 0
 IM_COL32_G_SHIFT = 8
 IM_COL32_B_SHIFT = 16
@@ -1513,6 +1576,21 @@ ImGuiPopupFlags_AnyPopup          = bit.bor(ImGuiPopupFlags_AnyPopupId, ImGuiPop
 ImGuiPopupFlags_MouseButtonShift_ = 2
 ImGuiPopupFlags_MouseButtonMask_  = 0x0C
 ImGuiPopupFlags_InvalidMask_      = 0x03
+
+--- @alias ImGuiComboFlags int
+ImGuiComboFlags_None            = 0
+ImGuiComboFlags_PopupAlignLeft  = bit.lshift(1, 0)
+ImGuiComboFlags_HeightSmall     = bit.lshift(1, 1)
+ImGuiComboFlags_HeightRegular   = bit.lshift(1, 2)
+ImGuiComboFlags_HeightLarge     = bit.lshift(1, 3)
+ImGuiComboFlags_HeightLargest   = bit.lshift(1, 4)
+ImGuiComboFlags_NoArrowButton   = bit.lshift(1, 5)
+ImGuiComboFlags_NoPreview       = bit.lshift(1, 6)
+ImGuiComboFlags_WidthFitPreview = bit.lshift(1, 7)
+
+ImGuiComboFlags_HeightMask_ = bit.bor(ImGuiComboFlags_HeightSmall, ImGuiComboFlags_HeightRegular, ImGuiComboFlags_HeightLarge, ImGuiComboFlags_HeightLargest)
+
+ImGuiComboFlags_CustomPreview = bit.lshift(1, 20)
 
 --- @class ImGuiWindowClass
 

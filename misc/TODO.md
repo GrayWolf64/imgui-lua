@@ -13,3 +13,4 @@
 - I hate cpp mess. Wtf imgui passes ImRect and ImVec4 window.ClipRect so randomly and everything works? I have to use `ImRectFromVec4` which looks ugly and feels bad.
 - GMod Backend: GMod render.MaxTextureWidth/Height()
 - Widgets: `ComboBox` -> `DragXXX` & `Slider` -> `ColorEdit` -> `TextInput` -> `CollapsingHeader`
+- API: Some render text related functions take in `text_begin`, which is usually 1. Consider removing this param?
