@@ -1633,6 +1633,11 @@ ImGuiSelectableFlags = {
 }
 
 --- @class ImGuiWindowClass
+--- @field ClassId                    ImGuiID
+--- @field ParentViewportId           ImGuiID
+--- @field FocusRouteParentWindowId   ImGuiID
+--- @field ViewportFlagsOverrideSet   ImGuiViewportFlags
+--- @field ViewportFlagsOverrideClear ImGuiViewportFlags
 
 --- @return ImGuiWindowClass
 --- @nodiscard
