@@ -38,8 +38,8 @@ concommand.Add("imgui_test", function()
     local refresh_time = 0
     local phase = 0
 
-    local items = {"A", "B", "C", "D"}
-    local current_item = items[1]
+    local style_names = {"Dark", "Classic", "Light"}
+    local current_style = style_names[1]
 
     local function sin(_, i) return math.sin(i * 0.1) end
 
@@ -114,16 +114,20 @@ concommand.Add("imgui_test", function()
                     ImGui.PlotHistogram("Sine Saws", sin, nil, 90, nil, nil, -1.0, 1.0, ImVec2(0, 80.0))
                 end
 
-                if ImGui.BeginCombo("Select Letter", current_item) then
-                    for _, item in ipairs(items) do
-                        local pressed, selected = ImGui.Selectable(item, current_item == item)
+                if ImGui.BeginCombo("Colors##Selector", current_style) then
+                    for style_idx, style_name in ipairs(style_names) do
+                        local pressed, _ = ImGui.Selectable(style_name, style_name == current_style)
                         if pressed then
-                            current_item = item
+                            if style_idx == 1 then
+                                ImGui.StyleColorsDark()
+                            elseif style_idx == 2 then
+                                ImGui.StyleColorsClassic()
+                            elseif style_idx == 3 then
+                                ImGui.StyleColorsLight()
+                            end
+
+                            current_style = style_name
                         end
-                        -- Set initial focus when opening the combo (scroll + keyboard navigation focus)
-                        -- if current_item == item then
-                        --     ImGui.SetItemDefaultFocus()
-                        -- end
                     end
                     ImGui.EndCombo()
                 end

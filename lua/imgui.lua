@@ -2521,12 +2521,13 @@ function ImGui.FindRenderedTextEnd(text, text_end)
     return text_display_end
 end
 
---- void ImGui::RenderText
---- @param pos ImVec2
---- @param text string
---- @param text_end int?
---- @param hide_text_after_hash bool?
+--- @param pos                  ImVec2
+--- @param text                 string
+--- @param text_end             int?
+--- @param hide_text_after_hash bool?  # true by default
 function ImGui.RenderText(pos, text, text_end, hide_text_after_hash)
+    if hide_text_after_hash == nil then hide_text_after_hash = true end
+
     local g = GImGui
     local window = g.CurrentWindow
 

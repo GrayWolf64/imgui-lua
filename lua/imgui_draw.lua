@@ -59,6 +59,11 @@ local stbrp = IM_INCLUDE("imstb_rectpack.lua")
 --- @module "imstb_truetype"
 local stbtt = IM_INCLUDE("imstb_truetype.lua")
 
+---------------------------------------------------------------------------------------
+-- [SECTION] STYLE FUNCTIONS
+---------------------------------------------------------------------------------------
+
+--- @param dst? ImGuiStyle
 function ImGui.StyleColorsDark(dst)
     local style = dst and dst or ImGui.GetStyle()
     local colors = style.Colors
@@ -123,6 +128,141 @@ function ImGui.StyleColorsDark(dst)
     colors[ImGuiCol.NavWindowingHighlight]     = ImVec4(1.00, 1.00, 1.00, 0.70)
     colors[ImGuiCol.NavWindowingDimBg]         = ImVec4(0.80, 0.80, 0.80, 0.20)
     colors[ImGuiCol.ModalWindowDimBg]          = ImVec4(0.80, 0.80, 0.80, 0.35)
+end
+
+--- @param dst? ImGuiStyle
+function ImGui.StyleColorsClassic(dst)
+    local style = dst and dst or ImGui.GetStyle()
+    local colors = style.Colors
+
+    colors[ImGuiCol.Text]                      = ImVec4(0.90, 0.90, 0.90, 1.00)
+    colors[ImGuiCol.TextDisabled]              = ImVec4(0.60, 0.60, 0.60, 1.00)
+    colors[ImGuiCol.WindowBg]                  = ImVec4(0.00, 0.00, 0.00, 0.85)
+    colors[ImGuiCol.ChildBg]                   = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.PopupBg]                   = ImVec4(0.11, 0.11, 0.14, 0.92)
+    colors[ImGuiCol.Border]                    = ImVec4(0.50, 0.50, 0.50, 0.50)
+    colors[ImGuiCol.BorderShadow]              = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.FrameBg]                   = ImVec4(0.43, 0.43, 0.43, 0.39)
+    colors[ImGuiCol.FrameBgHovered]            = ImVec4(0.47, 0.47, 0.69, 0.40)
+    colors[ImGuiCol.FrameBgActive]             = ImVec4(0.42, 0.41, 0.64, 0.69)
+    colors[ImGuiCol.TitleBg]                   = ImVec4(0.27, 0.27, 0.54, 0.83)
+    colors[ImGuiCol.TitleBgActive]             = ImVec4(0.32, 0.32, 0.63, 0.87)
+    colors[ImGuiCol.TitleBgCollapsed]          = ImVec4(0.40, 0.40, 0.80, 0.20)
+    colors[ImGuiCol.MenuBarBg]                 = ImVec4(0.40, 0.40, 0.55, 0.80)
+    colors[ImGuiCol.ScrollbarBg]               = ImVec4(0.20, 0.25, 0.30, 0.60)
+    colors[ImGuiCol.ScrollbarGrab]             = ImVec4(0.40, 0.40, 0.80, 0.30)
+    colors[ImGuiCol.ScrollbarGrabHovered]      = ImVec4(0.40, 0.40, 0.80, 0.40)
+    colors[ImGuiCol.ScrollbarGrabActive]       = ImVec4(0.41, 0.39, 0.80, 0.60)
+    colors[ImGuiCol.CheckMark]                 = ImVec4(0.90, 0.90, 0.90, 0.50)
+    colors[ImGuiCol.SliderGrab]                = ImVec4(1.00, 1.00, 1.00, 0.30)
+    colors[ImGuiCol.SliderGrabActive]          = ImVec4(0.41, 0.39, 0.80, 0.60)
+    colors[ImGuiCol.Button]                    = ImVec4(0.35, 0.40, 0.61, 0.62)
+    colors[ImGuiCol.ButtonHovered]             = ImVec4(0.40, 0.48, 0.71, 0.79)
+    colors[ImGuiCol.ButtonActive]              = ImVec4(0.46, 0.54, 0.80, 1.00)
+    colors[ImGuiCol.Header]                    = ImVec4(0.40, 0.40, 0.90, 0.45)
+    colors[ImGuiCol.HeaderHovered]             = ImVec4(0.45, 0.45, 0.90, 0.80)
+    colors[ImGuiCol.HeaderActive]              = ImVec4(0.53, 0.53, 0.87, 0.80)
+    colors[ImGuiCol.Separator]                 = ImVec4(0.50, 0.50, 0.50, 0.60)
+    colors[ImGuiCol.SeparatorHovered]          = ImVec4(0.60, 0.60, 0.70, 1.00)
+    colors[ImGuiCol.SeparatorActive]           = ImVec4(0.70, 0.70, 0.90, 1.00)
+    colors[ImGuiCol.ResizeGrip]                = ImVec4(1.00, 1.00, 1.00, 0.10)
+    colors[ImGuiCol.ResizeGripHovered]         = ImVec4(0.78, 0.82, 1.00, 0.60)
+    colors[ImGuiCol.ResizeGripActive]          = ImVec4(0.78, 0.82, 1.00, 0.90)
+    colors[ImGuiCol.InputTextCursor]           = colors[ImGuiCol.Text]
+    colors[ImGuiCol.TabHovered]                = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.Tab]                       = ImLerpV4V4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
+    colors[ImGuiCol.TabSelected]               = ImLerpV4V4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.TabSelectedOverline]       = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.53, 0.53, 0.87, 0.00)
+    colors[ImGuiCol.PlotLines]                 = ImVec4(1.00, 1.00, 1.00, 1.00)
+    colors[ImGuiCol.PlotLinesHovered]          = ImVec4(0.90, 0.70, 0.00, 1.00)
+    colors[ImGuiCol.PlotHistogram]             = ImVec4(0.90, 0.70, 0.00, 1.00)
+    colors[ImGuiCol.PlotHistogramHovered]      = ImVec4(1.00, 0.60, 0.00, 1.00)
+    colors[ImGuiCol.TableHeaderBg]             = ImVec4(0.27, 0.27, 0.38, 1.00)
+    colors[ImGuiCol.TableBorderStrong]         = ImVec4(0.31, 0.31, 0.45, 1.00)
+    colors[ImGuiCol.TableBorderLight]          = ImVec4(0.26, 0.26, 0.28, 1.00)
+    colors[ImGuiCol.TableRowBg]                = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.TableRowBgAlt]             = ImVec4(1.00, 1.00, 1.00, 0.07)
+    colors[ImGuiCol.TextLink]                  = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TextSelectedBg]            = ImVec4(0.00, 0.00, 1.00, 0.35)
+    colors[ImGuiCol.TreeLines]                 = colors[ImGuiCol.Border]
+    colors[ImGuiCol.DragDropTarget]            = ImVec4(1.00, 1.00, 0.00, 0.90)
+    colors[ImGuiCol.DragDropTargetBg]          = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.UnsavedMarker]             = ImVec4(0.90, 0.90, 0.90, 1.00)
+    colors[ImGuiCol.NavCursor]                 = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.NavWindowingHighlight]     = ImVec4(1.00, 1.00, 1.00, 0.70)
+    colors[ImGuiCol.NavWindowingDimBg]         = ImVec4(0.80, 0.80, 0.80, 0.20)
+    colors[ImGuiCol.ModalWindowDimBg]          = ImVec4(0.20, 0.20, 0.20, 0.35)
+end
+
+-- Those light colors are better suited with a thicker font than the default one + FrameBorder
+--- @param dst? ImGuiStyle
+function ImGui.StyleColorsLight(dst)
+    local style = dst and dst or ImGui.GetStyle()
+    local colors = style.Colors
+
+    colors[ImGuiCol.Text]                      = ImVec4(0.00, 0.00, 0.00, 1.00)
+    colors[ImGuiCol.TextDisabled]              = ImVec4(0.60, 0.60, 0.60, 1.00)
+    colors[ImGuiCol.WindowBg]                  = ImVec4(0.94, 0.94, 0.94, 1.00)
+    colors[ImGuiCol.ChildBg]                   = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.PopupBg]                   = ImVec4(1.00, 1.00, 1.00, 0.98)
+    colors[ImGuiCol.Border]                    = ImVec4(0.00, 0.00, 0.00, 0.30)
+    colors[ImGuiCol.BorderShadow]              = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.FrameBg]                   = ImVec4(1.00, 1.00, 1.00, 1.00)
+    colors[ImGuiCol.FrameBgHovered]            = ImVec4(0.26, 0.59, 0.98, 0.40)
+    colors[ImGuiCol.FrameBgActive]             = ImVec4(0.26, 0.59, 0.98, 0.67)
+    colors[ImGuiCol.TitleBg]                   = ImVec4(0.96, 0.96, 0.96, 1.00)
+    colors[ImGuiCol.TitleBgActive]             = ImVec4(0.82, 0.82, 0.82, 1.00)
+    colors[ImGuiCol.TitleBgCollapsed]          = ImVec4(1.00, 1.00, 1.00, 0.51)
+    colors[ImGuiCol.MenuBarBg]                 = ImVec4(0.86, 0.86, 0.86, 1.00)
+    colors[ImGuiCol.ScrollbarBg]               = ImVec4(0.98, 0.98, 0.98, 0.53)
+    colors[ImGuiCol.ScrollbarGrab]             = ImVec4(0.69, 0.69, 0.69, 0.80)
+    colors[ImGuiCol.ScrollbarGrabHovered]      = ImVec4(0.49, 0.49, 0.49, 0.80)
+    colors[ImGuiCol.ScrollbarGrabActive]       = ImVec4(0.49, 0.49, 0.49, 1.00)
+    colors[ImGuiCol.CheckMark]                 = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.SliderGrab]                = ImVec4(0.26, 0.59, 0.98, 0.78)
+    colors[ImGuiCol.SliderGrabActive]          = ImVec4(0.46, 0.54, 0.80, 0.60)
+    colors[ImGuiCol.Button]                    = ImVec4(0.26, 0.59, 0.98, 0.40)
+    colors[ImGuiCol.ButtonHovered]             = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.ButtonActive]              = ImVec4(0.06, 0.53, 0.98, 1.00)
+    colors[ImGuiCol.Header]                    = ImVec4(0.26, 0.59, 0.98, 0.31)
+    colors[ImGuiCol.HeaderHovered]             = ImVec4(0.26, 0.59, 0.98, 0.80)
+    colors[ImGuiCol.HeaderActive]              = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.Separator]                 = ImVec4(0.39, 0.39, 0.39, 0.62)
+    colors[ImGuiCol.SeparatorHovered]          = ImVec4(0.14, 0.44, 0.80, 0.78)
+    colors[ImGuiCol.SeparatorActive]           = ImVec4(0.14, 0.44, 0.80, 1.00)
+    colors[ImGuiCol.ResizeGrip]                = ImVec4(0.35, 0.35, 0.35, 0.17)
+    colors[ImGuiCol.ResizeGripHovered]         = ImVec4(0.26, 0.59, 0.98, 0.67)
+    colors[ImGuiCol.ResizeGripActive]          = ImVec4(0.26, 0.59, 0.98, 0.95)
+    colors[ImGuiCol.InputTextCursor]           = colors[ImGuiCol.Text]
+    colors[ImGuiCol.TabHovered]                = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.Tab]                       = ImLerpV4V4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.90)
+    colors[ImGuiCol.TabSelected]               = ImLerpV4V4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.TabSelectedOverline]       = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.26, 0.59, 1.00, 0.00)
+    colors[ImGuiCol.PlotLines]                 = ImVec4(0.39, 0.39, 0.39, 1.00)
+    colors[ImGuiCol.PlotLinesHovered]          = ImVec4(1.00, 0.43, 0.35, 1.00)
+    colors[ImGuiCol.PlotHistogram]             = ImVec4(0.90, 0.70, 0.00, 1.00)
+    colors[ImGuiCol.PlotHistogramHovered]      = ImVec4(1.00, 0.45, 0.00, 1.00)
+    colors[ImGuiCol.TableHeaderBg]             = ImVec4(0.78, 0.87, 0.98, 1.00)
+    colors[ImGuiCol.TableBorderStrong]         = ImVec4(0.57, 0.57, 0.64, 1.00)
+    colors[ImGuiCol.TableBorderLight]          = ImVec4(0.68, 0.68, 0.74, 1.00)
+    colors[ImGuiCol.TableRowBg]                = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.TableRowBgAlt]             = ImVec4(0.30, 0.30, 0.30, 0.09)
+    colors[ImGuiCol.TextLink]                  = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TextSelectedBg]            = ImVec4(0.26, 0.59, 0.98, 0.35)
+    colors[ImGuiCol.TreeLines]                 = colors[ImGuiCol.Border]
+    colors[ImGuiCol.DragDropTarget]            = ImVec4(0.26, 0.59, 0.98, 0.95)
+    colors[ImGuiCol.DragDropTargetBg]          = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.UnsavedMarker]             = ImVec4(0.00, 0.00, 0.00, 1.00)
+    colors[ImGuiCol.NavCursor]                 = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.NavWindowingHighlight]     = ImVec4(0.70, 0.70, 0.70, 0.70)
+    colors[ImGuiCol.NavWindowingDimBg]         = ImVec4(0.20, 0.20, 0.20, 0.20)
+    colors[ImGuiCol.ModalWindowDimBg]          = ImVec4(0.20, 0.20, 0.20, 0.35)
 end
 
 local ImFontAtlasTextureAdd
