@@ -5606,17 +5606,17 @@ end
 function ImGui.ClosePopupToLevel(remaining, restore_focus_to_window_under_popup)
     local g = GImGui
     -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupToLevel(%d), restore_under=%d", remaining, restore_focus_to_window_under_popup)
-    IM_ASSERT(remaining >= 0 and remaining < g.OpenPopupStack.Size)
+    IM_ASSERT(remaining > 0 and remaining <= g.OpenPopupStack.Size)
     -- if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags_EventPopup) ~= 0 then
-    --     for n = remaining + 1, g.OpenPopupStack.Size do
+    --     for n = remaining, g.OpenPopupStack.Size do
     --         local popup = g.OpenPopupStack.Data[n]
     --         IMGUI_DEBUG_LOG_POPUP("[popup] - Closing PopupID 0x%08X Window \"%s\"", popup.PopupId, popup.Window and popup.Window.Name or nil)
     --     end
     -- end
 
     -- Trim open popup stack
-    local prev_popup = g.OpenPopupStack.Data[remaining + 1]
-    g.OpenPopupStack:resize(remaining)
+    local prev_popup = g.OpenPopupStack.Data[remaining]
+    g.OpenPopupStack:resize(remaining - 1)
 
     -- Restore focus (unless popup window was not yet submitted, and didn't have a chance to take focus anyhow. See #7325 for an edge case)
     if restore_focus_to_window_under_popup and prev_popup.Window then
@@ -5641,12 +5641,12 @@ end
 function ImGui.CloseCurrentPopup()
     local g = GImGui
     local popup_idx = g.BeginPopupStack.Size
-    if popup_idx < 0 or popup_idx >= g.OpenPopupStack.Size or g.BeginPopupStack.Data[popup_idx].PopupId ~= g.OpenPopupStack.Data[popup_idx].PopupId then
+    if popup_idx < 1 or popup_idx > g.OpenPopupStack.Size or g.BeginPopupStack.Data[popup_idx].PopupId ~= g.OpenPopupStack.Data[popup_idx].PopupId then
         return
     end
 
     -- Closing a menu closes its top-most parent popup (unless a modal)
-    while popup_idx > 0 do
+    while popup_idx > 1 do
         local popup_window = g.OpenPopupStack.Data[popup_idx].Window
         local parent_popup_window = g.OpenPopupStack.Data[popup_idx - 1].Window
         local close_parent = false
