@@ -853,6 +853,7 @@ end
 --- @field FrameCount                         int
 --- @field FrameCountEnded                    int
 --- @field CurrentWindow                      ImGuiWindow
+--- @field HoveredWindow                      ImGuiWindow
 --- @field Style                              ImGuiStyle
 --- @field StyleVarStack                      ImVector
 --- @field ActiveIdMouseButton                ImS8

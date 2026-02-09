@@ -960,6 +960,9 @@ function ImGui.FocusWindow(window, flags)
     -- TODO:
     if g.NavWindow ~= window then
         ImGui.SetNavWindow(window)
+
+        -- Close popups if any
+        ImGui.ClosePopupsOverWindow(window, false)
     end
 
     IM_ASSERT(window == nil or window.RootWindowDockTree ~= nil)
@@ -3273,6 +3276,18 @@ function ImGui.IsPopupOpen(id, popup_flags)
     end
 end
 
+--- @return ImGuiWindow?
+function ImGui.GetTopMostPopupModal()
+    local g = GImGui
+    for n = g.OpenPopupStack.Size, 1, -1 do
+        local popup = g.OpenPopupStack.Data[n].Window
+        if bit.band(popup.Flags, ImGuiWindowFlags_Modal) ~= 0 then
+            return popup
+        end
+    end
+    return nil
+end
+
 function ImGui.UpdateMouseMovingWindowEndFrame()
     local g = GImGui
 
@@ -3318,7 +3333,16 @@ function ImGui.UpdateMouseMovingWindowEndFrame()
         end
     end
 
-    -- TODO: Right mouse button close popup
+    -- With right mouse button we close popups without changing focus based on where the mouse is aimed
+    -- Instead, focus will be restored to the window under the bottom-most closed popup.
+    -- (The left mouse button path calls FocusWindow on the hovered window, which will lead NewFrame->ClosePopupsOverWindow to trigger)
+    if g.IO.MouseClicked[1] and g.HoveredId == 0 then
+        -- Find the top-most window between HoveredWindow and the top-most Modal Window.
+        -- This is where we can trim the popup stack.
+        local modal = ImGui.GetTopMostPopupModal()
+        local hovered_window_above_modal = hovered_window and (modal == nil or ImGui.IsWindowAbove(hovered_window, modal))
+        ImGui.ClosePopupsOverWindow(hovered_window_above_modal and hovered_window or modal, true)
+    end
 end
 
 --- @param window ImGuiWindow
@@ -5375,6 +5399,30 @@ function ImGui.IsWindowWithinBeginStackOf(window, potential_parent)
     return false
 end
 
+--- @param potential_above ImGuiWindow
+--- @param potential_below ImGuiWindow
+--- @return bool
+function ImGui.IsWindowAbove(potential_above, potential_below)
+    local g = GImGui
+
+    -- It would be saner to ensure that display layer is always reflected in the g.Windows order, which would likely requires altering all manipulations of that array
+    local display_layer_delta = GetWindowDisplayLayer(potential_above) - GetWindowDisplayLayer(potential_below)
+    if display_layer_delta ~= 0 then
+        return display_layer_delta > 0
+    end
+
+    for i = g.Windows.Size, 1, -1 do
+        local candidate_window = g.Windows.Data[i]
+        if candidate_window == potential_above then
+            return true
+        end
+        if candidate_window == potential_below then
+            return false
+        end
+    end
+    return false
+end
+
 --- static void ScaleWindow(ImGuiWindow* window, float scale)
 local function ScaleWindow(window, scale)
     local origin = window.Viewport.Pos
@@ -5601,6 +5649,60 @@ function ImGui.OpenPopupEx(id, popup_flags)
         -- This is equivalent to what ClosePopupToLevel() does.
         -- if (g.OpenPopupStack[current_stack_size].PopupId == id)
         --     FocusWindow(parent_window);
+    end
+end
+
+-- When popups are stacked, clicking on a lower level popups puts focus back to it and close popups above it.
+-- This function closes any popups that are over 'ref_window'.
+--- @param ref_window?                         ImGuiWindow
+--- @param restore_focus_to_window_under_popup bool
+function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_popup)
+    local g = GImGui
+    if g.OpenPopupStack.Size == 0 then
+        return
+    end
+
+    -- Don't close our own child popup windows.
+    -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupsOverWindow(\"%s\") restore_under=%d", ref_window and ref_window.Name or "<NULL>", restore_focus_to_window_under_popup)
+    local popup_count_to_keep = 1
+    if ref_window then
+        -- Find the highest popup which is a descendant of the reference window (generally reference window = NavWindow)
+        while popup_count_to_keep <= g.OpenPopupStack.Size do
+            local popup = g.OpenPopupStack.Data[popup_count_to_keep]
+
+                if popup.Window then -- cpp code has `continue` here instead of this big if statement
+
+                    IM_ASSERT(bit.band(popup.Window.Flags, ImGuiWindowFlags_Popup) ~= 0)
+
+                    -- Trim the stack unless the popup is a direct parent of the reference window (the reference window is often the NavWindow)
+                    -- - Clicking/Focusing Window2 won't close Popup1:
+                    --     Window -> Popup1 -> Window2(Ref)
+                    -- - Clicking/focusing Popup1 will close Popup2 and Popup3:
+                    --     Window -> Popup1(Ref) -> Popup2 -> Popup3
+                    -- - Each popups may contain child windows, which is why we compare ->RootWindow!
+                    --     Window -> Popup1 -> Popup1_Child -> Popup2 -> Popup2_Child
+                    -- We step through every popup from bottom to top to validate their position relative to reference window.
+                    local ref_window_is_descendent_of_popup = false
+                    for n = popup_count_to_keep, g.OpenPopupStack.Size do
+                        local popup_window = g.OpenPopupStack.Data[n].Window
+                        if popup_window and ImGui.IsWindowWithinBeginStackOf(ref_window, popup_window) then
+                            ref_window_is_descendent_of_popup = true
+                            break
+                        end
+                    end
+
+                    if not ref_window_is_descendent_of_popup then
+                        break
+                    end
+
+                end
+
+            popup_count_to_keep = popup_count_to_keep + 1
+        end
+    end
+    if popup_count_to_keep <= g.OpenPopupStack.Size then -- This test is not required but it allows to set a convenient breakpoint on the statement below
+        -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupsOverWindow(\"%s\")", ref_window and ref_window.Name or "<NULL>")
+        ImGui.ClosePopupToLevel(popup_count_to_keep, restore_focus_to_window_under_popup)
     end
 end
 
