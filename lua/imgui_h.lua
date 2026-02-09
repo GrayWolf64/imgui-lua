@@ -937,6 +937,25 @@ ImGuiViewportFlags_IsMinimized = bit.lshift(1, 12)
 ImGuiViewportFlags_IsFocused   = bit.lshift(1, 13)
 
 --- @class ImGuiViewport
+--- @field ID                    ImGuiID
+--- @field Flags                 ImGuiViewportFlags
+--- @field Pos                   ImVec2
+--- @field Size                  ImVec2
+--- @field FramebufferScale      ImVec2
+--- @field WorkPos               ImVec2
+--- @field WorkSize              ImVec2
+--- @field DpiScale              float
+--- @field ParentViewportId      ImGuiID
+--- @field ParentViewport        ImGuiViewport
+--- @field DrawData              ImDrawData
+--- @field RendererUserData      any
+--- @field PlatformUserData      any
+--- @field PlatformHandle        any
+--- @field PlatformHandleRaw     any
+--- @field PlatformWindowCreated bool
+--- @field PlatformRequestMove   bool
+--- @field PlatformRequestResize bool
+--- @field PlatformRequestClose  bool
 MT.ImGuiViewport = {}
 MT.ImGuiViewport.__index = MT.ImGuiViewport
 
@@ -1028,6 +1047,7 @@ end
 
 --- @enum ImGuiDir
 ImGuiDir = {
+    None  = -1,
     Left  = 0,
     Right = 1,
     Up    = 2,

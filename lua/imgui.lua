@@ -6124,7 +6124,7 @@ function ImGui.IsViewportAbove(potential_above, potential_below)
     -- If ImGuiBackendFlags.HasParentViewport if set, ->ParentViewport chain should be accurate.
     local g = GImGui
     if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasParentViewport) ~= 0 then
-        local v = potential_above
+        local v = potential_above --[[@as ImGuiViewport]]
         while v ~= nil and v.ParentViewport do
             if v.ParentViewport == potential_below then
                 return true
@@ -6421,7 +6421,7 @@ function ImGui.UpdateViewportsNewFrame()
             if g.PlatformIO.Platform_GetWindowDpiScale and platform_funcs_available then
                 new_dpi_scale = g.PlatformIO.Platform_GetWindowDpiScale(viewport)
             elseif viewport.PlatformMonitor ~= -1 then
-                new_dpi_scale = g.PlatformIO.Monitors.Data[viewport.PlatformMonitor + 1].DpiScale
+                new_dpi_scale = g.PlatformIO.Monitors.Data[viewport.PlatformMonitor].DpiScale
             else
                 new_dpi_scale = (viewport.DpiScale ~= 0.0) and viewport.DpiScale or 1.0
             end
@@ -6884,7 +6884,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
         local old_parent_viewport_id = window.Viewport.ParentViewportId
         window.Viewport.ParentViewportId = window.WindowClass.ParentViewportId
         if window.Viewport.ParentViewportId ~= old_parent_viewport_id then
-            window.Viewport.ParentViewport = ImGui.FindViewportByID(window.Viewport.ParentViewportId)
+            window.Viewport.ParentViewport = ImGui.FindViewportByID(window.Viewport.ParentViewportId) --[[@as ImGuiViewport]]
         end
     elseif bit.band(window_flags, bit.bor(ImGuiWindowFlags_Popup, ImGuiWindowFlags_Tooltip)) ~= 0 and parent_window_in_stack and (not parent_window_in_stack.IsFallbackWindow or parent_window_in_stack.WasActive) then
         window.Viewport.ParentViewport = parent_window_in_stack.Viewport
@@ -7066,7 +7066,7 @@ function ImGui.FindPlatformMonitorForRect(rect)
     local monitor_count = g.PlatformIO.Monitors.Size
 
     if monitor_count <= 1 then
-        return monitor_count - 1
+        return monitor_count
     end
 
     -- Use a minimum threshold of 1.0f so a zero-sized rect won't false positive, and will still find the correct monitor given its position.
