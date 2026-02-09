@@ -1166,7 +1166,7 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                     v.cy = stbtt_int16(n * (mtx[2] * x + mtx[4] * y + mtx[6]))
                 end
 
-                if num_vertices == 0 then -- GLUA: No malloc
+                if num_vertices == 0 then -- LUA: No malloc
                     vertices = comp_verts
                 else
                     for i = 1, comp_num_vertices do

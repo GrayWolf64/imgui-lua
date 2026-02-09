@@ -4151,7 +4151,7 @@ function ImGui.End()
 
     g.CurrentWindowStack:pop_back()
 
-    -- GLUA: No "Ternary Operator", since lua (... and (1) or (2)) will eval (1) and (2) no matter what
+    -- LUA: No "Ternary Operator", since lua (... and (1) or (2)) will eval (1) and (2) no matter what
     -- so something like `SetCurrentWindow((g.CurrentWindowStack.Size == 0) and nil or g.CurrentWindowStack:back().Window)` will error
     if (g.CurrentWindowStack.Size == 0) then
         SetCurrentWindow(nil)
@@ -5209,46 +5209,46 @@ function ImGui.PopStyleColor(count)
 end
 
 local GStyleVarsInfo = {
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "Alpha"),                      --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "DisabledAlpha"),              --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowPadding"),              --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "WindowRounding"),             --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "WindowBorderSize"),           --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowMinSize"),              --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowTitleAlign"),           --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ChildRounding"),              --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ChildBorderSize"),            --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "PopupRounding"),              --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "PopupBorderSize"),            --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "FramePadding"),               --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "FrameRounding"),              --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "FrameBorderSize"),            --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ItemSpacing"),                --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ItemInnerSpacing"),           --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "IndentSpacing"),              --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "CellPadding"),                --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarSize"),              --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarRounding"),          --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarPadding"),           --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "GrabMinSize"),                --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "GrabRounding"),               --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ImageRounding"),              --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ImageBorderSize"),            --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabRounding"),                --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBorderSize"),              --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabMinWidthBase"),            --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabMinWidthShrink"),          --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBarBorderSize"),           --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBarOverlineSize"),         --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TableAngledHeadersAngle"),    --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "TableAngledHeadersTextAlign"),--
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesSize"),              --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesRounding"),          --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ButtonTextAlign"),            --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SelectableTextAlign"),        --
-    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "SeparatorTextBorderSize"),    --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SeparatorTextAlign"),         --
-    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SeparatorTextPadding")        --
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "Alpha"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "DisabledAlpha"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowPadding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "WindowRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "WindowBorderSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowMinSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowTitleAlign"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ChildRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ChildBorderSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "PopupRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "PopupBorderSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "FramePadding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "FrameRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "FrameBorderSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ItemSpacing"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ItemInnerSpacing"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "IndentSpacing"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "CellPadding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarPadding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "GrabMinSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "GrabRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ImageRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ImageBorderSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBorderSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabMinWidthBase"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabMinWidthShrink"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBarBorderSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBarOverlineSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TableAngledHeadersAngle"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "TableAngledHeadersTextAlign"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesRounding"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ButtonTextAlign"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SelectableTextAlign"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "SeparatorTextBorderSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SeparatorTextAlign"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SeparatorTextPadding")
 }
 
 --- @param idx ImGuiStyleVar

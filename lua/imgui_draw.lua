@@ -2864,7 +2864,7 @@ function MT.ImDrawList:_SetDrawListSharedData(data)
         self._Data.DrawLists:push_back(self)
     end
 
-    -- GLUA: Keep Reference
+    -- LUA: Keep Reference
     if data then self._CmdHeader.TexRef = data.FontAtlas.TexRef end
 end
 
@@ -2875,7 +2875,7 @@ function MT.ImDrawList:_ResetForNewFrame()
     self.VtxBuffer:resize(0)
     self.Flags = self._Data.InitialFlags
 
-    -- GLUA: Keep Reference
+    -- LUA: Keep Reference
     local tex_ref = self._CmdHeader.TexRef
     self._CmdHeader = ImDrawCmdHeader()
     self._CmdHeader.TexRef = tex_ref
@@ -2887,7 +2887,7 @@ function MT.ImDrawList:_ResetForNewFrame()
     self._TextureStack:resize(0)
     self._Path:resize(0)
 
-    -- GLUA: Keep Reference
+    -- LUA: Keep Reference
     local draw_cmd = ImDrawCmd()
     draw_cmd.TexRef = tex_ref
     self.CmdBuffer:push_back(draw_cmd)
@@ -3761,7 +3761,7 @@ end
 
 function MT.ImDrawList:PopClipRect()
     self._ClipRectStack:pop_back()
-    if (self._ClipRectStack.Size == 0) then -- GLUA: No "Ternary Operator"
+    if (self._ClipRectStack.Size == 0) then -- LUA: No "Ternary Operator"
         self._CmdHeader.ClipRect = self._Data.ClipRectFullscreen
     else
         self._CmdHeader.ClipRect = self._ClipRectStack.Data[self._ClipRectStack.Size]

@@ -521,7 +521,7 @@ end
 --- @field LockDisableResize        bool
 --- @field PreloadedAllGlyphsRanges bool
 --- @field BakedPool                ImVector<ImFontBaked>
---- @field BakedMap                 table<ImGuiID, any>            # GLUA: No ImGuiStorage
+--- @field BakedMap                 table<ImGuiID, any>            # LUA: No ImGuiStorage
 --- @field BakedDiscardedCount      int
 --- @field PackIdMouseCursors       ImFontAtlasRectId
 --- @field PackIdLinesTexData       ImFontAtlasRectId

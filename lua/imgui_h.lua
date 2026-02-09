@@ -547,7 +547,7 @@ end
 --- @field FallbackChar             ImWchar
 --- @field Used8kPagesMap           ImU8[]                 # 1-based table
 --- @field EllipsisAutoBake         bool
---- @field RemapPairs               table<ImGuiID, any>    # GLUA: No ImGuiStorage
+--- @field RemapPairs               table<ImGuiID, any>    # LUA: No ImGuiStorage
 --- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont

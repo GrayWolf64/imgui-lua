@@ -1561,7 +1561,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
         local v_min = FLT_MAX
         local v_max = -FLT_MAX
         for i = 1, values_count do
-            local v = values_getter(data, i)
+            local v = values_getter(data, i) -- NaN isn't checked here
 
             v_min = ImMin(v_min, v)
             v_max = ImMax(v_max, v)
