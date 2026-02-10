@@ -3009,7 +3009,7 @@ function MT.ImDrawList:_OnChangedClipRect()
         return
     end
 
-    curr_cmd.ClipRect = self._CmdHeader.ClipRect -- calling :copy() method is probably not needed here?
+    ImVec4_Copy(curr_cmd.ClipRect, self._CmdHeader.ClipRect)
 end
 
 function MT.ImDrawList:_OnChangedTexture()
@@ -3718,7 +3718,8 @@ function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text
         font_size = self._Data.FontSize
     end
 
-    local clip_rect = self._CmdHeader.ClipRect:copy() -- Don't modify the clip rect!
+    local clip_rect = ImVec4() -- Don't modify the clip rect!
+    ImVec4_Copy(clip_rect, self._CmdHeader.ClipRect)
     if (cpu_fine_clip_rect) then
         clip_rect.x = ImMax(clip_rect.x, cpu_fine_clip_rect.x)
         clip_rect.y = ImMax(clip_rect.y, cpu_fine_clip_rect.y)
