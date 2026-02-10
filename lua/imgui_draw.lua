@@ -3032,7 +3032,7 @@ function MT.ImDrawList:_OnChangedTexture()
         return
     end
 
-    curr_cmd.TexRef = self._CmdHeader.TexRef -- calling :copy() method is probably not needed here?
+    curr_cmd.TexRef = self._CmdHeader.TexRef
 end
 
 function MT.ImDrawList:_OnChangedVtxOffset()

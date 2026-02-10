@@ -392,7 +392,8 @@ function ImGui.ButtonEx(label, size_arg, flags)
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
 
-    local pos = window.DC.CursorPos:copy() -- Don't modify the cursor!
+    local pos = ImVec2() -- Don't modify the cursor!
+    ImVec2_Copy(pos, window.DC.CursorPos)
     if bit.band(flags, ImGuiButtonFlags_AlignTextBaseLine) ~= 0 and style.FramePadding.y < window.DC.CurrLineTextBaseOffset then
         pos.y = pos.y + window.DC.CurrLineTextBaseOffset - style.FramePadding.y
     end
@@ -723,7 +724,9 @@ function ImGui.Checkbox(label, v)
     local label_size = ImGui.CalcTextSize(label, nil, true)
 
     local square_sz = ImGui.GetFrameHeight()
-    local pos = window.DC.CursorPos:copy()
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+
     local total_width
     if label_size.x > 0.0 then
         total_width = square_sz + style.ItemInnerSpacing.x + label_size.x
@@ -1264,16 +1267,16 @@ function ImGui.BeginComboPreview()
     end
 
     -- FIXME: This could be contained in a PushWorkRect() api
-    preview_data.BackupCursorPos              = window.DC.CursorPos:copy()
-    preview_data.BackupCursorMaxPos           = window.DC.CursorMaxPos:copy()
-    preview_data.BackupCursorPosPrevLine      = window.DC.CursorPosPrevLine:copy()
+    ImVec2_Copy(preview_data.BackupCursorPos, window.DC.CursorPos)
+    ImVec2_Copy(preview_data.BackupCursorMaxPos, window.DC.CursorMaxPos)
+    ImVec2_Copy(preview_data.BackupCursorPosPrevLine, window.DC.CursorPosPrevLine)
     preview_data.BackupPrevLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
-    preview_data.BackupLayout                 = window.DC.LayoutType
+    preview_data.BackupLayout = window.DC.LayoutType
 
-    window.DC.CursorPos    = preview_data.PreviewRect.Min + g.Style.FramePadding
-    window.DC.CursorMaxPos = window.DC.CursorPos:copy()
-    window.DC.LayoutType   = ImGuiLayoutType.Horizontal
-    window.DC.IsSameLine   = false
+    window.DC.CursorPos = preview_data.PreviewRect.Min + g.Style.FramePadding
+    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
+    window.DC.LayoutType = ImGuiLayoutType.Horizontal
+    window.DC.IsSameLine = false
 
     ImGui.PushClipRect(preview_data.PreviewRect.Min, preview_data.PreviewRect.Max, true)
 
@@ -1337,8 +1340,11 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
     local size = ImVec2((size_arg.x ~= 0.0) and size_arg.x or label_size.x, (size_arg.y ~= 0.0) and size_arg.y or label_size.y)
-    local pos = window.DC.CursorPos:copy()
+
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
     pos.y = pos.y + window.DC.CurrLineTextBaseOffset
+
     ImGui.ItemSize(size, 0.0)
 
     -- Fill horizontal space

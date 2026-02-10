@@ -310,7 +310,6 @@ MT.ImVec1.__index = MT.ImVec1
 local function ImVec1(x) return setmetatable({x = x or 0}, MT.ImVec1) end
 
 function MT.ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
-function MT.ImVec1:copy() return ImVec1(self.x) end
 
 --- @class ImRect
 --- @field Min ImVec2
@@ -710,11 +709,11 @@ function ImGuiNextWindowData()
         PosCond              = 0,
         SizeCond             = 0,
         CollapsedCond        = 0,
-        PosVal               = nil,
-        PosPivotVal          = nil,
-        SizeVal              = nil,
-        ContentSizeVal       = nil,
-        ScrollVal            = nil,
+        PosVal               = ImVec2(),
+        PosPivotVal          = ImVec2(),
+        SizeVal              = ImVec2(),
+        ContentSizeVal       = ImVec2(),
+        ScrollVal            = ImVec2(),
         WindowFlags          = nil,
         ChildFlags           = nil,
         CollapsedVal         = nil,
@@ -919,7 +918,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         WheelingWindow = nil,
         WheelingWindowStartFrame = -1, WheelingWindowScrolledFrame = -1,
         WheelingWindowReleaseTimer = 0.0,
-        WheelingWindowRefMousePos = nil,
+        WheelingWindowRefMousePos = ImVec2(),
         WheelingWindowWheelRemainder = ImVec2(),
         WheelingAxisAvg = ImVec2(),
 
@@ -1239,9 +1238,9 @@ function ImGuiWindow(ctx, name)
         ChildFlags = 0,
         WindowClass = ImGuiWindowClass(),
 
-        Pos = nil,
-        Size = nil, -- Current size (==SizeFull or collapsed title bar size)
-        SizeFull = nil,
+        Pos = ImVec2(),
+        Size = ImVec2(), -- Current size (==SizeFull or collapsed title bar size)
+        SizeFull = ImVec2(),
 
         Active = false,
         WasActive = false,
@@ -1799,8 +1798,8 @@ function ImGuiPopupData()
         ParentNavLayer   = -1,
         OpenFrameCount   = -1,
         OpenParentId     = 0,
-        OpenPopupPos     = nil,
-        OpenMousePos     = nil
+        OpenPopupPos     = ImVec2(),
+        OpenMousePos     = ImVec2()
     }
 end
 

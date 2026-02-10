@@ -164,7 +164,12 @@ function MT.ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y
 function MT.ImVec2:__mul(other) if type(self) == "number" then return ImVec2(self * other.x, self * other.y) elseif type(other) == "number" then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
 function MT.ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
 function MT.ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
-function MT.ImVec2:copy() return ImVec2(self.x, self.y) end
+
+--- @param dest ImVec2
+--- @param src  ImVec2
+function ImVec2_Copy(dest, src)
+    dest.x = src.x; dest.y = src.y
+end
 
 --- @class ImVec4
 --- @field x number

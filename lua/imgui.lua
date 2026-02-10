@@ -571,8 +571,8 @@ local function ApplyWindowSettings(window, settings)
     window.Pos = ImTruncV2(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
     if settings.Size.x > 0 and settings.Size.y > 0 then
         local size = ImVec2(ImTrunc(settings.Size.x), ImTrunc(settings.Size.y))
-        window.Size = size
-        window.SizeFull = size:copy()
+        ImVec2_Copy(window.Size, size)
+        ImVec2_Copy(window.SizeFull, size)
     end
     window.Collapsed = settings.Collapsed
 end
@@ -2071,7 +2071,10 @@ end
 --- @nodiscard
 local function CalcWindowSizeAfterConstraint(window, size_desired)
     local g = GImGui
-    local new_size = size_desired:copy()
+
+    local new_size = ImVec2()
+    ImVec2_Copy(new_size, size_desired)
+
     if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint) ~= 0 then
         local cr = ImRect()
         ImRect_Copy(cr, g.NextWindowData.SizeConstraintRect)
@@ -2214,7 +2217,9 @@ end
 --- @return ImVec2, ImVec2
 --- @nodiscard
 local function CalcResizePosSizeFromAnyCorner(window, corner_target_arg, corner_norm)
-    local corner_target = corner_target_arg:copy()
+    local corner_target = ImVec2()
+    ImVec2_Copy(corner_target, corner_target_arg)
+
     if bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
         local parent_window = window.ParentWindow
         local parent_flags = parent_window.Flags
@@ -2425,7 +2430,8 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             end
 
             -- Use absolute mode position
-            local border_target = window.Pos:copy()
+            local border_target = ImVec2()
+            ImVec2_Copy(border_target, window.Pos)
             if axis == 0 then
                 border_target.x = border_target_abs_mode_for_axis
             elseif axis == 1 then
@@ -2586,7 +2592,9 @@ end
 function ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
     if not align then align = ImVec2(0, 0) end
 
-    local pos = pos_min:copy()
+    local pos = ImVec2()
+    ImVec2_Copy(pos, pos_min)
+
     local text_size = text_size_if_known or ImGui.CalcTextSize(text, text_display_end, false, 0.0)
 
     local clip_min = clip_rect and clip_rect.Min or pos_min
@@ -2660,7 +2668,8 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
 
     local text_size
     if text_size_if_known then
-        text_size = text_size_if_known:copy()
+        text_size = ImVec2()
+        ImVec2_Copy(text_size, text_size_if_known)
     else
         text_size = ImGui.CalcTextSize(text, text_end_full, false, 0.0)
     end
@@ -3068,7 +3077,8 @@ function ImGui.SetWindowPos(window, pos, cond)
     window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)))
     window.SetWindowPosVal = ImVec2(FLT_MAX, FLT_MAX)
 
-    local old_pos = window.Pos:copy()
+    local old_pos = ImVec2()
+    ImVec2_Copy(old_pos, window.Pos)
 
     window.Pos.x = ImTrunc(pos.x)
     window.Pos.y = ImTrunc(pos.y)
@@ -3105,7 +3115,9 @@ function ImGui.SetWindowSize(window, size, cond)
         window.AutoFitFramesY = (size.y <= 0.0) and 2 or 0
     end
 
-    local old_size = window.SizeFull:copy()
+    -- local old_size = ImVec2()
+    -- ImVec2_Copy(old_size, window.SizeFull)
+
     if size.x <= 0.0 then
         window.AutoFitOnlyGrows = false
     else
@@ -3138,10 +3150,10 @@ function ImGui.SetNextWindowPos(pos, cond, pivot)
     local g = GImGui
     IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
 
-    g.NextWindowData.HasFlags    = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasPos)
-    g.NextWindowData.PosVal      = pos:copy()
-    g.NextWindowData.PosPivotVal = pivot:copy()
-    g.NextWindowData.PosCond     = (cond ~= 0) and cond or ImGuiCond.Always
+    g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasPos)
+    ImVec2_Copy(g.NextWindowData.PosVal, pos)
+    ImVec2_Copy(g.NextWindowData.PosPivotVal, pivot)
+    g.NextWindowData.PosCond = (cond ~= 0) and cond or ImGuiCond.Always
 end
 
 --- @param size  ImVec2
@@ -3153,7 +3165,7 @@ function ImGui.SetNextWindowSize(size, cond)
     IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
 
     g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize)
-    g.NextWindowData.SizeVal  = size:copy()
+    ImVec2_Copy(g.NextWindowData.SizeVal, size)
     g.NextWindowData.SizeCond = (cond ~= 0) and cond or ImGuiCond.Always
 end
 
@@ -3502,8 +3514,8 @@ function ImGui.Begin(name, open, flags)
         window_pos_set_by_api = (bit.band(window.SetWindowPosAllowFlags, g.NextWindowData.PosCond) ~= 0)
         if window_pos_set_by_api and ImLengthSqr(g.NextWindowData.PosPivotVal) > 1e-5 then
             -- FIXME: Look into removing the branch so everything can go through this same code path for consistency.
-            window.SetWindowPosVal = g.NextWindowData.PosVal:copy()
-            window.SetWindowPosPivot = g.NextWindowData.PosPivotVal:copy()
+            ImVec2_Copy(window.SetWindowPosVal, g.NextWindowData.PosVal)
+            ImVec2_Copy(window.SetWindowPosPivot, g.NextWindowData.PosPivotVal)
             window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)))
         else
             ImGui.SetWindowPos(window, g.NextWindowData.PosVal, g.NextWindowData.PosCond)
@@ -3531,7 +3543,7 @@ function ImGui.Begin(name, open, flags)
         end
     end
     if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasContentSize) ~= 0 then
-        window.ContentSizeExplicit = g.NextWindowData.ContentSizeVal:copy()
+        ImVec2_Copy(window.ContentSizeExplicit, g.NextWindowData.ContentSizeVal)
     elseif first_begin_of_the_frame then
         window.ContentSizeExplicit = ImVec2(0.0, 0.0)
     end
@@ -3635,7 +3647,9 @@ function ImGui.Begin(name, open, flags)
 
         window.TitleBarHeight = (bit.band(flags, ImGuiWindowFlags_NoTitleBar) ~= 0) and 0 or g.FontSize + g.Style.FramePadding.y * 2
 
-        local scrollbar_sizes_from_last_frame = window.ScrollbarSizes:copy() -- Updated several lines later
+        local scrollbar_sizes_from_last_frame = ImVec2()
+        ImVec2_Copy(scrollbar_sizes_from_last_frame, window.ScrollbarSizes)
+
         window.DecoOuterSizeX1 = 0.0
         window.DecoOuterSizeX2 = 0.0
         window.DecoOuterSizeY1 = window.TitleBarHeight + window.MenuBarHeight
@@ -3818,7 +3832,7 @@ function ImGui.Begin(name, open, flags)
         end
 
         -- Save last known viewport position within the window itself (so it can be saved in .ini file and restored)
-        window.ViewportPos = window.Viewport.Pos:copy()
+        ImVec2_Copy(window.ViewportPos, window.Viewport.Pos)
 
         --- SCROLLBAR VISIBILITY
         -- Update scrollbar visibility (based on the Size that was effective during last frame or the auto-resized Size)
@@ -3993,10 +4007,10 @@ function ImGui.Begin(name, open, flags)
         local start_pos_highp_y = window.Pos.y + window.WindowPadding.y - window.Scroll.y + window.DecoOuterSizeY1
         window.DC.CursorStartPos = ImVec2(start_pos_highp_x, start_pos_highp_y)
         window.DC.CursorStartPosLossyness = ImVec2(start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y)
-        window.DC.CursorPos = window.DC.CursorStartPos:copy()
-        window.DC.CursorPosPrevLine = window.DC.CursorPos:copy()
-        window.DC.CursorMaxPos = window.DC.CursorStartPos:copy()
-        window.DC.IdealMaxPos = window.DC.CursorStartPos:copy()
+        ImVec2_Copy(window.DC.CursorPos, window.DC.CursorStartPos)
+        ImVec2_Copy(window.DC.CursorPosPrevLine, window.DC.CursorPos)
+        ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorStartPos)
+        ImVec2_Copy(window.DC.IdealMaxPos, window.DC.CursorStartPos)
         window.DC.CurrLineSize = ImVec2(0.0, 0.0)
         window.DC.PrevLineSize = ImVec2(0.0, 0.0)
         window.DC.CurrLineTextBaseOffset = 0.0
@@ -4473,7 +4487,7 @@ local function LockWheelingWindow(window, wheel_amount)
     end
     -- IMGUI_DEBUG_LOG_IO("[io] LockWheelingWindow() \"%s\"\n", window ? window->Name : "NULL")
     g.WheelingWindow = window
-    g.WheelingWindowRefMousePos = g.IO.MousePos:copy()
+    ImVec2_Copy(g.WheelingWindowRefMousePos, g.IO.MousePos)
     if window == nil then
         g.WheelingWindowStartFrame = -1
         g.WheelingAxisAvg = ImVec2(0.0, 0.0)
@@ -4514,7 +4528,8 @@ local function FindBestWheelingWindow(wheel)
         g.WheelingWindowStartFrame = g.FrameCount
     end
     if ((g.WheelingWindowStartFrame == g.FrameCount and wheel.x ~= 0.0 and wheel.y ~= 0.0) or (g.WheelingAxisAvg.x == g.WheelingAxisAvg.y)) then
-        g.WheelingWindowWheelRemainder = wheel
+        ImVec2_Copy(g.WheelingWindowWheelRemainder, wheel)
+
         return nil
     end
     return (g.WheelingAxisAvg.x > g.WheelingAxisAvg.y) and windows[1] or windows[2]
@@ -5619,9 +5634,9 @@ function ImGui.OpenPopupEx(id, popup_flags)
     popup_ref.OpenParentId = parent_window.IDStack:back()
     popup_ref.OpenPopupPos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags_Popup)
     if ImGui.IsMousePosValid(g.IO.MousePos) then
-        popup_ref.OpenMousePos = g.IO.MousePos:copy()
+        ImVec2_Copy(popup_ref.OpenMousePos, g.IO.MousePos)
     else
-        popup_ref.OpenMousePos = popup_ref.OpenPopupPos:copy()
+        ImVec2_Copy(popup_ref.OpenMousePos, popup_ref.OpenPopupPos)
     end
 
     -- IMGUI_DEBUG_LOG_POPUP("[popup] OpenPopupEx(0x%08X)", id)
@@ -5948,7 +5963,7 @@ function ImGui.GetPopupAllowedExtentRect(window)
     if window.ViewportAllowPlatformMonitorExtend >= 1 then
         -- Extent with be in the frame of reference of the given viewport (so Min is likely to be negative here)
         local monitor = g.PlatformIO.Monitors.Data[window.ViewportAllowPlatformMonitorExtend]
-        r_screen.Min = monitor.WorkPos:copy() -- Don't modify the WorkPos!
+        ImVec2_Copy(r_screen.Min, monitor.WorkPos)
         r_screen.Max = monitor.WorkPos + monitor.WorkSize
     else
         -- Use the full viewport area (not work area) for popups
@@ -6452,8 +6467,8 @@ function ImGui.UpdateViewportsNewFrame()
     local main_viewport_framebuffer_scale = g.IO.DisplayFramebufferScale
 
     if viewports_enabled and (bit.band(main_viewport.Flags, ImGuiViewportFlags_IsMinimized) ~= 0) then
-        main_viewport_pos = main_viewport.Pos:copy()  -- Preserve last pos/size when minimized (FIXME: We don't do the same for Size outside of the viewport path)
-        main_viewport_size = main_viewport.Size:copy()
+        ImVec2_Copy(main_viewport_pos, main_viewport.Pos) -- Preserve last pos/size when minimized (FIXME: We don't do the same for Size outside of the viewport path)
+        ImVec2_Copy(main_viewport_size, main_viewport.Size)
         main_viewport_framebuffer_scale = main_viewport.FramebufferScale
     end
 
