@@ -323,7 +323,6 @@ function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a,
 
 function MT.ImRect:__eq(other) return self.Min == other.Min and self.Max == other.Max end
 function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
-function MT.ImRect:copy() return ImRect(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 
 --- @param other ImRect
 function MT.ImRect:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
@@ -416,6 +415,13 @@ function MT.ImRect:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - se
 --- @return ImRect
 --- @nodiscard
 function ImRectFromVec4(v) return ImRect(v.x, v.y, v.z, v.w) end
+
+--- @param dest ImRect
+--- @param src  ImRect
+function ImRect_Copy(dest, src)
+    dest.Min.x = src.Min.x; dest.Min.y = src.Min.y
+    dest.Max.x = src.Max.x; dest.Max.y = src.Max.y
+end
 
 function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
@@ -1189,6 +1195,13 @@ end
 --- @field FocusOrder                         short               # 1-based, order within WindowsFocusOrder, altered when windows are focused. Can be -1 if invalid
 --- @field IDStack                            ImVector<ImGuiID>
 --- @field DC                                 ImGuiWindowTempData
+--- @field OuterRectClipped                   ImRect
+--- @field InnerRect                          ImRect
+--- @field InnerClipRect                      ImRect
+--- @field WorkRect                           ImRect
+--- @field ParentWorkRect                     ImRect
+--- @field ClipRect                           ImRect
+--- @field ContentRegionRect                  ImRect
 --- @field DrawList                           ImDrawList          # Points to DrawListInst
 --- @field DrawListInst                       ImDrawList
 --- @field ParentWindow?                      ImGuiWindow
@@ -1321,7 +1334,7 @@ function ImGuiWindow(ctx, name)
         --- struct IMGUI_API ImGuiWindowTempData
         DC = ImGuiWindowTempData(),
 
-        OuterRectClipped = nil,
+        OuterRectClipped = ImRect(),
         InnerRect        = ImRect(),
         InnerClipRect    = ImRect(),
         WorkRect         = ImRect(),

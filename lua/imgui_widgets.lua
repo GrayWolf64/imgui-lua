@@ -457,7 +457,9 @@ function ImGui.CloseButton(id, pos)
     local window = g.CurrentWindow
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
-    local bb_interact = bb:copy()
+    local bb_interact = ImRect()
+    ImRect_Copy(bb_interact, bb)
+
     local area_to_visible_ratio = window.OuterRectClipped:GetArea() / bb:GetArea()
     if area_to_visible_ratio < 1.5 then
         bb_interact:ExpandV2(ImTruncV2(bb_interact:GetSize() * -0.25))
@@ -585,7 +587,9 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     local style = g.Style
     local allow_interaction = (alpha >= 1.0)
 
-    local bb = bb_frame:copy()
+    local bb = ImRect()
+    ImRect_Copy(bb, bb_frame)
+
     local padding = IM_TRUNC(ImMin(style.ScrollbarPadding, ImMin(bb_frame_width, bb_frame_height) * 0.5))
     bb:Expand(-padding)
 
@@ -1407,7 +1411,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         end
 
         g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasClipRect)
-        g.LastItemData.ClipRect = window.ClipRect:copy()
+        ImRect_Copy(g.LastItemData.ClipRect, window.ClipRect)
     end
 
     -- We use NoHoldingActiveID on menus so user can click and _hold_ on a menu then drag to browse child entries

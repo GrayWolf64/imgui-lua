@@ -701,7 +701,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     local window = g.CurrentWindow
 
     g.LastItemData.ID = id
-    g.LastItemData.Rect = bb
+    ImRect_Copy(g.LastItemData.Rect, bb)
     g.LastItemData.NavRect = nav_bb_arg and nav_bb_arg or bb
     g.LastItemData.ItemFlags = bit.bor(g.CurrentItemFlags, g.NextItemData.ItemFlags, extra_flags)
     g.LastItemData.StatusFlags = ImGuiItemStatusFlags.None
@@ -1999,9 +1999,9 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         elseif e.Type == ImGuiInputEventType.Key then
             -- TODO:
         elseif e.Type == ImGuiInputEventType.Text then
-            
+            -- TODO:
         elseif e.Type == ImGuiInputEventType.Focus then
-            
+            -- TODO:
         else
             IM_ASSERT(false, "Unknown event!")
         end
@@ -2073,7 +2073,9 @@ local function CalcWindowSizeAfterConstraint(window, size_desired)
     local g = GImGui
     local new_size = size_desired:copy()
     if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint) ~= 0 then
-        local cr = g.NextWindowData.SizeConstraintRect:copy()
+        local cr = ImRect()
+        ImRect_Copy(cr, g.NextWindowData.SizeConstraintRect)
+
         new_size.x = (cr.Min.x >= 0 and cr.Max.x >= 0) and ImClamp(new_size.x, cr.Min.x, cr.Max.x) or window.SizeFull.x
         new_size.y = (cr.Min.y >= 0 and cr.Max.y >= 0) and ImClamp(new_size.y, cr.Min.y, cr.Max.y) or window.SizeFull.y
         if g.NextWindowData.SizeCallback then
@@ -2285,7 +2287,9 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         window.ClipRect = window.Viewport:GetMainRect()
     end
 
-    local clamp_rect = visibility_rect:copy()
+    local clamp_rect = ImRect()
+    ImRect_Copy(clamp_rect, visibility_rect)
+
     local window_move_from_title_bar = (bit.band(window.BgClickFlags, ImGuiWindowBgClickFlags.Move) == 0) and (bit.band(window.Flags, ImGuiWindowFlags_NoTitleBar) == 0)
     if window_move_from_title_bar then
         clamp_rect.Min.y = clamp_rect.Min.y - window.TitleBarHeight
@@ -3872,7 +3876,7 @@ function ImGui.Begin(name, open, flags)
         end
         local outer_rect = window:Rect()
         local title_bar_rect = window:TitleBarRect()
-        window.OuterRectClipped = outer_rect:copy()
+        ImRect_Copy(window.OuterRectClipped, outer_rect)
         window.OuterRectClipped:ClipWith(host_rect)
 
         window.InnerRect.Min.x = window.Pos.x + window.DecoOuterSizeX1
