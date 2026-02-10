@@ -5710,7 +5710,7 @@ function ImGui.ClosePopupToLevel(remaining, restore_focus_to_window_under_popup)
     local g = GImGui
     -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupToLevel(%d), restore_under=%d", remaining, restore_focus_to_window_under_popup)
     IM_ASSERT(remaining > 0 and remaining <= g.OpenPopupStack.Size)
-    -- if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags_EventPopup) ~= 0 then
+    -- if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then
     --     for n = remaining, g.OpenPopupStack.Size do
     --         local popup = g.OpenPopupStack.Data[n]
     --         IMGUI_DEBUG_LOG_POPUP("[popup] - Closing PopupID 0x%08X Window \"%s\"", popup.PopupId, popup.Window and popup.Window.Name or nil)
@@ -5766,7 +5766,7 @@ function ImGui.CloseCurrentPopup()
         popup_idx = popup_idx - 1
     end
 
-    -- IMGUI_DEBUG_LOG_POPUP("[popup] CloseCurrentPopup %d -> %d\n", g.BeginPopupStack.Size - 1, popup_idx)
+    -- IMGUI_DEBUG_LOG_POPUP("[popup] CloseCurrentPopup %d -> %d\n", g.BeginPopupStack.Size, popup_idx)
     ImGui.ClosePopupToLevel(popup_idx, true)
 
     -- A common pattern is to close a popup when selecting a menu item/selectable that will open another window.

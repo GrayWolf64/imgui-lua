@@ -161,9 +161,9 @@ function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCo
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
--- TODO: flags, IMGUI_DEBUG_LOG_POPUP
-function IMGUI_DEBUG_LOG_FONT(_str, ...) print(string.format(_str, ...)) end
-function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) print(string.format(_str, ...)) end
+function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = ImGui.GetCurrentContext() if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = ImGui.GetCurrentContext() if g2 and bit.band(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = ImGui.GetCurrentContext() if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
 
 ImGuiKeyOwner_Any     = 0
 ImGuiKeyOwner_NoOwner = 4294967295
@@ -864,6 +864,8 @@ end
 --- @field BeginPopupStack                    ImVector<ImGuiPopupData>
 --- @field PlatformIO                         ImGuiPlatformIO
 --- @field Viewports                          ImVector<ImGuiViewportP>
+--- @field DebugLogFlags                      ImGuiDebugLogFlags
+--- @field DebugFlashStyleColorIdx            ImGuiCol
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1060,6 +1062,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         DragDropAcceptIdPrev = 0, DragDropAcceptIdCurr = 0,
 
+        DebugLogFlags = bit.bor(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
         DebugFlashStyleColorIdx = nil,
     }
 
@@ -1183,7 +1186,7 @@ end
 --- @field ContentSizeIdeal                   ImVec2
 --- @field ContentSizeExplicit                ImVec2
 --- @field IsExplicitChild                    bool
---- @field FocusOrder                         short               # 1-based, order within WindowsFocusOrder, altered when windows are focused. Can be -1
+--- @field FocusOrder                         short               # 1-based, order within WindowsFocusOrder, altered when windows are focused. Can be -1 if invalid
 --- @field IDStack                            ImVector<ImGuiID>
 --- @field DC                                 ImGuiWindowTempData
 --- @field DrawList                           ImDrawList          # Points to DrawListInst
@@ -1803,3 +1806,40 @@ ImGuiNavRenderCursorFlags = {
     AlwaysDraw = bit.lshift(1, 2), -- Draw rectangular highlight if (g.NavId == id) even when g.NavCursorVisible == false, aka even when using the mouse
     NoRounding = bit.lshift(1, 3),
 }
+
+--- @enum ImGuiDebugLogFlags
+ImGuiDebugLogFlags = {
+    -- Event types
+    None              = 0,
+    EventError        = bit.lshift(1, 0), -- Error submitted by IM_ASSERT_USER_ERROR()
+    EventActiveId     = bit.lshift(1, 1),
+    EventFocus        = bit.lshift(1, 2),
+    EventPopup        = bit.lshift(1, 3),
+    EventNav          = bit.lshift(1, 4),
+    EventClipper      = bit.lshift(1, 5),
+    EventSelection    = bit.lshift(1, 6),
+    EventIO           = bit.lshift(1, 7),
+    EventFont         = bit.lshift(1, 8),
+    EventInputRouting = bit.lshift(1, 9),
+    EventDocking      = bit.lshift(1, 10),
+    EventViewport     = bit.lshift(1, 11),
+
+    OutputToTTY        = bit.lshift(1, 20), -- Also send output to TTY
+    OutputToDebugger   = bit.lshift(1, 21), -- Also send output to Debugger Console
+    OutputToTestEngine = bit.lshift(1, 22), -- Also send output to Dear ImGui Test Engine
+}
+
+ImGuiDebugLogFlags.EventMask_ = bit.bor(
+    ImGuiDebugLogFlags.EventError,
+    ImGuiDebugLogFlags.EventActiveId,
+    ImGuiDebugLogFlags.EventFocus,
+    ImGuiDebugLogFlags.EventPopup,
+    ImGuiDebugLogFlags.EventNav,
+    ImGuiDebugLogFlags.EventClipper,
+    ImGuiDebugLogFlags.EventSelection,
+    ImGuiDebugLogFlags.EventIO,
+    ImGuiDebugLogFlags.EventFont,
+    ImGuiDebugLogFlags.EventInputRouting,
+    ImGuiDebugLogFlags.EventDocking,
+    ImGuiDebugLogFlags.EventViewport
+)
