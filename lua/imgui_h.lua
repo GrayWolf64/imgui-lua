@@ -214,7 +214,8 @@ function MT.ImVector:empty() return self.Size == 0 end
 function MT.ImVector:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
 function MT.ImVector:erase(i) IM_ASSERT(i >= 1 and i <= self.Size) local removed = table.remove(self.Data, i) self.Size = self.Size - 1 return removed end
 function MT.ImVector:at(i)    IM_ASSERT(i >= 1 and i <= self.Size) return self.Data[i] end
-function MT.ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
+local function _iter(v, i) i = i + 1 if i <= v.Size then return i, v.Data[i] end end
+function MT.ImVector:iter() return _iter, self, 0 end
 function MT.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end
 function MT.ImVector:erase_unsorted(index) IM_ASSERT(i >= 1 and i <= self.Size) local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
 function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx then return self:erase_unsorted(idx) end return false end
