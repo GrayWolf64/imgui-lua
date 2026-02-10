@@ -563,7 +563,7 @@ end
 --- @param settings ImGuiWindowSettings
 local function ApplyWindowSettings(window, settings)
     local main_viewport = ImGui.GetMainViewport()
-    window.ViewportPos = main_viewport.Pos
+    ImVec2_Copy(window.ViewportPos, main_viewport.Pos)
     if (settings.ViewportId ~= 0) then
         window.ViewportId = settings.ViewportId
         window.ViewportPos = ImVec2(settings.ViewportPos.x, settings.ViewportPos.y)
@@ -586,7 +586,7 @@ local function InitOrLoadWindowSettings(window, settings)
     window.Pos = main_viewport.Pos + ImVec2(60, 60)
     window.Size = ImVec2(0, 0)
     window.SizeFull = ImVec2(0, 0)
-    window.ViewportPos = main_viewport.Pos
+    ImVec2_Copy(window.ViewportPos, main_viewport.Pos)
     window.SetWindowPosAllowFlags = bit.bor(ImGuiCond.Always, ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)
     window.SetWindowSizeAllowFlags = window.SetWindowPosAllowFlags
     window.SetWindowCollapsedAllowFlags = window.SetWindowPosAllowFlags
@@ -596,8 +596,8 @@ local function InitOrLoadWindowSettings(window, settings)
         ApplyWindowSettings(window, settings)
     end
     window.DC.CursorStartPos = ImVec2(window.Pos.x, window.Pos.y) -- So first call to CalcWindowContentSizes() doesn't return crazy values
-    window.DC.CursorMaxPos = window.DC.CursorStartPos
-    window.DC.IdealMaxPos = window.DC.CursorStartPos
+    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorStartPos)
+    ImVec2_Copy(window.DC.IdealMaxPos, window.DC.CursorStartPos)
 
     if bit.band(window.Flags, ImGuiWindowFlags_AlwaysAutoResize) ~= 0 then
         window.AutoFitFramesX = 2
@@ -3238,7 +3238,7 @@ function ImGui.UpdateMouseMovingWindowNewFrame()
             if moving_window.Pos.x ~= pos.x or moving_window.Pos.y ~= pos.y then
                 ImGui.SetWindowPos(moving_window, pos, ImGuiCond.Always)
                 if moving_window.Viewport and moving_window.ViewportOwned then -- Synchronize viewport immediately because some overlays may relies on clipping rectangle before we Begin() into the window.
-                    moving_window.Viewport.Pos = pos
+                    ImVec2_Copy(moving_window.Viewport.Pos, pos)
                     moving_window.Viewport:UpdateWorkRect()
                 end
             end
@@ -3716,7 +3716,7 @@ function ImGui.Begin(name, open, flags)
         if window_just_activated_by_user then
             window.AutoPosLastDirection = ImGuiDir.None
             if bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 and bit.band(flags, ImGuiWindowFlags_Modal) == 0 and not window_pos_set_by_api then -- FIXME: BeginPopup() could use SetNextWindowPos()
-                window.Pos = g.BeginPopupStack:back().OpenPopupPos
+                ImVec2_Copy(window.Pos, g.BeginPopupStack:back().OpenPopupPos)
             end
         end
 
@@ -3725,7 +3725,7 @@ function ImGui.Begin(name, open, flags)
             window.BeginOrderWithinParent = parent_window.DC.ChildWindows.Size
             parent_window.DC.ChildWindows:push_back(window)
             if (bit.band(flags, ImGuiWindowFlags_Popup) == 0) and not window_pos_set_by_api and not window_is_child_tooltip then
-                window.Pos = parent_window.DC.CursorPos
+                ImVec2_Copy(window.Pos, parent_window.DC.CursorPos)
             end
         end
 
@@ -3822,10 +3822,10 @@ function ImGui.Begin(name, open, flags)
         -- Synchronize window --> viewport again and one last time (clamping and manual resize may have affected either)
         if window.ViewportOwned then
             if not window.Viewport.PlatformRequestMove then
-                window.Viewport.Pos = window.Pos
+                ImVec2_Copy(window.Viewport.Pos, window.Pos)
             end
             if not window.Viewport.PlatformRequestResize then
-                window.Viewport.Size = window.Size
+                ImVec2_Copy(window.Viewport.Size, window.Size)
             end
             window.Viewport:UpdateWorkRect()
             viewport_rect = window.Viewport:GetMainRect()
@@ -4684,7 +4684,7 @@ local function InitViewportDrawData(viewport)
     if is_minimized then
         draw_data.DisplaySize = ImVec2(0.0, 0.0)
     else
-        draw_data.DisplaySize = viewport.Size
+        ImVec2_Copy(draw_data.DisplaySize, viewport.Size)
     end
     if viewport.FramebufferScale.x ~= 0.0 then
         draw_data.FramebufferScale = viewport.FramebufferScale
@@ -6497,11 +6497,11 @@ function ImGui.UpdateViewportsNewFrame()
                     -- Viewport->WorkPos and WorkSize will be updated below
                     if viewport.PlatformRequestMove then
                         viewport.Pos = g.PlatformIO.Platform_GetWindowPos(viewport)
-                        viewport.LastPlatformPos = viewport.Pos
+                        ImVec2_Copy(viewport.LastPlatformPos, viewport.Pos)
                     end
                     if viewport.PlatformRequestResize then
                         viewport.Size = g.PlatformIO.Platform_GetWindowSize(viewport)
-                        viewport.LastPlatformSize = viewport.Size
+                        ImVec2_Copy(viewport.LastPlatformSize, viewport.Size)
                     end
                     if g.PlatformIO.Platform_GetWindowFramebufferScale ~= nil then
                         viewport.FramebufferScale = g.PlatformIO.Platform_GetWindowFramebufferScale(viewport)
@@ -6577,10 +6577,10 @@ function ImGui.UpdateViewportsNewFrame()
 
     if g.PlatformIO.Monitors.Size == 0 then
         local monitor = g.FallbackMonitor
-        monitor.MainPos = main_viewport.Pos
-        monitor.MainSize = main_viewport.Size
-        monitor.WorkPos = main_viewport.WorkPos
-        monitor.WorkSize = main_viewport.WorkSize
+        ImVec2_Copy(monitor.MainPos, main_viewport.Pos)
+        ImVec2_Copy(monitor.MainSize, main_viewport.Size)
+        ImVec2_Copy(monitor.WorkPos, main_viewport.WorkPos)
+        ImVec2_Copy(monitor.WorkSize, main_viewport.WorkSize)
         monitor.DpiScale = main_viewport.DpiScale
 
         g.PlatformMonitorsFullWorkRect:Add(monitor.WorkPos)
@@ -6711,10 +6711,10 @@ function ImGui.AddUpdateViewport(window, id, pos, size, flags)
         local prev_pos = ImVec2(viewport.Pos.x, viewport.Pos.y)
         local prev_size = ImVec2(viewport.Size.x, viewport.Size.y)
         if not viewport.PlatformRequestMove or viewport.ID == IMGUI_VIEWPORT_DEFAULT_ID then
-            viewport.Pos = pos
+            ImVec2_Copy(viewport.Pos, pos)
         end
         if not viewport.PlatformRequestResize or viewport.ID == IMGUI_VIEWPORT_DEFAULT_ID then
-            viewport.Size = size
+            ImVec2_Copy(viewport.Size, size)
         end
         -- Preserve existing flags
         viewport.Flags = bit.bor(flags, bit.band(viewport.Flags, bit.bor(ImGuiViewportFlags_IsMinimized, ImGuiViewportFlags_IsFocused)))
@@ -6726,10 +6726,10 @@ function ImGui.AddUpdateViewport(window, id, pos, size, flags)
         viewport = ImGuiViewportP()
         viewport.ID = id
         viewport.Idx = g.Viewports.Size
-        viewport.Pos = pos
-        viewport.LastPos = pos
-        viewport.Size = size
-        viewport.LastSize = size
+        ImVec2_Copy(viewport.Pos, pos)
+        ImVec2_Copy(viewport.LastPos, pos)
+        ImVec2_Copy(viewport.Size, size)
+        ImVec2_Copy(viewport.LastSize, size)
         viewport.Flags = flags
         ImGui.UpdateViewportPlatformMonitor(viewport)
         g.Viewports:push_back(viewport)
@@ -6926,7 +6926,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
     -- Synchronize window --> viewport in most situations
     -- Synchronize viewport -> window in case the platform window has been moved or resized from the OS/WM
     if window.Viewport.PlatformRequestMove then
-        window.Pos = window.Viewport.Pos
+        ImVec2_Copy(window.Pos, window.Viewport.Pos)
         -- ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Pos.x ~= window.Pos.x or window.Viewport.Pos.y ~= window.Pos.y then
         viewport_rect_changed = true
@@ -6934,8 +6934,8 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
     end
 
     if window.Viewport.PlatformRequestResize then
-        window.Size = window.Viewport.Size
-        window.SizeFull = window.Viewport.Size
+        ImVec2_Copy(window.Size, window.Viewport.Size)
+        ImVec2_Copy(window.SizeFull, window.Viewport.Size)
         -- ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Size.x ~= window.Size.x or window.Viewport.Size.y ~= window.Size.y then
         viewport_rect_changed = true
