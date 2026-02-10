@@ -38,6 +38,9 @@ concommand.Add("imgui_test", function()
     local refresh_time = 0
     local phase = 0
 
+    local style_names = {"Dark", "Classic", "Light"}
+    local current_style = style_names[1]
+
     local function sin(_, i) return math.sin(i * 0.1) end
 
     local viewport = CreateMainViewport()
@@ -109,6 +112,24 @@ concommand.Add("imgui_test", function()
                     local overlay = string.format("avg %.6f", average)
                     ImGui.PlotLines("Lines", values, nil, 90, values_offset, overlay, -1.0, 1.0, ImVec2(0, 80.0))
                     ImGui.PlotHistogram("Sine Saws", sin, nil, 90, nil, nil, -1.0, 1.0, ImVec2(0, 80.0))
+                end
+
+                if ImGui.BeginCombo("Colors##Selector", current_style) then
+                    for style_idx, style_name in ipairs(style_names) do
+                        local pressed, _ = ImGui.Selectable(style_name, style_name == current_style)
+                        if pressed then
+                            if style_idx == 1 then
+                                ImGui.StyleColorsDark()
+                            elseif style_idx == 2 then
+                                ImGui.StyleColorsClassic()
+                            elseif style_idx == 3 then
+                                ImGui.StyleColorsLight()
+                            end
+
+                            current_style = style_name
+                        end
+                    end
+                    ImGui.EndCombo()
                 end
 
                 ImGui.PopFont()

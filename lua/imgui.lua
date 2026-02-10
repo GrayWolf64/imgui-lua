@@ -43,7 +43,7 @@ local TOOLTIP_DEFAULT_PIVOT_TOUCH  = ImVec2(0.5, 1.0) -- Multiplied by g.Style.M
 IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 
 local string = string
-local ImFormatString = string.format
+ImFormatString = string.format
 
 local math = math
 local bit  = bit
@@ -199,7 +199,7 @@ local function GetResizeBorderRect(window, border_n, perp_padding, thickness)
 end
 
 --- @param data table|number
---- @param size int?
+--- @param size int?         # size = -1 to indicate that `data` is a single number
 --- @param seed int?
 --- @return int
 function ImHashData(data, size, seed)
@@ -210,7 +210,7 @@ function ImHashData(data, size, seed)
 
     local hash = bit.bxor(FNV_OFFSET_BASIS, seed)
 
-    if size == 1 then --- @cast data number
+    if size == -1 then --- @cast data number
         hash = bit.bxor(hash, data)
         hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
     else
@@ -704,7 +704,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     g.LastItemData.Rect = bb
     g.LastItemData.NavRect = nav_bb_arg and nav_bb_arg or bb
     g.LastItemData.ItemFlags = bit.bor(g.CurrentItemFlags, g.NextItemData.ItemFlags, extra_flags)
-    g.LastItemData.StatusFlags = ImGuiItemStatusFlags_None
+    g.LastItemData.StatusFlags = ImGuiItemStatusFlags.None
 
     if id ~= 0 then
         ImGui.KeepAliveID(id)
@@ -741,11 +741,11 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     end
 
     if is_rect_visible then
-        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_Visible)
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible)
     end
 
     if IsMouseHoveringRect(bb.Min, bb.Max) then
-        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_HoveredRect)
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredRect)
     end
 
     return true
@@ -947,7 +947,97 @@ end
 
 -- end
 
+---------------------------------------------------------------------------------------
+-- [SECTION] WINDOW FOCUS
+---------------------------------------------------------------------------------------
+
+--- @param window? ImGuiWindow
+--- @param flags?  ImGuiFocusRequestFlags
+function ImGui.FocusWindow(window, flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui
+    -- TODO:
+    if g.NavWindow ~= window then
+        ImGui.SetNavWindow(window)
+
+        -- Close popups if any
+        ImGui.ClosePopupsOverWindow(window, false)
+    end
+
+    IM_ASSERT(window == nil or window.RootWindowDockTree ~= nil)
+    local focus_front_window = window and window.RootWindow or nil
+    local display_front_window = window and window.RootWindowDockTree or nil
+
+    if not window then
+        return
+    end
+    window.LastFrameJustFocused = g.FrameCount
+
+    ImGui.BringWindowToFocusFront(focus_front_window)
+    ImGui.BringWindowToDisplayFront(display_front_window)
+end
+
 --- @param window ImGuiWindow
+--- @return int
+function ImGui.FindWindowFocusIndex(window)
+    local g = GImGui
+    -- IM_UNUSED(g)
+    local order = window.FocusOrder
+    IM_ASSERT(window.RootWindow == window) -- No child window (not testing _ChildWindow because of docking)
+    IM_ASSERT(g.WindowsFocusOrder.Data[order] == window)
+    return order
+end
+
+function ImGui.UpdateWindowInFocusOrderList(window, just_created, new_flags)
+    local g = GImGui
+
+    local new_is_explicit_child = (bit.band(new_flags, ImGuiWindowFlags_ChildWindow) ~= 0) and ((bit.band(new_flags, ImGuiWindowFlags_Popup) == 0) or (bit.band(new_flags, ImGuiWindowFlags_ChildMenu) ~= 0))
+    local child_flag_changed = (new_is_explicit_child ~= window.IsExplicitChild)
+
+    if (just_created or child_flag_changed) and not new_is_explicit_child then
+        IM_ASSERT(not g.WindowsFocusOrder:contains(window))
+        g.WindowsFocusOrder:push_back(window)
+        window.FocusOrder = g.WindowsFocusOrder.Size
+    elseif not just_created and child_flag_changed and new_is_explicit_child then
+        IM_ASSERT(g.WindowsFocusOrder.Data[window.FocusOrder] == window)
+
+        for n = window.FocusOrder + 1, g.WindowsFocusOrder.Size do
+            g.WindowsFocusOrder.Data[n].FocusOrder = g.WindowsFocusOrder.Data[n].FocusOrder - 1
+        end
+
+        g.WindowsFocusOrder:erase(window.FocusOrder)
+        window.FocusOrder = -1
+    end
+
+    window.IsExplicitChild = new_is_explicit_child
+end
+
+--- @param window? ImGuiWindow
+function ImGui.BringWindowToFocusFront(window)
+    local g = GImGui
+    IM_ASSERT(window == window.RootWindow)
+
+    local cur_order = window.FocusOrder
+    IM_ASSERT(g.WindowsFocusOrder.Data[cur_order] == window)
+
+    if g.WindowsFocusOrder:back() == window then
+        return
+    end
+
+    local new_order = g.WindowsFocusOrder.Size
+
+    for n = cur_order, new_order - 1 do
+        g.WindowsFocusOrder.Data[n] = g.WindowsFocusOrder.Data[n + 1]
+        g.WindowsFocusOrder.Data[n].FocusOrder = g.WindowsFocusOrder.Data[n].FocusOrder - 1
+        IM_ASSERT(g.WindowsFocusOrder.Data[n].FocusOrder == n)
+    end
+
+    g.WindowsFocusOrder.Data[new_order] = window
+    window.FocusOrder = new_order
+end
+
+--- @param window? ImGuiWindow
 function ImGui.BringWindowToDisplayFront(window)
     local g = GImGui
 
@@ -967,17 +1057,39 @@ function ImGui.BringWindowToDisplayFront(window)
     g.Windows:push_back(window)
 end
 
--- TODO:
-function ImGui.FocusWindow(window, flags)
+--- @param under_this_window? ImGuiWindow
+--- @param ignore_window?     ImGuiWindow
+--- @param filter_viewport?   ImGuiViewport
+--- @param flags              ImGuiFocusRequestFlags
+function ImGui.FocusTopMostWindowUnderOne(under_this_window, ignore_window, filter_viewport, flags)
     local g = GImGui
-
-    if g.NavWindow ~= window then
-        ImGui.SetNavWindow(window)
+    local start_idx = g.WindowsFocusOrder.Size
+    if under_this_window ~= nil then
+        -- Aim at root window behind us, if we are in a child window that's our own root (see #4640)
+        local offset = -1
+        while bit.band(under_this_window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0 do
+            under_this_window = under_this_window.ParentWindow
+            offset = 0
+        end
+        --- @cast under_this_window ImGuiWindow
+        start_idx = ImGui.FindWindowFocusIndex(under_this_window) + offset
     end
+    for i = start_idx, 1, -1 do
+        local window = g.WindowsFocusOrder.Data[i]
+        if window == ignore_window or not window.WasActive then
+            goto CONTINUE
+        end
+        if filter_viewport ~= nil and window.Viewport ~= filter_viewport then
+            goto CONTINUE
+        end
+        if bit.band(window.Flags, bit.bor(ImGuiWindowFlags_NoMouseInputs, ImGuiWindowFlags_NoNavInputs)) ~= bit.bor(ImGuiWindowFlags_NoMouseInputs, ImGuiWindowFlags_NoNavInputs) then
+            ImGui.FocusWindow(window, flags)
+            return
+        end
 
-    if not window then return end
-
-    ImGui.BringWindowToDisplayFront(window)
+        :: CONTINUE ::
+    end
+    ImGui.FocusWindow(nil, flags)
 end
 
 --- void ImGui::SetFocusID
@@ -1096,7 +1208,7 @@ function MT.ImGuiWindow:GetID(id)
     if t == "string" then
         return ImHashStr(id, seed)
     elseif t == "number" then
-        return ImHashData(id, 1, seed)
+        return ImHashData(id, -1, seed)
     else
         error("GetID: expected string or number, got " .. t)
     end
@@ -1120,6 +1232,33 @@ local function ApplyHoverFlagsForTooltip(user_flags, shared_flags)
         shared_flags = bit.band(shared_flags, bit.bnot(bit.bor(ImGuiHoveredFlags_DelayNone, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_DelayNormal)))
     end
     return bit.bor(user_flags, shared_flags)
+end
+
+--- @param id ImGuiID
+function ImGui.MarkItemEdited(id)
+    -- This marking is to be able to provide info for IsItemDeactivatedAfterEdit().
+    -- ActiveId might have been released by the time we call this (as in the typical press/release button behavior) but still need to fill the data.
+    local g = GImGui
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_NoMarkEdited) ~= 0 then
+        return
+    end
+
+    if g.ActiveId == id or g.ActiveId == 0 then
+        -- FIXME: Can't we fully rely on LastItemData yet?
+        g.ActiveIdHasBeenEditedThisFrame = true
+        g.ActiveIdHasBeenEditedBefore = true
+        if g.DeactivatedItemData.ID == id then
+            g.DeactivatedItemData.HasBeenEditedBefore = true
+        end
+    end
+
+    -- We accept a MarkItemEdited() on drag and drop targets (see https://github.com/ocornut/imgui/issues/1875#issuecomment-978243343)
+    -- We accept 'ActiveIdPreviousFrame == id' for InputText() returning an edit after it has been taken ActiveId away (#4714)
+    -- FIXME: This assert is getting a bit meaningless over time. It helped detect some unusual use cases but eventually it is becoming an unnecessary restriction.
+    IM_ASSERT(g.DragDropActive or g.ActiveId == id or g.ActiveId == 0 or g.ActiveIdPreviousFrame == id or g.NavJustMovedToId or (g.CurrentMultiSelect ~= nil and g.BoxSelectState.IsActive))
+
+    -- IM_ASSERT(g.CurrentWindow.DC.LastItemId == id)
+    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Edited)
 end
 
 --- @param window ImGuiWindow
@@ -1180,7 +1319,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
         end
     else
         local status_flags = g.LastItemData.StatusFlags
-        if bit.band(status_flags, ImGuiItemStatusFlags_HoveredRect) == 0 then
+        if bit.band(status_flags, ImGuiItemStatusFlags.HoveredRect) == 0 then
             return false
         end
 
@@ -1188,7 +1327,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
             flags = ApplyHoverFlagsForTooltip(flags, g.Style.HoverFlagsForTooltipMouse)
         end
 
-        if g.HoveredWindow ~= window and bit.band(status_flags, ImGuiItemStatusFlags_HoveredWindow) == 0 then
+        if g.HoveredWindow ~= window and bit.band(status_flags, ImGuiItemStatusFlags.HoveredWindow) == 0 then
             if bit.band(flags, ImGuiHoveredFlags_AllowWhenOverlappedByWindow) == 0 then
                 return false
             end
@@ -1298,7 +1437,7 @@ function ImGui.ItemHoverable(id, bb, item_flags)
             end
         end
 
-        if id == g.LastItemData.ID and (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_HasShortcut) ~= 0) and g.ActiveId ~= id then
+        if id == g.LastItemData.ID and (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasShortcut) ~= 0) and g.ActiveId ~= id then
             if ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags_ForTooltip, ImGuiHoveredFlags_DelayNormal)) then
                 ImGui.SetTooltip("%s", ImGui.GetKeyChordName(g.LastItemData.Shortcut))
             end
@@ -1955,6 +2094,27 @@ local function CalcWindowSizeAfterConstraint(window, size_desired)
     return ImMaxVec2(new_size, size_min)
 end
 
+--- @param window               ImGuiWindow
+--- @param content_size_current ImVec2
+--- @param content_size_ideal   ImVec2
+local function CalcWindowContentSizes(window, content_size_current, content_size_ideal)
+    local preserve_old_content_sizes = false
+    if (window.Collapsed and window.AutoFitFramesX <= 0 and window.AutoFitFramesY <= 0) then
+        preserve_old_content_sizes = true
+    elseif (window.Hidden and window.HiddenFramesCannotSkipItems == 0 and window.HiddenFramesCanSkipItems > 0) then
+        preserve_old_content_sizes = true
+    end
+    if preserve_old_content_sizes then
+        content_size_current.x = window.ContentSize.x;      content_size_current.y = window.ContentSize.y
+        content_size_current.x = window.ContentSizeIdeal.x; content_size_current.y = window.ContentSizeIdeal.y
+    end
+
+    if (window.ContentSizeExplicit.x ~= 0.0) then content_size_current.x = window.ContentSizeExplicit.x else content_size_current.x = ImTrunc64(window.DC.CursorMaxPos.x - window.DC.CursorStartPos.x) end
+    if (window.ContentSizeExplicit.y ~= 0.0) then content_size_current.y = window.ContentSizeExplicit.y else content_size_current.y = ImTrunc64(window.DC.CursorMaxPos.y - window.DC.CursorStartPos.y) end
+    if (window.ContentSizeExplicit.x ~= 0.0) then content_size_ideal.x = window.ContentSizeExplicit.x else content_size_ideal.x = ImTrunc64(ImMax(window.DC.CursorMaxPos.x, window.DC.IdealMaxPos.x) - window.DC.CursorStartPos.x) end
+    if (window.ContentSizeExplicit.y ~= 0.0) then content_size_ideal.y = window.ContentSizeExplicit.y else content_size_ideal.y = ImTrunc64(ImMax(window.DC.CursorMaxPos.y, window.DC.IdealMaxPos.y) - window.DC.CursorStartPos.y) end
+end
+
 --- @param window        ImGuiWindow # The window to calculate auto-fit size for
 --- @param size_contents ImVec2      # The content size
 --- @param axis_mask     int         # The axis mask to determine which axes to auto-fit
@@ -1997,6 +2157,17 @@ local function CalcWindowAutoFitSize(window, size_contents, axis_mask)
         end
         return size_auto_fit
     end
+end
+
+--- @param window ImGuiWindow
+--- @return ImVec2
+function ImGui.CalcWindowNextAutoFitSize(window)
+    local size_contents_current = ImVec2()
+    local size_contents_ideal = ImVec2()
+    CalcWindowContentSizes(window, size_contents_current, size_contents_ideal)
+    local size_auto_fit = CalcWindowAutoFitSize(window, size_contents_ideal, -1)
+    local size_final = CalcWindowSizeAfterConstraint(window, size_auto_fit)
+    return size_final
 end
 
 --- @param window               ImGuiWindow
@@ -2353,12 +2524,13 @@ function ImGui.FindRenderedTextEnd(text, text_end)
     return text_display_end
 end
 
---- void ImGui::RenderText
---- @param pos ImVec2
---- @param text string
---- @param text_end int?
---- @param hide_text_after_hash bool?
+--- @param pos                  ImVec2
+--- @param text                 string
+--- @param text_end             int?
+--- @param hide_text_after_hash bool?  # true by default
 function ImGui.RenderText(pos, text, text_end, hide_text_after_hash)
+    if hide_text_after_hash == nil then hide_text_after_hash = true end
+
     local g = GImGui
     local window = g.CurrentWindow
 
@@ -2457,7 +2629,13 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, t
     --     LogRenderedText(&pos_min, text, text_display_end);
 end
 
---- ImGui::RenderMouseCursor
+function ImGui.RenderNavCursor(bb, id, flags)
+    -- TODO:
+end
+
+function ImGui.RenderMouseCursor(base_pos, base_scale, mouse_cursor, col_fill, col_border, col_shadow)
+    -- TODO:
+end
 
 --- Another overly complex function until we reorganize everything into a nice all-in-one helper.
 --- This is made more complex because we have dissociated the layout rectangle (pos_min..pos_max) from 'ellipsis_max_x' which may be beyond it.
@@ -2542,6 +2720,19 @@ function ImGui.RenderFrame(p_min, p_max, fill_col, borders, rounding)
 
     local border_size = g.Style.FrameBorderSize
     if borders and border_size > 0 then
+        window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), ImGui.GetColorU32(ImGuiCol.BorderShadow), rounding, 0, border_size)
+        window.DrawList:AddRect(p_min, p_max, ImGui.GetColorU32(ImGuiCol.Border), rounding, 0, border_size)
+    end
+end
+
+--- @param p_min    ImVec2
+--- @param p_max    ImVec2
+--- @param rounding float
+function ImGui.RenderFrameBorder(p_min, p_max, rounding)
+    local g = GImGui
+    local window = g.CurrentWindow
+    local border_size = g.Style.FrameBorderSize
+    if border_size > 0.0 then
         window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), ImGui.GetColorU32(ImGuiCol.BorderShadow), rounding, 0, border_size)
         window.DrawList:AddRect(p_min, p_max, ImGui.GetColorU32(ImGuiCol.Border), rounding, 0, border_size)
     end
@@ -2962,6 +3153,22 @@ function ImGui.SetNextWindowSize(size, cond)
     g.NextWindowData.SizeCond = (cond ~= 0) and cond or ImGuiCond.Always
 end
 
+-- For each axis:
+-- - Use 0.0f as min or FLT_MAX as max if you don't want limits, e.g. size_min = (500.0f, 0.0f), size_max = (FLT_MAX, FLT_MAX) sets a minimum width.
+-- - Use -1 for both min and max of same axis to preserve current size which itself is a constraint.
+-- - See "Demo->Examples->Constrained-resizing window" for examples.
+--- @param size_min                   ImVec2
+--- @param size_max                   ImVec2
+--- @param custom_callback?           function
+--- @param custom_callback_user_data? any
+function ImGui.SetNextWindowSizeConstraints(size_min, size_max, custom_callback, custom_callback_user_data)
+    local g = GImGui
+    g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint)
+    g.NextWindowData.SizeConstraintRect = ImRect(size_min, size_max)
+    g.NextWindowData.SizeCallback = custom_callback
+    g.NextWindowData.SizeCallbackUserData = custom_callback_user_data
+end
+
 --- @param alpha float
 function ImGui.SetNextWindowBgAlpha(alpha)
     local g = GImGui
@@ -3069,6 +3276,18 @@ function ImGui.IsPopupOpen(id, popup_flags)
     end
 end
 
+--- @return ImGuiWindow?
+function ImGui.GetTopMostPopupModal()
+    local g = GImGui
+    for n = g.OpenPopupStack.Size, 1, -1 do
+        local popup = g.OpenPopupStack.Data[n].Window
+        if bit.band(popup.Flags, ImGuiWindowFlags_Modal) ~= 0 then
+            return popup
+        end
+    end
+    return nil
+end
+
 function ImGui.UpdateMouseMovingWindowEndFrame()
     local g = GImGui
 
@@ -3114,7 +3333,16 @@ function ImGui.UpdateMouseMovingWindowEndFrame()
         end
     end
 
-    -- TODO: Right mouse button close popup
+    -- With right mouse button we close popups without changing focus based on where the mouse is aimed
+    -- Instead, focus will be restored to the window under the bottom-most closed popup.
+    -- (The left mouse button path calls FocusWindow on the hovered window, which will lead NewFrame->ClosePopupsOverWindow to trigger)
+    if g.IO.MouseClicked[1] and g.HoveredId == 0 then
+        -- Find the top-most window between HoveredWindow and the top-most Modal Window.
+        -- This is where we can trim the popup stack.
+        local modal = ImGui.GetTopMostPopupModal()
+        local hovered_window_above_modal = hovered_window and (modal == nil or ImGui.IsWindowAbove(hovered_window, modal))
+        ImGui.ClosePopupsOverWindow(hovered_window_above_modal and hovered_window or modal, true)
+    end
 end
 
 --- @param window ImGuiWindow
@@ -3140,7 +3368,8 @@ function ImGui.FindWindowByID(id)
     return g.WindowsById[id]
 end
 
---- ImGui::FindWindowByName
+--- @param name string
+--- @return ImGuiWindow?
 function ImGui.FindWindowByName(name)
     local id = ImHashStr(name)
     return ImGui.FindWindowByID(id)
@@ -3174,6 +3403,11 @@ function ImGui.Begin(name, open, flags)
     window.IsFallbackWindow = (g.CurrentWindowStack.Size == 0 and g.WithinFrameScopeWithImplicitWindow)
 
     local window_just_activated_by_user = (window.LastFrameActive < (current_frame - 1))
+    if bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 then
+        local popup_ref = g.OpenPopupStack.Data[g.BeginPopupStack.Size + 1]
+        window_just_activated_by_user = window_just_activated_by_user or (window.PopupId ~= popup_ref.PopupId) -- We recycle popups so treat window as activated if popup id changed
+        window_just_activated_by_user = window_just_activated_by_user or (window ~= popup_ref.Window)
+    end
 
     window.Appearing = window_just_activated_by_user
     if (window.Appearing) then
@@ -3183,7 +3417,7 @@ function ImGui.Begin(name, open, flags)
     -- Update Flags, LastFrameActive, BeginOrderXXX fields
     local window_was_appearing = window.Appearing
     if first_begin_of_the_frame then
-        -- UpdateWindowInFocusOrderList(window, window_just_created, flags)
+        ImGui.UpdateWindowInFocusOrderList(window, window_just_created, flags)
         window.Appearing = window_just_activated_by_user
         if (window.Appearing) then
             SetWindowConditionAllowFlags(window, ImGuiCond.Appearing, true)
@@ -3246,6 +3480,15 @@ function ImGui.Begin(name, open, flags)
         else
             window.FontWindowScaleParents = 1.0
         end
+    end
+
+    -- Add to popup stacks: update OpenPopupStack data, push to BeginPopupStack
+    if bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 then
+        local popup_ref = g.OpenPopupStack.Data[g.BeginPopupStack.Size + 1]
+        popup_ref.Window = window
+        popup_ref.ParentNavLayer = parent_window_in_stack.DC.NavLayerCurrent
+        g.BeginPopupStack:push_back(popup_ref)
+        window.PopupId = popup_ref.PopupId
     end
 
     local window_pos_set_by_api = false
@@ -3448,6 +3691,16 @@ function ImGui.Begin(name, open, flags)
 
         window.SizeFull = CalcWindowSizeAfterConstraint(window, window.SizeFull)
         window.Size = (window.Collapsed and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0) and window:TitleBarRect():GetSize() or window.SizeFull
+
+        -- POSITION
+
+        -- Popup latch its initial position, will position itself when it appears next frame
+        if window_just_activated_by_user then
+            window.AutoPosLastDirection = ImGuiDir.None
+            if bit.band(flags, ImGuiWindowFlags_Popup) ~= 0 and bit.band(flags, ImGuiWindowFlags_Modal) == 0 and not window_pos_set_by_api then -- FIXME: BeginPopup() could use SetNextWindowPos()
+                window.Pos = g.BeginPopupStack:back().OpenPopupPos
+            end
+        end
 
         if bit.band(flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
             IM_ASSERT(parent_window and parent_window.Active)
@@ -3786,10 +4039,10 @@ function ImGui.Begin(name, open, flags)
             window.BgClickFlags = g.IO.ConfigWindowsMoveFromTitleBarOnly and ImGuiWindowBgClickFlags.None or ImGuiWindowBgClickFlags.Move
         end
 
-        window.DC.WindowItemStatusFlags = ImGuiItemStatusFlags_None
+        window.DC.WindowItemStatusFlags = ImGuiItemStatusFlags.None
 
         if IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false) then
-            window.DC.WindowItemStatusFlags = bit.bor(window.DC.WindowItemStatusFlags, ImGuiItemStatusFlags_HoveredRect)
+            window.DC.WindowItemStatusFlags = bit.bor(window.DC.WindowItemStatusFlags, ImGuiItemStatusFlags.HoveredRect)
         end
     else
         -- if (window->SkipRefresh)
@@ -3876,6 +4129,7 @@ function ImGui.End()
 
         return
     end
+    local window_stack_data = g.CurrentWindowStack:back()
 
     if not window.SkipRefresh then
         ImGui.PopClipRect()
@@ -3886,9 +4140,18 @@ function ImGui.End()
         window.DrawList = window.DrawListInst
     end
 
+    -- Pop from window stack
+    g.LastItemData = window_stack_data.ParentLastItemDataBackup
+    if bit.band(window.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+        g.BeginMenuDepth = g.BeginMenuDepth - 1
+    end
+    if bit.band(window.Flags, ImGuiWindowFlags_Popup) ~= 0 then
+        g.BeginPopupStack:pop_back()
+    end
+
     g.CurrentWindowStack:pop_back()
 
-    -- GLUA: No "Ternary Operator", since lua (... and (1) or (2)) will eval (1) and (2) no matter what
+    -- LUA: No "Ternary Operator", since lua (... and (1) or (2)) will eval (1) and (2) no matter what
     -- so something like `SetCurrentWindow((g.CurrentWindowStack.Size == 0) and nil or g.CurrentWindowStack:back().Window)` will error
     if (g.CurrentWindowStack.Size == 0) then
         SetCurrentWindow(nil)
@@ -4360,18 +4623,18 @@ local function SetupDrawListSharedData()
     g.DrawListSharedData.ClipRectFullscreen = virtual_space:ToVec4()
     g.DrawListSharedData.CurveTessellationTol = g.Style.CurveTessellationTol
     g.DrawListSharedData:SetCircleTessellationMaxError(g.Style.CircleTessellationMaxError)
-    g.DrawListSharedData.InitialFlags = ImDrawListFlags_None
+    g.DrawListSharedData.InitialFlags = ImDrawListFlags.None
     if g.Style.AntiAliasedLines then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedLines)
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedLines)
     end
     if g.Style.AntiAliasedLinesUseTex and not bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedLines) then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedLinesUseTex)
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedLinesUseTex)
     end
     if g.Style.AntiAliasedFill then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedFill)
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedFill)
     end
     if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset) then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AllowVtxOffset)
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AllowVtxOffset)
     end
     g.DrawListSharedData.InitialFringeScale = 1.0
 end
@@ -4665,6 +4928,7 @@ function ImGui.NewFrame()
     ImGui.UpdateMouseInputs()
 
     -- TODO: GC
+    IM_ASSERT(g.WindowsFocusOrder.Size <= g.Windows.Size)
 
     for _, window in g.Windows:iter() do
         window.WasActive = window.Active
@@ -4678,14 +4942,18 @@ function ImGui.NewFrame()
 
     ImGui.UpdateMouseMovingWindowNewFrame()
 
-    ImGui.UpdateMouseWheel()
-
     g.MouseCursor = ImGuiMouseCursor.Arrow
     g.WantCaptureMouseNextFrame = -1
     g.WantCaptureKeyboardNextFrame = -1
     g.WantTextInputNextFrame = -1
 
+    ImGui.UpdateMouseWheel()
+
     g.CurrentWindowStack:resize(0)
+    g.BeginPopupStack:resize(0)
+    g.ItemFlagsStack:resize(0)
+    g.ItemFlagsStack:push_back(ImGuiItemFlags_AutoClosePopups)
+    g.CurrentItemFlags = g.ItemFlagsStack:back()
 
     g.WithinFrameScopeWithImplicitWindow = true
     ImGui.SetNextWindowSize(ImVec2(400, 400), ImGuiCond.FirstUseEver)
@@ -4940,6 +5208,117 @@ function ImGui.PopStyleColor(count)
     end
 end
 
+local GStyleVarsInfo = {
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "Alpha"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "DisabledAlpha"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowPadding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "WindowRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "WindowBorderSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowMinSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "WindowTitleAlign"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ChildRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ChildBorderSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "PopupRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "PopupBorderSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "FramePadding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "FrameRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "FrameBorderSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ItemSpacing"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ItemInnerSpacing"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "IndentSpacing"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "CellPadding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ScrollbarPadding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "GrabMinSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "GrabRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ImageRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "ImageBorderSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBorderSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabMinWidthBase"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabMinWidthShrink"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBarBorderSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TabBarOverlineSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TableAngledHeadersAngle"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "TableAngledHeadersTextAlign"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesSize"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesRounding"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ButtonTextAlign"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SelectableTextAlign"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "SeparatorTextBorderSize"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SeparatorTextAlign"),
+    ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SeparatorTextPadding")
+}
+
+--- @param idx ImGuiStyleVar
+--- @return ImGuiStyleVarInfo
+function ImGui.GetStyleVarInfo(idx)
+    IM_ASSERT(idx >= 0 and idx < ImGuiStyleVar.COUNT)
+    -- IM_STATIC_ASSERT(IM_COUNTOF(GStyleVarsInfo) == ImGuiStyleVar_COUNT)
+    return GStyleVarsInfo[idx + 1]
+end
+
+--- @param idx ImGuiStyleVar
+--- @param val float|ImVec2
+function ImGui.PushStyleVar(idx, val)
+    local g = GImGui
+    local var_info = ImGui.GetStyleVarInfo(idx)
+    if type(val) == "number" then
+        IM_ASSERT_USER_ERROR_RET(var_info.DataType == ImGuiDataType.Float and var_info.Count == 1, "Calling PushStyleVar() with wrong type!")
+    else -- ImVec2
+        IM_ASSERT_USER_ERROR_RET(var_info.DataType == ImGuiDataType.Float and var_info.Count == 2, "Calling PushStyleVar() with wrong type!")
+    end
+    local var = g.Style[var_info.Key]
+    g.StyleVarStack:push_back(ImGuiStyleMod(idx, var))
+    g.Style[var_info.Key] = val
+end
+
+--- @param idx   ImGuiStyleVar
+--- @param val_x float
+function ImGui.PushStyleVarX(idx, val_x)
+    local g = GImGui
+    local var_info = ImGui.GetStyleVarInfo(idx)
+    IM_ASSERT_USER_ERROR_RET(var_info.DataType == ImGuiDataType.Float and var_info.Count == 2, "Calling PushStyleVarX() with wrong type!")
+    local pvar = g.Style[var_info.Key]
+    g.StyleVarStack:push_back(ImGuiStyleMod(idx, pvar))
+    pvar.x = val_x
+end
+
+--- @param idx   ImGuiStyleVar
+--- @param val_y float
+function ImGui.PushStyleVarY(idx, val_y)
+    local g = GImGui
+    local var_info = ImGui.GetStyleVarInfo(idx)
+    IM_ASSERT_USER_ERROR_RET(var_info.DataType == ImGuiDataType.Float and var_info.Count == 2, "Calling PushStyleVarY() with wrong type!")
+    local pvar = g.Style[var_info.Key]
+    g.StyleVarStack:push_back(ImGuiStyleMod(idx, pvar))
+    pvar.y = val_y
+end
+
+--- @param count? int
+function ImGui.PopStyleVar(count)
+    if count == nil then count = 1 end
+
+    local g = GImGui
+    if g.StyleVarStack.Size < count then
+        IM_ASSERT_USER_ERROR(0, "Calling PopStyleVar() too many times!")
+        count = g.StyleVarStack.Size
+    end
+    while count > 0 do
+        local backup = g.StyleVarStack:back()
+        local var_info = ImGui.GetStyleVarInfo(backup.VarIdx)
+        local data = g.Style[var_info.Key]
+        if (var_info.DataType == ImGuiDataType.Float and var_info.Count == 1) then
+            g.Style[var_info.Key] = backup.BackupVal[1]
+        elseif (var_info.DataType == ImGuiDataType.Float and var_info.Count == 2) then
+            data.x = backup.BackupVal[1]; data.y = backup.BackupVal[2]
+        end
+        g.StyleVarStack:pop_back()
+        count = count - 1
+    end
+end
+
 --- @param wrap_local_pos_x float
 function ImGui.PushTextWrapPos(wrap_local_pos_x) -- ATTENTION: THIS IS IN LEGACY LOCAL SPACE.
     local g = GImGui
@@ -5017,6 +5396,30 @@ function ImGui.IsWindowWithinBeginStackOf(window, potential_parent)
         window = window.ParentWindowInBeginStack
     end
 
+    return false
+end
+
+--- @param potential_above ImGuiWindow
+--- @param potential_below ImGuiWindow
+--- @return bool
+function ImGui.IsWindowAbove(potential_above, potential_below)
+    local g = GImGui
+
+    -- It would be saner to ensure that display layer is always reflected in the g.Windows order, which would likely requires altering all manipulations of that array
+    local display_layer_delta = GetWindowDisplayLayer(potential_above) - GetWindowDisplayLayer(potential_below)
+    if display_layer_delta ~= 0 then
+        return display_layer_delta > 0
+    end
+
+    for i = g.Windows.Size, 1, -1 do
+        local candidate_window = g.Windows.Data[i]
+        if candidate_window == potential_above then
+            return true
+        end
+        if candidate_window == potential_below then
+            return false
+        end
+    end
     return false
 end
 
@@ -5192,6 +5595,208 @@ end
 ---------------------------------------------------------------------------------------
 -- [SECTION] POPUPS
 ---------------------------------------------------------------------------------------
+
+function ImGui.OpenPopupEx(id, popup_flags)
+    local g = GImGui
+    local parent_window = g.CurrentWindow
+    local current_stack_size = g.BeginPopupStack.Size
+
+    if bit.band(popup_flags, ImGuiPopupFlags_NoOpenOverExistingPopup) ~= 0 then
+        if ImGui.IsPopupOpen(0, ImGuiPopupFlags_AnyPopupId) then
+            return
+        end
+    end
+
+    local popup_ref = ImGuiPopupData()
+    popup_ref.PopupId = id
+    popup_ref.Window = nil
+    popup_ref.RestoreNavWindow = g.NavWindow -- When popup closes focus may be restored to NavWindow (depend on window type).
+    popup_ref.OpenFrameCount = g.FrameCount
+    popup_ref.OpenParentId = parent_window.IDStack:back()
+    popup_ref.OpenPopupPos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags_Popup)
+    if ImGui.IsMousePosValid(g.IO.MousePos) then
+        popup_ref.OpenMousePos = g.IO.MousePos:copy()
+    else
+        popup_ref.OpenMousePos = popup_ref.OpenPopupPos:copy()
+    end
+
+    -- IMGUI_DEBUG_LOG_POPUP("[popup] OpenPopupEx(0x%08X)", id)
+    if g.OpenPopupStack.Size < current_stack_size + 1 then
+        g.OpenPopupStack:push_back(popup_ref)
+    else
+        -- Gently handle the user mistakenly calling OpenPopup() every frames: it is likely a programming mistake!
+        -- However, if we were to run the regular code path, the ui would become completely unusable because the popup will always be
+        -- in hidden-while-calculating-size state _while_ claiming focus. Which is extremely confusing situation for the programmer.
+        -- Instead, for successive frames calls to OpenPopup(), we silently avoid reopening even if ImGuiPopupFlags_NoReopen is not specified.
+
+        local keep_existing = false
+        if g.OpenPopupStack.Data[current_stack_size + 1].PopupId == id then
+            if (g.OpenPopupStack.Data[current_stack_size + 1].OpenFrameCount == g.FrameCount - 1) or (bit.band(popup_flags, ImGuiPopupFlags_NoReopen) ~= 0) then
+                keep_existing = true
+            end
+        end
+
+        if keep_existing then
+            -- No reopen
+            g.OpenPopupStack.Data[current_stack_size + 1].OpenFrameCount = popup_ref.OpenFrameCount
+        else
+            -- Reopen: close child popups if any, then flag popup for open/reopen (set position, focus, init navigation)
+            ImGui.ClosePopupToLevel(current_stack_size, true)
+            g.OpenPopupStack:push_back(popup_ref)
+        end
+
+        -- When reopening a popup we first refocus its parent, otherwise if its parent is itself a popup it would get closed by ClosePopupsOverWindow().
+        -- This is equivalent to what ClosePopupToLevel() does.
+        -- if (g.OpenPopupStack[current_stack_size].PopupId == id)
+        --     FocusWindow(parent_window);
+    end
+end
+
+-- When popups are stacked, clicking on a lower level popups puts focus back to it and close popups above it.
+-- This function closes any popups that are over 'ref_window'.
+--- @param ref_window?                         ImGuiWindow
+--- @param restore_focus_to_window_under_popup bool
+function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_popup)
+    local g = GImGui
+    if g.OpenPopupStack.Size == 0 then
+        return
+    end
+
+    -- Don't close our own child popup windows.
+    -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupsOverWindow(\"%s\") restore_under=%d", ref_window and ref_window.Name or "<NULL>", restore_focus_to_window_under_popup)
+    local popup_count_to_keep = 1
+    if ref_window then
+        -- Find the highest popup which is a descendant of the reference window (generally reference window = NavWindow)
+        while popup_count_to_keep <= g.OpenPopupStack.Size do
+            local popup = g.OpenPopupStack.Data[popup_count_to_keep]
+
+                if popup.Window then -- cpp code has `continue` here instead of this big if statement
+
+                    IM_ASSERT(bit.band(popup.Window.Flags, ImGuiWindowFlags_Popup) ~= 0)
+
+                    -- Trim the stack unless the popup is a direct parent of the reference window (the reference window is often the NavWindow)
+                    -- - Clicking/Focusing Window2 won't close Popup1:
+                    --     Window -> Popup1 -> Window2(Ref)
+                    -- - Clicking/focusing Popup1 will close Popup2 and Popup3:
+                    --     Window -> Popup1(Ref) -> Popup2 -> Popup3
+                    -- - Each popups may contain child windows, which is why we compare ->RootWindow!
+                    --     Window -> Popup1 -> Popup1_Child -> Popup2 -> Popup2_Child
+                    -- We step through every popup from bottom to top to validate their position relative to reference window.
+                    local ref_window_is_descendent_of_popup = false
+                    for n = popup_count_to_keep, g.OpenPopupStack.Size do
+                        local popup_window = g.OpenPopupStack.Data[n].Window
+                        if popup_window and ImGui.IsWindowWithinBeginStackOf(ref_window, popup_window) then
+                            ref_window_is_descendent_of_popup = true
+                            break
+                        end
+                    end
+
+                    if not ref_window_is_descendent_of_popup then
+                        break
+                    end
+
+                end
+
+            popup_count_to_keep = popup_count_to_keep + 1
+        end
+    end
+    if popup_count_to_keep <= g.OpenPopupStack.Size then -- This test is not required but it allows to set a convenient breakpoint on the statement below
+        -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupsOverWindow(\"%s\")", ref_window and ref_window.Name or "<NULL>")
+        ImGui.ClosePopupToLevel(popup_count_to_keep, restore_focus_to_window_under_popup)
+    end
+end
+
+function ImGui.ClosePopupToLevel(remaining, restore_focus_to_window_under_popup)
+    local g = GImGui
+    -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupToLevel(%d), restore_under=%d", remaining, restore_focus_to_window_under_popup)
+    IM_ASSERT(remaining > 0 and remaining <= g.OpenPopupStack.Size)
+    -- if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then
+    --     for n = remaining, g.OpenPopupStack.Size do
+    --         local popup = g.OpenPopupStack.Data[n]
+    --         IMGUI_DEBUG_LOG_POPUP("[popup] - Closing PopupID 0x%08X Window \"%s\"", popup.PopupId, popup.Window and popup.Window.Name or nil)
+    --     end
+    -- end
+
+    -- Trim open popup stack
+    local prev_popup = g.OpenPopupStack.Data[remaining]
+    g.OpenPopupStack:resize(remaining - 1)
+
+    -- Restore focus (unless popup window was not yet submitted, and didn't have a chance to take focus anyhow. See #7325 for an edge case)
+    if restore_focus_to_window_under_popup and prev_popup.Window then
+        local popup_window = prev_popup.Window
+        local focus_window
+        if bit.band(popup_window.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+            focus_window = popup_window.ParentWindow
+        else
+            focus_window = prev_popup.RestoreNavWindow
+        end
+
+        if focus_window and not focus_window.WasActive then
+            ImGui.FocusTopMostWindowUnderOne(popup_window, nil, nil, ImGuiFocusRequestFlags_RestoreFocusedChild) -- Fallback
+        else
+            local focus_flags = (g.NavLayer == ImGuiNavLayer_Main) and ImGuiFocusRequestFlags.RestoreFocusedChild or ImGuiFocusRequestFlags.None
+            ImGui.FocusWindow(focus_window, focus_flags)
+        end
+    end
+end
+
+-- Close the popup we have Begin-ed into
+function ImGui.CloseCurrentPopup()
+    local g = GImGui
+    local popup_idx = g.BeginPopupStack.Size
+    if popup_idx < 1 or popup_idx > g.OpenPopupStack.Size or g.BeginPopupStack.Data[popup_idx].PopupId ~= g.OpenPopupStack.Data[popup_idx].PopupId then
+        return
+    end
+
+    -- Closing a menu closes its top-most parent popup (unless a modal)
+    while popup_idx > 1 do
+        local popup_window = g.OpenPopupStack.Data[popup_idx].Window
+        local parent_popup_window = g.OpenPopupStack.Data[popup_idx - 1].Window
+        local close_parent = false
+        if popup_window and bit.band(popup_window.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+            if parent_popup_window and not (bit.band(parent_popup_window.Flags, ImGuiWindowFlags_MenuBar) ~= 0) then
+                close_parent = true
+            end
+        end
+
+        if not close_parent then
+            break
+        end
+
+        popup_idx = popup_idx - 1
+    end
+
+    -- IMGUI_DEBUG_LOG_POPUP("[popup] CloseCurrentPopup %d -> %d\n", g.BeginPopupStack.Size, popup_idx)
+    ImGui.ClosePopupToLevel(popup_idx, true)
+
+    -- A common pattern is to close a popup when selecting a menu item/selectable that will open another window.
+    -- To improve this usage pattern, we avoid nav highlight for a single frame in the parent window.
+    -- Similarly, we could avoid mouse hover highlight in this window but it is less visually problematic.
+    local window = g.NavWindow
+    if window then
+        window.DC.NavHideHighlightOneFrame = true
+    end
+end
+
+function ImGui.EndPopup()
+    local g = GImGui
+    local window = g.CurrentWindow
+    IM_ASSERT_USER_ERROR_RET((bit.band(window.Flags, ImGuiWindowFlags_Popup) ~= 0) and (g.BeginPopupStack.Size > 0), "Calling EndPopup() in wrong window!")
+
+    -- Make all menus and popups wrap around for now, may need to expose that policy (e.g. focus scope could include wrap/loop policy flags used by new move requests)
+    if g.NavWindow == window then
+        -- TODO: ImGui.NavMoveRequestTryWrapping(window, ImGuiNavMoveFlags_LoopY)
+    end
+
+    -- Child-popups don't need to be laid out
+    local backup_within_end_child_id = g.WithinEndChildID
+    if bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
+        g.WithinEndChildID = window.ID
+    end
+
+    ImGui.End()
+    g.WithinEndChildID = backup_within_end_child_id
+end
 
 --- @param ref_pos  ImVec2
 --- @param size     ImVec2
@@ -5424,11 +6029,16 @@ end
 -- [SECTION] NAVIGATION
 ---------------------------------------------------------------------------------------
 
---- @param window ImGuiWindow
+--- @param window? ImGuiWindow
 function ImGui.SetNavWindow(window)
-    if GImGui.NavWindow ~= window then
-        GImGui.NavWindow = window
+    local g = GImGui
+    if g.NavWindow ~= window then
+        -- TODO:
+        g.NavWindow = window
     end
+end
+
+function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
 end
 
 --- @param window_type ImGuiWindowFlags
@@ -5471,11 +6081,7 @@ function ImGui.NavCalcPreferredRefPos(window_type)
         if activated_shortcut and (bit.band(window_type, ImGuiWindowFlags_Popup) ~= 0) then
             ref_rect = g.LastItemData.NavRect
         elseif window ~= nil then
-            if g.NavLayer == 0 then
-                ref_rect = ImGui.WindowRectRelToAbs(window, window.NavRectRel.x)
-            elseif g.NavLayer == 1 then
-                ref_rect = ImGui.WindowRectRelToAbs(window, window.NavRectRel.y)
-            end
+            ref_rect = ImGui.WindowRectRelToAbs(window, window.NavRectRel[ImAxisToStr[g.NavLayer]])
         end
 
         -- Take account of upcoming scrolling (maybe set mouse pos should be done in EndFrame?)
@@ -5485,9 +6091,14 @@ function ImGui.NavCalcPreferredRefPos(window_type)
         end
 
         local pos = ImVec2(ref_rect.Min.x + ImMin(g.Style.FramePadding.x * 4, ref_rect:GetWidth()), ref_rect.Max.y - ImMin(g.Style.FramePadding.y, ref_rect:GetHeight()))
+        if window ~= nil then
+            local viewport = window.Viewport
+            if viewport then
+                pos = ImClampV2(pos, viewport.Pos, viewport.Pos + viewport.Size)
+            end
+        end
 
-        local viewport = ImGui.GetMainViewport()
-        return ImTruncV2(ImClampV2(pos, viewport.Pos, viewport.Pos + viewport.Size))  -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
+        return ImTruncV2(pos)  -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
     end
 end
 
@@ -5576,7 +6187,7 @@ function ImGui.SetCurrentViewport(current_window, viewport)
 end
 
 --- @param window   ImGuiWindow
---- @param viewport ImGuiViewport
+--- @param viewport ImGuiViewportP
 function ImGui.SetWindowViewport(window, viewport)
     -- Abandon viewport
     if window.ViewportOwned and window.Viewport.Window == window then
@@ -5616,7 +6227,7 @@ function ImGui.IsViewportAbove(potential_above, potential_below)
     -- If ImGuiBackendFlags.HasParentViewport if set, ->ParentViewport chain should be accurate.
     local g = GImGui
     if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasParentViewport) ~= 0 then
-        local v = potential_above
+        local v = potential_above --[[@as ImGuiViewport]]
         while v ~= nil and v.ParentViewport do
             if v.ParentViewport == potential_below then
                 return true
@@ -5913,7 +6524,7 @@ function ImGui.UpdateViewportsNewFrame()
             if g.PlatformIO.Platform_GetWindowDpiScale and platform_funcs_available then
                 new_dpi_scale = g.PlatformIO.Platform_GetWindowDpiScale(viewport)
             elseif viewport.PlatformMonitor ~= -1 then
-                new_dpi_scale = g.PlatformIO.Monitors.Data[viewport.PlatformMonitor + 1].DpiScale
+                new_dpi_scale = g.PlatformIO.Monitors.Data[viewport.PlatformMonitor].DpiScale
             else
                 new_dpi_scale = (viewport.DpiScale ~= 0.0) and viewport.DpiScale or 1.0
             end
@@ -6169,7 +6780,7 @@ function ImGui.WindowSelectViewport(window)
     window.ViewportAllowPlatformMonitorExtend = -1
 
     -- Restore main viewport if multi-viewport is not supported by the backend
-    local main_viewport = ImGui.GetMainViewport()
+    local main_viewport = ImGui.GetMainViewport() --[[@as ImGuiViewportP]]
     if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) == 0 then
         ImGui.SetWindowViewport(window, main_viewport)
         return
@@ -6190,7 +6801,7 @@ function ImGui.WindowSelectViewport(window)
 
         -- Attempt to restore saved viewport id (= window that hasn't been activated yet), try to restore the viewport based on saved 'window->ViewportPos' restored from .ini file
         if window.Viewport == nil and window.ViewportId ~= 0 then
-            window.Viewport = ImGui.FindViewportByID(window.ViewportId)
+            window.Viewport = ImGui.FindViewportByID(window.ViewportId) --[[@as ImGuiViewportP]]
             if window.Viewport == nil and window.ViewportPos.x ~= FLT_MAX and window.ViewportPos.y ~= FLT_MAX then
                 window.Viewport = ImGui.AddUpdateViewport(window, window.ID, window.ViewportPos, window.Size, ImGuiViewportFlags_None)
             end
@@ -6200,7 +6811,7 @@ function ImGui.WindowSelectViewport(window)
     local lock_viewport = false
     if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasViewport) ~= 0 then
         -- Code explicitly request a viewport
-        window.Viewport = ImGui.FindViewportByID(g.NextWindowData.ViewportId)
+        window.Viewport = ImGui.FindViewportByID(g.NextWindowData.ViewportId) --[[@as ImGuiViewportP]]
         window.ViewportId = g.NextWindowData.ViewportId  -- Store ID even if Viewport isn't resolved yet.
         if window.Viewport and bit.band(window.Flags, ImGuiWindowFlags_DockNodeHost) ~= 0 and window.Viewport.Window ~= nil then
             window.Viewport.Window = window
@@ -6376,7 +6987,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
         local old_parent_viewport_id = window.Viewport.ParentViewportId
         window.Viewport.ParentViewportId = window.WindowClass.ParentViewportId
         if window.Viewport.ParentViewportId ~= old_parent_viewport_id then
-            window.Viewport.ParentViewport = ImGui.FindViewportByID(window.Viewport.ParentViewportId)
+            window.Viewport.ParentViewport = ImGui.FindViewportByID(window.Viewport.ParentViewportId) --[[@as ImGuiViewport]]
         end
     elseif bit.band(window_flags, bit.bor(ImGuiWindowFlags_Popup, ImGuiWindowFlags_Tooltip)) ~= 0 and parent_window_in_stack and (not parent_window_in_stack.IsFallbackWindow or parent_window_in_stack.WasActive) then
         window.Viewport.ParentViewport = parent_window_in_stack.Viewport
@@ -6558,7 +7169,7 @@ function ImGui.FindPlatformMonitorForRect(rect)
     local monitor_count = g.PlatformIO.Monitors.Size
 
     if monitor_count <= 1 then
-        return monitor_count - 1
+        return monitor_count
     end
 
     -- Use a minimum threshold of 1.0f so a zero-sized rect won't false positive, and will still find the correct monitor given its position.

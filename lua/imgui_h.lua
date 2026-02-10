@@ -547,7 +547,7 @@ end
 --- @field FallbackChar             ImWchar
 --- @field Used8kPagesMap           ImU8[]                 # 1-based table
 --- @field EllipsisAutoBake         bool
---- @field RemapPairs               table<ImGuiID, any>    # GLUA: No ImGuiStorage
+--- @field RemapPairs               table<ImGuiID, any>    # LUA: No ImGuiStorage
 --- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
@@ -937,6 +937,25 @@ ImGuiViewportFlags_IsMinimized = bit.lshift(1, 12)
 ImGuiViewportFlags_IsFocused   = bit.lshift(1, 13)
 
 --- @class ImGuiViewport
+--- @field ID                    ImGuiID
+--- @field Flags                 ImGuiViewportFlags
+--- @field Pos                   ImVec2
+--- @field Size                  ImVec2
+--- @field FramebufferScale      ImVec2
+--- @field WorkPos               ImVec2
+--- @field WorkSize              ImVec2
+--- @field DpiScale              float
+--- @field ParentViewportId      ImGuiID
+--- @field ParentViewport        ImGuiViewport
+--- @field DrawData              ImDrawData
+--- @field RendererUserData      any
+--- @field PlatformUserData      any
+--- @field PlatformHandle        any
+--- @field PlatformHandleRaw     any
+--- @field PlatformWindowCreated bool
+--- @field PlatformRequestMove   bool
+--- @field PlatformRequestResize bool
+--- @field PlatformRequestClose  bool
 MT.ImGuiViewport = {}
 MT.ImGuiViewport.__index = MT.ImGuiViewport
 
@@ -1028,6 +1047,7 @@ end
 
 --- @enum ImGuiDir
 ImGuiDir = {
+    None  = -1,
     Left  = 0,
     Right = 1,
     Up    = 2,
@@ -1084,19 +1104,21 @@ ImGuiItemFlags_AutoClosePopups   = bit.lshift(1, 4)
 ImGuiItemFlags_AllowDuplicateId  = bit.lshift(1, 5)
 ImGuiItemFlags_Disabled          = bit.lshift(1, 6)
 
---- @alias ImGuiItemStatusFlags integer
-ImGuiItemStatusFlags_None             = 0
-ImGuiItemStatusFlags_HoveredRect      = bit.lshift(1, 0)
-ImGuiItemStatusFlags_HasDisplayRect   = bit.lshift(1, 1)
-ImGuiItemStatusFlags_Edited           = bit.lshift(1, 2)
-ImGuiItemStatusFlags_ToggledSelection = bit.lshift(1, 3)
-ImGuiItemStatusFlags_ToggledOpen      = bit.lshift(1, 4)
-ImGuiItemStatusFlags_HasDeactivated   = bit.lshift(1, 5)
-ImGuiItemStatusFlags_Deactivated      = bit.lshift(1, 6)
-ImGuiItemStatusFlags_HoveredWindow    = bit.lshift(1, 7)
-ImGuiItemStatusFlags_Visible          = bit.lshift(1, 8)
-ImGuiItemStatusFlags_HasClipRect      = bit.lshift(1, 9)
-ImGuiItemStatusFlags_HasShortcut      = bit.lshift(1, 10)
+--- @enum ImGuiItemStatusFlags
+ImGuiItemStatusFlags = {
+    None             = 0,
+    HoveredRect      = bit.lshift(1, 0), -- Mouse position is within item rectangle (does NOT mean that the window is in correct z-order and can be hovered!, this is only one part of the most-common IsItemHovered test)
+    HasDisplayRect   = bit.lshift(1, 1), -- g.LastItemData.DisplayRect is valid
+    Edited           = bit.lshift(1, 2), -- Value exposed by item was edited in the current frame (should match the bool return value of most widgets)
+    ToggledSelection = bit.lshift(1, 3), -- Set when Selectable(), TreeNode() reports toggling a selection. We can't report "Selected", only state changes, in order to easily handle clipping with less issues
+    ToggledOpen      = bit.lshift(1, 4), -- Set when TreeNode() reports toggling their open state
+    HasDeactivated   = bit.lshift(1, 5), -- Set if the widget/group is able to provide data for the ImGuiItemStatusFlags.Deactivated flag
+    Deactivated      = bit.lshift(1, 6), -- Only valid if ImGuiItemStatusFlags.HasDeactivated is set
+    HoveredWindow    = bit.lshift(1, 7), -- Override the HoveredWindow test to allow cross-window hover testing
+    Visible          = bit.lshift(1, 8), -- [WIP] Set when item is overlapping the current clipping rectangle (Used internally. Please don't use yet: API/system will change as we refactor Itemadd())
+    HasClipRect      = bit.lshift(1, 9), -- g.LastItemData.ClipRect is valid
+    HasShortcut      = bit.lshift(1, 10) -- g.LastItemData.Shortcut valid. Set by SetNextItemShortcut() -> ItemAdd()
+}
 
 --- @alias ImGuiChildFlags integer
 ImGuiChildFlags_None                   = 0
@@ -1135,12 +1157,14 @@ ImDrawFlags_RoundCornersAll         = bit.bor(ImDrawFlags_RoundCornersTopLeft, I
 ImDrawFlags_RoundCornersMask        = bit.bor(ImDrawFlags_RoundCornersAll, ImDrawFlags_RoundCornersNone)
 ImDrawFlags_RoundCornersDefault     = ImDrawFlags_RoundCornersAll
 
---- @alias ImDrawListFlags integer
-ImDrawListFlags_None                   = 0
-ImDrawListFlags_AntiAliasedLines       = bit.lshift(1, 0)
-ImDrawListFlags_AntiAliasedLinesUseTex = bit.lshift(1, 1)
-ImDrawListFlags_AntiAliasedFill        = bit.lshift(1, 2)
-ImDrawListFlags_AllowVtxOffset         = bit.lshift(1, 3)
+--- @enum ImDrawListFlags
+ImDrawListFlags = {
+    None                   = 0,
+    AntiAliasedLines       = bit.lshift(1, 0), -- Enable anti-aliased lines/borders (*2 the number of triangles for 1.0f wide line or lines thin enough to be drawn using textures, otherwise *3 the number of triangles)
+    AntiAliasedLinesUseTex = bit.lshift(1, 1), -- Enable anti-aliased lines/borders using textures when possible. Require backend to render with bilinear filtering (NOT point/nearest filtering)
+    AntiAliasedFill        = bit.lshift(1, 2), -- Enable anti-aliased edge around filled shapes (rounded rectangles, circles)
+    AllowVtxOffset         = bit.lshift(1, 3)  -- Can emit 'VtxOffset > 0' to allow large meshes. Set when 'ImGuiBackendFlags.RendererHasVtxOffset' is enabled
+}
 
 --- @enum ImFontFlags
 ImFontFlags = {
@@ -1216,6 +1240,51 @@ ImGuiButtonFlags_PressedOnMask_ = bit.bor(
 
 ImGuiButtonFlags_PressedOnDefault_ = ImGuiButtonFlags_PressedOnClickRelease
 ImGuiButtonFlags_NoKeyModifiers    = ImGuiButtonFlags_NoKeyModsAllowed
+
+--- @enum ImGuiStyleVar
+ImGuiStyleVar = {
+    Alpha                       = 0,
+    DisabledAlpha               = 1,
+    WindowPadding               = 2,
+    WindowRounding              = 3,
+    WindowBorderSize            = 4,
+    WindowMinSize               = 5,
+    WindowTitleAlign            = 6,
+    ChildRounding               = 7,
+    ChildBorderSize             = 8,
+    PopupRounding               = 9,
+    PopupBorderSize             = 10,
+    FramePadding                = 11,
+    FrameRounding               = 12,
+    FrameBorderSize             = 13,
+    ItemSpacing                 = 14,
+    ItemInnerSpacing            = 15,
+    IndentSpacing               = 16,
+    CellPadding                 = 17,
+    ScrollbarSize               = 18,
+    ScrollbarRounding           = 19,
+    ScrollbarPadding            = 20,
+    GrabMinSize                 = 21,
+    GrabRounding                = 22,
+    ImageRounding               = 23,
+    ImageBorderSize             = 24,
+    TabRounding                 = 25,
+    TabBorderSize               = 26,
+    TabMinWidthBase             = 27,
+    TabMinWidthShrink           = 28,
+    TabBarBorderSize            = 29,
+    TabBarOverlineSize          = 30,
+    TableAngledHeadersAngle     = 31,
+    TableAngledHeadersTextAlign = 32,
+    TreeLinesSize               = 33,
+    TreeLinesRounding           = 34,
+    ButtonTextAlign             = 35,
+    SelectableTextAlign         = 36,
+    SeparatorTextBorderSize     = 37,
+    SeparatorTextAlign          = 38,
+    SeparatorTextPadding        = 39,
+    COUNT                       = 40
+}
 
 --- @alias ImGuiHoveredFlags int
 ImGuiHoveredFlags_None                         = 0
@@ -1483,6 +1552,24 @@ ImGuiDragDropFlags_AcceptDrawAsHovered     = bit.lshift(1, 13)
 
 ImGuiDragDropFlags_AcceptPeekOnly = bit.bor(ImGuiDragDropFlags_AcceptBeforeDelivery, ImGuiDragDropFlags_AcceptNoDrawDefaultRect)
 
+--- A primary data type
+--- @enum ImGuiDataType
+ImGuiDataType = {
+    S8     = 0,  -- signed char / char
+    U8     = 1,  -- unsigned char
+    S16    = 2,  -- short
+    U16    = 3,  -- unsigned short
+    S32    = 4,  -- int
+    U32    = 5,  -- unsigned int
+    S64    = 6,  -- long long / __int64
+    U64    = 7,  -- unsigned long long / unsigned __int64
+    Float  = 8,  -- float
+    Double = 9,  -- double
+    Bool   = 10, -- bool (provided for user convenience, not supported by scalar widgets)
+    String = 11, -- string (provided for user convenience, not supported by scalar widgets)
+    COUNT  = 12
+}
+
 IM_COL32_R_SHIFT = 0
 IM_COL32_G_SHIFT = 8
 IM_COL32_B_SHIFT = 16
@@ -1514,7 +1601,47 @@ ImGuiPopupFlags_MouseButtonShift_ = 2
 ImGuiPopupFlags_MouseButtonMask_  = 0x0C
 ImGuiPopupFlags_InvalidMask_      = 0x03
 
+--- @alias ImGuiComboFlags int
+ImGuiComboFlags_None            = 0
+ImGuiComboFlags_PopupAlignLeft  = bit.lshift(1, 0)
+ImGuiComboFlags_HeightSmall     = bit.lshift(1, 1)
+ImGuiComboFlags_HeightRegular   = bit.lshift(1, 2)
+ImGuiComboFlags_HeightLarge     = bit.lshift(1, 3)
+ImGuiComboFlags_HeightLargest   = bit.lshift(1, 4)
+ImGuiComboFlags_NoArrowButton   = bit.lshift(1, 5)
+ImGuiComboFlags_NoPreview       = bit.lshift(1, 6)
+ImGuiComboFlags_WidthFitPreview = bit.lshift(1, 7)
+
+ImGuiComboFlags_HeightMask_ = bit.bor(ImGuiComboFlags_HeightSmall, ImGuiComboFlags_HeightRegular, ImGuiComboFlags_HeightLarge, ImGuiComboFlags_HeightLargest)
+
+ImGuiComboFlags_CustomPreview = bit.lshift(1, 20)
+
+--- @enum ImGuiSelectableFlags
+ImGuiSelectableFlags = {
+    None              = 0,
+    NoAutoClosePopups = bit.lshift(1, 0), -- Clicking this doesn't close parent popup window (overrides ImGuiItemFlags_AutoClosePopups)
+    SpanAllColumns    = bit.lshift(1, 1), -- Frame will span all columns of its container table (text will still fit in current column)
+    AllowDoubleClick  = bit.lshift(1, 2), -- Generate press events on double clicks too
+    Disabled          = bit.lshift(1, 3), -- Cannot be selected, display grayed out text
+    AllowOverlap      = bit.lshift(1, 4), -- (WIP) Hit testing to allow subsequent widgets to overlap this one
+    Highlight         = bit.lshift(1, 5), -- Make the item be displayed as if it is hovered
+    SelectOnNav       = bit.lshift(1, 6), -- Auto-select when moved into, unless Ctrl is held. Automatic when in a BeginMultiSelect() block
+
+    NoHoldingActiveID    = bit.lshift(1, 20),
+    SelectOnClick        = bit.lshift(1, 22), -- Override button behavior to react on Click (default is Click+Release)
+    SelectOnRelease      = bit.lshift(1, 23), -- Override button behavior to react on Release (default is Click+Release)
+    SpanAvailWidth       = bit.lshift(1, 24), -- Span all avail width even if we declared less for layout purpose. FIXME: We may be able to remove this (added in 6251d379, 2bcafc86 for menus)
+    SetNavIdOnHover      = bit.lshift(1, 25), -- Set Nav/Focus ID on mouse hover (used by MenuItem)
+    NoPadWithHalfSpacing = bit.lshift(1, 26), -- Disable padding each side with ItemSpacing * 0.5f
+    NoSetKeyOwner        = bit.lshift(1, 27), -- Don't set key/input owner on the initial click (note: mouse buttons are keys! often, the key in question will be ImGuiKey_MouseLeft!)
+}
+
 --- @class ImGuiWindowClass
+--- @field ClassId                    ImGuiID
+--- @field ParentViewportId           ImGuiID
+--- @field FocusRouteParentWindowId   ImGuiID
+--- @field ViewportFlagsOverrideSet   ImGuiViewportFlags
+--- @field ViewportFlagsOverrideClear ImGuiViewportFlags
 
 --- @return ImGuiWindowClass
 --- @nodiscard

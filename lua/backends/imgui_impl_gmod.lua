@@ -181,6 +181,7 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     viewport.PlatformUserData = vd
 
     -- VGUI treats child windows as "inside" the parent
+    -- - Disable panel clipping entirely: https://wiki.facepunch.com/gmod/Global.DisableClipping
     -- vd.DermaWindowParent = ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport.ParentViewport)
     vd.DermaWindow = vgui.Create("EditablePanel", nil, "ImGui Platform")
 

@@ -59,6 +59,11 @@ local stbrp = IM_INCLUDE("imstb_rectpack.lua")
 --- @module "imstb_truetype"
 local stbtt = IM_INCLUDE("imstb_truetype.lua")
 
+---------------------------------------------------------------------------------------
+-- [SECTION] STYLE FUNCTIONS
+---------------------------------------------------------------------------------------
+
+--- @param dst? ImGuiStyle
 function ImGui.StyleColorsDark(dst)
     local style = dst and dst or ImGui.GetStyle()
     local colors = style.Colors
@@ -123,6 +128,141 @@ function ImGui.StyleColorsDark(dst)
     colors[ImGuiCol.NavWindowingHighlight]     = ImVec4(1.00, 1.00, 1.00, 0.70)
     colors[ImGuiCol.NavWindowingDimBg]         = ImVec4(0.80, 0.80, 0.80, 0.20)
     colors[ImGuiCol.ModalWindowDimBg]          = ImVec4(0.80, 0.80, 0.80, 0.35)
+end
+
+--- @param dst? ImGuiStyle
+function ImGui.StyleColorsClassic(dst)
+    local style = dst and dst or ImGui.GetStyle()
+    local colors = style.Colors
+
+    colors[ImGuiCol.Text]                      = ImVec4(0.90, 0.90, 0.90, 1.00)
+    colors[ImGuiCol.TextDisabled]              = ImVec4(0.60, 0.60, 0.60, 1.00)
+    colors[ImGuiCol.WindowBg]                  = ImVec4(0.00, 0.00, 0.00, 0.85)
+    colors[ImGuiCol.ChildBg]                   = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.PopupBg]                   = ImVec4(0.11, 0.11, 0.14, 0.92)
+    colors[ImGuiCol.Border]                    = ImVec4(0.50, 0.50, 0.50, 0.50)
+    colors[ImGuiCol.BorderShadow]              = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.FrameBg]                   = ImVec4(0.43, 0.43, 0.43, 0.39)
+    colors[ImGuiCol.FrameBgHovered]            = ImVec4(0.47, 0.47, 0.69, 0.40)
+    colors[ImGuiCol.FrameBgActive]             = ImVec4(0.42, 0.41, 0.64, 0.69)
+    colors[ImGuiCol.TitleBg]                   = ImVec4(0.27, 0.27, 0.54, 0.83)
+    colors[ImGuiCol.TitleBgActive]             = ImVec4(0.32, 0.32, 0.63, 0.87)
+    colors[ImGuiCol.TitleBgCollapsed]          = ImVec4(0.40, 0.40, 0.80, 0.20)
+    colors[ImGuiCol.MenuBarBg]                 = ImVec4(0.40, 0.40, 0.55, 0.80)
+    colors[ImGuiCol.ScrollbarBg]               = ImVec4(0.20, 0.25, 0.30, 0.60)
+    colors[ImGuiCol.ScrollbarGrab]             = ImVec4(0.40, 0.40, 0.80, 0.30)
+    colors[ImGuiCol.ScrollbarGrabHovered]      = ImVec4(0.40, 0.40, 0.80, 0.40)
+    colors[ImGuiCol.ScrollbarGrabActive]       = ImVec4(0.41, 0.39, 0.80, 0.60)
+    colors[ImGuiCol.CheckMark]                 = ImVec4(0.90, 0.90, 0.90, 0.50)
+    colors[ImGuiCol.SliderGrab]                = ImVec4(1.00, 1.00, 1.00, 0.30)
+    colors[ImGuiCol.SliderGrabActive]          = ImVec4(0.41, 0.39, 0.80, 0.60)
+    colors[ImGuiCol.Button]                    = ImVec4(0.35, 0.40, 0.61, 0.62)
+    colors[ImGuiCol.ButtonHovered]             = ImVec4(0.40, 0.48, 0.71, 0.79)
+    colors[ImGuiCol.ButtonActive]              = ImVec4(0.46, 0.54, 0.80, 1.00)
+    colors[ImGuiCol.Header]                    = ImVec4(0.40, 0.40, 0.90, 0.45)
+    colors[ImGuiCol.HeaderHovered]             = ImVec4(0.45, 0.45, 0.90, 0.80)
+    colors[ImGuiCol.HeaderActive]              = ImVec4(0.53, 0.53, 0.87, 0.80)
+    colors[ImGuiCol.Separator]                 = ImVec4(0.50, 0.50, 0.50, 0.60)
+    colors[ImGuiCol.SeparatorHovered]          = ImVec4(0.60, 0.60, 0.70, 1.00)
+    colors[ImGuiCol.SeparatorActive]           = ImVec4(0.70, 0.70, 0.90, 1.00)
+    colors[ImGuiCol.ResizeGrip]                = ImVec4(1.00, 1.00, 1.00, 0.10)
+    colors[ImGuiCol.ResizeGripHovered]         = ImVec4(0.78, 0.82, 1.00, 0.60)
+    colors[ImGuiCol.ResizeGripActive]          = ImVec4(0.78, 0.82, 1.00, 0.90)
+    colors[ImGuiCol.InputTextCursor]           = colors[ImGuiCol.Text]
+    colors[ImGuiCol.TabHovered]                = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.Tab]                       = ImLerpV4V4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
+    colors[ImGuiCol.TabSelected]               = ImLerpV4V4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.TabSelectedOverline]       = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.53, 0.53, 0.87, 0.00)
+    colors[ImGuiCol.PlotLines]                 = ImVec4(1.00, 1.00, 1.00, 1.00)
+    colors[ImGuiCol.PlotLinesHovered]          = ImVec4(0.90, 0.70, 0.00, 1.00)
+    colors[ImGuiCol.PlotHistogram]             = ImVec4(0.90, 0.70, 0.00, 1.00)
+    colors[ImGuiCol.PlotHistogramHovered]      = ImVec4(1.00, 0.60, 0.00, 1.00)
+    colors[ImGuiCol.TableHeaderBg]             = ImVec4(0.27, 0.27, 0.38, 1.00)
+    colors[ImGuiCol.TableBorderStrong]         = ImVec4(0.31, 0.31, 0.45, 1.00)
+    colors[ImGuiCol.TableBorderLight]          = ImVec4(0.26, 0.26, 0.28, 1.00)
+    colors[ImGuiCol.TableRowBg]                = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.TableRowBgAlt]             = ImVec4(1.00, 1.00, 1.00, 0.07)
+    colors[ImGuiCol.TextLink]                  = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TextSelectedBg]            = ImVec4(0.00, 0.00, 1.00, 0.35)
+    colors[ImGuiCol.TreeLines]                 = colors[ImGuiCol.Border]
+    colors[ImGuiCol.DragDropTarget]            = ImVec4(1.00, 1.00, 0.00, 0.90)
+    colors[ImGuiCol.DragDropTargetBg]          = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.UnsavedMarker]             = ImVec4(0.90, 0.90, 0.90, 1.00)
+    colors[ImGuiCol.NavCursor]                 = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.NavWindowingHighlight]     = ImVec4(1.00, 1.00, 1.00, 0.70)
+    colors[ImGuiCol.NavWindowingDimBg]         = ImVec4(0.80, 0.80, 0.80, 0.20)
+    colors[ImGuiCol.ModalWindowDimBg]          = ImVec4(0.20, 0.20, 0.20, 0.35)
+end
+
+-- Those light colors are better suited with a thicker font than the default one + FrameBorder
+--- @param dst? ImGuiStyle
+function ImGui.StyleColorsLight(dst)
+    local style = dst and dst or ImGui.GetStyle()
+    local colors = style.Colors
+
+    colors[ImGuiCol.Text]                      = ImVec4(0.00, 0.00, 0.00, 1.00)
+    colors[ImGuiCol.TextDisabled]              = ImVec4(0.60, 0.60, 0.60, 1.00)
+    colors[ImGuiCol.WindowBg]                  = ImVec4(0.94, 0.94, 0.94, 1.00)
+    colors[ImGuiCol.ChildBg]                   = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.PopupBg]                   = ImVec4(1.00, 1.00, 1.00, 0.98)
+    colors[ImGuiCol.Border]                    = ImVec4(0.00, 0.00, 0.00, 0.30)
+    colors[ImGuiCol.BorderShadow]              = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.FrameBg]                   = ImVec4(1.00, 1.00, 1.00, 1.00)
+    colors[ImGuiCol.FrameBgHovered]            = ImVec4(0.26, 0.59, 0.98, 0.40)
+    colors[ImGuiCol.FrameBgActive]             = ImVec4(0.26, 0.59, 0.98, 0.67)
+    colors[ImGuiCol.TitleBg]                   = ImVec4(0.96, 0.96, 0.96, 1.00)
+    colors[ImGuiCol.TitleBgActive]             = ImVec4(0.82, 0.82, 0.82, 1.00)
+    colors[ImGuiCol.TitleBgCollapsed]          = ImVec4(1.00, 1.00, 1.00, 0.51)
+    colors[ImGuiCol.MenuBarBg]                 = ImVec4(0.86, 0.86, 0.86, 1.00)
+    colors[ImGuiCol.ScrollbarBg]               = ImVec4(0.98, 0.98, 0.98, 0.53)
+    colors[ImGuiCol.ScrollbarGrab]             = ImVec4(0.69, 0.69, 0.69, 0.80)
+    colors[ImGuiCol.ScrollbarGrabHovered]      = ImVec4(0.49, 0.49, 0.49, 0.80)
+    colors[ImGuiCol.ScrollbarGrabActive]       = ImVec4(0.49, 0.49, 0.49, 1.00)
+    colors[ImGuiCol.CheckMark]                 = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.SliderGrab]                = ImVec4(0.26, 0.59, 0.98, 0.78)
+    colors[ImGuiCol.SliderGrabActive]          = ImVec4(0.46, 0.54, 0.80, 0.60)
+    colors[ImGuiCol.Button]                    = ImVec4(0.26, 0.59, 0.98, 0.40)
+    colors[ImGuiCol.ButtonHovered]             = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.ButtonActive]              = ImVec4(0.06, 0.53, 0.98, 1.00)
+    colors[ImGuiCol.Header]                    = ImVec4(0.26, 0.59, 0.98, 0.31)
+    colors[ImGuiCol.HeaderHovered]             = ImVec4(0.26, 0.59, 0.98, 0.80)
+    colors[ImGuiCol.HeaderActive]              = ImVec4(0.26, 0.59, 0.98, 1.00)
+    colors[ImGuiCol.Separator]                 = ImVec4(0.39, 0.39, 0.39, 0.62)
+    colors[ImGuiCol.SeparatorHovered]          = ImVec4(0.14, 0.44, 0.80, 0.78)
+    colors[ImGuiCol.SeparatorActive]           = ImVec4(0.14, 0.44, 0.80, 1.00)
+    colors[ImGuiCol.ResizeGrip]                = ImVec4(0.35, 0.35, 0.35, 0.17)
+    colors[ImGuiCol.ResizeGripHovered]         = ImVec4(0.26, 0.59, 0.98, 0.67)
+    colors[ImGuiCol.ResizeGripActive]          = ImVec4(0.26, 0.59, 0.98, 0.95)
+    colors[ImGuiCol.InputTextCursor]           = colors[ImGuiCol.Text]
+    colors[ImGuiCol.TabHovered]                = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.Tab]                       = ImLerpV4V4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.90)
+    colors[ImGuiCol.TabSelected]               = ImLerpV4V4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.TabSelectedOverline]       = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.26, 0.59, 1.00, 0.00)
+    colors[ImGuiCol.PlotLines]                 = ImVec4(0.39, 0.39, 0.39, 1.00)
+    colors[ImGuiCol.PlotLinesHovered]          = ImVec4(1.00, 0.43, 0.35, 1.00)
+    colors[ImGuiCol.PlotHistogram]             = ImVec4(0.90, 0.70, 0.00, 1.00)
+    colors[ImGuiCol.PlotHistogramHovered]      = ImVec4(1.00, 0.45, 0.00, 1.00)
+    colors[ImGuiCol.TableHeaderBg]             = ImVec4(0.78, 0.87, 0.98, 1.00)
+    colors[ImGuiCol.TableBorderStrong]         = ImVec4(0.57, 0.57, 0.64, 1.00)
+    colors[ImGuiCol.TableBorderLight]          = ImVec4(0.68, 0.68, 0.74, 1.00)
+    colors[ImGuiCol.TableRowBg]                = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.TableRowBgAlt]             = ImVec4(0.30, 0.30, 0.30, 0.09)
+    colors[ImGuiCol.TextLink]                  = colors[ImGuiCol.HeaderActive]
+    colors[ImGuiCol.TextSelectedBg]            = ImVec4(0.26, 0.59, 0.98, 0.35)
+    colors[ImGuiCol.TreeLines]                 = colors[ImGuiCol.Border]
+    colors[ImGuiCol.DragDropTarget]            = ImVec4(0.26, 0.59, 0.98, 0.95)
+    colors[ImGuiCol.DragDropTargetBg]          = ImVec4(0.00, 0.00, 0.00, 0.00)
+    colors[ImGuiCol.UnsavedMarker]             = ImVec4(0.00, 0.00, 0.00, 1.00)
+    colors[ImGuiCol.NavCursor]                 = colors[ImGuiCol.HeaderHovered]
+    colors[ImGuiCol.NavWindowingHighlight]     = ImVec4(0.70, 0.70, 0.70, 0.70)
+    colors[ImGuiCol.NavWindowingDimBg]         = ImVec4(0.20, 0.20, 0.20, 0.20)
+    colors[ImGuiCol.ModalWindowDimBg]          = ImVec4(0.20, 0.20, 0.20, 0.35)
 end
 
 local ImFontAtlasTextureAdd
@@ -2682,7 +2822,7 @@ function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
 
     IM_ASSERT(draw_list.VtxBuffer.Size == 0 or draw_list._VtxWritePtr == draw_list.VtxBuffer.Size + 1)
     IM_ASSERT(draw_list.IdxBuffer.Size == 0 or draw_list._IdxWritePtr == draw_list.IdxBuffer.Size + 1)
-    if (bit.band(draw_list.Flags, ImDrawListFlags_AllowVtxOffset) == 0) then
+    if (bit.band(draw_list.Flags, ImDrawListFlags.AllowVtxOffset) == 0) then
         IM_ASSERT(draw_list._VtxCurrentIdx == draw_list.VtxBuffer.Size + 1)
     end
 
@@ -2724,7 +2864,7 @@ function MT.ImDrawList:_SetDrawListSharedData(data)
         self._Data.DrawLists:push_back(self)
     end
 
-    -- GLUA: Keep Reference
+    -- LUA: Keep Reference
     if data then self._CmdHeader.TexRef = data.FontAtlas.TexRef end
 end
 
@@ -2735,7 +2875,7 @@ function MT.ImDrawList:_ResetForNewFrame()
     self.VtxBuffer:resize(0)
     self.Flags = self._Data.InitialFlags
 
-    -- GLUA: Keep Reference
+    -- LUA: Keep Reference
     local tex_ref = self._CmdHeader.TexRef
     self._CmdHeader = ImDrawCmdHeader()
     self._CmdHeader.TexRef = tex_ref
@@ -2747,7 +2887,7 @@ function MT.ImDrawList:_ResetForNewFrame()
     self._TextureStack:resize(0)
     self._Path:resize(0)
 
-    -- GLUA: Keep Reference
+    -- LUA: Keep Reference
     local draw_cmd = ImDrawCmd()
     draw_cmd.TexRef = tex_ref
     self.CmdBuffer:push_back(draw_cmd)
@@ -2760,7 +2900,7 @@ function MT.ImDrawList:_ClearFreeMemory()
     self.IdxBuffer:clear()
     self.VtxBuffer:clear()
 
-    self.Flags = ImDrawListFlags_None
+    self.Flags = ImDrawListFlags.None
 
     self._VtxCurrentIdx = 1
     self._VtxWritePtr = 1
@@ -2841,6 +2981,16 @@ local function ImDrawCmd_AreSequentialIdxOffset(CMD_0, CMD_1)
     return CMD_0.IdxOffset + CMD_0.ElemCount == CMD_1.IdxOffset
 end
 
+function MT.ImDrawList:_TryMergeDrawCmds()
+    IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
+    local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    local prev_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size - 1]
+    if ImDrawCmd_HeaderCompare(curr_cmd, prev_cmd) and ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) and curr_cmd.UserCallback == nil and prev_cmd.UserCallback == nil then
+        prev_cmd.ElemCount = prev_cmd.ElemCount + curr_cmd.ElemCount
+        self.CmdBuffer:pop_back()
+    end
+end
+
 function MT.ImDrawList:_OnChangedClipRect()
     IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
     local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
@@ -2904,7 +3054,7 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
 
     local uv = self._Data.TexUvWhitePixel
 
-    if bit.band(self.Flags, ImDrawListFlags_AntiAliasedFill) ~= 0 then
+    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedFill) ~= 0 then
         local AA_SIZE = self._FringeScale
         local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
         local idx_count = (points_count - 2) * 3 + points_count * 6
@@ -3031,7 +3181,7 @@ end
 function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     IM_ASSERT_PARANOID(idx_count >= 0 and vtx_count >= 0)
 
-    if (self._VtxCurrentIdx + vtx_count >= bit.lshift(1, 16)) and (bit.band(self.Flags, ImDrawListFlags_AllowVtxOffset) ~= 0) then
+    if (self._VtxCurrentIdx + vtx_count >= bit.lshift(1, 16)) and (bit.band(self.Flags, ImDrawListFlags.AllowVtxOffset) ~= 0) then
         self._CmdHeader.VtxOffset = self.VtxBuffer.Size + 1
         self:_OnChangedVtxOffset()
     end
@@ -3160,7 +3310,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     local count = closed and points_count or points_count - 1  -- Number of line segments
     local thick_line = thickness > self._FringeScale
 
-    if bit.band(self.Flags, ImDrawListFlags_AntiAliasedLines) ~= 0 then
+    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
         -- Anti-aliased stroke
         local AA_SIZE = self._FringeScale
         local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
@@ -3171,7 +3321,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local fractional_thickness = thickness - integer_thickness
 
         -- Do we want to draw this line using a texture?
-        local use_texture = bit.band(self.Flags, ImDrawListFlags_AntiAliasedLinesUseTex) ~= 0 and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX and fractional_thickness <= 0.00001 and AA_SIZE == 1.0
+        local use_texture = bit.band(self.Flags, ImDrawListFlags.AntiAliasedLinesUseTex) ~= 0 and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX and fractional_thickness <= 0.00001 and AA_SIZE == 1.0
 
         IM_ASSERT_PARANOID((not use_texture) or bit.band(self._Data.Font.OwnerAtlas.Flags, ImFontAtlasFlags_NoBakedLines) == 0)
 
@@ -3517,7 +3667,7 @@ end
 
 function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
-    if bit.band(self.Flags, ImDrawListFlags_AntiAliasedLines) ~= 0 then
+    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
     else
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
@@ -3611,7 +3761,7 @@ end
 
 function MT.ImDrawList:PopClipRect()
     self._ClipRectStack:pop_back()
-    if (self._ClipRectStack.Size == 0) then -- GLUA: No "Ternary Operator"
+    if (self._ClipRectStack.Size == 0) then -- LUA: No "Ternary Operator"
         self._CmdHeader.ClipRect = self._Data.ClipRectFullscreen
     else
         self._CmdHeader.ClipRect = self._ClipRectStack.Data[self._ClipRectStack.Size]

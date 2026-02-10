@@ -1033,15 +1033,490 @@ end
 --- @param items_count float
 --- @return float
 local function CalcMaxPopupHeightFromItemCount(items_count)
-    local g = GImGui
+    local g = ImGui.GetCurrentContext()
     if items_count <= 0 then
         return FLT_MAX
     end
     return (g.FontSize + g.Style.ItemSpacing.y) * items_count - g.Style.ItemSpacing.y + (g.Style.WindowPadding.y * 2)
 end
 
+--- @param label          string
+--- @param preview_value? string
+--- @param flags?         ImGuiComboFlags
+function ImGui.BeginCombo(label, preview_value, flags)
+    if flags == nil then flags = 0 end
+
+    local g = ImGui.GetCurrentContext()
+    local window = ImGui.GetCurrentWindow()
+
+    local backup_next_window_data_flags = g.NextWindowData.HasFlags
+    g.NextWindowData:ClearFlags()
+    if window.SkipItems then
+        return false
+    end
+
+    local style = g.Style
+    local id = window:GetID(label)
+    IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags_NoArrowButton, ImGuiComboFlags_NoPreview)) ~= bit.bor(ImGuiComboFlags_NoArrowButton, ImGuiComboFlags_NoPreview)) -- Can't use both flags together
+    if bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0 then
+        IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags_NoPreview, ImGuiComboFlags_CustomPreview)) == 0)
+    end
+
+    local arrow_size
+    if (bit.band(flags, ImGuiComboFlags_NoArrowButton) ~= 0) then
+        arrow_size = 0.0
+    else
+        arrow_size = ImGui.GetFrameHeight()
+    end
+
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+
+    local preview_width
+    if ((bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0) and (preview_value ~= nil)) then
+        preview_width = ImGui.CalcTextSize(preview_value, nil, true).x
+    else
+        preview_width = 0.0
+    end
+
+    local w
+    if bit.band(flags, ImGuiComboFlags_NoPreview) ~= 0 then
+        w = arrow_size
+    elseif bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0 then
+        w = arrow_size + preview_width + style.FramePadding.x * 2.0
+    else
+        w = ImGui.CalcItemWidth()
+    end
+
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0))
+    local label_offset = (label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0
+    local total_bb = ImRect(bb.Min, bb.Max + ImVec2(label_offset, 0.0))
+
+    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    if not ImGui.ItemAdd(total_bb, id, bb) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
+    local popup_id = ImHashStr("##ComboPopup", id)
+    local popup_open = ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags_None)
+    if pressed and not popup_open then
+        ImGui.OpenPopupEx(popup_id, ImGuiPopupFlags_None)
+        popup_open = true
+    end
+
+    -- Render shape
+    local frame_col = ImGui.GetColorU32(hovered and ImGuiCol.FrameBgHovered or ImGuiCol.FrameBg)
+    local value_x2 = ImMax(bb.Min.x, bb.Max.x - arrow_size)
+
+    ImGui.RenderNavCursor(bb, id)
+
+    if bit.band(flags, ImGuiComboFlags_NoPreview) == 0 then
+        window.DrawList:AddRectFilled(bb.Min, ImVec2(value_x2, bb.Max.y), frame_col, style.FrameRounding, (bit.band(flags, ImGuiComboFlags_NoArrowButton) ~= 0) and ImDrawFlags_RoundCornersAll or ImDrawFlags_RoundCornersLeft)
+    end
+
+    if bit.band(flags, ImGuiComboFlags_NoArrowButton) == 0 then
+        local bg_col = ImGui.GetColorU32((popup_open or hovered) and ImGuiCol.ButtonHovered or ImGuiCol.Button)
+        local text_col = ImGui.GetColorU32(ImGuiCol.Text)
+
+        window.DrawList:AddRectFilled(ImVec2(value_x2, bb.Min.y), bb.Max, bg_col, style.FrameRounding, (w <= arrow_size) and ImDrawFlags_RoundCornersAll or ImDrawFlags_RoundCornersRight)
+
+        if value_x2 + arrow_size - style.FramePadding.x <= bb.Max.x then
+            ImGui.RenderArrow(window.DrawList, ImVec2(value_x2 + style.FramePadding.y, bb.Min.y + style.FramePadding.y), text_col, ImGuiDir.Down, 1.0)
+        end
+    end
+
+    ImGui.RenderFrameBorder(bb.Min, bb.Max, style.FrameRounding)
+
+    -- Custom preview
+    if bit.band(flags, ImGuiComboFlags_CustomPreview) ~= 0 then
+        g.ComboPreviewData.PreviewRect = ImRect(bb.Min.x, bb.Min.y, value_x2, bb.Max.y)
+        IM_ASSERT(preview_value == nil or preview_value == "")
+        preview_value = nil
+    end
+
+    -- Render preview and label
+    if preview_value ~= nil and bit.band(flags, ImGuiComboFlags_NoPreview) == 0 then
+        if g.LogEnabled then
+            ImGui.LogSetNextTextDecoration("{", "}")
+        end
+        ImGui.RenderTextClipped(bb.Min + style.FramePadding, ImVec2(value_x2, bb.Max.y), preview_value, 1, nil, nil)
+    end
+
+    if label_size.x > 0 then
+        ImGui.RenderText(ImVec2(bb.Max.x + style.ItemInnerSpacing.x, bb.Min.y + style.FramePadding.y), label)
+    end
+
+    if not popup_open then
+        return false
+    end
+
+    g.NextWindowData.HasFlags = backup_next_window_data_flags
+    return ImGui.BeginComboPopup(popup_id, bb, flags)
+end
+
+--- @param popup_id ImGuiID
+--- @param bb       ImRect
+--- @param flags    ImGuiComboFlags
 function ImGui.BeginComboPopup(popup_id, bb, flags)
-    -- TODO:
+    local g = ImGui.GetCurrentContext()
+    if not ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags_None) then
+        g.NextWindowData:ClearFlags()
+        return false
+    end
+
+    local w = bb:GetWidth()
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint) ~= 0 then
+        g.NextWindowData.SizeConstraintRect.Min.x = ImMax(g.NextWindowData.SizeConstraintRect.Min.x, w)
+    else
+        if bit.band(flags, ImGuiComboFlags_HeightMask_) == 0 then
+            flags = bit.bor(flags, ImGuiComboFlags_HeightRegular)
+        end
+        IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiComboFlags_HeightMask_)))
+        local popup_max_height_in_items = -1
+        if bit.band(flags, ImGuiComboFlags_HeightRegular) ~= 0 then
+            popup_max_height_in_items = 8
+        elseif bit.band(flags, ImGuiComboFlags_HeightSmall) ~= 0 then
+            popup_max_height_in_items = 4
+        elseif bit.band(flags, ImGuiComboFlags_HeightLarge) ~= 0 then
+            popup_max_height_in_items = 20
+        end
+        local constraint_min = ImVec2(0.0, 0.0)
+        local constraint_max = ImVec2(FLT_MAX, FLT_MAX)
+        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize) == 0 or g.NextWindowData.SizeVal.x <= 0.0 then
+            constraint_min.x = w
+        end
+        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize) == 0 or g.NextWindowData.SizeVal.y <= 0.0 then
+            constraint_max.y = CalcMaxPopupHeightFromItemCount(popup_max_height_in_items)
+        end
+        ImGui.SetNextWindowSizeConstraints(constraint_min, constraint_max)
+    end
+
+    -- This is essentially a specialized version of BeginPopupEx()
+    local name = ImFormatString("##Combo_%02d", g.BeginComboDepth)
+
+    -- Set position given a custom constraint (peak into expected window size so we can position it)
+    -- FIXME: This might be easier to express with an hypothetical SetNextWindowPosConstraints() function?
+    -- FIXME: This might be moved to Begin() or at least around the same spot where Tooltips and other Popups are calling FindBestWindowPosForPopupEx()?
+    local popup_window = ImGui.FindWindowByName(name)
+    if popup_window then
+        if popup_window.WasActive then
+            -- Always override 'AutoPosLastDirection' to not leave a chance for a past value to affect us.
+            local size_expected = ImGui.CalcWindowNextAutoFitSize(popup_window)
+            popup_window.AutoPosLastDirection = (bit.band(flags, ImGuiComboFlags_PopupAlignLeft) ~= 0) and ImGuiDir.Left or ImGuiDir.Down
+            local r_outer = ImGui.GetPopupAllowedExtentRect(popup_window)
+            local pos
+            pos, popup_window.AutoPosLastDirection = ImGui.FindBestWindowPosForPopupEx(bb:GetBL(), size_expected, popup_window.AutoPosLastDirection, r_outer, bb, ImGuiPopupPositionPolicy.ComboBox)
+            ImGui.SetNextWindowPos(pos)
+        end
+    end
+
+    -- We don't use BeginPopupEx() solely because we have a custom name string, which we could make an argument to BeginPopupEx()
+    local window_flags = bit.bor(ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_Popup, ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_NoMove)
+    ImGui.PushStyleVarX(ImGuiStyleVar.WindowPadding, g.Style.FramePadding.x) -- Horizontally align ourselves with the framed text
+    local _, ret = ImGui.Begin(name, nil, window_flags)
+    ImGui.PopStyleVar()
+    if not ret then
+        ImGui.EndPopup()
+        if not g.IO.ConfigDebugBeginReturnValueOnce and not g.IO.ConfigDebugBeginReturnValueLoop then
+            -- Begin may only return false with those debug tools activated.
+            IM_ASSERT(false) -- This should never happen as we tested for IsPopupOpen() above
+        end
+        return false
+    end
+
+    g.BeginComboDepth = g.BeginComboDepth + 1
+
+    return true
+end
+
+function ImGui.EndCombo()
+    local g = ImGui.GetCurrentContext()
+    g.BeginComboDepth = g.BeginComboDepth - 1
+
+    local name = ImFormatString("##Combo_%02d", g.BeginComboDepth) -- FIXME: Move those to helpers?
+
+    if g.CurrentWindow.Name ~= name then
+        IM_ASSERT_USER_ERROR_RET(false, "Calling EndCombo() in wrong window!")
+    end
+
+    ImGui.EndPopup()
+end
+
+-- Call directly after the BeginCombo/EndCombo block. The preview is designed to only host non-interactive elements
+-- (Experimental, see GitHub issues: #1658, #4168)
+function ImGui.BeginComboPreview()
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    local preview_data = g.ComboPreviewData
+
+    if window.SkipItems or not (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) ~= 0) then
+        return false
+    end
+
+    IM_ASSERT(g.LastItemData.Rect.Min.x == preview_data.PreviewRect.Min.x and g.LastItemData.Rect.Min.y == preview_data.PreviewRect.Min.y) -- Didn't call after BeginCombo/EndCombo block or forgot to pass ImGuiComboFlags_CustomPreview flag?
+
+    if not window.ClipRect:Overlaps(preview_data.PreviewRect) then -- Narrower test (optional)
+        return false
+    end
+
+    -- FIXME: This could be contained in a PushWorkRect() api
+    preview_data.BackupCursorPos              = window.DC.CursorPos:copy()
+    preview_data.BackupCursorMaxPos           = window.DC.CursorMaxPos:copy()
+    preview_data.BackupCursorPosPrevLine      = window.DC.CursorPosPrevLine:copy()
+    preview_data.BackupPrevLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
+    preview_data.BackupLayout                 = window.DC.LayoutType
+
+    window.DC.CursorPos    = preview_data.PreviewRect.Min + g.Style.FramePadding
+    window.DC.CursorMaxPos = window.DC.CursorPos:copy()
+    window.DC.LayoutType   = ImGuiLayoutType.Horizontal
+    window.DC.IsSameLine   = false
+
+    ImGui.PushClipRect(preview_data.PreviewRect.Min, preview_data.PreviewRect.Max, true)
+
+    return true
+end
+
+function ImGui.EndComboPreview()
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    local preview_data = g.ComboPreviewData
+
+    local draw_list = window.DrawList
+    if window.DC.CursorMaxPos.x < preview_data.PreviewRect.Max.x and window.DC.CursorMaxPos.y < preview_data.PreviewRect.Max.y then
+        if draw_list.CmdBuffer.Size > 1 then -- Unlikely case that the PushClipRect() didn't create a command
+            draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size - 1].ClipRect
+            draw_list._CmdHeader.ClipRect = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect
+            draw_list:_TryMergeDrawCmds()
+        end
+    end
+
+    ImGui.PopClipRect()
+
+    window.DC.CursorPos              = preview_data.BackupCursorPos
+    window.DC.CursorMaxPos           = ImMaxVec2(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos)
+    window.DC.CursorPosPrevLine      = preview_data.BackupCursorPosPrevLine
+    window.DC.PrevLineTextBaseOffset = preview_data.BackupPrevLineTextBaseOffset
+    window.DC.LayoutType             = preview_data.BackupLayout
+    window.DC.IsSameLine             = false
+
+    preview_data.PreviewRect = ImRect()
+end
+
+----------------------------------------------------------------
+-- [SECTION] SELECTABLE
+----------------------------------------------------------------
+-- - Selectable()
+----------------------------------------------------------------
+
+-- Tip: pass a non-visible label (e.g. "##hello") then you can use the space to draw other text or image.
+-- But you need to make sure the ID is unique, e.g. enclose calls in PushID/PopID or use ##unique_id.
+-- With this scheme, ImGuiSelectableFlags_SpanAllColumns and ImGuiSelectableFlags_AllowOverlap are also frequently used flags.
+-- FIXME: Selectable() with (size.x == 0.0f) and (SelectableTextAlign.x > 0.0f) followed by SameLine() is currently not supported.
+--- @param label     string
+--- @param selected  bool
+--- @param flags?    ImGuiSelectableFlags
+--- @param size_arg? any
+--- @return bool is_pressed
+--- @return bool is_selected # Updated `selected`
+function ImGui.Selectable(label, selected, flags, size_arg)
+    if flags    == nil then flags    = 0            end
+    if size_arg == nil then size_arg = ImVec2(0, 0) end
+
+    local window = ImGui.GetCurrentWindow()
+    if (window.SkipItems) then
+        return false, selected
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+
+    local id = window:GetID(label)
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local size = ImVec2((size_arg.x ~= 0.0) and size_arg.x or label_size.x, (size_arg.y ~= 0.0) and size_arg.y or label_size.y)
+    local pos = window.DC.CursorPos:copy()
+    pos.y = pos.y + window.DC.CurrLineTextBaseOffset
+    ImGui.ItemSize(size, 0.0)
+
+    -- Fill horizontal space
+    -- We don't support (size < 0.0) in Selectable() because the ItemSpacing extension would make explicitly right-aligned sizes not visibly match other widgets.
+    local span_all_columns = bit.band(flags, ImGuiSelectableFlags.SpanAllColumns) ~= 0
+    local min_x = span_all_columns and window.ParentWorkRect.Min.x or pos.x
+    local max_x = span_all_columns and window.ParentWorkRect.Max.x or window.WorkRect.Max.x
+    if size_arg.x == 0.0 or bit.band(flags, ImGuiSelectableFlags.SpanAvailWidth) ~= 0 then
+        size.x = ImMax(label_size.x, max_x - min_x)
+    end
+
+    -- Selectables are meant to be tightly packed together with no click-gap, so we extend their box to cover spacing between selectable.
+    -- FIXME: Not part of layout so not included in clipper calculation, but ItemSize currently doesn't allow offsetting CursorPos.
+    local bb = ImRect(min_x, pos.y, min_x + size.x, pos.y + size.y)
+    if bit.band(flags, ImGuiSelectableFlags.NoPadWithHalfSpacing) == 0 then
+        local spacing_x = span_all_columns and 0.0 or style.ItemSpacing.x
+        local spacing_y = style.ItemSpacing.y
+        local spacing_L = IM_TRUNC(spacing_x * 0.50)
+        local spacing_U = IM_TRUNC(spacing_y * 0.50)
+
+        bb.Min.x = bb.Min.x - spacing_L
+        bb.Min.y = bb.Min.y - spacing_U
+        bb.Max.x = bb.Max.x + (spacing_x - spacing_L)
+        bb.Max.y = bb.Max.y + (spacing_y - spacing_U)
+    end
+
+    local disabled_item = bit.band(flags, ImGuiSelectableFlags.Disabled) ~= 0
+    local extra_item_flags = disabled_item and ImGuiItemFlags_Disabled or ImGuiItemFlags_None
+
+    local is_visible
+    if span_all_columns then
+        -- Modify ClipRect for the ItemAdd(), faster than doing a PushColumnsBackground/PushTableBackgroundChannel for every Selectable..
+        local backup_clip_rect_min_x = window.ClipRect.Min.x
+        local backup_clip_rect_max_x = window.ClipRect.Max.x
+
+        window.ClipRect.Min.x = window.ParentWorkRect.Min.x
+        window.ClipRect.Max.x = window.ParentWorkRect.Max.x
+
+        is_visible = ImGui.ItemAdd(bb, id, nil, extra_item_flags)
+
+        window.ClipRect.Min.x = backup_clip_rect_min_x
+        window.ClipRect.Max.x = backup_clip_rect_max_x
+    else
+        is_visible = ImGui.ItemAdd(bb, id, nil, extra_item_flags)
+    end
+
+    local is_multi_select = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_IsMultiSelect) ~= 0
+
+    if not is_visible then
+        if not is_multi_select or not g.BoxSelectState.UnclipMode or not g.BoxSelectState.UnclipRect:Overlaps(bb) then
+            -- Extra layer of "no logic clip" for box-select support (would be more overhead to add to ItemAdd)
+            return false, selected
+        end
+    end
+
+    local disabled_global = bit.band(g.CurrentItemFlags, ImGuiItemFlags_Disabled) ~= 0
+
+    if disabled_item and not disabled_global then
+        -- Only testing this as an optimization
+        ImGui.BeginDisabled()
+    end
+
+    -- FIXME: We can standardize the behavior of those two, we could also keep the fast path of override ClipRect + full push on render only,
+    -- which would be advantageous since most selectable are not selected.
+    if span_all_columns then
+        if g.CurrentTable then
+            ImGui.TablePushBackgroundChannel()
+        elseif window.DC.CurrentColumns then
+            ImGui.PushColumnsBackground()
+        end
+
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasClipRect)
+        g.LastItemData.ClipRect = window.ClipRect:copy()
+    end
+
+    -- We use NoHoldingActiveID on menus so user can click and _hold_ on a menu then drag to browse child entries
+    local button_flags = 0
+    if bit.band(flags, ImGuiSelectableFlags.NoHoldingActiveID) ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_NoHoldingActiveId) end
+    if bit.band(flags, ImGuiSelectableFlags.NoSetKeyOwner)     ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_NoSetKeyOwner) end
+    if bit.band(flags, ImGuiSelectableFlags.SelectOnClick)     ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_PressedOnClick) end
+    if bit.band(flags, ImGuiSelectableFlags.SelectOnRelease)   ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_PressedOnRelease) end
+    if bit.band(flags, ImGuiSelectableFlags.AllowDoubleClick)  ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_PressedOnClickRelease, ImGuiButtonFlags_PressedOnDoubleClick) end
+    if bit.band(flags, ImGuiSelectableFlags.AllowOverlap) ~= 0 or bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AllowOverlap) ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_AllowOverlap) end
+
+    -- Multi-selection support (header)
+    local was_selected = selected
+    if is_multi_select then
+        -- Handle multi-select + alter button flags for it
+        selected, button_flags = ImGui.MultiSelectItemHeader(id, selected, button_flags)
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, button_flags)
+    local auto_selected = false
+
+    -- Multi-selection support (footer)
+    if is_multi_select then
+        selected, pressed = ImGui.MultiSelectItemFooter(id, selected, pressed)
+    else
+        -- Auto-select when moved into
+        -- - This will be more fully fleshed in the range-select branch
+        -- - This is not exposed as it won't nicely work with some user side handling of shift/control
+        -- - We cannot do 'if (g.NavJustMovedToId != id) { selected = false; pressed = was_selected; }' for two reasons
+        --   - (1) it would require focus scope to be set, need exposing PushFocusScope() or equivalent (e.g. BeginSelection() calling PushFocusScope())
+        --   - (2) usage will fail with clipped items
+        --   The multi-select API aim to fix those issues, e.g. may be replaced with a BeginSelection() API.
+        if bit.band(flags, ImGuiSelectableFlags.SelectOnNav) ~= 0 and g.NavJustMovedToId ~= 0 and g.NavJustMovedToFocusScopeId == g.CurrentFocusScopeId then
+            if g.NavJustMovedToId == id and bit.band(g.NavJustMovedToKeyMods, ImGuiMod_Ctrl) == 0 then
+                selected = true
+                pressed = true
+                auto_selected = true
+            end
+        end
+    end
+
+    -- Update NavId when clicking or when Hovering (this doesn't happen on most widgets), so navigation can be resumed with keyboard/gamepad
+    if pressed or (hovered and bit.band(flags, ImGuiSelectableFlags.SetNavIdOnHover) ~= 0) then
+        if not g.NavHighlightItemUnderNav and g.NavWindow == window and g.NavLayer == window.DC.NavLayerCurrent then
+            ImGui.SetNavID(id, window.DC.NavLayerCurrent, g.CurrentFocusScopeId, ImGui.WindowRectAbsToRel(window, bb))  -- (bb == NavRect)
+            if g.IO.ConfigNavCursorVisibleAuto then
+                g.NavCursorVisible = false
+            end
+        end
+    end
+    if pressed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    if selected ~= was_selected then
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledSelection)
+    end
+
+    -- Render
+    if is_visible then
+        local highlighted = hovered or (bit.band(flags, ImGuiSelectableFlags.Highlight) ~= 0)
+
+        if highlighted or selected then
+            -- Between 1.91.0 and 1.91.4 we made selected Selectable use an arbitrary lerp between _Header and _HeaderHovered. Removed that now. (#8106)
+            local col
+            if held and highlighted then
+                col = ImGui.GetColorU32(ImGuiCol.HeaderActive)
+            elseif highlighted then
+                col = ImGui.GetColorU32(ImGuiCol.HeaderHovered)
+            else
+                col = ImGui.GetColorU32(ImGuiCol.Header)
+            end
+            ImGui.RenderFrame(bb.Min, bb.Max, col, false, 0.0)
+        end
+
+        if g.NavId == id then
+            local nav_render_cursor_flags = bit.bor(ImGuiNavRenderCursorFlags.Compact, ImGuiNavRenderCursorFlags.NoRounding)
+            if is_multi_select then
+                nav_render_cursor_flags = bit.bor(nav_render_cursor_flags, ImGuiNavRenderCursorFlags.AlwaysDraw) -- Always show the nav rectangle
+            end
+            ImGui.RenderNavCursor(bb, id, nav_render_cursor_flags)
+        end
+    end
+
+    if span_all_columns then
+        if g.CurrentTable then
+            ImGui.TablePopBackgroundChannel()
+        elseif window.DC.CurrentColumns then
+            ImGui.PopColumnsBackground()
+        end
+    end
+
+    -- Text stays at the submission position. Alignment/clipping extents ignore SpanAllColumns.
+    if is_visible then
+        ImGui.RenderTextClipped(pos, ImVec2(ImMin(pos.x + size.x, window.WorkRect.Max.x), pos.y + size.y), label, 1, nil, label_size, style.SelectableTextAlign, bb)
+    end
+
+    -- Automatically close popups
+    if pressed and not auto_selected and bit.band(window.Flags, ImGuiWindowFlags_Popup) ~= 0 and bit.band(flags, ImGuiSelectableFlags.NoAutoClosePopups) == 0 and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AutoClosePopups) ~= 0 then
+        ImGui.CloseCurrentPopup()
+    end
+
+    if disabled_item and not disabled_global then
+        ImGui.EndDisabled()
+    end
+
+    -- Users of BeginMultiSelect()/EndMultiSelect() scope: you may call ImGui::IsItemToggledSelection() to retrieve
+    -- selection toggle, only useful if you need that state updated (e.g. for rendering purpose) before reaching EndMultiSelect().
+    return pressed, selected
 end
 
 ----------------------------------------------------------------
@@ -1051,7 +1526,7 @@ end
 --- @param plot_type     ImGuiPlotType
 --- @param label         string
 --- @param values_getter fun(data?: table, idx: int): float
---- @param data?         table                                  # 1-based table
+--- @param data?         table                              # 1-based table
 --- @param values_count  int
 --- @param values_offset int
 --- @param overlay_text? string
@@ -1086,15 +1561,10 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
         local v_min = FLT_MAX
         local v_max = -FLT_MAX
         for i = 1, values_count do
-            local v = values_getter(data, i)
-            if type(v) ~= "number" then -- Probably doesn't do proper NaN check
-                goto CONTINUE
-            end
+            local v = values_getter(data, i) -- NaN isn't checked here
 
             v_min = ImMin(v_min, v)
             v_max = ImMax(v_max, v)
-
-            :: CONTINUE ::
         end
         if scale_min == FLT_MAX then
             scale_min = v_min
