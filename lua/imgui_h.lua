@@ -1104,19 +1104,21 @@ ImGuiItemFlags_AutoClosePopups   = bit.lshift(1, 4)
 ImGuiItemFlags_AllowDuplicateId  = bit.lshift(1, 5)
 ImGuiItemFlags_Disabled          = bit.lshift(1, 6)
 
---- @alias ImGuiItemStatusFlags integer
-ImGuiItemStatusFlags_None             = 0
-ImGuiItemStatusFlags_HoveredRect      = bit.lshift(1, 0)
-ImGuiItemStatusFlags_HasDisplayRect   = bit.lshift(1, 1)
-ImGuiItemStatusFlags_Edited           = bit.lshift(1, 2)
-ImGuiItemStatusFlags_ToggledSelection = bit.lshift(1, 3)
-ImGuiItemStatusFlags_ToggledOpen      = bit.lshift(1, 4)
-ImGuiItemStatusFlags_HasDeactivated   = bit.lshift(1, 5)
-ImGuiItemStatusFlags_Deactivated      = bit.lshift(1, 6)
-ImGuiItemStatusFlags_HoveredWindow    = bit.lshift(1, 7)
-ImGuiItemStatusFlags_Visible          = bit.lshift(1, 8)
-ImGuiItemStatusFlags_HasClipRect      = bit.lshift(1, 9)
-ImGuiItemStatusFlags_HasShortcut      = bit.lshift(1, 10)
+--- @enum ImGuiItemStatusFlags
+ImGuiItemStatusFlags = {
+    None             = 0,
+    HoveredRect      = bit.lshift(1, 0), -- Mouse position is within item rectangle (does NOT mean that the window is in correct z-order and can be hovered!, this is only one part of the most-common IsItemHovered test)
+    HasDisplayRect   = bit.lshift(1, 1), -- g.LastItemData.DisplayRect is valid
+    Edited           = bit.lshift(1, 2), -- Value exposed by item was edited in the current frame (should match the bool return value of most widgets)
+    ToggledSelection = bit.lshift(1, 3), -- Set when Selectable(), TreeNode() reports toggling a selection. We can't report "Selected", only state changes, in order to easily handle clipping with less issues
+    ToggledOpen      = bit.lshift(1, 4), -- Set when TreeNode() reports toggling their open state
+    HasDeactivated   = bit.lshift(1, 5), -- Set if the widget/group is able to provide data for the ImGuiItemStatusFlags.Deactivated flag
+    Deactivated      = bit.lshift(1, 6), -- Only valid if ImGuiItemStatusFlags.HasDeactivated is set
+    HoveredWindow    = bit.lshift(1, 7), -- Override the HoveredWindow test to allow cross-window hover testing
+    Visible          = bit.lshift(1, 8), -- [WIP] Set when item is overlapping the current clipping rectangle (Used internally. Please don't use yet: API/system will change as we refactor Itemadd())
+    HasClipRect      = bit.lshift(1, 9), -- g.LastItemData.ClipRect is valid
+    HasShortcut      = bit.lshift(1, 10) -- g.LastItemData.Shortcut valid. Set by SetNextItemShortcut() -> ItemAdd()
+}
 
 --- @alias ImGuiChildFlags integer
 ImGuiChildFlags_None                   = 0
@@ -1155,12 +1157,14 @@ ImDrawFlags_RoundCornersAll         = bit.bor(ImDrawFlags_RoundCornersTopLeft, I
 ImDrawFlags_RoundCornersMask        = bit.bor(ImDrawFlags_RoundCornersAll, ImDrawFlags_RoundCornersNone)
 ImDrawFlags_RoundCornersDefault     = ImDrawFlags_RoundCornersAll
 
---- @alias ImDrawListFlags integer
-ImDrawListFlags_None                   = 0
-ImDrawListFlags_AntiAliasedLines       = bit.lshift(1, 0)
-ImDrawListFlags_AntiAliasedLinesUseTex = bit.lshift(1, 1)
-ImDrawListFlags_AntiAliasedFill        = bit.lshift(1, 2)
-ImDrawListFlags_AllowVtxOffset         = bit.lshift(1, 3)
+--- @enum ImDrawListFlags
+ImDrawListFlags = {
+    None                   = 0,
+    AntiAliasedLines       = bit.lshift(1, 0), -- Enable anti-aliased lines/borders (*2 the number of triangles for 1.0f wide line or lines thin enough to be drawn using textures, otherwise *3 the number of triangles)
+    AntiAliasedLinesUseTex = bit.lshift(1, 1), -- Enable anti-aliased lines/borders using textures when possible. Require backend to render with bilinear filtering (NOT point/nearest filtering)
+    AntiAliasedFill        = bit.lshift(1, 2), -- Enable anti-aliased edge around filled shapes (rounded rectangles, circles)
+    AllowVtxOffset         = bit.lshift(1, 3)  -- Can emit 'VtxOffset > 0' to allow large meshes. Set when 'ImGuiBackendFlags.RendererHasVtxOffset' is enabled
+}
 
 --- @enum ImFontFlags
 ImFontFlags = {

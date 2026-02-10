@@ -704,7 +704,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     g.LastItemData.Rect = bb
     g.LastItemData.NavRect = nav_bb_arg and nav_bb_arg or bb
     g.LastItemData.ItemFlags = bit.bor(g.CurrentItemFlags, g.NextItemData.ItemFlags, extra_flags)
-    g.LastItemData.StatusFlags = ImGuiItemStatusFlags_None
+    g.LastItemData.StatusFlags = ImGuiItemStatusFlags.None
 
     if id ~= 0 then
         ImGui.KeepAliveID(id)
@@ -741,11 +741,11 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     end
 
     if is_rect_visible then
-        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_Visible)
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible)
     end
 
     if IsMouseHoveringRect(bb.Min, bb.Max) then
-        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_HoveredRect)
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredRect)
     end
 
     return true
@@ -1258,7 +1258,7 @@ function ImGui.MarkItemEdited(id)
     IM_ASSERT(g.DragDropActive or g.ActiveId == id or g.ActiveId == 0 or g.ActiveIdPreviousFrame == id or g.NavJustMovedToId or (g.CurrentMultiSelect ~= nil and g.BoxSelectState.IsActive))
 
     -- IM_ASSERT(g.CurrentWindow.DC.LastItemId == id)
-    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_Edited)
+    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Edited)
 end
 
 --- @param window ImGuiWindow
@@ -1319,7 +1319,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
         end
     else
         local status_flags = g.LastItemData.StatusFlags
-        if bit.band(status_flags, ImGuiItemStatusFlags_HoveredRect) == 0 then
+        if bit.band(status_flags, ImGuiItemStatusFlags.HoveredRect) == 0 then
             return false
         end
 
@@ -1327,7 +1327,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
             flags = ApplyHoverFlagsForTooltip(flags, g.Style.HoverFlagsForTooltipMouse)
         end
 
-        if g.HoveredWindow ~= window and bit.band(status_flags, ImGuiItemStatusFlags_HoveredWindow) == 0 then
+        if g.HoveredWindow ~= window and bit.band(status_flags, ImGuiItemStatusFlags.HoveredWindow) == 0 then
             if bit.band(flags, ImGuiHoveredFlags_AllowWhenOverlappedByWindow) == 0 then
                 return false
             end
@@ -1437,7 +1437,7 @@ function ImGui.ItemHoverable(id, bb, item_flags)
             end
         end
 
-        if id == g.LastItemData.ID and (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_HasShortcut) ~= 0) and g.ActiveId ~= id then
+        if id == g.LastItemData.ID and (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasShortcut) ~= 0) and g.ActiveId ~= id then
             if ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags_ForTooltip, ImGuiHoveredFlags_DelayNormal)) then
                 ImGui.SetTooltip("%s", ImGui.GetKeyChordName(g.LastItemData.Shortcut))
             end
@@ -4039,10 +4039,10 @@ function ImGui.Begin(name, open, flags)
             window.BgClickFlags = g.IO.ConfigWindowsMoveFromTitleBarOnly and ImGuiWindowBgClickFlags.None or ImGuiWindowBgClickFlags.Move
         end
 
-        window.DC.WindowItemStatusFlags = ImGuiItemStatusFlags_None
+        window.DC.WindowItemStatusFlags = ImGuiItemStatusFlags.None
 
         if IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false) then
-            window.DC.WindowItemStatusFlags = bit.bor(window.DC.WindowItemStatusFlags, ImGuiItemStatusFlags_HoveredRect)
+            window.DC.WindowItemStatusFlags = bit.bor(window.DC.WindowItemStatusFlags, ImGuiItemStatusFlags.HoveredRect)
         end
     else
         -- if (window->SkipRefresh)
@@ -4623,18 +4623,18 @@ local function SetupDrawListSharedData()
     g.DrawListSharedData.ClipRectFullscreen = virtual_space:ToVec4()
     g.DrawListSharedData.CurveTessellationTol = g.Style.CurveTessellationTol
     g.DrawListSharedData:SetCircleTessellationMaxError(g.Style.CircleTessellationMaxError)
-    g.DrawListSharedData.InitialFlags = ImDrawListFlags_None
+    g.DrawListSharedData.InitialFlags = ImDrawListFlags.None
     if g.Style.AntiAliasedLines then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedLines)
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedLines)
     end
     if g.Style.AntiAliasedLinesUseTex and not bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedLines) then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedLinesUseTex)
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedLinesUseTex)
     end
     if g.Style.AntiAliasedFill then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AntiAliasedFill)
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedFill)
     end
     if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset) then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags_AllowVtxOffset)
+        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AllowVtxOffset)
     end
     g.DrawListSharedData.InitialFringeScale = 1.0
 end

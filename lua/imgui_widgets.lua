@@ -1249,7 +1249,7 @@ function ImGui.BeginComboPreview()
     local window = g.CurrentWindow
     local preview_data = g.ComboPreviewData
 
-    if window.SkipItems or not (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_Visible) ~= 0) then
+    if window.SkipItems or not (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) ~= 0) then
         return false
     end
 
@@ -1406,7 +1406,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
             ImGui.PushColumnsBackground()
         end
 
-        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_HasClipRect)
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasClipRect)
         g.LastItemData.ClipRect = window.ClipRect:copy()
     end
 
@@ -1463,7 +1463,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     end
 
     if selected ~= was_selected then
-        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags_ToggledSelection)
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledSelection)
     end
 
     -- Render

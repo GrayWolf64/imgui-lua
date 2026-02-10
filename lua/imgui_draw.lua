@@ -2822,7 +2822,7 @@ function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
 
     IM_ASSERT(draw_list.VtxBuffer.Size == 0 or draw_list._VtxWritePtr == draw_list.VtxBuffer.Size + 1)
     IM_ASSERT(draw_list.IdxBuffer.Size == 0 or draw_list._IdxWritePtr == draw_list.IdxBuffer.Size + 1)
-    if (bit.band(draw_list.Flags, ImDrawListFlags_AllowVtxOffset) == 0) then
+    if (bit.band(draw_list.Flags, ImDrawListFlags.AllowVtxOffset) == 0) then
         IM_ASSERT(draw_list._VtxCurrentIdx == draw_list.VtxBuffer.Size + 1)
     end
 
@@ -2900,7 +2900,7 @@ function MT.ImDrawList:_ClearFreeMemory()
     self.IdxBuffer:clear()
     self.VtxBuffer:clear()
 
-    self.Flags = ImDrawListFlags_None
+    self.Flags = ImDrawListFlags.None
 
     self._VtxCurrentIdx = 1
     self._VtxWritePtr = 1
@@ -3054,7 +3054,7 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
 
     local uv = self._Data.TexUvWhitePixel
 
-    if bit.band(self.Flags, ImDrawListFlags_AntiAliasedFill) ~= 0 then
+    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedFill) ~= 0 then
         local AA_SIZE = self._FringeScale
         local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
         local idx_count = (points_count - 2) * 3 + points_count * 6
@@ -3181,7 +3181,7 @@ end
 function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     IM_ASSERT_PARANOID(idx_count >= 0 and vtx_count >= 0)
 
-    if (self._VtxCurrentIdx + vtx_count >= bit.lshift(1, 16)) and (bit.band(self.Flags, ImDrawListFlags_AllowVtxOffset) ~= 0) then
+    if (self._VtxCurrentIdx + vtx_count >= bit.lshift(1, 16)) and (bit.band(self.Flags, ImDrawListFlags.AllowVtxOffset) ~= 0) then
         self._CmdHeader.VtxOffset = self.VtxBuffer.Size + 1
         self:_OnChangedVtxOffset()
     end
@@ -3310,7 +3310,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     local count = closed and points_count or points_count - 1  -- Number of line segments
     local thick_line = thickness > self._FringeScale
 
-    if bit.band(self.Flags, ImDrawListFlags_AntiAliasedLines) ~= 0 then
+    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
         -- Anti-aliased stroke
         local AA_SIZE = self._FringeScale
         local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
@@ -3321,7 +3321,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local fractional_thickness = thickness - integer_thickness
 
         -- Do we want to draw this line using a texture?
-        local use_texture = bit.band(self.Flags, ImDrawListFlags_AntiAliasedLinesUseTex) ~= 0 and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX and fractional_thickness <= 0.00001 and AA_SIZE == 1.0
+        local use_texture = bit.band(self.Flags, ImDrawListFlags.AntiAliasedLinesUseTex) ~= 0 and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX and fractional_thickness <= 0.00001 and AA_SIZE == 1.0
 
         IM_ASSERT_PARANOID((not use_texture) or bit.band(self._Data.Font.OwnerAtlas.Flags, ImFontAtlasFlags_NoBakedLines) == 0)
 
@@ -3667,7 +3667,7 @@ end
 
 function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
-    if bit.band(self.Flags, ImDrawListFlags_AntiAliasedLines) ~= 0 then
+    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
     else
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
