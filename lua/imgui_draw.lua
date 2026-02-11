@@ -1000,20 +1000,21 @@ local function ImGui_ImplStbTrueType_FontBakedInit(atlas, src, baked)
     return true
 end
 
---- @param atlas         ImFontAtlas
---- @param src           ImFontConfig
---- @param baked         ImFontBaked
---- @param _             any
---- @param codepoint     ImWchar
---- @param out_glyph     ImFontGlyph
---- @param out_advance_x float_ptr
+--- @param atlas      ImFontAtlas
+--- @param src        ImFontConfig
+--- @param baked      ImFontBaked
+--- @param _          any
+--- @param codepoint  ImWchar
+--- @param out_glyph  ImFontGlyph
+--- @param advance_x? float
 --- @return bool
-local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, codepoint, out_glyph, out_advance_x)
+--- @return float? out_advance_x # Updated `advance_x`
+local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, codepoint, out_glyph, advance_x)
     local bd_font_data = src.FontLoaderData
     IM_ASSERT(bd_font_data ~= nil)
     local glyph_index = stbtt.FindGlyphIndex(bd_font_data.FontInfo, codepoint)
     if (glyph_index == 0) then
-        return false
+        return false, advance_x
     end
 
     local oversample_h, oversample_v = ImFontAtlasBuildGetOversampleFactors(src, baked)
@@ -1025,11 +1026,11 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
     local x0, y0, x1, y1 = stbtt.GetGlyphBitmapBoxSubpixel(bd_font_data.FontInfo, glyph_index, scale_for_raster_x, scale_for_raster_y, 0, 0)
     local advance, lsb = stbtt.GetGlyphHMetrics(bd_font_data.FontInfo, glyph_index)
 
-    if (out_advance_x ~= nil) then
+    if (advance_x ~= nil) then
         IM_ASSERT(out_glyph == nil)
-        out_advance_x[1] = advance * scale_for_layout
+        advance_x = advance * scale_for_layout
 
-        return true
+        return true, advance_x
     end
 
     out_glyph.Codepoint = codepoint
@@ -1043,7 +1044,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
         if (pack_id == ImFontAtlasRectId_Invalid) then
             -- Pathological out of memory case (TexMaxWidth/TexMaxHeight set too small?)
             IM_ASSERT(pack_id ~= ImFontAtlasRectId_Invalid, "Out of texture memory.")
-            return false
+            return false, advance_x
         end
 
         local r = ImFontAtlasPackGetRect(atlas, pack_id)
@@ -1076,7 +1077,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
         ImFontAtlasBakedSetFontGlyphBitmap(atlas, baked, src, out_glyph, r, bitmap_pixels, ImTextureFormat.Alpha8, w)
     end
 
-    return true
+    return true, advance_x
 end
 
 local function ImFontAtlasGetFontLoaderForStbTruetype()
@@ -2097,7 +2098,7 @@ end
 
 --- @param baked                ImFontBaked
 --- @param codepoint            ImWchar
---- @param only_load_advance_x? float_ptr
+--- @param only_load_advance_x? float
 --- @return ImFontGlyph?, int?
 function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     local font = baked.OwnerFont
@@ -2136,8 +2137,11 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
                     return ImFontAtlasBakedAddFontGlyph(atlas, baked, src, glyph_buf)
                 end
             else
-                if (loader.FontBakedLoadGlyph(atlas, src, baked, loader_user_data_p, codepoint, nil, only_load_advance_x)) then
-                    ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, only_load_advance_x[1])
+                local ret --[[@as bool]]
+                ret, only_load_advance_x = loader.FontBakedLoadGlyph(atlas, src, baked, loader_user_data_p, codepoint, nil, only_load_advance_x)
+                if ret then
+                    --- @cast only_load_advance_x float
+                    ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, only_load_advance_x)
 
                     return nil
                 end
@@ -2167,10 +2171,9 @@ end
 --- @return float
 function ImFontBaked_BuildLoadGlyphAdvanceX(baked, codepoint)
     if (baked.Size >= IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE) or baked.LoadNoRenderOnLayout then
-        --- @type float_ptr
-        local only_advance_x = {0.0}
+        local only_advance_x = 0.0
         local glyph = ImFontBaked_BuildLoadGlyph(baked, codepoint, only_advance_x)
-        return glyph and glyph.AdvanceX or only_advance_x[1]
+        return glyph and glyph.AdvanceX or only_advance_x
     else
         local glyph = ImFontBaked_BuildLoadGlyph(baked, codepoint, nil)
         return glyph and glyph.AdvanceX or baked.FallbackAdvanceX

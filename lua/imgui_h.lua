@@ -57,9 +57,6 @@ IM_ASSERT_PARANOID = IM_ASSERT
 -- [SECTION] C POINTER / ARRAY LIKE OPERATIONS SUPPORT
 ---------------------------------------------------------------------------------------
 
--- TODO: try to reduce its usage
---- @alias float_ptr float[] # Size = 1
-
 --- @class ImSlice
 --- @field data table
 --- @field offset integer

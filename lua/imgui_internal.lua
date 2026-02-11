@@ -1495,7 +1495,7 @@ end
 --- @field FontSrcContainsGlyph?      fun(atlas: ImFontAtlas, src: ImFontConfig, codepoint: ImWchar): bool
 --- @field FontBakedInit?             fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any): bool
 --- @field FontBakedDestroy?          fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
---- @field FontBakedLoadGlyph         fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph?: ImFontGlyph, out_advance_x?: float_ptr): bool
+--- @field FontBakedLoadGlyph         fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph?: ImFontGlyph, advance_x?: float): bool, float?
 --- @field FontBakedSrcLoaderDataSize unsigned_int
 MT.ImFontLoader = {}
 MT.ImFontLoader.__index = MT.ImFontLoader
