@@ -410,16 +410,18 @@ end
 
 function MT.ImRect:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
 
---- @param v ImVec4
---- @return ImRect
---- @nodiscard
-function ImRectFromVec4(v) return ImRect(v.x, v.y, v.z, v.w) end
-
 --- @param dest ImRect
 --- @param src  ImRect
 function ImRect_Copy(dest, src)
     dest.Min.x = src.Min.x; dest.Min.y = src.Min.y
     dest.Max.x = src.Max.x; dest.Max.y = src.Max.y
+end
+
+--- @param dest ImRect
+--- @param src  ImVec4
+function ImRect_CopyFromV4(dest, src)
+    dest.Min.x = src.x; dest.Min.y = src.y
+    dest.Max.x = src.z; dest.Max.y = src.w
 end
 
 function MT.ImDrawList:PathClear()
@@ -1333,14 +1335,14 @@ function ImGuiWindow(ctx, name)
         --- struct IMGUI_API ImGuiWindowTempData
         DC = ImGuiWindowTempData(),
 
-        OuterRectClipped = ImRect(),
-        InnerRect        = ImRect(),
-        InnerClipRect    = ImRect(),
-        WorkRect         = ImRect(),
-        ParentWorkRect   = ImRect(),
+        OuterRectClipped  = ImRect(),
+        InnerRect         = ImRect(),
+        InnerClipRect     = ImRect(),
+        WorkRect          = ImRect(),
+        ParentWorkRect    = ImRect(),
         ContentRegionRect = ImRect(),
 
-        ClipRect = nil,
+        ClipRect = ImRect(),
 
         LastFrameActive = -1,
         LastFrameJustFocused = -1,

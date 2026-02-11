@@ -2223,7 +2223,9 @@ local function CalcResizePosSizeFromAnyCorner(window, corner_target_arg, corner_
     if bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0 then
         local parent_window = window.ParentWindow
         local parent_flags = parent_window.Flags
-        local limit_rect = parent_window.InnerRect
+
+        local limit_rect = ImRect()
+        ImRect_Copy(limit_rect, parent_window.InnerRect)
         limit_rect:ExpandV2(ImVec2(-ImMax(parent_window.WindowPadding.x, parent_window.WindowBorderSize), -ImMax(parent_window.WindowPadding.y, parent_window.WindowBorderSize)))
 
         if (bit.band(parent_flags, bit.bor(ImGuiWindowFlags_HorizontalScrollbar, ImGuiWindowFlags_AlwaysHorizontalScrollbar)) == 0) or (bit.band(parent_flags, ImGuiWindowFlags_NoScrollbar) ~= 0) then
@@ -2289,7 +2291,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
     -- We only clip interaction so we overwrite window->ClipRect, cannot call PushClipRect() yet as DrawList is not yet setup.
     local clip_with_viewport_rect = bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasMouseHoveredViewport) == 0 or g.IO.MouseHoveredViewport ~= window.ViewportId or bit.band(window.Viewport.Flags, ImGuiViewportFlags_NoDecoration) == 0
     if (clip_with_viewport_rect) then
-        window.ClipRect = window.Viewport:GetMainRect()
+        ImRect_Copy(window.ClipRect, window.Viewport:GetMainRect())
     end
 
     local clamp_rect = ImRect()
@@ -3565,7 +3567,7 @@ function ImGui.Begin(name, open, flags)
 
         window.Active = true
         window.HasCloseButton = (open ~= nil)
-        window.ClipRect = ImRectFromVec4(ImVec4(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX))
+        ImRect_CopyFromV4(window.ClipRect, ImVec4(-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX))
 
         window.IDStack:resize(1)
 
@@ -4715,13 +4717,13 @@ end
 function ImGui.PushClipRect(clip_rect_min, clip_rect_max, intersect_with_current_clip_rect)
     local window = ImGui.GetCurrentWindow()
     window.DrawList:PushClipRect(clip_rect_min, clip_rect_max, intersect_with_current_clip_rect)
-    window.ClipRect = ImRectFromVec4(window.DrawList._ClipRectStack:back())
+    ImRect_CopyFromV4(window.ClipRect, window.DrawList._ClipRectStack:back())
 end
 
 function ImGui.PopClipRect()
     local window = ImGui.GetCurrentWindow()
     window.DrawList:PopClipRect()
-    window.ClipRect = ImRectFromVec4(window.DrawList._ClipRectStack:back())
+    ImRect_CopyFromV4(window.ClipRect, window.DrawList._ClipRectStack:back())
 end
 
 --- @param viewport      ImGuiViewportP

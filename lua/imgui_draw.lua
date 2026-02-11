@@ -2923,8 +2923,8 @@ end
 function MT.ImDrawList:AddDrawCmd()
     local draw_cmd = ImDrawCmd()
 
-    draw_cmd.ClipRect  = self._CmdHeader.ClipRect -- Same as calling ImDrawCmd_HeaderCopy()?
-    draw_cmd.TexRef    = self._CmdHeader.TexRef
+    ImVec4_Copy(draw_cmd.ClipRect, self._CmdHeader.ClipRect) -- Same as calling ImDrawCmd_HeaderCopy()?
+    draw_cmd.TexRef = self._CmdHeader.TexRef
     draw_cmd.VtxOffset = self._CmdHeader.VtxOffset
     draw_cmd.IdxOffset = self.IdxBuffer.Size
 
@@ -3763,16 +3763,16 @@ function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_
     cr.w = ImMax(cr.y, cr.w)
 
     self._ClipRectStack:push_back(cr)
-    self._CmdHeader.ClipRect = cr
+    ImVec4_Copy(self._CmdHeader.ClipRect, cr)
     self:_OnChangedClipRect()
 end
 
 function MT.ImDrawList:PopClipRect()
     self._ClipRectStack:pop_back()
     if (self._ClipRectStack.Size == 0) then -- LUA: No "Ternary Operator"
-        self._CmdHeader.ClipRect = self._Data.ClipRectFullscreen
+        ImVec4_Copy(self._CmdHeader.ClipRect, self._Data.ClipRectFullscreen)
     else
-        self._CmdHeader.ClipRect = self._ClipRectStack.Data[self._ClipRectStack.Size]
+        ImVec4_Copy(self._CmdHeader.ClipRect, self._ClipRectStack.Data[self._ClipRectStack.Size])
     end
     self:_OnChangedClipRect()
 end

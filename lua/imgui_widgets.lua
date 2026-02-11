@@ -1291,8 +1291,8 @@ function ImGui.EndComboPreview()
     local draw_list = window.DrawList
     if window.DC.CursorMaxPos.x < preview_data.PreviewRect.Max.x and window.DC.CursorMaxPos.y < preview_data.PreviewRect.Max.y then
         if draw_list.CmdBuffer.Size > 1 then -- Unlikely case that the PushClipRect() didn't create a command
-            draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size - 1].ClipRect
-            draw_list._CmdHeader.ClipRect = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect
+            ImVec4_Copy(draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect, draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size - 1].ClipRect)
+            ImVec4_Copy(draw_list._CmdHeader.ClipRect, draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect)
             draw_list:_TryMergeDrawCmds()
         end
     end
