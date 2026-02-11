@@ -2099,7 +2099,9 @@ end
 --- @param baked                ImFontBaked
 --- @param codepoint            ImWchar
 --- @param only_load_advance_x? float
---- @return ImFontGlyph?, int?
+--- @return ImFontGlyph?
+--- @return int?
+--- @return float?       # Updated `only_load_advance_x`
 function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     local font = baked.OwnerFont
     local atlas = font.OwnerAtlas
@@ -2108,7 +2110,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
             ImFontAtlasBuildSetupFontBakedFallback(baked)
         end
 
-        return nil
+        return nil, nil, only_load_advance_x
     end
 
     local src_codepoint = codepoint
@@ -2117,7 +2119,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     if (codepoint == font.EllipsisChar and font.EllipsisAutoBake) then
         local glyph = ImFontAtlasBuildSetupFontBakedEllipsis(atlas, baked)
         if (glyph) then
-            return glyph
+            return glyph, nil, only_load_advance_x
         end
     end
 
@@ -2143,7 +2145,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
                     --- @cast only_load_advance_x float
                     ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, only_load_advance_x)
 
-                    return nil
+                    return nil, nil, only_load_advance_x
                 end
             end
         end
@@ -2153,7 +2155,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     end
 
     if (baked.LoadNoFallback) then
-        return nil
+        return nil, nil, only_load_advance_x
     end
     if (baked.FallbackGlyphIndex == -1) then
         ImFontAtlasBuildSetupFontBakedFallback(baked)
@@ -2163,7 +2165,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     baked.IndexAdvanceX.Data[codepoint + 1] = baked.FallbackAdvanceX
     baked.IndexLookup.Data[codepoint + 1] = IM_FONTGLYPH_INDEX_NOT_FOUND
 
-    return nil
+    return nil, nil, only_load_advance_x
 end
 
 --- @param baked ImFontBaked
@@ -2171,8 +2173,10 @@ end
 --- @return float
 function ImFontBaked_BuildLoadGlyphAdvanceX(baked, codepoint)
     if (baked.Size >= IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE) or baked.LoadNoRenderOnLayout then
-        local only_advance_x = 0.0
-        local glyph = ImFontBaked_BuildLoadGlyph(baked, codepoint, only_advance_x)
+        local only_advance_x
+        local glyph
+        glyph, _, only_advance_x = ImFontBaked_BuildLoadGlyph(baked, codepoint, only_advance_x)
+        --- @cast only_advance_x float
         return glyph and glyph.AdvanceX or only_advance_x
     else
         local glyph = ImFontBaked_BuildLoadGlyph(baked, codepoint, nil)
