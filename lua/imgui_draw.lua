@@ -990,7 +990,7 @@ local function ImGui_ImplStbTrueType_FontBakedInit(atlas, src, baked)
 
     local bd_font_data = src.FontLoaderData
     if (src.MergeMode == false) then
-        local scale_for_layout = bd_font_data.ScaleFactor * baked.Size / src.ExtraSizeScale
+        local scale_for_layout = bd_font_data.ScaleFactor * baked.Size
         local unscaled_ascent, unscaled_descent, unscaled_line_gap = stbtt.GetFontVMetrics(bd_font_data.FontInfo)
 
         baked.Ascent = ImCeil(unscaled_ascent * scale_for_layout)
