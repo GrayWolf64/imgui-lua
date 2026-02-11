@@ -310,7 +310,6 @@ MT.ImVec1.__index = MT.ImVec1
 local function ImVec1(x) return setmetatable({x = x or 0}, MT.ImVec1) end
 
 function MT.ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
-function MT.ImVec1:copy() return ImVec1(self.x) end
 
 --- @class ImRect
 --- @field Min ImVec2
@@ -323,7 +322,6 @@ function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a,
 
 function MT.ImRect:__eq(other) return self.Min == other.Min and self.Max == other.Max end
 function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
-function MT.ImRect:copy() return ImRect(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 
 --- @param other ImRect
 function MT.ImRect:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
@@ -412,10 +410,19 @@ end
 
 function MT.ImRect:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
 
---- @param v ImVec4
---- @return ImRect
---- @nodiscard
-function ImRectFromVec4(v) return ImRect(v.x, v.y, v.z, v.w) end
+--- @param dest ImRect
+--- @param src  ImRect
+function ImRect_Copy(dest, src)
+    dest.Min.x = src.Min.x; dest.Min.y = src.Min.y
+    dest.Max.x = src.Max.x; dest.Max.y = src.Max.y
+end
+
+--- @param dest ImRect
+--- @param src  ImVec4
+function ImRect_CopyFromV4(dest, src)
+    dest.Min.x = src.x; dest.Min.y = src.y
+    dest.Max.x = src.z; dest.Max.y = src.w
+end
 
 function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
@@ -704,11 +711,11 @@ function ImGuiNextWindowData()
         PosCond              = 0,
         SizeCond             = 0,
         CollapsedCond        = 0,
-        PosVal               = nil,
-        PosPivotVal          = nil,
-        SizeVal              = nil,
-        ContentSizeVal       = nil,
-        ScrollVal            = nil,
+        PosVal               = ImVec2(),
+        PosPivotVal          = ImVec2(),
+        SizeVal              = ImVec2(),
+        ContentSizeVal       = ImVec2(),
+        ScrollVal            = ImVec2(),
         WindowFlags          = nil,
         ChildFlags           = nil,
         CollapsedVal         = nil,
@@ -913,7 +920,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         WheelingWindow = nil,
         WheelingWindowStartFrame = -1, WheelingWindowScrolledFrame = -1,
         WheelingWindowReleaseTimer = 0.0,
-        WheelingWindowRefMousePos = nil,
+        WheelingWindowRefMousePos = ImVec2(),
         WheelingWindowWheelRemainder = ImVec2(),
         WheelingAxisAvg = ImVec2(),
 
@@ -1189,6 +1196,13 @@ end
 --- @field FocusOrder                         short               # 1-based, order within WindowsFocusOrder, altered when windows are focused. Can be -1 if invalid
 --- @field IDStack                            ImVector<ImGuiID>
 --- @field DC                                 ImGuiWindowTempData
+--- @field OuterRectClipped                   ImRect
+--- @field InnerRect                          ImRect
+--- @field InnerClipRect                      ImRect
+--- @field WorkRect                           ImRect
+--- @field ParentWorkRect                     ImRect
+--- @field ClipRect                           ImRect
+--- @field ContentRegionRect                  ImRect
 --- @field DrawList                           ImDrawList          # Points to DrawListInst
 --- @field DrawListInst                       ImDrawList
 --- @field ParentWindow?                      ImGuiWindow
@@ -1226,9 +1240,9 @@ function ImGuiWindow(ctx, name)
         ChildFlags = 0,
         WindowClass = ImGuiWindowClass(),
 
-        Pos = nil,
-        Size = nil, -- Current size (==SizeFull or collapsed title bar size)
-        SizeFull = nil,
+        Pos = ImVec2(),
+        Size = ImVec2(), -- Current size (==SizeFull or collapsed title bar size)
+        SizeFull = ImVec2(),
 
         Active = false,
         WasActive = false,
@@ -1321,14 +1335,14 @@ function ImGuiWindow(ctx, name)
         --- struct IMGUI_API ImGuiWindowTempData
         DC = ImGuiWindowTempData(),
 
-        OuterRectClipped = nil,
-        InnerRect        = ImRect(),
-        InnerClipRect    = ImRect(),
-        WorkRect         = ImRect(),
-        ParentWorkRect   = ImRect(),
+        OuterRectClipped  = ImRect(),
+        InnerRect         = ImRect(),
+        InnerClipRect     = ImRect(),
+        WorkRect          = ImRect(),
+        ParentWorkRect    = ImRect(),
         ContentRegionRect = ImRect(),
 
-        ClipRect = nil,
+        ClipRect = ImRect(),
 
         LastFrameActive = -1,
         LastFrameJustFocused = -1,
@@ -1483,7 +1497,7 @@ end
 --- @field FontSrcContainsGlyph?      fun(atlas: ImFontAtlas, src: ImFontConfig, codepoint: ImWchar): bool
 --- @field FontBakedInit?             fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any): bool
 --- @field FontBakedDestroy?          fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
---- @field FontBakedLoadGlyph         fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph?: ImFontGlyph, out_advance_x?: float_ptr): bool
+--- @field FontBakedLoadGlyph         fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph?: ImFontGlyph, advance_x?: float): bool, float?
 --- @field FontBakedSrcLoaderDataSize unsigned_int
 MT.ImFontLoader = {}
 MT.ImFontLoader.__index = MT.ImFontLoader
@@ -1786,8 +1800,8 @@ function ImGuiPopupData()
         ParentNavLayer   = -1,
         OpenFrameCount   = -1,
         OpenParentId     = 0,
-        OpenPopupPos     = nil,
-        OpenMousePos     = nil
+        OpenPopupPos     = ImVec2(),
+        OpenMousePos     = ImVec2()
     }
 end
 

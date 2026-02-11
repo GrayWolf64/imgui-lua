@@ -57,9 +57,6 @@ IM_ASSERT_PARANOID = IM_ASSERT
 -- [SECTION] C POINTER / ARRAY LIKE OPERATIONS SUPPORT
 ---------------------------------------------------------------------------------------
 
--- TODO: try to reduce its usage
---- @alias float_ptr float[] # Size = 1
-
 --- @class ImSlice
 --- @field data table
 --- @field offset integer
@@ -164,7 +161,12 @@ function MT.ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y
 function MT.ImVec2:__mul(other) if type(self) == "number" then return ImVec2(self * other.x, self * other.y) elseif type(other) == "number" then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
 function MT.ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
 function MT.ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
-function MT.ImVec2:copy() return ImVec2(self.x, self.y) end
+
+--- @param dest ImVec2
+--- @param src  ImVec2
+function ImVec2_Copy(dest, src)
+    dest.x = src.x; dest.y = src.y
+end
 
 --- @class ImVec4
 --- @field x number
@@ -183,7 +185,12 @@ function MT.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y
 function MT.ImVec4:__mul(other) if type(self) == "number" then return ImVec4(self * other.x, self * other.y, self * other.z, self * other.w) elseif type(other) == "number" then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
 function MT.ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
 function MT.ImVec4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", self.x, self.y, self.z, self.w) end
-function MT.ImVec4:copy() return ImVec4(self.x, self.y, self.z, self.w) end
+
+--- @param dest ImVec4
+--- @param src  ImVec4
+function ImVec4_Copy(dest, src)
+    dest.x = src.x; dest.y = src.y; dest.z = src.z; dest.w = src.w
+end
 
 --- A compact ImVector clone
 --- @class ImVector
@@ -204,7 +211,8 @@ function MT.ImVector:empty() return self.Size == 0 end
 function MT.ImVector:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
 function MT.ImVector:erase(i) IM_ASSERT(i >= 1 and i <= self.Size) local removed = table.remove(self.Data, i) self.Size = self.Size - 1 return removed end
 function MT.ImVector:at(i)    IM_ASSERT(i >= 1 and i <= self.Size) return self.Data[i] end
-function MT.ImVector:iter() local i, n = 0, self.Size return function() i = i + 1 if i <= n then return i, self.Data[i] end end end
+local function _iter(v, i) i = i + 1 if i <= v.Size then return i, v.Data[i] end end
+function MT.ImVector:iter() return _iter, self, 0 end
 function MT.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end
 function MT.ImVector:erase_unsorted(index) IM_ASSERT(i >= 1 and i <= self.Size) local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
 function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx then return self:erase_unsorted(idx) end return false end
@@ -290,6 +298,9 @@ function ImDrawVert()
 end
 
 --- @class ImDrawCmdHeader
+--- @field ClipRect  ImVec4
+--- @field TexRef    ImTextureRef
+--- @field VtxOffset unsigned_int
 MT.ImDrawCmdHeader = {}
 MT.ImDrawCmdHeader.__index = MT.ImDrawCmdHeader
 

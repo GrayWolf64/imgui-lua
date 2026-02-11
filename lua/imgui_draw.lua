@@ -990,7 +990,7 @@ local function ImGui_ImplStbTrueType_FontBakedInit(atlas, src, baked)
 
     local bd_font_data = src.FontLoaderData
     if (src.MergeMode == false) then
-        local scale_for_layout = bd_font_data.ScaleFactor * baked.Size / src.ExtraSizeScale
+        local scale_for_layout = bd_font_data.ScaleFactor * baked.Size
         local unscaled_ascent, unscaled_descent, unscaled_line_gap = stbtt.GetFontVMetrics(bd_font_data.FontInfo)
 
         baked.Ascent = ImCeil(unscaled_ascent * scale_for_layout)
@@ -1000,20 +1000,21 @@ local function ImGui_ImplStbTrueType_FontBakedInit(atlas, src, baked)
     return true
 end
 
---- @param atlas         ImFontAtlas
---- @param src           ImFontConfig
---- @param baked         ImFontBaked
---- @param _             any
---- @param codepoint     ImWchar
---- @param out_glyph     ImFontGlyph
---- @param out_advance_x float_ptr
+--- @param atlas      ImFontAtlas
+--- @param src        ImFontConfig
+--- @param baked      ImFontBaked
+--- @param _          any
+--- @param codepoint  ImWchar
+--- @param out_glyph  ImFontGlyph
+--- @param advance_x? float
 --- @return bool
-local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, codepoint, out_glyph, out_advance_x)
+--- @return float? out_advance_x # Updated `advance_x`
+local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, codepoint, out_glyph, advance_x)
     local bd_font_data = src.FontLoaderData
     IM_ASSERT(bd_font_data ~= nil)
     local glyph_index = stbtt.FindGlyphIndex(bd_font_data.FontInfo, codepoint)
     if (glyph_index == 0) then
-        return false
+        return false, advance_x
     end
 
     local oversample_h, oversample_v = ImFontAtlasBuildGetOversampleFactors(src, baked)
@@ -1025,11 +1026,11 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
     local x0, y0, x1, y1 = stbtt.GetGlyphBitmapBoxSubpixel(bd_font_data.FontInfo, glyph_index, scale_for_raster_x, scale_for_raster_y, 0, 0)
     local advance, lsb = stbtt.GetGlyphHMetrics(bd_font_data.FontInfo, glyph_index)
 
-    if (out_advance_x ~= nil) then
+    if (advance_x ~= nil) then
         IM_ASSERT(out_glyph == nil)
-        out_advance_x[1] = advance * scale_for_layout
+        advance_x = advance * scale_for_layout
 
-        return true
+        return true, advance_x
     end
 
     out_glyph.Codepoint = codepoint
@@ -1043,7 +1044,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
         if (pack_id == ImFontAtlasRectId_Invalid) then
             -- Pathological out of memory case (TexMaxWidth/TexMaxHeight set too small?)
             IM_ASSERT(pack_id ~= ImFontAtlasRectId_Invalid, "Out of texture memory.")
-            return false
+            return false, advance_x
         end
 
         local r = ImFontAtlasPackGetRect(atlas, pack_id)
@@ -1076,7 +1077,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
         ImFontAtlasBakedSetFontGlyphBitmap(atlas, baked, src, out_glyph, r, bitmap_pixels, ImTextureFormat.Alpha8, w)
     end
 
-    return true
+    return true, advance_x
 end
 
 local function ImFontAtlasGetFontLoaderForStbTruetype()
@@ -2097,8 +2098,10 @@ end
 
 --- @param baked                ImFontBaked
 --- @param codepoint            ImWchar
---- @param only_load_advance_x? float_ptr
---- @return ImFontGlyph?, int?
+--- @param only_load_advance_x? float
+--- @return ImFontGlyph?
+--- @return int?
+--- @return float?       # Updated `only_load_advance_x`
 function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     local font = baked.OwnerFont
     local atlas = font.OwnerAtlas
@@ -2107,7 +2110,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
             ImFontAtlasBuildSetupFontBakedFallback(baked)
         end
 
-        return nil
+        return nil, nil, only_load_advance_x
     end
 
     local src_codepoint = codepoint
@@ -2116,7 +2119,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     if (codepoint == font.EllipsisChar and font.EllipsisAutoBake) then
         local glyph = ImFontAtlasBuildSetupFontBakedEllipsis(atlas, baked)
         if (glyph) then
-            return glyph
+            return glyph, nil, only_load_advance_x
         end
     end
 
@@ -2136,10 +2139,13 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
                     return ImFontAtlasBakedAddFontGlyph(atlas, baked, src, glyph_buf)
                 end
             else
-                if (loader.FontBakedLoadGlyph(atlas, src, baked, loader_user_data_p, codepoint, nil, only_load_advance_x)) then
-                    ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, only_load_advance_x[1])
+                local ret --[[@as bool]]
+                ret, only_load_advance_x = loader.FontBakedLoadGlyph(atlas, src, baked, loader_user_data_p, codepoint, nil, only_load_advance_x)
+                if ret then
+                    --- @cast only_load_advance_x float
+                    ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, only_load_advance_x)
 
-                    return nil
+                    return nil, nil, only_load_advance_x
                 end
             end
         end
@@ -2149,7 +2155,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     end
 
     if (baked.LoadNoFallback) then
-        return nil
+        return nil, nil, only_load_advance_x
     end
     if (baked.FallbackGlyphIndex == -1) then
         ImFontAtlasBuildSetupFontBakedFallback(baked)
@@ -2159,7 +2165,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
     baked.IndexAdvanceX.Data[codepoint + 1] = baked.FallbackAdvanceX
     baked.IndexLookup.Data[codepoint + 1] = IM_FONTGLYPH_INDEX_NOT_FOUND
 
-    return nil
+    return nil, nil, only_load_advance_x
 end
 
 --- @param baked ImFontBaked
@@ -2167,10 +2173,11 @@ end
 --- @return float
 function ImFontBaked_BuildLoadGlyphAdvanceX(baked, codepoint)
     if (baked.Size >= IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE) or baked.LoadNoRenderOnLayout then
-        --- @type float_ptr
-        local only_advance_x = {0.0}
-        local glyph = ImFontBaked_BuildLoadGlyph(baked, codepoint, only_advance_x)
-        return glyph and glyph.AdvanceX or only_advance_x[1]
+        local only_advance_x
+        local glyph
+        glyph, _, only_advance_x = ImFontBaked_BuildLoadGlyph(baked, codepoint, only_advance_x)
+        --- @cast only_advance_x float
+        return glyph and glyph.AdvanceX or only_advance_x
     else
         local glyph = ImFontBaked_BuildLoadGlyph(baked, codepoint, nil)
         return glyph and glyph.AdvanceX or baked.FallbackAdvanceX
@@ -2916,8 +2923,8 @@ end
 function MT.ImDrawList:AddDrawCmd()
     local draw_cmd = ImDrawCmd()
 
-    draw_cmd.ClipRect  = self._CmdHeader.ClipRect -- Same as calling ImDrawCmd_HeaderCopy()?
-    draw_cmd.TexRef    = self._CmdHeader.TexRef
+    ImVec4_Copy(draw_cmd.ClipRect, self._CmdHeader.ClipRect) -- Same as calling ImDrawCmd_HeaderCopy()?
+    draw_cmd.TexRef = self._CmdHeader.TexRef
     draw_cmd.VtxOffset = self._CmdHeader.VtxOffset
     draw_cmd.IdxOffset = self.IdxBuffer.Size
 
@@ -3009,7 +3016,7 @@ function MT.ImDrawList:_OnChangedClipRect()
         return
     end
 
-    curr_cmd.ClipRect = self._CmdHeader.ClipRect -- calling :copy() method is probably not needed here?
+    ImVec4_Copy(curr_cmd.ClipRect, self._CmdHeader.ClipRect)
 end
 
 function MT.ImDrawList:_OnChangedTexture()
@@ -3032,7 +3039,7 @@ function MT.ImDrawList:_OnChangedTexture()
         return
     end
 
-    curr_cmd.TexRef = self._CmdHeader.TexRef -- calling :copy() method is probably not needed here?
+    curr_cmd.TexRef = self._CmdHeader.TexRef
 end
 
 function MT.ImDrawList:_OnChangedVtxOffset()
@@ -3718,7 +3725,8 @@ function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text
         font_size = self._Data.FontSize
     end
 
-    local clip_rect = self._CmdHeader.ClipRect:copy() -- Don't modify the clip rect!
+    local clip_rect = ImVec4() -- Don't modify the clip rect!
+    ImVec4_Copy(clip_rect, self._CmdHeader.ClipRect)
     if (cpu_fine_clip_rect) then
         clip_rect.x = ImMax(clip_rect.x, cpu_fine_clip_rect.x)
         clip_rect.y = ImMax(clip_rect.y, cpu_fine_clip_rect.y)
@@ -3755,16 +3763,16 @@ function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_
     cr.w = ImMax(cr.y, cr.w)
 
     self._ClipRectStack:push_back(cr)
-    self._CmdHeader.ClipRect = cr
+    ImVec4_Copy(self._CmdHeader.ClipRect, cr)
     self:_OnChangedClipRect()
 end
 
 function MT.ImDrawList:PopClipRect()
     self._ClipRectStack:pop_back()
     if (self._ClipRectStack.Size == 0) then -- LUA: No "Ternary Operator"
-        self._CmdHeader.ClipRect = self._Data.ClipRectFullscreen
+        ImVec4_Copy(self._CmdHeader.ClipRect, self._Data.ClipRectFullscreen)
     else
-        self._CmdHeader.ClipRect = self._ClipRectStack.Data[self._ClipRectStack.Size]
+        ImVec4_Copy(self._CmdHeader.ClipRect, self._ClipRectStack.Data[self._ClipRectStack.Size])
     end
     self:_OnChangedClipRect()
 end

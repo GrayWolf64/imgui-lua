@@ -340,7 +340,7 @@ end
 local function ImGui_ImplGMOD_DermaSetCursor(cursor_type)
     local io = ImGui.GetPlatformIO()
     local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
-    if ImGui_ImplGMOD_FindViewportByPlatformHandle(io, hovered_panel) then
+    if hovered_panel and ImGui_ImplGMOD_FindViewportByPlatformHandle(io, hovered_panel) then
         hovered_panel:SetCursor(cursor_type)
     end
 end

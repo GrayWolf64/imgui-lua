@@ -392,7 +392,8 @@ function ImGui.ButtonEx(label, size_arg, flags)
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
 
-    local pos = window.DC.CursorPos:copy() -- Don't modify the cursor!
+    local pos = ImVec2() -- Don't modify the cursor!
+    ImVec2_Copy(pos, window.DC.CursorPos)
     if bit.band(flags, ImGuiButtonFlags_AlignTextBaseLine) ~= 0 and style.FramePadding.y < window.DC.CurrLineTextBaseOffset then
         pos.y = pos.y + window.DC.CurrLineTextBaseOffset - style.FramePadding.y
     end
@@ -457,7 +458,9 @@ function ImGui.CloseButton(id, pos)
     local window = g.CurrentWindow
 
     local bb = ImRect(pos, pos + ImVec2(g.FontSize, g.FontSize))
-    local bb_interact = bb:copy()
+    local bb_interact = ImRect()
+    ImRect_Copy(bb_interact, bb)
+
     local area_to_visible_ratio = window.OuterRectClipped:GetArea() / bb:GetArea()
     if area_to_visible_ratio < 1.5 then
         bb_interact:ExpandV2(ImTruncV2(bb_interact:GetSize() * -0.25))
@@ -585,7 +588,9 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     local style = g.Style
     local allow_interaction = (alpha >= 1.0)
 
-    local bb = bb_frame:copy()
+    local bb = ImRect()
+    ImRect_Copy(bb, bb_frame)
+
     local padding = IM_TRUNC(ImMin(style.ScrollbarPadding, ImMin(bb_frame_width, bb_frame_height) * 0.5))
     bb:Expand(-padding)
 
@@ -719,7 +724,9 @@ function ImGui.Checkbox(label, v)
     local label_size = ImGui.CalcTextSize(label, nil, true)
 
     local square_sz = ImGui.GetFrameHeight()
-    local pos = window.DC.CursorPos:copy()
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+
     local total_width
     if label_size.x > 0.0 then
         total_width = square_sz + style.ItemInnerSpacing.x + label_size.x
@@ -1260,16 +1267,16 @@ function ImGui.BeginComboPreview()
     end
 
     -- FIXME: This could be contained in a PushWorkRect() api
-    preview_data.BackupCursorPos              = window.DC.CursorPos:copy()
-    preview_data.BackupCursorMaxPos           = window.DC.CursorMaxPos:copy()
-    preview_data.BackupCursorPosPrevLine      = window.DC.CursorPosPrevLine:copy()
+    ImVec2_Copy(preview_data.BackupCursorPos, window.DC.CursorPos)
+    ImVec2_Copy(preview_data.BackupCursorMaxPos, window.DC.CursorMaxPos)
+    ImVec2_Copy(preview_data.BackupCursorPosPrevLine, window.DC.CursorPosPrevLine)
     preview_data.BackupPrevLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
-    preview_data.BackupLayout                 = window.DC.LayoutType
+    preview_data.BackupLayout = window.DC.LayoutType
 
-    window.DC.CursorPos    = preview_data.PreviewRect.Min + g.Style.FramePadding
-    window.DC.CursorMaxPos = window.DC.CursorPos:copy()
-    window.DC.LayoutType   = ImGuiLayoutType.Horizontal
-    window.DC.IsSameLine   = false
+    window.DC.CursorPos = preview_data.PreviewRect.Min + g.Style.FramePadding
+    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
+    window.DC.LayoutType = ImGuiLayoutType.Horizontal
+    window.DC.IsSameLine = false
 
     ImGui.PushClipRect(preview_data.PreviewRect.Min, preview_data.PreviewRect.Max, true)
 
@@ -1284,8 +1291,8 @@ function ImGui.EndComboPreview()
     local draw_list = window.DrawList
     if window.DC.CursorMaxPos.x < preview_data.PreviewRect.Max.x and window.DC.CursorMaxPos.y < preview_data.PreviewRect.Max.y then
         if draw_list.CmdBuffer.Size > 1 then -- Unlikely case that the PushClipRect() didn't create a command
-            draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size - 1].ClipRect
-            draw_list._CmdHeader.ClipRect = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect
+            ImVec4_Copy(draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect, draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size - 1].ClipRect)
+            ImVec4_Copy(draw_list._CmdHeader.ClipRect, draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ClipRect)
             draw_list:_TryMergeDrawCmds()
         end
     end
@@ -1333,8 +1340,11 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
     local size = ImVec2((size_arg.x ~= 0.0) and size_arg.x or label_size.x, (size_arg.y ~= 0.0) and size_arg.y or label_size.y)
-    local pos = window.DC.CursorPos:copy()
+
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
     pos.y = pos.y + window.DC.CurrLineTextBaseOffset
+
     ImGui.ItemSize(size, 0.0)
 
     -- Fill horizontal space
@@ -1407,7 +1417,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         end
 
         g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasClipRect)
-        g.LastItemData.ClipRect = window.ClipRect:copy()
+        ImRect_Copy(g.LastItemData.ClipRect, window.ClipRect)
     end
 
     -- We use NoHoldingActiveID on menus so user can click and _hold_ on a menu then drag to browse child entries
