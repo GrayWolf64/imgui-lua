@@ -814,6 +814,72 @@ function ImGui.Checkbox(label, v)
     return pressed, v
 end
 
+--- @param label  string
+--- @param active bool
+--- @return bool is_pressed
+function ImGui.RadioButton(label, active)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local id = window:GetID(label)
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+
+    local square_sz = ImGui.GetFrameHeight()
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    local check_bb = ImRect(pos, pos + ImVec2(square_sz, square_sz))
+    local total_bb = ImRect(pos, pos + ImVec2(square_sz + (label_size.x > 0.0 and style.ItemInnerSpacing.x + label_size.x or 0.0), label_size.y + style.FramePadding.y * 2.0))
+    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    if not ImGui.ItemAdd(total_bb, id) then
+        return false
+    end
+
+    local center = check_bb:GetCenter()
+    center.x = IM_ROUND(center.x)
+    center.y = IM_ROUND(center.y)
+    local radius = (square_sz - 1.0) * 0.5
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(total_bb, id)
+    if (pressed) then
+        ImGui.MarkItemEdited(id)
+    end
+
+    -- ImGui.RenderNavCursor(total_bb, id)
+    local num_segment = window.DrawList:_CalcCircleAutoSegmentCount(radius)
+    local col
+    if held and hovered then
+        col = ImGui.GetColorU32(ImGuiCol.FrameBgActive)
+    else
+        if hovered then
+            col = ImGui.GetColorU32(ImGuiCol.FrameBgHovered)
+        else
+            col = ImGui.GetColorU32(ImGuiCol.FrameBg)
+        end
+    end
+    window.DrawList:AddCircleFilled(center, radius, col, num_segment)
+    if active then
+        local pad = ImMax(1.0, IM_TRUNC(square_sz / 6.0))
+        window.DrawList:AddCircleFilled(center, radius - pad, ImGui.GetColorU32(ImGuiCol.CheckMark))
+    end
+    if style.FrameBorderSize > 0.0 then
+        window.DrawList:AddCircle(center + ImVec2(1, 1), radius, ImGui.GetColorU32(ImGuiCol.BorderShadow), num_segment, style.FrameBorderSize)
+        window.DrawList:AddCircle(center, radius, ImGui.GetColorU32(ImGuiCol.Border), num_segment, style.FrameBorderSize)
+    end
+    local label_pos = ImVec2(check_bb.Max.x + style.ItemInnerSpacing.x, check_bb.Min.y + style.FramePadding.y)
+    if g.LogEnabled then
+        -- ImGui.LogRenderedText(label_pos, active and "(x)" or "( )")
+    end
+    if label_size.x > 0.0 then
+        ImGui.RenderText(label_pos, label)
+    end
+
+    return pressed
+end
+
 ----------------------------------------------------------------
 -- [SECTION] Low-level Layout helpers
 ----------------------------------------------------------------

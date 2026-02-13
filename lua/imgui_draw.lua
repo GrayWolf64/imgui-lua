@@ -3741,6 +3741,62 @@ function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
     self:PathFillConvex(col)
 end
 
+--- @param center       ImVec2
+--- @param radius       float
+--- @param col          ImU32
+--- @param num_segments int
+--- @param thickness    float
+function MT.ImDrawList:AddCircle(center, radius, col, num_segments, thickness)
+    if num_segments == nil then num_segments = 0   end
+    if thickness    == nil then thickness    = 1.0 end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 or radius < 0.5 then
+        return
+    end
+
+    if num_segments <= 0 then
+        -- Use arc with automatic segment count
+        self:_PathArcToFastEx(center, radius - 0.5, 0, IM_DRAWLIST_ARCFAST_SAMPLE_MAX, 0)
+        self._Path.Size = self._Path.Size - 1
+    else
+        -- Explicit segment count (still clamp to avoid drawing insanely tessellated shapes)
+        num_segments = ImClamp(num_segments, 3, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
+
+        -- Because we are filling a closed shape we remove 1 from the count of segments/points
+        local a_max = (IM_PI * 2.0) * (num_segments - 1) / num_segments
+        self:PathArcTo(center, radius - 0.5, 0.0, a_max, num_segments - 1)
+    end
+
+    self:PathStroke(col, ImDrawFlags_Closed, thickness)
+end
+
+--- @param center       ImVec2
+--- @param radius       float
+--- @param col          ImU32
+--- @param num_segments int
+function MT.ImDrawList:AddCircleFilled(center, radius, col, num_segments)
+    if num_segments == nil then num_segments = 0 end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 or radius < 0.5 then
+        return
+    end
+
+    if num_segments <= 0 then
+        -- Use arc with automatic segment count
+        self:_PathArcToFastEx(center, radius, 0, IM_DRAWLIST_ARCFAST_SAMPLE_MAX, 0)
+        self._Path.Size = self._Path.Size - 1
+    else
+        -- Explicit segment count (still clamp to avoid drawing insanely tessellated shapes)
+        num_segments = ImClamp(num_segments, 3, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
+
+        -- Because we are filling a closed shape we remove 1 from the count of segments/points
+        local a_max = (IM_PI * 2.0) * (num_segments - 1) / num_segments
+        self:PathArcTo(center, radius, 0.0, a_max, num_segments - 1)
+    end
+
+    self:PathFillConvex(col)
+end
+
 --- @param font                ImFont
 --- @param font_size           float
 --- @param pos                 ImVec2
