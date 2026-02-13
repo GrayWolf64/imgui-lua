@@ -51,6 +51,21 @@ FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE(str_to_table(
     "                                                      -    XX           XX    -                                           "
 ))
 
+local FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA = {
+    -- Pos ..........  Size .........  Offset .......
+    { ImVec2(  1,  4), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Arrow
+    { ImVec2( 14,  1), ImVec2( 7, 16), ImVec2( 1,  8) }, -- ImGuiMouseCursor.TextInput
+    { ImVec2( 32,  1), ImVec2(23, 23), ImVec2(11, 11) }, -- ImGuiMouseCursor.ResizeAll
+    { ImVec2( 22,  1), ImVec2( 9, 23), ImVec2( 4, 11) }, -- ImGuiMouseCursor.ResizeNS
+    { ImVec2( 56, 19), ImVec2(23,  9), ImVec2(11,  4) }, -- ImGuiMouseCursor.ResizeEW
+    { ImVec2( 74,  1), ImVec2(17, 17), ImVec2( 8,  8) }, -- ImGuiMouseCursor.ResizeNESW
+    { ImVec2( 56,  1), ImVec2(17, 17), ImVec2( 8,  8) }, -- ImGuiMouseCursor.ResizeNWSE
+    { ImVec2( 92,  1), ImVec2(17, 22), ImVec2( 5,  0) }, -- ImGuiMouseCursor.Hand
+    { ImVec2(  1,  4), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Wait     -- Arrow + custom code in ImGui.RenderMouseCursor()
+    { ImVec2(  1,  4), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Progress -- Arrow + custom code in ImGui.RenderMouseCursor()
+    { ImVec2(110,  1), ImVec2(13, 15), ImVec2( 6,  7) }, -- ImGuiMouseCursor.NotAllowed
+}
+
 local MT = ImGui.GetMetatables()
 
 --- @module "imstb_rectpack"
@@ -2757,6 +2772,34 @@ function MT.ImFontAtlas:GetCustomRect(id, out_r)
     return true
 end
 
+--- @param atlas         ImFontAtlas
+--- @param cursor_type   ImGuiMouseCursor
+--- @param out_offset    ImVec2
+--- @param out_size      ImVec2
+--- @param out_uv_border ImVec2[]
+--- @param out_uv_fill   ImVec2[]
+function ImFontAtlasGetMouseCursorTexData(atlas, cursor_type, out_offset, out_size, out_uv_border, out_uv_fill)
+    if cursor_type <= ImGuiMouseCursor.None or cursor_type >= ImGuiMouseCursor.COUNT then
+        return false
+    end
+    if bit.band(atlas.Flags, ImFontAtlasFlags.NoMouseCursors) ~= 0 then
+        return false
+    end
+
+    local r = ImFontAtlasPackGetRect(atlas, atlas.Builder.PackIdMouseCursors)
+    local pos = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][1] + ImVec2(r.x, r.y)
+    local size = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][2]
+    ImVec2_Copy(out_size, size)
+    ImVec2_Copy(out_offset, FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][3])
+    ImVec2_Copy(out_uv_border[1], (pos) * atlas.TexUvScale)
+    ImVec2_Copy(out_uv_border[2], (pos + size) * atlas.TexUvScale)
+    pos.x = pos.x + (FONT_ATLAS_DEFAULT_TEX_DATA_W + 1)
+    ImVec2_Copy(out_uv_fill[1], (pos) * atlas.TexUvScale)
+    ImVec2_Copy(out_uv_fill[2], (pos + size) * atlas.TexUvScale)
+
+    return true
+end
+
 function MT.ImFontAtlas:AddCustomRect(width, height, out_r)
     IM_ASSERT(width > 0 and width <= 0xFFFF)
     IM_ASSERT(height > 0 and height <= 0xFFFF)
@@ -3735,6 +3778,30 @@ function MT.ImDrawList:AddText(font, font_size, pos, col, text, text_begin, text
     end
 
     font:RenderText(self, font_size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, (cpu_fine_clip_rect ~= nil) and ImDrawTextFlags.CpuFineClip or ImDrawTextFlags.None)
+end
+
+--- @param tex_ref ImTextureRef
+--- @param p_min   ImVec2
+--- @param p_max   ImVec2
+--- @param uv_min  ImVec2
+--- @param uv_max  ImVec2
+--- @param col     ImU32
+function MT.ImDrawList:AddImage(tex_ref, p_min, p_max, uv_min, uv_max, col)
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    local push_texture_id = tex_ref ~= self._CmdHeader.TexRef
+    if push_texture_id then
+        self:PushTexture(tex_ref)
+    end
+
+    self:PrimReserve(6, 4)
+    self:PrimRectUV(p_min, p_max, uv_min, uv_max, col)
+
+    if push_texture_id then
+        self:PopTexture()
+    end
 end
 
 function MT.ImDrawList:_CalcCircleAutoSegmentCount(radius)

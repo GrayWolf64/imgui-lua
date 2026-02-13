@@ -2756,8 +2756,56 @@ function ImGui.RenderNavCursor(bb, id, flags)
     -- TODO:
 end
 
+do --[[ImGui.RenderMouseCursor]]
+
+local offset = ImVec2()
+local size   = ImVec2()
+local uv_border = {ImVec2(), ImVec2()}
+local uv_fill   = {ImVec2(), ImVec2()}
+
+--- @param base_pos     ImVec2
+--- @param base_scale   float
+--- @param mouse_cursor ImGuiMouseCursor
+--- @param col_fill     ImU32
+--- @param col_border   ImU32
+--- @param col_shadow   ImU32
 function ImGui.RenderMouseCursor(base_pos, base_scale, mouse_cursor, col_fill, col_border, col_shadow)
-    -- TODO:
+    local g = GImGui
+    if mouse_cursor <= ImGuiMouseCursor.None or mouse_cursor >= ImGuiMouseCursor.COUNT then -- We intentionally accept out of bound values
+        mouse_cursor = ImGuiMouseCursor.Arrow
+    end
+    local font_atlas = g.DrawListSharedData.FontAtlas
+
+    for _, viewport in g.Viewports:iter() do
+        if not ImFontAtlasGetMouseCursorTexData(font_atlas, mouse_cursor, offset, size, uv_border, uv_fill) then
+            goto CONTINUE
+        end
+
+        local pos = base_pos - offset
+        local scale = base_scale * viewport.DpiScale
+        if not viewport:GetMainRect():Overlaps(ImRect(pos, pos + ImVec2(size.x + 2, size.y + 2) * scale)) then
+            goto CONTINUE
+        end
+
+        local draw_list = ImGui.GetForegroundDrawList(viewport)
+        local tex_ref = font_atlas.TexRef
+        draw_list:PushTexture(tex_ref);
+        draw_list:AddImage(tex_ref, pos + ImVec2(1, 0) * scale, pos + (ImVec2(1, 0) + size) * scale, uv_fill[1], uv_fill[2], col_shadow)
+        draw_list:AddImage(tex_ref, pos + ImVec2(2, 0) * scale, pos + (ImVec2(2, 0) + size) * scale, uv_fill[1], uv_fill[2], col_shadow)
+        draw_list:AddImage(tex_ref, pos,                        pos + size * scale,                  uv_fill[1], uv_fill[2], col_border)
+        draw_list:AddImage(tex_ref, pos,                        pos + size * scale,                  uv_border[1], uv_border[2], col_fill)
+        if mouse_cursor == ImGuiMouseCursor.Wait or mouse_cursor == ImGuiMouseCursor.Progress then
+            local a_min = ImFmod(g.Time * 5.0, 2.0 * IM_PI)
+            local a_max = a_min + IM_PI * 1.65
+            draw_list:PathArcTo(pos + ImVec2(14, -1) * scale, 6.0 * scale, a_min, a_max)
+            draw_list:PathStroke(col_fill, ImDrawFlags_None, 3.0 * scale)
+        end
+        draw_list:PopTexture()
+
+        :: CONTINUE ::
+    end
+end
+
 end
 
 --- Another overly complex function until we reorganize everything into a nice all-in-one helper.
@@ -5180,7 +5228,10 @@ function ImGui.Render()
         end
     end
 
-    -- TODO: RenderMouseCursor
+    -- Draw software mouse cursor if requested by io.MouseDrawCursor flag
+    if g.IO.MouseDrawCursor and g.MouseCursor ~= ImGuiMouseCursor.None then
+        ImGui.RenderMouseCursor(g.IO.MousePos, g.Style.MouseCursorScale, g.MouseCursor, IM_COL32_WHITE, IM_COL32_BLACK, IM_COL32(0, 0, 0, 48))
+    end
 
     g.IO.MetricsRenderVertices = 0
     g.IO.MetricsRenderIndices = 0

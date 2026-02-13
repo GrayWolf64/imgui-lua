@@ -16,6 +16,7 @@ FLT_MAX = 3.40282346638529e+38
 IM_PI   = math.pi
 ImAbs   = math.abs
 ImFabs  = math.abs
+ImFmod  = math.fmod
 
 ImMin = math.min
 

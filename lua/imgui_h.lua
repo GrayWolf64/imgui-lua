@@ -912,7 +912,7 @@ function ImGuiIO()
     return setmetatable(this, MT.ImGuiIO)
 end
 
---- @alias ImGuiMouseCursor int
+--- @enum ImGuiMouseCursor
 ImGuiMouseCursor = {
     None       = -1,
     Arrow      = 0,
