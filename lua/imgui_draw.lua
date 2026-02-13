@@ -53,17 +53,17 @@ FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE(str_to_table(
 
 local FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA = {
     -- Pos ..........  Size .........  Offset .......
-    { ImVec2(  1,  4), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Arrow
-    { ImVec2( 14,  1), ImVec2( 7, 16), ImVec2( 1,  8) }, -- ImGuiMouseCursor.TextInput
-    { ImVec2( 32,  1), ImVec2(23, 23), ImVec2(11, 11) }, -- ImGuiMouseCursor.ResizeAll
-    { ImVec2( 22,  1), ImVec2( 9, 23), ImVec2( 4, 11) }, -- ImGuiMouseCursor.ResizeNS
-    { ImVec2( 56, 19), ImVec2(23,  9), ImVec2(11,  4) }, -- ImGuiMouseCursor.ResizeEW
-    { ImVec2( 74,  1), ImVec2(17, 17), ImVec2( 8,  8) }, -- ImGuiMouseCursor.ResizeNESW
-    { ImVec2( 56,  1), ImVec2(17, 17), ImVec2( 8,  8) }, -- ImGuiMouseCursor.ResizeNWSE
-    { ImVec2( 92,  1), ImVec2(17, 22), ImVec2( 5,  0) }, -- ImGuiMouseCursor.Hand
-    { ImVec2(  1,  4), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Wait     -- Arrow + custom code in ImGui.RenderMouseCursor()
-    { ImVec2(  1,  4), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Progress -- Arrow + custom code in ImGui.RenderMouseCursor()
-    { ImVec2(110,  1), ImVec2(13, 15), ImVec2( 6,  7) }, -- ImGuiMouseCursor.NotAllowed
+    { ImVec2(  0,  3), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Arrow
+    { ImVec2( 13,  0), ImVec2( 7, 16), ImVec2( 1,  8) }, -- ImGuiMouseCursor.TextInput
+    { ImVec2( 31,  0), ImVec2(23, 23), ImVec2(11, 11) }, -- ImGuiMouseCursor.ResizeAll
+    { ImVec2( 21,  0), ImVec2( 9, 23), ImVec2( 4, 11) }, -- ImGuiMouseCursor.ResizeNS
+    { ImVec2( 55, 18), ImVec2(23,  9), ImVec2(11,  4) }, -- ImGuiMouseCursor.ResizeEW
+    { ImVec2( 73,  0), ImVec2(17, 17), ImVec2( 8,  8) }, -- ImGuiMouseCursor.ResizeNESW
+    { ImVec2( 55,  0), ImVec2(17, 17), ImVec2( 8,  8) }, -- ImGuiMouseCursor.ResizeNWSE
+    { ImVec2( 91,  0), ImVec2(17, 22), ImVec2( 5,  0) }, -- ImGuiMouseCursor.Hand
+    { ImVec2(  0,  3), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Wait     -- Arrow + custom code in ImGui.RenderMouseCursor()
+    { ImVec2(  0,  3), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Progress -- Arrow + custom code in ImGui.RenderMouseCursor()
+    { ImVec2(108,  0), ImVec2(13, 15), ImVec2( 6,  7) }, -- ImGuiMouseCursor.NotAllowed
 }
 
 local MT = ImGui.GetMetatables()
