@@ -63,7 +63,7 @@ local FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA = {
     { ImVec2( 91,  0), ImVec2(17, 22), ImVec2( 5,  0) }, -- ImGuiMouseCursor.Hand
     { ImVec2(  0,  3), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Wait     -- Arrow + custom code in ImGui.RenderMouseCursor()
     { ImVec2(  0,  3), ImVec2(12, 19), ImVec2( 0,  0) }, -- ImGuiMouseCursor.Progress -- Arrow + custom code in ImGui.RenderMouseCursor()
-    { ImVec2(108,  0), ImVec2(13, 15), ImVec2( 6,  7) }, -- ImGuiMouseCursor.NotAllowed
+    { ImVec2(109,  0), ImVec2(13, 15), ImVec2( 6,  7) }, -- ImGuiMouseCursor.NotAllowed
 }
 
 local MT = ImGui.GetMetatables()
