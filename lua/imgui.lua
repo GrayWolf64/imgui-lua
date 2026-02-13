@@ -882,6 +882,110 @@ function ImGui.GetContentRegionAvail()
     return ImVec2(mx.x - window.DC.CursorPos.x, mx.y - window.DC.CursorPos.y)
 end
 
+-- Lock horizontal starting position + capture group bounding box into one "item" (so you can use IsItemHovered() or layout primitives such as SameLine() on whole group, etc.)
+-- Groups are currently a mishmash of functionalities which should perhaps be clarified and separated.
+-- FIXME-OPT: Could we safely early out on ->SkipItems?
+function ImGui.BeginGroup()
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    local group_data = ImGuiGroupData()
+    group_data.WindowID = window.ID
+    ImVec2_Copy(group_data.BackupCursorPos, window.DC.CursorPos)
+    ImVec2_Copy(group_data.BackupCursorPosPrevLine, window.DC.CursorPosPrevLine)
+    ImVec2_Copy(group_data.BackupCursorMaxPos, window.DC.CursorMaxPos)
+    ImVec1_Copy(group_data.BackupIndent, window.DC.Indent)
+    ImVec1_Copy(group_data.BackupGroupOffset, window.DC.GroupOffset)
+    ImVec2_Copy(group_data.BackupCurrLineSize, window.DC.CurrLineSize)
+    group_data.BackupCurrLineTextBaseOffset = window.DC.CurrLineTextBaseOffset
+    group_data.BackupActiveIdIsAlive = g.ActiveIdIsAlive
+    group_data.BackupHoveredIdIsAlive = (g.HoveredId ~= 0)
+    group_data.BackupIsSameLine = window.DC.IsSameLine
+    group_data.BackupActiveIdHasBeenEditedThisFrame = g.ActiveIdHasBeenEditedThisFrame
+    group_data.BackupDeactivatedIdIsAlive = g.DeactivatedItemData.IsAlive
+    group_data.EmitItem = true
+
+    g.GroupStack:push_back(group_data)
+
+    window.DC.GroupOffset.x = window.DC.CursorPos.x - window.Pos.x - window.DC.ColumnsOffset.x
+    ImVec1_Copy(window.DC.Indent, window.DC.GroupOffset)
+    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
+    ImVec2_Copy(window.DC.CurrLineSize, ImVec2(0.0, 0.0))
+    if (g.LogEnabled) then
+        g.LogLinePosY = -FLT_MAX
+    end
+end
+
+function ImGui.EndGroup()
+    local g = GImGui
+    local window = g.CurrentWindow
+    IM_ASSERT(g.GroupStack.Size > 0) -- Mismatched BeginGroup()/EndGroup() calls
+
+    local group_data = g.GroupStack:back()
+    IM_ASSERT(group_data.WindowID == window.ID) -- EndGroup() in wrong window?
+
+    if (window.DC.IsSetPos) then
+    -- TODO: ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
+    end
+
+    local group_bb = ImRect(group_data.BackupCursorPos, ImMaxVec2(ImMaxVec2(window.DC.CursorMaxPos, g.LastItemData.Rect.Max), group_data.BackupCursorPos))
+    ImVec2_Copy(window.DC.CursorPos, group_data.BackupCursorPos)
+    ImVec2_Copy(window.DC.CursorPosPrevLine, group_data.BackupCursorPosPrevLine)
+    ImVec2_Copy(window.DC.CursorMaxPos, ImMaxVec2(group_data.BackupCursorMaxPos, group_bb.Max))
+    ImVec1_Copy(window.DC.Indent, group_data.BackupIndent)
+    ImVec1_Copy(window.DC.GroupOffset, group_data.BackupGroupOffset)
+    ImVec2_Copy(window.DC.CurrLineSize, group_data.BackupCurrLineSize)
+    window.DC.CurrLineTextBaseOffset = group_data.BackupCurrLineTextBaseOffset
+    window.DC.IsSameLine = group_data.BackupIsSameLine
+    if (g.LogEnabled) then
+        g.LogLinePosY = -FLT_MAX -- To enforce a carriage return
+    end
+
+    if (not group_data.EmitItem) then
+        g.GroupStack:pop_back()
+        return
+    end
+
+    window.DC.CurrLineTextBaseOffset = ImMax(window.DC.PrevLineTextBaseOffset, group_data.BackupCurrLineTextBaseOffset) -- FIXME: Incorrect, we should grab the base offset from the *first line* of the group but it is hard to obtain now
+    ImGui.ItemSize(group_bb:GetSize())
+    ImGui.ItemAdd(group_bb, 0, nil, ImGuiItemFlags_NoTabStop)
+
+    -- If the current ActiveId was declared within the boundary of our group, we copy it to LastItemId so IsItemActive(), IsItemDeactivated() etc. will be functional on the entire group.
+    -- It would be neater if we replaced window.DC.LastItemId by e.g. 'bool LastItemIsActive', but would put a little more burden on individual widgets.
+    -- Also if you grep for LastItemId you'll notice it is only used in that context.
+    -- (The two tests not the same because ActiveIdIsAlive is an ID itself, in order to be able to handle ActiveId being overwritten during the frame.)
+    local group_contains_curr_active_id = (group_data.BackupActiveIdIsAlive ~= g.ActiveId) and (g.ActiveIdIsAlive == g.ActiveId) and g.ActiveId
+    local group_contains_deactivated_id = (group_data.BackupDeactivatedIdIsAlive == false) and (g.DeactivatedItemData.IsAlive == true)
+    if group_contains_curr_active_id then
+        g.LastItemData.ID = g.ActiveId
+    elseif group_contains_deactivated_id then
+        g.LastItemData.ID = g.DeactivatedItemData.ID
+    end
+    ImRect_Copy(g.LastItemData.Rect, group_bb)
+
+    -- Forward Hovered flag
+    local group_contains_curr_hovered_id = (group_data.BackupHoveredIdIsAlive == false) and g.HoveredId ~= 0
+    if group_contains_curr_hovered_id then
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredWindow)
+    end
+
+    -- Forward Edited flag
+    if g.ActiveIdHasBeenEditedThisFrame and not group_data.BackupActiveIdHasBeenEditedThisFrame then
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Edited)
+    end
+
+    -- Forward Deactivated flag
+    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasDeactivated)
+    if group_contains_deactivated_id then
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Deactivated)
+    end
+
+    g.GroupStack:pop_back()
+    if g.DebugShowGroupRects then
+        window.DrawList:AddRect(group_bb.Min, group_bb.Max, IM_COL32(255, 0, 255, 255)) -- [Debug]
+    end
+end
+
 function ImGui.CalcItemWidth()
     local g = GImGui
     local window = g.CurrentWindow

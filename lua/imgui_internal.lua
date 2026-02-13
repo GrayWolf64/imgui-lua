@@ -311,6 +311,12 @@ local function ImVec1(x) return setmetatable({x = x or 0}, MT.ImVec1) end
 
 function MT.ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
 
+--- @param dest ImVec1
+--- @param src  ImVec1
+function ImVec1_Copy(dest, src)
+    dest.x = src.x
+end
+
 --- @class ImRect
 --- @field Min ImVec2
 --- @field Max ImVec2
@@ -867,6 +873,8 @@ end
 --- @field Windows                            ImVector<ImGuiWindow>
 --- @field WindowsFocusOrder                  ImVector<ImGuiWindow>
 --- @field CurrentWindowStack                 ImVector<ImGuiWindowStackData>
+--- @field ItemFlagsStack                     ImVector<ImGuiItemFlags>
+--- @field GroupStack                         ImVector<ImGuiGroupData>
 --- @field OpenPopupStack                     ImVector<ImGuiPopupData>
 --- @field BeginPopupStack                    ImVector<ImGuiPopupData>
 --- @field PlatformIO                         ImGuiPlatformIO
@@ -1054,6 +1062,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         DisabledStackSize = 0,
 
         ItemFlagsStack = ImVector(),
+        GroupStack = ImVector(),
 
         -- Extensions
         UserTextures = ImVector(),
@@ -1764,6 +1773,43 @@ function ImGuiComboPreviewData()
         BackupCursorPosPrevLine      = ImVec2(),
         BackupPrevLineTextBaseOffset = 0.0,
         BackupLayout                 = 0
+    }
+end
+
+--- @class ImGuiGroupData
+--- @field WindowID                             ImGuiID
+--- @field BackupCursorPos                      ImVec2
+--- @field BackupCursorMaxPos                   ImVec2
+--- @field BackupCursorPosPrevLine              ImVec2
+--- @field BackupIndent                         ImVec1
+--- @field BackupGroupOffset                    ImVec1
+--- @field BackupCurrLineSize                   ImVec2
+--- @field BackupCurrLineTextBaseOffset         float
+--- @field BackupActiveIdIsAlive                ImGuiID
+--- @field BackupActiveIdHasBeenEditedThisFrame bool
+--- @field BackupDeactivatedIdIsAlive           bool
+--- @field BackupHoveredIdIsAlive               bool
+--- @field BackupIsSameLine                     bool
+--- @field EmitItem                             bool
+
+--- @return ImGuiGroupData
+--- @nodiscard
+function ImGuiGroupData()
+    return {
+        WindowID                             = nil,
+        BackupCursorPos                      = ImVec2(),
+        BackupCursorMaxPos                   = ImVec2(),
+        BackupCursorPosPrevLine              = ImVec2(),
+        BackupIndent                         = ImVec1(),
+        BackupGroupOffset                    = ImVec1(),
+        BackupCurrLineSize                   = ImVec2(),
+        BackupCurrLineTextBaseOffset         = nil,
+        BackupActiveIdIsAlive                = nil,
+        BackupActiveIdHasBeenEditedThisFrame = nil,
+        BackupDeactivatedIdIsAlive           = nil,
+        BackupHoveredIdIsAlive               = nil,
+        BackupIsSameLine                     = nil,
+        EmitItem                             = nil
     }
 end
 
