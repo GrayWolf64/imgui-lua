@@ -2728,9 +2728,7 @@ function MT.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
     -- #ifndef IMGUI_DISABLE_DEFAULT_FONT
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
     if not font_cfg_template then
-        font_cfg.OversampleV = 1
-        font_cfg.OversampleH = 1
-        font_cfg.PixelSnapH  = true
+        font_cfg.PixelSnapH  = true -- Will also automatically set OversampleH = OversampleV = 1
     end
     if font_cfg.SizePixels <= 0.0 then
         font_cfg.SizePixels = 13.0
