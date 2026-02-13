@@ -4,8 +4,6 @@
 
 ## Current State
 
-![Example](misc/images/2026-2-5.png)
-
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
 | Fonts(ttf) | Completed, syncing with `main`   |
