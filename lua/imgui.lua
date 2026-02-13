@@ -240,17 +240,21 @@ function ImHashStr(str, seed, size)
     return ImHashData(data, size, seed)
 end
 
+do --[[ImTextCharFromUtf8]]
+
+local lengths = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 4, 0}
+local masks   = {0x00, 0x7f, 0x1f, 0x0f, 0x07}
+local mins    = {0x400000, 0, 0x80, 0x800, 0x10000}
+local shiftc  = {0, 18, 12, 6, 0}
+local shifte  = {0, 6, 4, 2, 0}
+
+local s = {0, 0, 0, 0}
+
 --- @param in_text     string
 --- @param pos         int
 --- @param in_text_end int
 --- @return int, int
 function ImTextCharFromUtf8(in_text, pos, in_text_end)
-    local lengths = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 4, 0}
-    local masks   = {0x00, 0x7f, 0x1f, 0x0f, 0x07}
-    local mins    = {0x400000, 0, 0x80, 0x800, 0x10000}
-    local shiftc  = {0, 18, 12, 6, 0}
-    local shifte  = {0, 6, 4, 2, 0}
-
     local len = lengths[bit.rshift(string.byte(in_text, pos), 3) + 1]
     local wanted = len > 0 and len or 1
 
@@ -258,7 +262,6 @@ function ImTextCharFromUtf8(in_text, pos, in_text_end)
         in_text_end = pos + wanted
     end
 
-    local s = {0, 0, 0, 0}
     s[1] = (pos     < in_text_end) and string.byte(in_text, pos)     or 0
     s[2] = (pos + 1 < in_text_end) and string.byte(in_text, pos + 1) or 0
     s[3] = (pos + 2 < in_text_end) and string.byte(in_text, pos + 2) or 0
@@ -277,7 +280,7 @@ function ImTextCharFromUtf8(in_text, pos, in_text_end)
     e = bit.bor(e, bit.lshift((out_char > IM_UNICODE_CODEPOINT_MAX) and 1 or 0, 8))
     e = bit.bor(e, bit.rshift(bit.band(s[2], 0xc0), 2))
     e = bit.bor(e, bit.rshift(bit.band(s[3], 0xc0), 4))
-    e = bit.bor(e, bit.rshift(s[4]                , 6))
+    e = bit.bor(e, bit.rshift(s[4], 6))
     e = bit.bxor(e, 0x2a)
     e = bit.rshift(e, shifte[len + 1])
 
@@ -287,6 +290,8 @@ function ImTextCharFromUtf8(in_text, pos, in_text_end)
     end
 
     return wanted, out_char
+end
+
 end
 
 --- @param in_text     string
