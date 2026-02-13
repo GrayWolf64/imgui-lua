@@ -2856,12 +2856,6 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
         text_size_clipped, text_end_ellipsis = font:CalcTextSizeA(font_size, text_avail_width, 0.0, text, 1, text_end_full)
         local text_size_clipped_x = text_size_clipped.x
 
-        while text_end_ellipsis > 1 and ImCharIsBlankA(string.byte(text, text_end_ellipsis - 1)) do
-            -- Trim trailing space before ellipsis (FIXME: Supporting non-ascii blanks would be nice, for this we need a function to backtrack in UTF-8 text)
-            text_end_ellipsis = text_end_ellipsis - 1
-            text_size_clipped_x = text_size_clipped_x - font:CalcTextSizeA(font_size, FLT_MAX, 0.0, text, text_end_ellipsis, text_end_ellipsis + 1).x -- Ascii blanks are always 1 byte
-        end
-
         -- Render text, render ellipsis
         ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, 1, text_end_ellipsis, text_size, ImVec2(0.0, 0.0))
         local cpu_fine_clip_rect = ImVec4(pos_min.x, pos_min.y, pos_max.x, pos_max.y)
