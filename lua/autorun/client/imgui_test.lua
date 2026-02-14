@@ -41,6 +41,8 @@ concommand.Add("imgui_test", function()
     local style_names = {"Dark", "Classic", "Light"}
     local current_style = style_names[1]
 
+    local radio_v = 0
+
     local function sin(_, i) return math.sin(i * 0.1) end
 
     local viewport = CreateMainViewport()
@@ -131,6 +133,10 @@ concommand.Add("imgui_test", function()
                     end
                     ImGui.EndCombo()
                 end
+
+                _, radio_v = ImGui.RadioButton("radio a", radio_v, 0) ImGui.SameLine()
+                _, radio_v = ImGui.RadioButton("radio b", radio_v, 1) ImGui.SameLine()
+                _, radio_v = ImGui.RadioButton("radio c", radio_v, 2)
 
                 ImGui.PopFont()
             ImGui.End()

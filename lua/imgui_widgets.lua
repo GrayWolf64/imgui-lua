@@ -817,7 +817,7 @@ end
 --- @param label  string
 --- @param active bool
 --- @return bool is_pressed
-function ImGui.RadioButton(label, active)
+function ImGui.RadioButtonEx(label, active)
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return false
@@ -878,6 +878,20 @@ function ImGui.RadioButton(label, active)
     end
 
     return pressed
+end
+
+-- `rawequal` is used here to check if v == v_button
+--- @param label    string
+--- @param v        any
+--- @param v_button any
+--- @return bool is_pressed
+--- @return any  v          # Updated v
+function ImGui.RadioButton(label, v, v_button)
+    local pressed = ImGui.RadioButtonEx(label, rawequal(v, v_button))
+    if pressed then
+        v = v_button
+    end
+    return pressed, v
 end
 
 ----------------------------------------------------------------
