@@ -594,7 +594,7 @@ end
 --- @class ImGuiStyleVarInfo
 --- @field Count    ImU32
 --- @field DataType ImGuiDataType
---- @field Key      string        # 0-based, key in parent structure. Note that the cpp Dear ImGui uses `ImU32 Offset`!
+--- @field Key      string        # key in parent structure. Note that the cpp Dear ImGui uses `ImU32 Offset`!
 
 --- @param count     ImU32
 --- @param data_type ImGuiDataType
