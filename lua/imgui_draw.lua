@@ -4361,6 +4361,25 @@ function ImGui.RenderCheckMark(draw_list, pos, col, sz)
     draw_list:PathStroke(col, 0, thickness)
 end
 
+-- Render an arrow. 'pos' is position of the arrow tip. half_sz.x is length from base to tip. half_sz.y is length on each side
+--- @param draw_list ImDrawList
+--- @param pos       ImVec2
+--- @param half_sz   ImVec2
+--- @param direction ImGuiDir
+--- @param col       ImU32
+function ImGui.RenderArrowPointingAt(draw_list, pos, half_sz, direction, col)
+    if direction == ImGuiDir.Left then
+        draw_list:AddTriangleFilled(ImVec2(pos.x + half_sz.x, pos.y - half_sz.y), ImVec2(pos.x + half_sz.x, pos.y + half_sz.y), pos, col)
+    elseif direction == ImGuiDir.Right then
+        draw_list:AddTriangleFilled(ImVec2(pos.x - half_sz.x, pos.y + half_sz.y), ImVec2(pos.x - half_sz.x, pos.y - half_sz.y), pos, col)
+    elseif direction == ImGuiDir.Up then
+        draw_list:AddTriangleFilled(ImVec2(pos.x + half_sz.x, pos.y + half_sz.y), ImVec2(pos.x - half_sz.x, pos.y + half_sz.y), pos, col)
+    elseif direction == ImGuiDir.Down then
+        draw_list:AddTriangleFilled(ImVec2(pos.x - half_sz.x, pos.y - half_sz.y), ImVec2(pos.x + half_sz.x, pos.y - half_sz.y), pos, col)
+    elseif direction == ImGuiDir.None or direction == ImGuiDir.COUNT then
+    end
+end
+
 --- @param r_in      ImRect
 --- @param r_outer   ImRect
 --- @param threshold float

@@ -4,6 +4,7 @@
 include"imgui.lua"
 
 local ImGui_ImplGMOD = include("backends/imgui_impl_gmod.lua")
+local demo = include("imgui_demo.lua")
 
 local function CreateMainViewport()
     local derma_window = vgui.Create("DFrame")
@@ -42,8 +43,6 @@ concommand.Add("imgui_test", function()
     local current_style = style_names[1]
 
     local radio_v = 0
-
-    local color = {114.0 / 255.0, 144.0 / 255.0, 154.0 / 255.0, 200.0 / 255.0}
 
     local function sin(_, i) return math.sin(i * 0.1) end
 
@@ -140,7 +139,7 @@ concommand.Add("imgui_test", function()
                 _, radio_v = ImGui.RadioButton("radio b", radio_v, 1) ImGui.SameLine()
                 _, radio_v = ImGui.RadioButton("radio c", radio_v, 2)
 
-                ImGui.ColorPicker4("MyColor", color, ImGuiColorEditFlags.PickerHueWheel, nil)
+                ImGui.ShowDemoWindow()
 
                 ImGui.PopFont()
             ImGui.End()

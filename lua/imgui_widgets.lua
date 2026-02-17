@@ -1451,6 +1451,19 @@ end
 ----------------------------------------------------------------
 
 --- @param col float[]
+--- @param H   float
+--- @return float
+local function ColorEditRestoreH(col, H)
+    local g = ImGui.GetCurrentContext()
+    IM_ASSERT(g.ColorEditCurrentID ~= 0)
+    if g.ColorEditSavedID ~= g.ColorEditCurrentID or g.ColorEditSavedColor ~= ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0)) then
+        return H
+    end
+    H = g.ColorEditSavedHue
+    return H
+end
+
+--- @param col float[]
 --- @param H float
 --- @param S float
 --- @param V float
@@ -1478,6 +1491,21 @@ local function ColorEditRestoreHS(col, H, S, V)
 end
 
 function ImGui.ColorEdit4(label, col, flags)
+    -- TODO:
+end
+
+-- Helper for ColorPicker4()
+--- @param draw_list ImDrawList
+--- @param pos       ImVec2
+--- @param half_sz   ImVec2
+--- @param bar_w     float
+--- @param alpha     float
+local function RenderArrowsForVerticalBar(draw_list, pos, half_sz, bar_w, alpha)
+    local alpha8 = IM_F32_TO_INT8_SAT(alpha)
+    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + half_sz.x + 1,         pos.y), ImVec2(half_sz.x + 2, half_sz.y + 1), ImGuiDir.Right, IM_COL32(0, 0, 0, alpha8))
+    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + half_sz.x,             pos.y), half_sz,                              ImGuiDir.Right, IM_COL32(255, 255, 255, alpha8))
+    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x - 1, pos.y), ImVec2(half_sz.x + 2, half_sz.y + 1), ImGuiDir.Left,  IM_COL32(0, 0, 0, alpha8))
+    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x,     pos.y), half_sz,                              ImGuiDir.Left,  IM_COL32(255, 255, 255, alpha8))
 end
 
 --- @param label    string
@@ -1620,7 +1648,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
         if ImGui.IsItemActive() and not is_readonly then
             S = ImSaturate((io.MousePos.x - picker_pos.x) / ImMax(sv_picker_size - 1, 0.0001))
             V = 1.0 - ImSaturate((io.MousePos.y - picker_pos.y) / ImMax(sv_picker_size - 1, 0.0001))
-            H = ImGui.ColorEditRestoreH(col, H)  -- Greatly reduces hue jitter and reset to 0 when hue == 255 and color is rapidly modified using SV square.
+            H = ColorEditRestoreH(col, H)  -- Greatly reduces hue jitter and reset to 0 when hue == 255 and color is rapidly modified using SV square.
             value_changed = true
             value_changed_sv = true
         end
@@ -1778,7 +1806,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     local hue_color32 = ImGui.ColorConvertFloat4ToU32(hue_color_f)
     local user_col32_striped_of_alpha = ImGui.ColorConvertFloat4ToU32(ImVec4(R, G, B, style.Alpha)) -- Important: this is still including the main rendering/style alpha!!
 
-    local sv_cursor_pos
+    local sv_cursor_pos = ImVec2()
 
     if bit.band(flags, ImGuiColorEditFlags.PickerHueWheel) ~= 0 then
         -- Render Hue Wheel
@@ -1844,7 +1872,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
 
         local bar0_line_y = IM_ROUND(picker_pos.y + H * sv_picker_size)
         ImGui.RenderFrameBorder(ImVec2(bar0_pos_x, picker_pos.y), ImVec2(bar0_pos_x + bars_width, picker_pos.y + sv_picker_size), 0.0)
-        ImGui.RenderArrowsForVerticalBar(draw_list, ImVec2(bar0_pos_x - 1, bar0_line_y), ImVec2(bars_triangles_half_sz + 1, bars_triangles_half_sz), bars_width + 2.0, style.Alpha)
+        RenderArrowsForVerticalBar(draw_list, ImVec2(bar0_pos_x - 1, bar0_line_y), ImVec2(bars_triangles_half_sz + 1, bars_triangles_half_sz), bars_width + 2.0, style.Alpha)
     end
 
     -- Render cursor/preview circle (clamp S/V within 0..1 range because floating points colors may lead HSV values to be out of range)
@@ -1863,7 +1891,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
 
         local bar1_line_y = IM_ROUND(picker_pos.y + (1.0 - alpha) * sv_picker_size)
         ImGui.RenderFrameBorder(bar1_bb.Min, bar1_bb.Max, 0.0)
-        ImGui.RenderArrowsForVerticalBar(draw_list, ImVec2(bar1_pos_x - 1, bar1_line_y), ImVec2(bars_triangles_half_sz + 1, bars_triangles_half_sz), bars_width + 2.0, style.Alpha)
+        RenderArrowsForVerticalBar(draw_list, ImVec2(bar1_pos_x - 1, bar1_line_y), ImVec2(bars_triangles_half_sz + 1, bars_triangles_half_sz), bars_width + 2.0, style.Alpha)
     end
 
     ImGui.EndGroup()
