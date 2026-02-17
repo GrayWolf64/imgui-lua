@@ -7406,7 +7406,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
         -- ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Pos.x ~= window.Pos.x or window.Viewport.Pos.y ~= window.Pos.y then
         viewport_rect_changed = true
-        ImVec2_Copy(window.Viewport.Pos, ImVec2(window.Pos.x, window.Pos.y))
+        ImVec2_Copy(window.Viewport.Pos, window.Pos)
     end
 
     if window.Viewport.PlatformRequestResize then
@@ -7415,7 +7415,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
         -- ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Size.x ~= window.Size.x or window.Viewport.Size.y ~= window.Size.y then
         viewport_rect_changed = true
-        window.Viewport.Size = ImVec2(window.Size.x, window.Size.y)
+        ImVec2_Copy(window.Viewport.Size, window.Size)
     end
     window.Viewport:UpdateWorkRect()
 
@@ -7536,9 +7536,9 @@ function ImGui.UpdatePlatformWindows()
             end
             g.PlatformWindowsCreatedCount = g.PlatformWindowsCreatedCount + 1
             viewport.LastNameHash = 0
-            viewport.LastPlatformPos = ImVec2(FLT_MAX, FLT_MAX)
-            viewport.LastPlatformSize = ImVec2(FLT_MAX, FLT_MAX)  -- By clearing those we'll enforce a call to Platform_SetWindowPos/Size below, before Platform_ShowWindow (FIXME: Is that necessary?)
-            viewport.LastRendererSize = ImVec2(viewport.Size.x, viewport.Size.y)  -- We don't need to call Renderer_SetWindowSize() as it is expected Renderer_CreateWindow() already did it.
+            ImVec2_Copy(viewport.LastPlatformPos, ImVec2(FLT_MAX, FLT_MAX))
+            ImVec2_Copy(viewport.LastPlatformSize, ImVec2(FLT_MAX, FLT_MAX)) -- By clearing those we'll enforce a call to Platform_SetWindowPos/Size below, before Platform_ShowWindow (FIXME: Is that necessary?)
+            ImVec2_Copy(viewport.LastRendererSize, viewport.Size)            -- We don't need to call Renderer_SetWindowSize() as it is expected Renderer_CreateWindow() already did it.
             viewport.PlatformWindowCreated = true
         end
 
@@ -7552,9 +7552,9 @@ function ImGui.UpdatePlatformWindows()
         if (viewport.LastRendererSize.x ~= viewport.Size.x or viewport.LastRendererSize.y ~= viewport.Size.y) and g.PlatformIO.Renderer_SetWindowSize ~= nil then
             g.PlatformIO.Renderer_SetWindowSize(viewport, viewport.Size)
         end
-        viewport.LastPlatformPos = ImVec2(viewport.Pos.x, viewport.Pos.y)
-        viewport.LastPlatformSize = ImVec2(viewport.Size.x, viewport.Size.y)
-        viewport.LastRendererSize = ImVec2(viewport.Size.x, viewport.Size.y)
+        ImVec2_Copy(viewport.LastPlatformPos, viewport.Pos)
+        ImVec2_Copy(viewport.LastPlatformSize, viewport.Size)
+        ImVec2_Copy(viewport.LastRendererSize, viewport.Size)
 
         -- Update title bar (if it changed)
         local window_for_title = GetWindowForTitleDisplay(viewport.Window)
