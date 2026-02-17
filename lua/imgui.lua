@@ -303,6 +303,80 @@ function ImTextCountUtf8BytesFromChar(in_text, pos, in_text_end)
     return bytes
 end
 
+--- @param a ImVec2
+--- @param b ImVec2
+--- @param p ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImLineClosestPoint(a, b, p)
+    local ap = p - a
+    local ab_dir = b - a
+    local dot = ap.x * ab_dir.x + ap.y * ab_dir.y
+    if dot < 0.0 then
+        return a
+    end
+    local ab_len_sqr = ab_dir.x * ab_dir.x + ab_dir.y * ab_dir.y
+    if dot > ab_len_sqr then
+        return b
+    end
+    return a + ab_dir * (dot / ab_len_sqr)
+end
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @param c ImVec2
+--- @param p ImVec2
+function ImTriangleContainsPoint(a, b, c, p)
+    local b1 = ((p.x - b.x) * (a.y - b.y) - (p.y - b.y) * (a.x - b.x)) < 0.0
+    local b2 = ((p.x - c.x) * (b.y - c.y) - (p.y - c.y) * (b.x - c.x)) < 0.0
+    local b3 = ((p.x - a.x) * (c.y - a.y) - (p.y - a.y) * (c.x - a.x)) < 0.0
+    return (b1 == b2) and (b2 == b3)
+end
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @param c ImVec2
+--- @param p ImVec2
+--- @return float, float, float
+function ImTriangleBarycentricCoords(a, b, c, p)
+    local v0 = b - a
+    local v1 = c - a
+    local v2 = p - a
+
+    local denom = v0.x * v1.y - v1.x * v0.y
+    local out_v = (v2.x * v1.y - v1.x * v2.y) / denom
+    local out_w = (v0.x * v2.y - v2.x * v0.y) / denom
+    local out_u = 1.0 - out_v - out_w
+
+    return out_u, out_v, out_w
+end
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @param c ImVec2
+--- @param p ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImTriangleClosestPoint(a, b, c, p)
+    local proj_ab = ImLineClosestPoint(a, b, p)
+    local proj_bc = ImLineClosestPoint(b, c, p)
+    local proj_ca = ImLineClosestPoint(c, a, p)
+
+    local dist2_ab = ImLengthSqr(p - proj_ab)
+    local dist2_bc = ImLengthSqr(p - proj_bc)
+    local dist2_ca = ImLengthSqr(p - proj_ca)
+
+    local m = ImMin(dist2_ab, ImMin(dist2_bc, dist2_ca))
+
+    if m == dist2_ab then
+        return proj_ab
+    elseif m == dist2_bc then
+        return proj_bc
+    else
+        return proj_ca
+    end
+end
+
 --- void ImGui::UpdateCurrentFontSize
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     local g = GImGui
@@ -522,10 +596,15 @@ function ImGui.CreateContext(shared_font_atlas)
     return GImGui
 end
 
---- void ImGui::DestroyContext
--- local function DestroyContext()
-
--- end
+--- @param ctx? ImGuiContext
+function ImGui.DestroyContext(ctx)
+    local prev_ctx = ImGui.GetCurrentContext()
+    if ctx == nil then
+        ctx = prev_ctx
+    end
+    ImGui.SetCurrentContext(ctx)
+    -- TODO:
+end
 
 --- @param window ImGuiWindow
 --- @return any
@@ -600,7 +679,7 @@ local function InitOrLoadWindowSettings(window, settings)
         SetWindowConditionAllowFlags(window, ImGuiCond.FirstUseEver, false)
         ApplyWindowSettings(window, settings)
     end
-    window.DC.CursorStartPos = ImVec2(window.Pos.x, window.Pos.y) -- So first call to CalcWindowContentSizes() doesn't return crazy values
+    ImVec2_Copy(window.DC.CursorStartPos, ImVec2(window.Pos.x, window.Pos.y)) -- So first call to CalcWindowContentSizes() doesn't return crazy values
     ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorStartPos)
     ImVec2_Copy(window.DC.IdealMaxPos, window.DC.CursorStartPos)
 
@@ -832,7 +911,7 @@ function ImGui.SameLine(offset_from_start_x, spacing_w)
         window.DC.CursorPos.x = window.DC.CursorPosPrevLine.x + spacing_w
         window.DC.CursorPos.y = window.DC.CursorPosPrevLine.y
     end
-    window.DC.CurrLineSize = window.DC.PrevLineSize
+    ImVec2_Copy(window.DC.CurrLineSize, window.DC.PrevLineSize)
     window.DC.CurrLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
     window.DC.IsSameLine = true
 end
@@ -865,6 +944,26 @@ function ImGui.Unindent(indent_w)
     window.DC.CursorPos.x = window.Pos.x + window.DC.Indent.x + window.DC.ColumnsOffset.x
 end
 
+--- @param item_width float
+function ImGui.PushItemWidth(item_width)
+    local g = GImGui
+    local window = g.CurrentWindow
+    window.DC.ItemWidthStack:push_back(window.DC.ItemWidth)  -- Backup current width
+    window.DC.ItemWidth = (item_width == 0.0) and window.DC.ItemWidthDefault or item_width
+    g.NextItemData.HasFlags = bit.band(g.NextItemData.HasFlags, bit.bnot(ImGuiNextItemDataFlags.HasWidth))
+end
+
+function ImGui.PopItemWidth()
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.DC.ItemWidthStack.Size <= 0 then
+        IM_ASSERT_USER_ERROR(false, "Calling PopItemWidth() too many times!")
+        return
+    end
+    window.DC.ItemWidth = window.DC.ItemWidthStack:back()
+    window.DC.ItemWidthStack:pop_back()
+end
+
 --- @return float
 function ImGui.GetFrameHeight()
     local g = GImGui
@@ -885,6 +984,22 @@ function ImGui.GetContentRegionAvail()
     end
 
     return ImVec2(mx.x - window.DC.CursorPos.x, mx.y - window.DC.CursorPos.y)
+end
+
+--- @return ImVec2
+--- @nodiscard
+function ImGui.GetCursorScreenPos()
+    local window = ImGui.GetCurrentWindowRead()
+    local ret = ImVec2()
+    ImVec2_Copy(ret, window.DC.CursorPos)
+    return ret
+end
+
+--- @param pos ImVec2
+function ImGui.SetCursorScreenPos(pos)
+    local window = ImGui.GetCurrentWindow()
+    ImVec2_Copy(window.DC.CursorPos, pos)
+    window.DC.IsSetPos = true
 end
 
 -- Lock horizontal starting position + capture group bounding box into one "item" (so you can use IsItemHovered() or layout primitives such as SameLine() on whole group, etc.)
@@ -1294,7 +1409,7 @@ function ImGui.ClearActiveID()
     ImGui.SetActiveID(0, nil)
 end
 
---- @param str_id string
+--- @param str_id string|int
 function ImGui.PushID(str_id)
     local g = GImGui
     local window = g.CurrentWindow
@@ -1332,6 +1447,19 @@ function ImGui.SetHoveredID(id)
         g.HoveredIdTimer = 0.0
         g.HoveredIdNotActiveTimer = 0.0
     end
+end
+
+--- @param flags ImGuiHoveredFlags
+--- @return float
+local function CalcDelayFromHoveredFlags(flags)
+    local g = GImGui
+    if bit.band(flags, ImGuiHoveredFlags_DelayNormal) ~= 0 then
+        return g.Style.HoverDelayNormal
+    end
+    if bit.band(flags, ImGuiHoveredFlags_DelayShort) ~= 0 then
+        return g.Style.HoverDelayShort
+    end
+    return 0.0
 end
 
 --- @param user_flags   ImGuiHoveredFlags
@@ -1476,7 +1604,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
         end
     end
 
-    local delay = ImGui.CalcDelayFromHoveredFlags(flags)
+    local delay = CalcDelayFromHoveredFlags(flags)
     if delay > 0.0 or bit.band(flags, ImGuiHoveredFlags_Stationary) ~= 0 then
         local hover_delay_id
         if g.LastItemData.ID ~= 0 then
@@ -1583,6 +1711,30 @@ function ImGui.IsClippedEx(bb, id)
         end
     end
     return false
+end
+
+--- @param item_id      ImGuiID
+--- @param item_flags   ImGuiItemFlags
+--- @param status_flags ImGuiItemStatusFlags
+--- @param item_rect    ImRect
+function ImGui.SetLastItemData(item_id, item_flags, status_flags, item_rect)
+    local g = GImGui
+    g.LastItemData.ID = item_id
+    g.LastItemData.ItemFlags = item_flags
+    g.LastItemData.StatusFlags = status_flags
+    ImRect_Copy(g.LastItemData.Rect, item_rect)
+    ImRect_Copy(g.LastItemData.NavRect, item_rect)
+end
+
+--- @param window ImGuiWindow
+--- @param rect   ImRect
+function ImGui.SetLastItemDataForWindow(window, rect)
+    local g = GImGui
+    if window.DockIsActive then
+        ImGui.SetLastItemData(window.MoveId, g.CurrentItemFlags, window.DC.DockTabItemStatusFlags, window.DC.DockTabItemRect)
+    else
+        ImGui.SetLastItemData(window.MoveId, g.CurrentItemFlags, window.DC.WindowItemStatusFlags, rect)
+    end
 end
 
 function MT.ImGuiIO:ClearEventsQueue()
@@ -3199,19 +3351,15 @@ local function SetCurrentWindow(window)
     local g = GImGui
     g.CurrentWindow = window
 
-    g.CurrentDpiScale = 1.0
-
     if window then
-        local backup_skip_items = window.SkipItems
-        window.SkipItems = false
-
         if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) ~= 0 then
             local viewport = window.Viewport
             g.FontRasterizerDensity = (viewport.FramebufferScale.x ~= 0.0) and viewport.FramebufferScale.x or g.IO.DisplayFramebufferScale.x
         end
 
+        local backup_skip_items = window.SkipItems
+        window.SkipItems = false
         ImGui.UpdateCurrentFontSize(0.0)
-
         window.SkipItems = backup_skip_items
     end
 end
@@ -3242,10 +3390,10 @@ function ImGui.SetWindowPos(window, pos, cond)
         return
     end
 
-    window.DC.CursorPos = window.DC.CursorPos + offset
-    window.DC.CursorMaxPos = window.DC.CursorMaxPos + offset
-    window.DC.IdealMaxPos = window.DC.IdealMaxPos + offset
-    window.DC.CursorStartPos = window.DC.CursorStartPos + offset
+    ImVec2_Copy(window.DC.CursorPos, window.DC.CursorPos + offset)
+    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorMaxPos + offset)
+    ImVec2_Copy(window.DC.IdealMaxPos, window.DC.IdealMaxPos + offset)
+    ImVec2_Copy(window.DC.CursorStartPos, window.DC.CursorStartPos + offset)
 end
 
 --- @param window ImGuiWindow
@@ -3343,6 +3491,11 @@ function ImGui.SetNextWindowBgAlpha(alpha)
     local g = GImGui
     g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasBgAlpha)
     g.NextWindowData.BgAlphaVal = alpha
+end
+
+--- @return ImVec2
+function ImGui.GetFontTexUvWhitePixel()
+    return GImGui.DrawListSharedData.TexUvWhitePixel
 end
 
 -- This is a shortcut for not taking ownership of 100+ keys, frequently used by drag operations.
@@ -3517,15 +3670,15 @@ end
 --- @param window ImGuiWindow
 --- @param delta  ImVec2
 function ImGui.TranslateWindow(window, delta)
-    window.Pos = window.Pos + delta
+    ImVec2_Copy(window.Pos, window.Pos + delta)
     window.ClipRect:Translate(delta)
     window.OuterRectClipped:Translate(delta)
     window.InnerRect:Translate(delta)
 
-    window.DC.CursorPos      = window.DC.CursorPos + delta
-    window.DC.CursorStartPos = window.DC.CursorStartPos + delta
-    window.DC.CursorMaxPos   = window.DC.CursorMaxPos + delta
-    window.DC.IdealMaxPos    = window.DC.IdealMaxPos + delta
+    ImVec2_Copy(window.DC.CursorPos, window.DC.CursorPos + delta)
+    ImVec2_Copy(window.DC.CursorStartPos, window.DC.CursorStartPos + delta)
+    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorMaxPos + delta)
+    ImVec2_Copy(window.DC.IdealMaxPos, window.DC.IdealMaxPos + delta)
 end
 
 --- ImGui::FindWindowByID
@@ -3755,8 +3908,8 @@ function ImGui.Begin(name, open, flags)
                     window.SizeFull.y = 0.0
                     window.Size.y = 0.0
                 end
-                window.ContentSize = ImVec2(0.0, 0.0)
-                window.ContentSizeIdeal = ImVec2(0.0, 0.0)
+                ImVec2_Copy(window.ContentSize, ImVec2(0.0, 0.0))
+                ImVec2_Copy(window.ContentSizeIdeal, ImVec2(0.0, 0.0))
             end
         end
 
@@ -3860,8 +4013,8 @@ function ImGui.Begin(name, open, flags)
             end
         end
 
-        window.SizeFull = CalcWindowSizeAfterConstraint(window, window.SizeFull)
-        window.Size = (window.Collapsed and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0) and window:TitleBarRect():GetSize() or window.SizeFull
+        ImVec2_Copy(window.SizeFull, CalcWindowSizeAfterConstraint(window, window.SizeFull))
+        ImVec2_Copy(window.Size, (window.Collapsed and bit.band(flags, ImGuiWindowFlags_ChildWindow) == 0) and window:TitleBarRect():GetSize() or window.SizeFull)
 
         -- POSITION
 
@@ -3886,11 +4039,11 @@ function ImGui.Begin(name, open, flags)
         if window_pos_with_pivot then
             ImGui.SetWindowPos(window, window.SetWindowPosVal - window.Size * window.SetWindowPosPivot, 0)  -- Position given a pivot (e.g. for centering)
         elseif (bit.band(flags, ImGuiWindowFlags_ChildMenu) ~= 0) then
-            window.Pos = ImGui.FindBestWindowPosForPopup(window)
+            ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         elseif (bit.band(flags, ImGuiWindowFlags_Popup) ~= 0) and not window_pos_set_by_api and window_just_appearing_after_hidden_for_resize then
-            window.Pos = ImGui.FindBestWindowPosForPopup(window)
+            ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         elseif (bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0) and not window_pos_set_by_api and not window_is_child_tooltip then
-            window.Pos = ImGui.FindBestWindowPosForPopup(window)
+            ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         end
 
         -- Late create viewport if we don't fit within our current host viewport.
@@ -4158,14 +4311,14 @@ function ImGui.Begin(name, open, flags)
         -- This is used by clipper to compensate and fix the most common use case of large scroll area. Easy and cheap, next best thing compared to switching everything to double or ImU64.
         local start_pos_highp_x = window.Pos.x + window.WindowPadding.x - window.Scroll.x + window.DecoOuterSizeX1 + window.DC.ColumnsOffset.x
         local start_pos_highp_y = window.Pos.y + window.WindowPadding.y - window.Scroll.y + window.DecoOuterSizeY1
-        window.DC.CursorStartPos = ImVec2(start_pos_highp_x, start_pos_highp_y)
-        window.DC.CursorStartPosLossyness = ImVec2(start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y)
+        ImVec2_Copy(window.DC.CursorStartPos, ImVec2(start_pos_highp_x, start_pos_highp_y))
+        ImVec2_Copy(window.DC.CursorStartPosLossyness, ImVec2(start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y))
         ImVec2_Copy(window.DC.CursorPos, window.DC.CursorStartPos)
         ImVec2_Copy(window.DC.CursorPosPrevLine, window.DC.CursorPos)
         ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorStartPos)
         ImVec2_Copy(window.DC.IdealMaxPos, window.DC.CursorStartPos)
-        window.DC.CurrLineSize = ImVec2(0.0, 0.0)
-        window.DC.PrevLineSize = ImVec2(0.0, 0.0)
+        ImVec2_Copy(window.DC.CurrLineSize, ImVec2(0.0, 0.0))
+        ImVec2_Copy(window.DC.PrevLineSize, ImVec2(0.0, 0.0))
         window.DC.CurrLineTextBaseOffset = 0.0
         window.DC.PrevLineTextBaseOffset = 0.0
         window.DC.IsSameLine = false
@@ -4182,6 +4335,7 @@ function ImGui.Begin(name, open, flags)
             window.DC.ItemWidthDefault = ImTrunc(g.FontSize * 16.0)
         end
         window.DC.ItemWidth = window.DC.ItemWidthDefault
+        window.DC.ItemWidthStack:resize(0)
         window.DC.TextWrapPos = -1.0
         window.DC.TextWrapPosStack:resize(0)
 
@@ -4215,14 +4369,16 @@ function ImGui.Begin(name, open, flags)
         if IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false) then
             window.DC.WindowItemStatusFlags = bit.bor(window.DC.WindowItemStatusFlags, ImGuiItemStatusFlags.HoveredRect)
         end
+        ImGui.SetLastItemDataForWindow(window, title_bar_rect)
     else
-        -- if (window->SkipRefresh)
-        --     SetWindowActiveForSkipRefresh(window);
+        if (window.SkipRefresh) then
+            SetWindowActiveForSkipRefresh(window)
+        end
 
         ImGui.SetCurrentViewport(window, window.Viewport)
         SetCurrentWindow(window)
         g.NextWindowData:ClearFlags()
-        -- SetLastItemDataForWindow(window, window->TitleBarRect());
+        ImGui.SetLastItemDataForWindow(window, window:TitleBarRect())
     end
 
     if (not window.SkipRefresh) then
@@ -4332,6 +4488,30 @@ function ImGui.End()
     if g.CurrentWindow then
         ImGui.SetCurrentViewport(g.CurrentWindow, g.CurrentWindow.Viewport)
     end
+end
+
+--- @param option  ImGuiItemFlags
+--- @param enabled bool
+function ImGui.PushItemFlag(option, enabled)
+    local g = GImGui
+    local item_flags = g.CurrentItemFlags
+    IM_ASSERT(item_flags == g.ItemFlagsStack:back())
+
+    if enabled then
+        item_flags = bit.bor(item_flags, option)
+    else
+        item_flags = bit.band(item_flags, bit.bnot(option))
+    end
+
+    g.CurrentItemFlags = item_flags
+    g.ItemFlagsStack:push_back(item_flags)
+end
+
+function ImGui.PopItemFlag()
+    local g = GImGui
+    IM_ASSERT_USER_ERROR_RET(g.ItemFlagsStack.Size > 1, "Calling PopItemFlag() too many times!")
+    g.ItemFlagsStack:pop_back()
+    g.CurrentItemFlags = g.ItemFlagsStack:back()
 end
 
 function ImGui.BeginDisabledOverrideReenable()
@@ -5287,7 +5467,16 @@ function ImGui.GetTime()
     return GImGui.Time
 end
 
--- TODO: void ImGui::Shutdown()
+function ImGui.Shutdown()
+    local g = GImGui
+    IM_ASSERT_USER_ERROR(g.IO.BackendPlatformUserData == nil, "Forgot to shutdown Platform backend?")
+    IM_ASSERT_USER_ERROR(g.IO.BackendRendererUserData == nil, "Forgot to shutdown Renderer backend?")
+    for _, viewport in g.Viewports:iter() do
+        -- IM_UNUSED(viewport)
+        IM_ASSERT_USER_ERROR(viewport.RendererUserData == nil and viewport.PlatformUserData == nil and viewport.PlatformHandle == nil, "Backend or app forgot to call DestroyPlatformWindows()?")
+    end
+    -- TODO:
+end
 
 function ImGui.GetIO() return GImGui.IO end
 
@@ -5308,6 +5497,17 @@ end
 function ImGui.SetMouseCursor(cursor_type)
     local g = GImGui
     g.MouseCursor = cursor_type
+end
+
+--- @param col_a ImU32
+--- @param col_b ImU32
+--- @return ImU32
+function ImAlphaBlendColors(col_a, col_b)
+    local t = bit.band(bit.rshift(col_b, IM_COL32_A_SHIFT), 0xFF) / 255.0
+    local r = ImLerp(bit.band(bit.rshift(col_a, IM_COL32_R_SHIFT), 0xFF), bit.band(bit.rshift(col_b, IM_COL32_R_SHIFT), 0xFF), t)
+    local g = ImLerp(bit.band(bit.rshift(col_a, IM_COL32_G_SHIFT), 0xFF), bit.band(bit.rshift(col_b, IM_COL32_G_SHIFT), 0xFF), t)
+    local b = ImLerp(bit.band(bit.rshift(col_a, IM_COL32_B_SHIFT), 0xFF), bit.band(bit.rshift(col_b, IM_COL32_B_SHIFT), 0xFF), t)
+    return IM_COL32(r, g, b, 0xFF)
 end
 
 --- @param in_col  ImU32
@@ -5342,6 +5542,60 @@ function ImGui.ColorConvertFloat4ToU32(in_col)
     return out_col
 end
 
+--- @param r float
+--- @param g float
+--- @param b float
+--- @return float, float, float
+function ImGui.ColorConvertRGBtoHSV(r, g, b)
+    local K = 0.0
+    if g < b then
+        g, b = b, g
+        K = -1.0
+    end
+    if r < g then
+        r, g = g, r
+        K = -2.0 / 6.0 - K
+    end
+
+    local chroma = r - (g < b and g or b)
+    local out_h = ImFabs(K + (g - b) / (6.0 * chroma + 1e-20))
+    local out_s = chroma / (r + 1e-20)
+    local out_v = r
+    return out_h, out_s, out_v
+end
+
+--- @param h float
+--- @param s float
+--- @param v float
+--- @return float, float, float
+function ImGui.ColorConvertHSVtoRGB(h, s, v)
+    if s == 0.0 then
+        -- gray
+        return v, v, v
+    end
+
+    h = ImFmod(h, 1.0) / (60.0 / 360.0)
+    local i = math.floor(h)
+    local f = h - i
+    local p = v * (1.0 - s)
+    local q = v * (1.0 - s * f)
+    local t = v * (1.0 - s * (1.0 - f))
+
+    if i == 0 then
+        return v, t, p
+    elseif i == 1 then
+        return q, v, p
+    elseif i == 2 then
+        return p, v, t
+    elseif i == 3 then
+        return p, q, v
+    elseif i == 4 then
+        return t, p, v
+    else -- i == 5 or default
+        return v, p, q
+    end
+end
+
 --- @param idx        ImGuiCol
 --- @param alpha_mul? float
 --- @return ImU32
@@ -5352,6 +5606,31 @@ function ImGui.GetColorU32(idx, alpha_mul)
     local c = g.Style.Colors[idx]
     c.w = c.w * g.Style.Alpha * alpha_mul
     return ImGui.ColorConvertFloat4ToU32(c)
+end
+
+--- @param col ImVec4
+--- @return ImU32
+function ImGui.GetColorU32_V4(col)
+    local style = GImGui.Style
+    local c = col
+    c.w = c.w * style.Alpha
+    return ImGui.ColorConvertFloat4ToU32(c)
+end
+
+--- @param col        ImU32
+--- @param alpha_mul? float
+--- @return ImU32
+function ImGui.GetColorU32_U32(col, alpha_mul)
+    if alpha_mul == nil then alpha_mul = 1.0 end
+
+    local style = GImGui.Style
+    alpha_mul = alpha_mul * style.Alpha
+    if alpha_mul >= 1.0 then
+        return col
+    end
+    local a = bit.rshift(bit.band(col, IM_COL32_A_MASK), IM_COL32_A_SHIFT)
+    a = math.floor(a * alpha_mul) -- We don't need to clamp 0..255 because alpha is in 0..1 range.
+    return bit.bor(bit.band(col, bit.bnot(IM_COL32_A_MASK)), bit.lshift(a, IM_COL32_A_SHIFT))
 end
 
 --- @param idx ImGuiCol
@@ -5953,6 +6232,43 @@ function ImGui.CloseCurrentPopup()
     end
 end
 
+--- @param id                 ImGuiID
+--- @param extra_window_flags ImGuiWindowFlags
+function ImGui.BeginPopupEx(id, extra_window_flags)
+    local g = GImGui
+    if not ImGui.IsPopupOpen(id, ImGuiPopupFlags_None) then
+        g.NextWindowData:ClearFlags()
+        return false
+    end
+
+    IM_ASSERT(bit.band(extra_window_flags, ImGuiWindowFlags_ChildMenu) == 0) -- Use BeginPopupMenuEx()
+    local name = ImFormatString("##Popup_%08x", name) -- No recycling, so we can close/open during the same frame
+
+    local is_open
+    _, is_open = ImGui.Begin(name, nil, bit.bor(extra_window_flags, ImGuiWindowFlags_Popup, ImGuiWindowFlags_NoDocking))
+
+    if not is_open then -- NB: Begin can return false when the popup is completely clipped (e.g. zero size display)
+        ImGui.EndPopup()
+    end
+    -- g.CurrentWindow.FocusRouteParentWindow = g.CurrentWindow.ParentWindowInBeginStack
+    return is_open
+end
+
+--- @param str_id string
+--- @param flags? ImGuiWindowFlags
+function ImGui.BeginPopup(str_id, flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui
+    if g.OpenPopupStack.Size <= g.BeginPopupStack.Size then -- Early out for performance
+        g.NextWindowData:ClearFlags() -- We behave like Begin() and need to consume those values
+        return false
+    end
+    flags = bit.bor(flags, ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoSavedSettings)
+    local id = g.CurrentWindow:GetID(str_id)
+    return ImGui.BeginPopupEx(id, flags)
+end
+
 function ImGui.EndPopup()
     local g = GImGui
     local window = g.CurrentWindow
@@ -6198,6 +6514,10 @@ function ImGui.FindBestWindowPosForPopup(window)
     IM_ASSERT(false)
 
     return window.Pos
+end
+
+function ImGui.OpenPopupOnItemClick(str_id, popup_flags)
+    -- TODO:
 end
 
 ---------------------------------------------------------------------------------------
@@ -6652,7 +6972,7 @@ function ImGui.UpdateViewportsNewFrame()
                 if (bit.band(viewport.Flags, ImGuiViewportFlags_IsMinimized) == 0) and platform_funcs_available then
                     -- Viewport->WorkPos and WorkSize will be updated below
                     if viewport.PlatformRequestMove then
-                        viewport.Pos = g.PlatformIO.Platform_GetWindowPos(viewport)
+                        ImVec2_Copy(viewport.Pos, g.PlatformIO.Platform_GetWindowPos(viewport))
                         ImVec2_Copy(viewport.LastPlatformPos, viewport.Pos)
                     end
                     if viewport.PlatformRequestResize then
@@ -7086,7 +7406,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
         -- ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Pos.x ~= window.Pos.x or window.Viewport.Pos.y ~= window.Pos.y then
         viewport_rect_changed = true
-        window.Viewport.Pos = ImVec2(window.Pos.x, window.Pos.y)
+        ImVec2_Copy(window.Viewport.Pos, ImVec2(window.Pos.x, window.Pos.y))
     end
 
     if window.Viewport.PlatformRequestResize then

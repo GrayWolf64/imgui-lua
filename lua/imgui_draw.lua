@@ -280,6 +280,39 @@ function ImGui.StyleColorsLight(dst)
     colors[ImGuiCol.ModalWindowDimBg]          = ImVec4(0.20, 0.20, 0.20, 0.35)
 end
 
+--- @param draw_list ImDrawList
+--- @param vert_start_idx int
+--- @param vert_end_idx   int
+--- @param gradient_p0    ImVec2
+--- @param gradient_p1    ImVec2
+--- @param col0           ImU32
+--- @param col1           ImU32
+function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx, vert_end_idx, gradient_p0, gradient_p1, col0, col1)
+    local gradient_extent = gradient_p1 - gradient_p0
+    local gradient_inv_length2 = 1.0 / ImLengthSqr(gradient_extent)
+
+    local col0_r = bit.band(bit.rshift(col0, IM_COL32_R_SHIFT), 0xFF)
+    local col0_g = bit.band(bit.rshift(col0, IM_COL32_G_SHIFT), 0xFF)
+    local col0_b = bit.band(bit.rshift(col0, IM_COL32_B_SHIFT), 0xFF)
+
+    local col_delta_r = bit.band(bit.rshift(col1, IM_COL32_R_SHIFT), 0xFF) - col0_r
+    local col_delta_g = bit.band(bit.rshift(col1, IM_COL32_G_SHIFT), 0xFF) - col0_g
+    local col_delta_b = bit.band(bit.rshift(col1, IM_COL32_B_SHIFT), 0xFF) - col0_b
+
+    for vert_idx = vert_start_idx, vert_end_idx - 1 do
+        local vert = draw_list.VtxBuffer.Data[vert_idx]
+
+        local d = ImDot(vert.pos - gradient_p0, gradient_extent)
+        local t = ImClamp(d * gradient_inv_length2, 0.0, 1.0)
+
+        local r = math.floor(col0_r + col_delta_r * t)
+        local g = math.floor(col0_g + col_delta_g * t)
+        local b = math.floor(col0_b + col_delta_b * t)
+
+        vert.col = bit.bor(bit.lshift(r, IM_COL32_R_SHIFT), bit.lshift(g, IM_COL32_G_SHIFT), bit.lshift(b, IM_COL32_B_SHIFT), bit.band(vert.col, IM_COL32_A_MASK))
+    end
+end
+
 local ImFontAtlasTextureAdd
 local ImFontAtlasTextureGrow
 local ImFontAtlasPackInit
@@ -3184,8 +3217,8 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
         for i = 1, points_count do
             local vtx_write_ptr = self._VtxWritePtr
             self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
-            self.VtxBuffer.Data[vtx_write_ptr].pos = points[i]
-            self.VtxBuffer.Data[vtx_write_ptr].uv = uv
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].pos, points[i])
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, uv)
             self.VtxBuffer.Data[vtx_write_ptr].col = col
             self._VtxWritePtr = vtx_write_ptr + 1
         end
@@ -3276,23 +3309,23 @@ function MT.ImDrawList:PrimRect(a, c, col)
 
     local vtx_write_ptr = self._VtxWritePtr
     self.VtxBuffer.Data[vtx_write_ptr + 0] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr + 0].pos = a
-    self.VtxBuffer.Data[vtx_write_ptr + 0].uv = uv
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0].pos, a)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0].uv, uv)
     self.VtxBuffer.Data[vtx_write_ptr + 0].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr + 1].pos = b
-    self.VtxBuffer.Data[vtx_write_ptr + 1].uv = uv
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, b)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, uv)
     self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr + 2].pos = c
-    self.VtxBuffer.Data[vtx_write_ptr + 2].uv = uv
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].pos, c)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, uv)
     self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 3] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr + 3].pos = d
-    self.VtxBuffer.Data[vtx_write_ptr + 3].uv = uv
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].pos, d)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].uv, uv)
     self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
 
     self._VtxWritePtr = vtx_write_ptr + 4
@@ -3322,23 +3355,23 @@ function MT.ImDrawList:PrimRectUV(a, c, uv_a, uv_c, col)
 
     local vtx_write_ptr = self._VtxWritePtr
     self.VtxBuffer.Data[vtx_write_ptr + 0] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr + 0].pos = a
-    self.VtxBuffer.Data[vtx_write_ptr + 0].uv  = uv_a
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0].pos, a)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0].uv, uv_a)
     self.VtxBuffer.Data[vtx_write_ptr + 0].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr + 1].pos = b
-    self.VtxBuffer.Data[vtx_write_ptr + 1].uv  = uv_b
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, b)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, uv_b)
     self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr + 2].pos = c
-    self.VtxBuffer.Data[vtx_write_ptr + 2].uv  = uv_c
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].pos, c)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, uv_c)
     self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
 
     self.VtxBuffer.Data[vtx_write_ptr + 3] = ImDrawVert()
-    self.VtxBuffer.Data[vtx_write_ptr + 3].pos = d
-    self.VtxBuffer.Data[vtx_write_ptr + 3].uv  = uv_d
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].pos, d)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].uv, uv_d)
     self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
 
     self._VtxWritePtr   = vtx_write_ptr + 4
@@ -3346,7 +3379,6 @@ function MT.ImDrawList:PrimRectUV(a, c, uv_a, uv_c, col)
     self._IdxWritePtr   = idx_write_ptr + 6
 end
 
---- void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32 col, ImDrawFlags flags, float thickness)
 -- TODO: fix this
 function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     if points_count < 2 or bit.band(col, IM_COL32_A_MASK) == 0 then
@@ -3473,13 +3505,13 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 for i = 1, points_count do
                     local vtx_write_ptr = self._VtxWritePtr
                     self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
-                    self.VtxBuffer.Data[vtx_write_ptr].pos = temp_points[i * 2 - 1]
-                    self.VtxBuffer.Data[vtx_write_ptr].uv = tex_uv0
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].pos, temp_points[i * 2 - 1])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, tex_uv0)
                     self.VtxBuffer.Data[vtx_write_ptr].col = col
 
                     self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
-                    self.VtxBuffer.Data[vtx_write_ptr + 1].pos = temp_points[i * 2]
-                    self.VtxBuffer.Data[vtx_write_ptr + 1].uv = tex_uv1
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, temp_points[i * 2])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, tex_uv1)
                     self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
 
                     self._VtxWritePtr = vtx_write_ptr + 2
@@ -3491,20 +3523,20 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 
                     -- Center of line
                     self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
-                    self.VtxBuffer.Data[vtx_write_ptr].pos = points[i]
-                    self.VtxBuffer.Data[vtx_write_ptr].uv = opaque_uv
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].pos, points[i])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, opaque_uv)
                     self.VtxBuffer.Data[vtx_write_ptr].col = col
 
                     -- Left outer edge
                     self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
-                    self.VtxBuffer.Data[vtx_write_ptr + 1].pos = temp_points[i * 2 - 1]
-                    self.VtxBuffer.Data[vtx_write_ptr + 1].uv = opaque_uv
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, temp_points[i * 2 - 1])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, opaque_uv)
                     self.VtxBuffer.Data[vtx_write_ptr + 1].col = col_trans
 
                     -- Right outer edge
                     self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
-                    self.VtxBuffer.Data[vtx_write_ptr + 2].pos = temp_points[i * 2]
-                    self.VtxBuffer.Data[vtx_write_ptr + 2].uv = opaque_uv
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].pos, temp_points[i * 2])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, opaque_uv)
                     self.VtxBuffer.Data[vtx_write_ptr + 2].col = col_trans
 
                     self._VtxWritePtr = vtx_write_ptr + 3
@@ -3576,23 +3608,23 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local base = i * 4 - 3
 
                 self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
-                self.VtxBuffer.Data[vtx_write_ptr].pos = temp_points[base]
-                self.VtxBuffer.Data[vtx_write_ptr].uv = opaque_uv
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].pos, temp_points[base])
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, opaque_uv)
                 self.VtxBuffer.Data[vtx_write_ptr].col = col_trans
 
                 self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
-                self.VtxBuffer.Data[vtx_write_ptr + 1].pos = temp_points[base + 1]
-                self.VtxBuffer.Data[vtx_write_ptr + 1].uv = opaque_uv
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, temp_points[base + 1])
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, opaque_uv)
                 self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
 
                 self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
-                self.VtxBuffer.Data[vtx_write_ptr + 2].pos = temp_points[base + 2]
-                self.VtxBuffer.Data[vtx_write_ptr + 2].uv = opaque_uv
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].pos, temp_points[base + 2])
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, opaque_uv)
                 self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
 
                 self.VtxBuffer.Data[vtx_write_ptr + 3] = ImDrawVert()
-                self.VtxBuffer.Data[vtx_write_ptr + 3].pos = temp_points[base + 3]
-                self.VtxBuffer.Data[vtx_write_ptr + 3].uv = opaque_uv
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].pos, temp_points[base + 3])
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].uv, opaque_uv)
                 self.VtxBuffer.Data[vtx_write_ptr + 3].col = col_trans
 
                 self._VtxWritePtr = vtx_write_ptr + 4
@@ -3665,7 +3697,7 @@ end
 local function FixRectCornerFlags(flags)
     IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
 
-    if (bit.band(flags, ImDrawFlags_RoundCornersMask) == 0) then
+    if (bit.band(flags, ImDrawFlags_RoundCornersMask_) == 0) then
         flags = bit.bor(flags, ImDrawFlags_RoundCornersAll)
     end
 
@@ -3681,7 +3713,7 @@ function MT.ImDrawList:PathRect(a, b, rounding, flags)
         rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags_RoundCornersTop) == ImDrawFlags_RoundCornersTop) or (bit.band(flags, ImDrawFlags_RoundCornersBottom) == ImDrawFlags_RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
         rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags_RoundCornersLeft) == ImDrawFlags_RoundCornersLeft) or (bit.band(flags, ImDrawFlags_RoundCornersRight) == ImDrawFlags_RoundCornersRight)) and 0.5 or 1.0) - 1.0)
     end
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask) == ImDrawFlags_RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask_) == ImDrawFlags_RoundCornersNone) then
         self:PathLineTo(a)
         self:PathLineTo(ImVec2(b.x, a.y))
         self:PathLineTo(b)
@@ -3704,13 +3736,34 @@ function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
 
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask) == ImDrawFlags_RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask_) == ImDrawFlags_RoundCornersNone) then
         self:PrimReserve(6, 4)
         self:PrimRect(p_min, p_max, col)
     else
         self:PathRect(p_min, p_max, rounding, flags)
         self:PathFillConvex(col)
     end
+end
+
+--- @param p_min         ImVec2
+--- @param p_max         ImVec2
+--- @param col_upr_left  ImU32
+--- @param col_upr_right ImU32
+--- @param col_bot_right ImU32
+--- @param col_bot_left  ImU32
+function MT.ImDrawList:AddRectFilledMultiColor(p_min, p_max, col_upr_left, col_upr_right, col_bot_right, col_bot_left)
+    if bit.band(bit.bor(col_upr_left, col_upr_right, col_bot_right, col_bot_left), IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    local uv = self._Data.TexUvWhitePixel
+    self:PrimReserve(6, 4)
+    self:PrimWriteIdx(self._VtxCurrentIdx); self:PrimWriteIdx(self._VtxCurrentIdx + 1); self:PrimWriteIdx(self._VtxCurrentIdx + 2)
+    self:PrimWriteIdx(self._VtxCurrentIdx); self:PrimWriteIdx(self._VtxCurrentIdx + 2); self:PrimWriteIdx(self._VtxCurrentIdx + 3)
+    self:PrimWriteVtx(p_min, uv, col_upr_left)
+    self:PrimWriteVtx(ImVec2(p_max.x, p_min.y), uv, col_upr_right)
+    self:PrimWriteVtx(p_max, uv, col_bot_right)
+    self:PrimWriteVtx(ImVec2(p_min.x, p_max.y), uv, col_bot_left)
 end
 
 function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
@@ -3730,6 +3783,17 @@ function MT.ImDrawList:AddLine(p1, p2, col, thickness)
     self:PathLineTo(p1 + ImVec2(0.5, 0.5))
     self:PathLineTo(p2 + ImVec2(0.5, 0.5))
     self:PathStroke(col, 0, thickness)
+end
+
+function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness)
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    self:PathLineTo(p1)
+    self:PathLineTo(p2)
+    self:PathLineTo(p3)
+    self:PathStroke(col, ImDrawFlags_Closed, thickness)
 end
 
 function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
@@ -4323,4 +4387,78 @@ function ImGui.CalcRoundingFlagsForRectInRect(r_in, r_outer, threshold)
     end
 
     return flags
+end
+
+-- Helper for ColorPicker4()
+-- NB: This is rather brittle and will show artifact when rounding this enabled if rounded corners overlap multiple cells. Caller currently responsible for avoiding that.
+-- Spent a non reasonable amount of time trying to getting this right for ColorButton with rounding+anti-aliasing+ImGuiColorEditFlags_HalfAlphaPreview flag + various grid sizes and offsets, and eventually gave up... probably more reasonable to disable rounding altogether.
+-- FIXME: uses ImGui.GetColorU32
+--- @param draw_list ImDrawList
+--- @param p_min     ImVec2
+--- @param p_max     ImVec2
+--- @param col       ImU32
+--- @param grid_step float
+--- @param grid_off  ImVec2
+--- @param rounding? float
+--- @param flags?    ImDrawFlags
+function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col, grid_step, grid_off, rounding, flags)
+    if rounding == nil then rounding = 0.0 end
+    if flags    == nil then flags    = 0   end
+
+    if bit.band(flags, ImDrawFlags_RoundCornersMask_) == 0 then
+        flags = ImDrawFlags_RoundCornersDefault_
+    end
+
+    if bit.rshift(bit.band(col, IM_COL32_A_MASK), IM_COL32_A_SHIFT) < 0xFF then
+        local col_bg1 = ImGui.GetColorU32_U32(ImAlphaBlendColors(IM_COL32(204, 204, 204, 255), col))
+        local col_bg2 = ImGui.GetColorU32_U32(ImAlphaBlendColors(IM_COL32(128, 128, 128, 255), col))
+        draw_list:AddRectFilled(p_min, p_max, col_bg1, rounding, flags)
+
+        local yi = 0
+        local y = p_min.y + grid_off.y
+        while y < p_max.y do
+            local y1 = ImClamp(y, p_min.y, p_max.y)
+            local y2 = ImMin(y + grid_step, p_max.y)
+
+            if y2 > y1 then
+
+                local x_start = p_min.x + grid_off.x + (yi % 2) * grid_step
+                local x = x_start
+                while x < p_max.x do
+                    local x1 = ImClamp(x, p_min.x, p_max.x)
+                    local x2 = ImMin(x + grid_step, p_max.x)
+
+                    if x2 > x1 then
+
+                        local cell_flags = ImDrawFlags_RoundCornersNone
+                        if y1 <= p_min.y then
+                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersTopLeft) end
+                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersTopRight) end
+                        end
+                        if y2 >= p_max.y then
+                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersBottomLeft) end
+                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersBottomRight) end
+                        end
+
+                        -- Combine flags
+                        if flags == ImDrawFlags_RoundCornersNone or cell_flags == ImDrawFlags_RoundCornersNone then
+                            cell_flags = ImDrawFlags_RoundCornersNone
+                        else
+                            cell_flags = bit.band(cell_flags, flags)
+                        end
+                        draw_list:AddRectFilled(ImVec2(x1, y1), ImVec2(x2, y2), col_bg2, rounding, cell_flags)
+
+                    end
+
+                    x = x + grid_step * 2.0
+                end
+
+            end
+
+            y = y + grid_step
+            yi = yi + 1
+        end
+    else
+        draw_list:AddRectFilled(p_min, p_max, col, rounding, flags)
+    end
 end

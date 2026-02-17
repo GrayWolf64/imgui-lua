@@ -286,6 +286,9 @@ function MT.ImDrawCmd:GetTexID()
 end
 
 --- @class ImDrawVert
+--- @field pos ImVec2
+--- @field uv  ImVec2
+--- @field col ImU32
 
 --- @return ImDrawVert
 --- @nodiscard
@@ -361,6 +364,33 @@ end
 --- @field _OwnerName        string
 MT.ImDrawList = {}
 MT.ImDrawList.__index = MT.ImDrawList
+
+--- @param pos ImVec2
+--- @param uv  ImVec2
+--- @param col ImU32
+function MT.ImDrawList:PrimWriteVtx(pos, uv, col)
+    local vtx = ImDrawVert()
+    ImVec2_Copy(vtx.pos, pos)
+    ImVec2_Copy(vtx.uv, uv)
+    vtx.col = col
+    self.VtxBuffer.Data[self._VtxWritePtr] = vtx
+    self._VtxWritePtr = self._VtxWritePtr + 1
+    self._VtxCurrentIdx = self._VtxCurrentIdx + 1
+end
+
+--- @param idx ImDrawIdx
+function MT.ImDrawList:PrimWriteIdx(idx)
+    self.IdxBuffer.Data[self._IdxWritePtr] = idx
+    self._IdxWritePtr = self._IdxWritePtr + 1
+end
+
+--- @param pos ImVec2
+--- @param uv  ImVec2
+--- @param col ImU32
+function MT.ImDrawList:PrimVtx(pos, uv, col)
+    self:PrimWriteIdx(self._VtxCurrentIdx)
+    self:PrimWriteVtx(pos, uv, col)
+end
 
 --- @param data? ImDrawListSharedData
 --- @return ImDrawList
@@ -1095,6 +1125,7 @@ ImGuiWindowFlags_AlwaysHorizontalScrollbar = bit.lshift(1, 15)
 ImGuiWindowFlags_NoNavInputs               = bit.lshift(1, 16)
 ImGuiWindowFlags_NoNavFocus                = bit.lshift(1, 17)
 ImGuiWindowFlags_UnsavedDocument           = bit.lshift(1, 18)
+ImGuiWindowFlags_NoDocking                 = bit.lshift(1, 19)
 ImGuiWindowFlags_DockNodeHost              = bit.lshift(1, 23)
 ImGuiWindowFlags_ChildWindow               = bit.lshift(1, 24)
 ImGuiWindowFlags_Tooltip                   = bit.lshift(1, 25)
@@ -1165,8 +1196,8 @@ ImDrawFlags_RoundCornersBottom      = bit.bor(ImDrawFlags_RoundCornersBottomLeft
 ImDrawFlags_RoundCornersLeft        = bit.bor(ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersTopLeft)
 ImDrawFlags_RoundCornersRight       = bit.bor(ImDrawFlags_RoundCornersBottomRight, ImDrawFlags_RoundCornersTopRight)
 ImDrawFlags_RoundCornersAll         = bit.bor(ImDrawFlags_RoundCornersTopLeft, ImDrawFlags_RoundCornersTopRight, ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersBottomRight)
-ImDrawFlags_RoundCornersMask        = bit.bor(ImDrawFlags_RoundCornersAll, ImDrawFlags_RoundCornersNone)
-ImDrawFlags_RoundCornersDefault     = ImDrawFlags_RoundCornersAll
+ImDrawFlags_RoundCornersMask_       = bit.bor(ImDrawFlags_RoundCornersAll, ImDrawFlags_RoundCornersNone)
+ImDrawFlags_RoundCornersDefault_    = ImDrawFlags_RoundCornersAll
 
 --- @enum ImDrawListFlags
 ImDrawListFlags = {
@@ -1646,6 +1677,76 @@ ImGuiSelectableFlags = {
     NoPadWithHalfSpacing = bit.lshift(1, 26), -- Disable padding each side with ItemSpacing * 0.5f
     NoSetKeyOwner        = bit.lshift(1, 27), -- Don't set key/input owner on the initial click (note: mouse buttons are keys! often, the key in question will be ImGuiKey_MouseLeft!)
 }
+
+-- Flags for ColorEdit3() / ColorEdit4() / ColorPicker3() / ColorPicker4() / ColorButton()
+--- @enum ImGuiColorEditFlags
+ImGuiColorEditFlags = {
+    None           = 0,
+    NoAlpha        = bit.lshift(1, 1),  -- ColorEdit, ColorPicker, ColorButton: ignore Alpha component (will only read 3 components from the input pointer).
+    NoPicker       = bit.lshift(1, 2),  -- ColorEdit: disable picker when clicking on color square.
+    NoOptions      = bit.lshift(1, 3),  -- ColorEdit: disable toggling options menu when right-clicking on inputs/small preview.
+    NoSmallPreview = bit.lshift(1, 4),  -- ColorEdit, ColorPicker: disable color square preview next to the inputs. (e.g. to show only the inputs)
+    NoInputs       = bit.lshift(1, 5),  -- ColorEdit, ColorPicker: disable inputs sliders/text widgets (e.g. to show only the small preview color square).
+    NoTooltip      = bit.lshift(1, 6),  -- ColorEdit, ColorPicker, ColorButton: disable tooltip when hovering the preview.
+    NoLabel        = bit.lshift(1, 7),  -- ColorEdit, ColorPicker: disable display of inline text label (the label is still forwarded to the tooltip and picker).
+    NoSidePreview  = bit.lshift(1, 8),  -- ColorPicker: disable bigger color preview on right side of the picker, use small color square preview instead.
+    NoDragDrop     = bit.lshift(1, 9),  -- ColorEdit: disable drag and drop target/source. ColorButton: disable drag and drop source.
+    NoBorder       = bit.lshift(1, 10), -- ColorButton: disable border (which is enforced by default)
+    NoColorMarkers = bit.lshift(1, 11), -- ColorEdit: disable rendering R/G/B/A color marker. May also be disabled globally by setting style.ColorMarkerSize = 0.
+
+    -- Alpha preview
+    -- - Prior to 1.91.8 (2025/01/21): alpha was made opaque in the preview by default using old name ImGuiColorEditFlags_AlphaPreview.
+    -- - We now display the preview as transparent by default. You can use ImGuiColorEditFlags_AlphaOpaque to use old behavior.
+    -- - The new flags may be combined better and allow finer controls.
+    AlphaOpaque      = bit.lshift(1, 12), -- ColorEdit, ColorPicker, ColorButton: disable alpha in the preview,. Contrary to _NoAlpha it may still be edited when calling ColorEdit4()/ColorPicker4(). For ColorButton() this does the same as _NoAlpha.
+    AlphaNoBg        = bit.lshift(1, 13), -- ColorEdit, ColorPicker, ColorButton: disable rendering a checkerboard background behind transparent color.
+    AlphaPreviewHalf = bit.lshift(1, 14), -- ColorEdit, ColorPicker, ColorButton: display half opaque / half transparent preview.
+
+    -- User Options (right-click on widget to change some of them).
+    AlphaBar       = bit.lshift(1, 18), -- ColorEdit, ColorPicker: show vertical alpha bar/gradient in picker.
+    HDR            = bit.lshift(1, 19), -- (WIP) ColorEdit: Currently only disable 0.0f..1.0f limits in RGBA edition (note: you probably want to use ImGuiColorEditFlags_Float flag as well).
+    DisplayRGB     = bit.lshift(1, 20), -- [Display]  -- ColorEdit: override _display_ type among RGB/HSV/Hex. ColorPicker: select any combination using one or more of RGB/HSV/Hex.
+    DisplayHSV     = bit.lshift(1, 21), -- [Display]  -- "
+    DisplayHex     = bit.lshift(1, 22), -- [Display]  -- "
+    Uint8          = bit.lshift(1, 23), -- [DataType] -- ColorEdit, ColorPicker, ColorButton: _display_ values formatted as 0..255.
+    Float          = bit.lshift(1, 24), -- [DataType] -- ColorEdit, ColorPicker, ColorButton: _display_ values formatted as 0.0f..1.0f floats instead of 0..255 integers. No round-trip of value via integers.
+    PickerHueBar   = bit.lshift(1, 25), -- [Picker]   -- ColorPicker: bar for Hue, rectangle for Sat/Value.
+    PickerHueWheel = bit.lshift(1, 26), -- [Picker]   -- ColorPicker: wheel for Hue, triangle for Sat/Value.
+    InputRGB       = bit.lshift(1, 27), -- [Input]    -- ColorEdit, ColorPicker: input and output data in RGB format.
+    InputHSV       = bit.lshift(1, 28)  -- [Input]    -- ColorEdit, ColorPicker: input and output data in HSV format.
+}
+
+-- Defaults Options. You can set application defaults using SetColorEditOptions(). The intent is that you probably don't want to
+-- override them in most of your calls. Let the user choose via the option menu and/or call SetColorEditOptions() once during startup.
+ImGuiColorEditFlags.DefaultOptions_ = bit.bor(ImGuiColorEditFlags.Uint8, ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.InputRGB, ImGuiColorEditFlags.PickerHueBar)
+
+ImGuiColorEditFlags.AlphaMask_ = bit.bor(
+    ImGuiColorEditFlags.NoAlpha,
+    ImGuiColorEditFlags.AlphaOpaque,
+    ImGuiColorEditFlags.AlphaNoBg,
+    ImGuiColorEditFlags.AlphaPreviewHalf
+)
+
+ImGuiColorEditFlags.DisplayMask_ = bit.bor(
+    ImGuiColorEditFlags.DisplayRGB,
+    ImGuiColorEditFlags.DisplayHSV,
+    ImGuiColorEditFlags.DisplayHex
+)
+
+ImGuiColorEditFlags.DataTypeMask_ = bit.bor(
+    ImGuiColorEditFlags.Uint8,
+    ImGuiColorEditFlags.Float
+)
+
+ImGuiColorEditFlags.PickerMask_ = bit.bor(
+    ImGuiColorEditFlags.PickerHueWheel,
+    ImGuiColorEditFlags.PickerHueBar
+)
+
+ImGuiColorEditFlags.InputMask_ = bit.bor(
+    ImGuiColorEditFlags.InputRGB,
+    ImGuiColorEditFlags.InputHSV
+)
 
 --- @class ImGuiWindowClass
 --- @field ClassId                    ImGuiID

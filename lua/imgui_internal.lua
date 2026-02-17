@@ -39,12 +39,20 @@ ImCeil  = math.ceil
 ImSin   = math.sin
 ImCos   = math.cos
 ImAcos  = math.acos
+ImAtan2 = math.atan2
 ImSqrt  = math.sqrt
 
 --- @param a number
 --- @param b number
 --- @param t number
 function ImLerp(a, b, t) return ((a) + ((b) - (a)) * (t)) end
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @param t float
+function ImLerpV2V2(a, b, t)
+    return ImVec2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+end
 
 --- @param a ImVec2
 --- @param b ImVec2
@@ -133,6 +141,21 @@ end
 --- @param lhs ImVec2
 --- @return float
 function ImLengthSqr(lhs) return (lhs.x * lhs.x) + (lhs.y * lhs.y) end
+
+--- @param v     ImVec2
+--- @param cos_a float
+--- @param sin_a float
+--- @return ImVec2
+--- @nodiscard
+function ImRotate(v, cos_a, sin_a)
+    return ImVec2(v.x * cos_a - v.y * sin_a, v.x * sin_a + v.y * cos_a)
+end
+
+--- @param a ImVec2
+--- @param b ImVec2
+function ImDot(a, b)
+    return a.x * b.x + a.y * b.y
+end
 
 --- @return int?
 function ImMemchr(str, char, start_pos)
@@ -786,6 +809,7 @@ function ImGuiStyle()
         Alpha = 1.0,
 
         FramePadding = ImVec2(4, 3),
+        FrameRounding = 0.0,
         WindowPadding = ImVec2(8, 8),
 
         TouchExtraPadding = ImVec2(0, 0),
@@ -817,6 +841,8 @@ function ImGuiStyle()
         CircleTessellationMaxError = 0.30,
 
         HoverStationaryDelay = 0.15,
+        HoverDelayShort = 0.15,
+        HoverDelayNormal = 0.40,
 
         PopupBorderSize = 1.0,
 
@@ -1029,6 +1055,10 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         WithinEndChildID = 0,
 
         BeginMenuDepth = 0, BeginComboDepth = 0,
+        ColorEditOptions = ImGuiColorEditFlags.DefaultOptions_,
+        ColorEditCurrentID = 0, ColorEditSavedID = 0,
+        ColorEditSavedHue = 0.0, ColorEditSavedSat = 0.0,
+        ColorEditSavedColor = 0,
 
         DrawListSharedData = ImDrawListSharedData(),
 
@@ -1169,11 +1199,12 @@ local function ImGuiWindowTempData()
         Indent                  = ImVec1(),
         ColumnsOffset           = ImVec1(),
         GroupOffset             = ImVec1(),
-        CursorStartPosLossyness = ImVec1(),
+        CursorStartPosLossyness = ImVec2(),
 
         ItemWidth = 0,
         ItemWidthDefault = 0,
         TextWrapPos = 0,
+        ItemWidthStack = ImVector(),
         TextWrapPosStack = ImVector(),
 
         MenuBarOffset = ImVec2(),

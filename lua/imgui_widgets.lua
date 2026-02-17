@@ -449,6 +449,36 @@ function ImGui.SmallButton(label)
     return pressed
 end
 
+--- @param str_id   string
+--- @param size_arg ImVec2
+--- @param flags?   ImGuiButtonFlags
+function ImGui.InvisibleButton(str_id, size_arg, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    -- Ensure zero-size fits to contents
+    local size = ImGui.CalcItemSize(ImVec2(size_arg.x ~= 0.0 and size_arg.x or -FLT_MIN, size_arg.y ~= 0.0 and size_arg.y or -FLT_MIN), 0.0, 0.0)
+
+    local id = window:GetID(str_id)
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
+    ImGui.ItemSize(size)
+
+    local item_flags = (bit.band(flags, ImGuiButtonFlags_EnableNav) ~= 0) and ImGuiItemFlags_None or ImGuiItemFlags_NoNav
+    if not ImGui.ItemAdd(bb, id, nil, item_flags) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, flags)
+    ImGui.RenderNavCursor(bb, id)
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, str_id, g.LastItemData.StatusFlags)
+    return pressed
+end
+
 --- @param id  ImGuiID
 --- @param pos ImVec2
 --- @return bool
@@ -812,6 +842,33 @@ function ImGui.Checkbox(label, v)
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Checkable | (*v ? ImGuiItemStatusFlags_Checked : 0))
     return pressed, v
+end
+
+--- @param label       string
+--- @param flags       int
+--- @param flags_value int
+--- @return bool is_pressed
+--- @return int  flags_new  # Updated `flags`
+function ImGui.CheckboxFlags(label, flags, flags_value)
+    local all_on = bit.band(flags, flags_value) == flags_value
+    local any_on = bit.band(flags, flags_value) ~= 0
+    local pressed
+    if not all_on and any_on then
+        local g = ImGui.GetCurrentContext()
+        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags_MixedValue)
+        pressed, all_on = ImGui.Checkbox(label, all_on)
+    else
+        pressed, all_on = ImGui.Checkbox(label, all_on)
+    end
+    if pressed then
+        if all_on then
+            flags = bit.bor(flags, flags_value)
+        else
+            flags = bit.band(flags, bit.bnot(flags_value))
+        end
+    end
+
+    return pressed, flags
 end
 
 --- @param label  string
@@ -1353,7 +1410,7 @@ function ImGui.BeginComboPreview()
     preview_data.BackupPrevLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
     preview_data.BackupLayout = window.DC.LayoutType
 
-    window.DC.CursorPos = preview_data.PreviewRect.Min + g.Style.FramePadding
+    ImVec2_Copy(window.DC.CursorPos, preview_data.PreviewRect.Min + g.Style.FramePadding)
     ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
     window.DC.LayoutType = ImGuiLayoutType.Horizontal
     window.DC.IsSameLine = false
@@ -1379,14 +1436,646 @@ function ImGui.EndComboPreview()
 
     ImGui.PopClipRect()
 
-    window.DC.CursorPos              = preview_data.BackupCursorPos
-    window.DC.CursorMaxPos           = ImMaxVec2(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos)
-    window.DC.CursorPosPrevLine      = preview_data.BackupCursorPosPrevLine
+    ImVec2_Copy(window.DC.CursorPos, preview_data.BackupCursorPos)
+    ImVec2_Copy(window.DC.CursorMaxPos, ImMaxVec2(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos))
+    ImVec2_Copy(window.DC.CursorPosPrevLine, preview_data.BackupCursorPosPrevLine)
     window.DC.PrevLineTextBaseOffset = preview_data.BackupPrevLineTextBaseOffset
-    window.DC.LayoutType             = preview_data.BackupLayout
-    window.DC.IsSameLine             = false
+    window.DC.LayoutType = preview_data.BackupLayout
+    window.DC.IsSameLine = false
 
     preview_data.PreviewRect = ImRect()
+end
+
+----------------------------------------------------------------
+-- [SECTION] COLOR PICKER
+----------------------------------------------------------------
+
+--- @param col float[]
+--- @param H float
+--- @param S float
+--- @param V float
+--- @return float, float, float
+local function ColorEditRestoreHS(col, H, S, V)
+    local g = ImGui.GetCurrentContext()
+    IM_ASSERT(g.ColorEditCurrentID ~= 0)
+
+    if g.ColorEditSavedID ~= g.ColorEditCurrentID or g.ColorEditSavedColor ~= ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0)) then
+        return H, S, V
+    end
+
+    -- When S == 0, H is undefined.
+    -- When H == 1 it wraps around to 0.
+    if S == 0.0 or (H == 0.0 and g.ColorEditSavedHue == 1) then
+        H = g.ColorEditSavedHue
+    end
+
+    -- When V == 0, S is undefined.
+    if V == 0.0 then
+        S = g.ColorEditSavedSat
+    end
+
+    return H, S, V
+end
+
+function ImGui.ColorEdit4(label, col, flags)
+end
+
+--- @param label    string
+--- @param col      float[]
+--- @param flags    ImGuiColorEditFlags
+--- @param ref_col? float[]
+function ImGui.ColorPicker4(label, col, flags, ref_col)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local draw_list = window.DrawList
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local io = g.IO
+
+    local width = ImGui.CalcItemWidth()
+    local is_readonly = bit.band(bit.bor(g.NextItemData.ItemFlags, g.CurrentItemFlags), ImGuiItemFlags_ReadOnly) ~= 0
+    g.NextItemData:ClearFlags()
+
+    ImGui.PushID(label)
+    local set_current_color_edit_id = (g.ColorEditCurrentID == 0)
+    if set_current_color_edit_id then
+        g.ColorEditCurrentID = window.IDStack:back()
+    end
+    ImGui.BeginGroup()
+
+    if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) == 0 then
+        flags = bit.bor(flags, ImGuiColorEditFlags.NoSmallPreview)
+    end
+
+    -- Context menu: display and store options.
+    if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+        ImGui.ColorPickerOptionsPopup(col, flags)
+    end
+
+    -- Read stored options
+    if bit.band(flags, ImGuiColorEditFlags.PickerMask_) == 0 then
+        local picker_flags = bit.band(g.ColorEditOptions, ImGuiColorEditFlags.PickerMask_)
+        if picker_flags ~= 0 then
+            flags = bit.bor(flags, picker_flags)
+        else
+            flags = bit.bor(flags, bit.band(ImGuiColorEditFlags.DefaultOptions_, ImGuiColorEditFlags.PickerMask_))
+        end
+    end
+    if bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
+        local input_flags = bit.band(g.ColorEditOptions, ImGuiColorEditFlags.InputMask_)
+        if input_flags ~= 0 then
+            flags = bit.bor(flags, input_flags)
+        else
+            flags = bit.bor(flags, bit.band(ImGuiColorEditFlags.DefaultOptions_, ImGuiColorEditFlags.InputMask_))
+        end
+    end
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.PickerMask_))) -- Check that only 1 is selected
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.InputMask_)))  -- Check that only 1 is selected
+    if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.AlphaBar))
+    end
+
+    -- Setup
+    local components = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 3 or 4
+    local alpha_bar = (bit.band(flags, ImGuiColorEditFlags.AlphaBar) ~= 0) and (bit.band(flags, ImGuiColorEditFlags.NoAlpha) == 0)
+    local picker_pos = ImVec2()
+    ImVec2_Copy(picker_pos, window.DC.CursorPos)
+    local square_sz = ImGui.GetFrameHeight()
+    local bars_width = square_sz  -- Arbitrary smallish width of Hue/Alpha picking bars
+    local sv_picker_size = math.max(bars_width * 1, width - (alpha_bar and 2 or 1) * (bars_width + style.ItemInnerSpacing.x))  -- Saturation/Value picking box
+    local bar0_pos_x = picker_pos.x + sv_picker_size + style.ItemInnerSpacing.x
+    local bar1_pos_x = bar0_pos_x + bars_width + style.ItemInnerSpacing.x
+    local bars_triangles_half_sz = IM_TRUNC(bars_width * 0.20)
+
+    local backup_initial_col = {col[1], col[2], col[3], col[4]}
+
+    local wheel_thickness = sv_picker_size * 0.08
+    local wheel_r_outer = sv_picker_size * 0.50
+    local wheel_r_inner = wheel_r_outer - wheel_thickness
+    local wheel_center = ImVec2(picker_pos.x + (sv_picker_size + bars_width) * 0.5, picker_pos.y + sv_picker_size * 0.5)
+
+    -- Note: the triangle is displayed rotated with triangle_pa pointing to Hue, but most coordinates stays unrotated for logic.
+    local triangle_r = wheel_r_inner - math.floor(sv_picker_size * 0.027)
+    local triangle_pa = ImVec2(triangle_r, 0.0)  -- Hue point.
+    local triangle_pb = ImVec2(triangle_r * -0.5, triangle_r * -0.866025) -- Black point
+    local triangle_pc = ImVec2(triangle_r * -0.5, triangle_r *  0.866025) -- White point
+
+    local H = col[1]; local S = col[2]; local V = col[3]
+    local R = col[1]; local G = col[2]; local B = col[3]
+    if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+        -- Hue is lost when converting from grayscale rgb (saturation=0). Restore it.
+        H, S, V = ImGui.ColorConvertRGBtoHSV(R, G, B)
+        H, S, V = ColorEditRestoreHS(col, H, S, V)
+    elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+        R, G, B = ImGui.ColorConvertHSVtoRGB(H, S, V)
+    end
+
+    local value_changed = false; local value_changed_h = false; local value_changed_sv = false
+
+    ImGui.PushItemFlag(ImGuiItemFlags_NoNav, true)
+    if bit.band(flags, ImGuiColorEditFlags.PickerHueWheel) ~= 0 then
+        -- Hue wheel + SV triangle logic
+        ImGui.InvisibleButton("hsv", ImVec2(sv_picker_size + style.ItemInnerSpacing.x + bars_width, sv_picker_size))
+        if ImGui.IsItemActive() and not is_readonly then
+            local initial_off = g.IO.MouseClickedPos[0] - wheel_center
+            local current_off = g.IO.MousePos - wheel_center
+            local initial_dist2 = ImLengthSqr(initial_off)
+
+            if initial_dist2 >= (wheel_r_inner - 1) * (wheel_r_inner - 1) and initial_dist2 <= (wheel_r_outer + 1) * (wheel_r_outer + 1) then
+                -- Interactive with Hue wheel
+                H = ImAtan2(current_off.y, current_off.x) / IM_PI * 0.5
+                if H < 0.0 then
+                    H = H + 1.0
+                end
+                value_changed = true
+                value_changed_h = true
+            end
+
+            local cos_hue_angle = ImCos(-H * 2.0 * IM_PI)
+            local sin_hue_angle = ImSin(-H * 2.0 * IM_PI)
+            if ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, ImRotate(initial_off, cos_hue_angle, sin_hue_angle)) then
+                -- Interacting with SV triangle
+                local current_off_unrotated = ImRotate(current_off, cos_hue_angle, sin_hue_angle)
+                if not ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated) then
+                    current_off_unrotated = ImTriangleClosestPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
+                end
+                local uu, vv, ww
+                uu, vv, ww = ImTriangleBarycentricCoords(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
+                V = ImClamp(1.0 - vv, 0.0001, 1.0)
+                S = ImClamp(uu / V, 0.0001, 1.0)
+                value_changed = true
+                value_changed_sv = true
+            end
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+        end
+    elseif bit.band(flags, ImGuiColorEditFlags.PickerHueBar) ~= 0 then
+        -- SV rectangle logic
+        ImGui.InvisibleButton("sv", ImVec2(sv_picker_size, sv_picker_size))
+        if ImGui.IsItemActive() and not is_readonly then
+            S = ImSaturate((io.MousePos.x - picker_pos.x) / ImMax(sv_picker_size - 1, 0.0001))
+            V = 1.0 - ImSaturate((io.MousePos.y - picker_pos.y) / ImMax(sv_picker_size - 1, 0.0001))
+            H = ImGui.ColorEditRestoreH(col, H)  -- Greatly reduces hue jitter and reset to 0 when hue == 255 and color is rapidly modified using SV square.
+            value_changed = true
+            value_changed_sv = true
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+        end
+
+        -- Hue bar logic
+        ImGui.SetCursorScreenPos(ImVec2(bar0_pos_x, picker_pos.y))
+        ImGui.InvisibleButton("hue", ImVec2(bars_width, sv_picker_size))
+        if ImGui.IsItemActive() and not is_readonly then
+            H = ImSaturate((io.MousePos.y - picker_pos.y) / ImMax(sv_picker_size - 1, 0.0001))
+            value_changed = true
+            value_changed_h = true
+        end
+    end
+
+    -- Alpha bar logic
+    if alpha_bar then
+        ImGui.SetCursorScreenPos(ImVec2(bar1_pos_x, picker_pos.y))
+        ImGui.InvisibleButton("alpha", ImVec2(bars_width, sv_picker_size))
+        if ImGui.IsItemActive() then
+            col[4] = 1.0 - ImSaturate((io.MousePos.y - picker_pos.y) / ImMax(sv_picker_size - 1, 0.0001))
+            value_changed = true
+        end
+    end
+    ImGui.PopItemFlag()
+
+    if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) == 0 then
+        ImGui.SameLine(0, style.ItemInnerSpacing.x)
+        ImGui.BeginGroup()
+    end
+
+    if bit.band(flags, ImGuiColorEditFlags.NoLabel) == 0 then
+        local label_display_end = ImGui.FindRenderedTextEnd(label)
+        if label ~= "" and label_display_end > 1 then
+            if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) ~= 0 then
+                ImGui.SameLine(0, style.ItemInnerSpacing.x)
+            end
+            ImGui.TextEx(label, label_display_end)
+        end
+    end
+
+    if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) == 0 then
+        ImGui.PushItemFlag(ImGuiItemFlags_NoNavDefaultFocus, true)
+        local col_v4 = ImVec4(col[1], col[2], col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col[4])
+
+        if bit.band(flags, ImGuiColorEditFlags.NoLabel) ~= 0 then
+            ImGui.Text("Current")
+        end
+
+        local sub_flags_to_forward = bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.HDR, ImGuiColorEditFlags.AlphaMask_, ImGuiColorEditFlags.NoTooltip)
+
+        ImGui.ColorButton("##current", col_v4, bit.band(flags, sub_flags_to_forward), ImVec2(square_sz * 3, square_sz * 2))
+
+        if ref_col ~= nil then
+            ImGui.Text("Original")
+            local ref_col_v4 = ImVec4(ref_col[1], ref_col[2], ref_col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or ref_col[4])
+            if ImGui.ColorButton("##original", ref_col_v4, bit.band(flags, sub_flags_to_forward), ImVec2(square_sz * 3, square_sz * 2)) then
+                for i = 1, components do
+                    col[i] = ref_col[i]
+                end
+                value_changed = true
+            end
+        end
+
+        ImGui.PopItemFlag()
+        ImGui.EndGroup()
+    end
+
+    -- Convert back color to RGB
+    if value_changed_h or value_changed_sv then
+        if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+            col[1], col[2], col[3] = ImGui.ColorConvertHSVtoRGB(H, S, V)  -- Lua 1-based indexing
+            g.ColorEditSavedHue = H
+            g.ColorEditSavedSat = S
+            g.ColorEditSavedID = g.ColorEditCurrentID
+            g.ColorEditSavedColor = ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0))
+        elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+            col[1] = H
+            col[2] = S
+            col[3] = V
+        end
+    end
+
+    -- R,G,B and H,S,V slider color editor
+    local value_changed_fix_hue_wrap = false
+    if bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
+        ImGui.PushItemWidth((alpha_bar and bar1_pos_x or bar0_pos_x) + bars_width - picker_pos.x)
+
+        local sub_flags_to_forward = bit.bor(ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.HDR, ImGuiColorEditFlags.AlphaMask_, ImGuiColorEditFlags.NoOptions, ImGuiColorEditFlags.NoTooltip, ImGuiColorEditFlags.NoSmallPreview)
+        local sub_flags = bit.bor(bit.band(flags, sub_flags_to_forward), ImGuiColorEditFlags.NoPicker)
+
+        if bit.band(flags, ImGuiColorEditFlags.DisplayRGB) ~= 0 or bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
+            if ImGui.ColorEdit4("##rgb", col, bit.bor(sub_flags, ImGuiColorEditFlags.DisplayRGB)) then
+                -- FIXME: Hackily differentiating using the DragInt (ActiveId != 0 && !ActiveIdAllowOverlap) vs. using the InputText or DropTarget.
+                -- For the later we don't want to run the hue-wrap canceling code. If you are well versed in HSV picker please provide your input! (See #2050)
+                value_changed_fix_hue_wrap = (g.ActiveId ~= 0 and not g.ActiveIdAllowOverlap)
+                value_changed = true
+            end
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.DisplayHSV) ~= 0 or bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
+            if ImGui.ColorEdit4("##hsv", col, bit.bor(sub_flags, ImGuiColorEditFlags.DisplayHSV)) then
+                value_changed = true
+            end
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 or bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
+            if ImGui.ColorEdit4("##hex", col, bit.bor(sub_flags, ImGuiColorEditFlags.DisplayHex)) then
+                value_changed = true
+            end
+        end
+
+        ImGui.PopItemWidth()
+    end
+
+    -- Try to cancel hue wrap (after ColorEdit4 call), if any
+    if value_changed_fix_hue_wrap and bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+        local new_H, new_S, new_V = ImGui.ColorConvertRGBtoHSV(col[1], col[2], col[3])  -- Lua 1-based indexing
+
+        if new_H <= 0 and H > 0 then
+            if new_V <= 0 and V ~= new_V then
+                col[1], col[2], col[3] = ImGui.ColorConvertHSVtoRGB(H, S, (new_V <= 0) and (V * 0.5) or new_V)
+            elseif new_S <= 0 then
+                col[1], col[2], col[3] = ImGui.ColorConvertHSVtoRGB(H, (new_S <= 0) and (S * 0.5) or new_S, new_V)
+            end
+        end
+    end
+
+    if value_changed then
+        if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+            R = col[1]
+            G = col[2]
+            B = col[3]
+            H, S, V = ImGui.ColorConvertRGBtoHSV(R, G, B)
+            H, S, V = ColorEditRestoreHS(col, H, S, V) -- Fix local Hue as display below will use it immediately.
+        elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+            H = col[1]
+            S = col[2]
+            V = col[3]
+            R, G, B = ImGui.ColorConvertHSVtoRGB(H, S, V)
+        end
+    end
+
+    local style_alpha8 = IM_F32_TO_INT8_SAT(style.Alpha)
+    local col_black = IM_COL32(0, 0, 0, style_alpha8)
+    local col_white = IM_COL32(255, 255, 255, style_alpha8)
+    local col_midgrey = IM_COL32(128, 128, 128, style_alpha8)
+    local col_hues = { IM_COL32(255, 0, 0, style_alpha8), IM_COL32(255, 255, 0, style_alpha8), IM_COL32(0, 255, 0, style_alpha8), IM_COL32(0, 255, 255, style_alpha8), IM_COL32(0, 0, 255, style_alpha8), IM_COL32(255, 0, 255, style_alpha8), IM_COL32(255, 0, 0, style_alpha8) }
+
+    local hue_color_f = ImVec4(1, 1, 1, style.Alpha)
+    hue_color_f.x, hue_color_f.y, hue_color_f.z = ImGui.ColorConvertHSVtoRGB(H, 1, 1)
+    local hue_color32 = ImGui.ColorConvertFloat4ToU32(hue_color_f)
+    local user_col32_striped_of_alpha = ImGui.ColorConvertFloat4ToU32(ImVec4(R, G, B, style.Alpha)) -- Important: this is still including the main rendering/style alpha!!
+
+    local sv_cursor_pos
+
+    if bit.band(flags, ImGuiColorEditFlags.PickerHueWheel) ~= 0 then
+        -- Render Hue Wheel
+        local aeps = 0.5 / wheel_r_outer -- Half a pixel arc length in radians (2pi cancels out).
+        local segment_per_arc =ImMax(4, math.floor(wheel_r_outer / 12))
+
+        for n = 1, 6 do
+            local a0 = (n - 1) / 6.0 * 2.0 * IM_PI - aeps
+            local a1 = n / 6.0 * 2.0 * IM_PI + aeps
+            local vert_start_idx = draw_list.VtxBuffer.Size + 1
+
+            draw_list:PathArcTo(wheel_center, (wheel_r_inner + wheel_r_outer) * 0.5, a0, a1, segment_per_arc)
+            draw_list:PathStroke(col_white, 0, wheel_thickness)
+
+            local vert_end_idx = draw_list.VtxBuffer.Size + 1
+
+            -- Paint colors over existing vertices
+            local gradient_p0 = ImVec2(wheel_center.x + ImCos(a0) * wheel_r_inner, wheel_center.y + ImSin(a0) * wheel_r_inner)
+            local gradient_p1 = ImVec2(wheel_center.x + ImCos(a1) * wheel_r_inner, wheel_center.y + ImSin(a1) * wheel_r_inner)
+            ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx, vert_end_idx, gradient_p0, gradient_p1, col_hues[n], col_hues[n + 1])
+        end
+
+        -- Render Cursor + preview on Hue Wheel
+        local cos_hue_angle = ImCos(H * 2.0 * IM_PI)
+        local sin_hue_angle = ImSin(H * 2.0 * IM_PI)
+
+        local hue_cursor_pos = ImVec2(wheel_center.x + cos_hue_angle * (wheel_r_inner + wheel_r_outer) * 0.5, wheel_center.y + sin_hue_angle * (wheel_r_inner + wheel_r_outer) * 0.5)
+
+        local hue_cursor_rad = value_changed_h and (wheel_thickness * 0.65) or (wheel_thickness * 0.55)
+        local hue_cursor_segments = draw_list:_CalcCircleAutoSegmentCount(hue_cursor_rad) -- Lock segment count so the +1 one matches others.
+
+        draw_list:AddCircleFilled(hue_cursor_pos, hue_cursor_rad, hue_color32, hue_cursor_segments)
+        draw_list:AddCircle(hue_cursor_pos, hue_cursor_rad + 1, col_midgrey, hue_cursor_segments)
+        draw_list:AddCircle(hue_cursor_pos, hue_cursor_rad, col_white, hue_cursor_segments)
+
+        -- Render SV triangle (rotated according to hue)
+        local tra = wheel_center + ImRotate(triangle_pa, cos_hue_angle, sin_hue_angle)
+        local trb = wheel_center + ImRotate(triangle_pb, cos_hue_angle, sin_hue_angle)
+        local trc = wheel_center + ImRotate(triangle_pc, cos_hue_angle, sin_hue_angle)
+
+        local uv_white = ImGui.GetFontTexUvWhitePixel()
+        draw_list:PrimReserve(3, 3)
+        draw_list:PrimVtx(tra, uv_white, hue_color32)
+        draw_list:PrimVtx(trb, uv_white, col_black)
+        draw_list:PrimVtx(trc, uv_white, col_white)
+        draw_list:AddTriangle(tra, trb, trc, col_midgrey, 1.5)
+
+        sv_cursor_pos = ImLerpV2V2(ImLerpV2V2(trc, tra, ImSaturate(S)), trb, ImSaturate(1 - V))
+    elseif bit.band(flags, ImGuiColorEditFlags.PickerHueBar) ~= 0 then
+        -- Render SV Square
+        draw_list:AddRectFilledMultiColor(picker_pos, picker_pos + ImVec2(sv_picker_size, sv_picker_size), col_white, hue_color32, hue_color32, col_white)
+        draw_list:AddRectFilledMultiColor(picker_pos, picker_pos + ImVec2(sv_picker_size, sv_picker_size), 0, 0, col_black, col_black)
+        ImGui.RenderFrameBorder(picker_pos, picker_pos + ImVec2(sv_picker_size, sv_picker_size), 0.0)
+
+        -- Sneakily prevent the circle to stick out too much
+        sv_cursor_pos.x = ImClamp(IM_ROUND(picker_pos.x + ImSaturate(S) * sv_picker_size), picker_pos.x + 2, picker_pos.x + sv_picker_size - 2)
+        sv_cursor_pos.y = ImClamp(IM_ROUND(picker_pos.y + ImSaturate(1 - V) * sv_picker_size), picker_pos.y + 2, picker_pos.y + sv_picker_size - 2)
+
+        -- Render Hue Bar
+        for i = 1, 6 do
+            draw_list:AddRectFilledMultiColor(ImVec2(bar0_pos_x, picker_pos.y + (i - 1) * (sv_picker_size / 6)), ImVec2(bar0_pos_x + bars_width, picker_pos.y + i * (sv_picker_size / 6)), col_hues[i], col_hues[i], col_hues[i + 1], col_hues[i + 1])
+        end
+
+        local bar0_line_y = IM_ROUND(picker_pos.y + H * sv_picker_size)
+        ImGui.RenderFrameBorder(ImVec2(bar0_pos_x, picker_pos.y), ImVec2(bar0_pos_x + bars_width, picker_pos.y + sv_picker_size), 0.0)
+        ImGui.RenderArrowsForVerticalBar(draw_list, ImVec2(bar0_pos_x - 1, bar0_line_y), ImVec2(bars_triangles_half_sz + 1, bars_triangles_half_sz), bars_width + 2.0, style.Alpha)
+    end
+
+    -- Render cursor/preview circle (clamp S/V within 0..1 range because floating points colors may lead HSV values to be out of range)
+    local sv_cursor_rad = value_changed_sv and (wheel_thickness * 0.55) or (wheel_thickness * 0.40)
+    local sv_cursor_segments = draw_list:_CalcCircleAutoSegmentCount(sv_cursor_rad)  -- Lock segment count so the +1 one matches others.
+    draw_list:AddCircleFilled(sv_cursor_pos, sv_cursor_rad, user_col32_striped_of_alpha, sv_cursor_segments)
+    draw_list:AddCircle(sv_cursor_pos, sv_cursor_rad + 1, col_midgrey, sv_cursor_segments)
+    draw_list:AddCircle(sv_cursor_pos, sv_cursor_rad, col_white, sv_cursor_segments)
+
+    -- Render alpha bar
+    if alpha_bar then
+        local alpha = ImSaturate(col[4])
+        local bar1_bb = ImRect(bar1_pos_x, picker_pos.y, bar1_pos_x + bars_width, picker_pos.y + sv_picker_size)
+        ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, bar1_bb.Min, bar1_bb.Max, 0, bar1_bb:GetWidth() / 2.0, ImVec2(0.0, 0.0))
+        draw_list:AddRectFilledMultiColor(bar1_bb.Min, bar1_bb.Max, user_col32_striped_of_alpha, user_col32_striped_of_alpha, bit.band(user_col32_striped_of_alpha, bit.bnot(IM_COL32_A_MASK)), bit.band(user_col32_striped_of_alpha, bit.bnot(IM_COL32_A_MASK)))
+
+        local bar1_line_y = IM_ROUND(picker_pos.y + (1.0 - alpha) * sv_picker_size)
+        ImGui.RenderFrameBorder(bar1_bb.Min, bar1_bb.Max, 0.0)
+        ImGui.RenderArrowsForVerticalBar(draw_list, ImVec2(bar1_pos_x - 1, bar1_line_y), ImVec2(bars_triangles_half_sz + 1, bars_triangles_half_sz), bars_width + 2.0, style.Alpha)
+    end
+
+    ImGui.EndGroup()
+
+    if value_changed then
+        for i = 1, components do
+            if backup_initial_col[i] ~= col[i] then
+                break
+            end
+            if i == components then
+                value_changed = false
+            end
+        end
+    end
+
+    if value_changed and g.LastItemData.ID ~= 0 then -- In case of ID collision, the second EndGroup() won't catch g.ActiveId
+        ImGui.MarkItemEdited(g.LastItemData.ID)
+    end
+
+    if set_current_color_edit_id then
+        g.ColorEditCurrentID = 0
+    end
+
+    ImGui.PopID()
+
+    return value_changed
+end
+
+--- @param desc_id   string
+--- @param col       ImVec4
+--- @param flags?    ImGuiColorEditFlags
+--- @param size_arg? ImVec2
+function ImGui.ColorButton(desc_id, col, flags, size_arg)
+    if flags    == nil then flags    = 0            end
+    if size_arg == nil then size_arg = ImVec2(0, 0) end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local id = window:GetID(desc_id)
+    local default_size = ImGui.GetFrameHeight()
+    local size = ImVec2(size_arg.x == 0.0 and default_size or size_arg.x, size_arg.y == 0.0 and default_size or size_arg.y)
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
+    ImGui.ItemSizeR(bb, (size.y >= default_size) and g.Style.FramePadding.y or 0.0)
+    if not ImGui.ItemAdd(bb, id) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
+
+    if bit.band(flags, bit.bor(ImGuiColorEditFlags.NoAlpha, ImGuiColorEditFlags.AlphaOpaque)) ~= 0 then
+        flags = bit.band(flags, bit.bnot(bit.bor(ImGuiColorEditFlags.AlphaNoBg, ImGuiColorEditFlags.AlphaPreviewHalf)))
+    end
+
+    local col_rgb = ImVec4(col.x, col.y, col.z, col.w)
+    if bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+        col_rgb.x, col_rgb.y, col_rgb.z = ImGui.ColorConvertHSVtoRGB(col_rgb.x, col_rgb.y, col_rgb.z)
+    end
+
+    local col_rgb_without_alpha = ImVec4(col_rgb.x, col_rgb.y, col_rgb.z, 1.0)
+    local grid_step = ImMin(size.x, size.y) / 2.99
+    local rounding = ImMin(g.Style.FrameRounding, grid_step * 0.5)
+    local bb_inner = ImRect()
+    ImRect_Copy(bb_inner, bb)
+    local off = 0.0
+    if bit.band(flags, ImGuiColorEditFlags.NoBorder) == 0 then
+        off = -0.75
+        bb_inner:Expand(off)
+    end
+    if bit.band(flags, ImGuiColorEditFlags.AlphaPreviewHalf) ~= 0 and col_rgb.w < 1.0 then
+        local mid_x = IM_ROUND((bb_inner.Min.x + bb_inner.Max.x) * 0.5)
+        if bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
+            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32_V4(col_rgb), grid_step, ImVec2(-grid_step + off, off), rounding, ImDrawFlags_RoundCornersRight)
+        else
+            window.DrawList:AddRectFilled(ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32_V4(col_rgb), rounding, ImDrawFlags_RoundCornersRight)
+        end
+        window.DrawList:AddRectFilled(bb_inner.Min, ImVec2(mid_x, bb_inner.Max.y), ImGui.GetColorU32_V4(col_rgb_without_alpha), rounding, ImDrawFlags_RoundCornersLeft)
+    else
+        local col_source = (bit.band(flags, ImGuiColorEditFlags.AlphaOpaque) ~= 0) and col_rgb_without_alpha or col_rgb
+        if col_source.w < 1.0 and bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
+            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, bb_inner.Min, bb_inner.Max, ImGui.GetColorU32_V4(col_source), grid_step, ImVec2(off, off), rounding)
+        else
+            window.DrawList:AddRectFilled(bb_inner.Min, bb_inner.Max, ImGui.GetColorU32_V4(col_source), rounding)
+        end
+    end
+    ImGui.RenderNavCursor(bb, id)
+    if bit.band(flags, ImGuiColorEditFlags.NoBorder) == 0 then
+        if g.Style.FrameBorderSize > 0.0 then
+            ImGui.RenderFrameBorder(bb.Min, bb.Max, rounding)
+        else
+            window.DrawList:AddRect(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), rounding)
+        end
+    end
+
+    -- Drag and Drop Source
+    -- NB: The ActiveId test is merely an optional micro-optimization, BeginDragDropSource() does the same test.
+    -- if g.ActiveId == id and bit.band(flags, ImGuiColorEditFlags.NoDragDrop) == 0 and ImGui.BeginDragDropSource() then
+    --     if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
+    --         ImGui.SetDragDropPayload(IMGUI_PAYLOAD_TYPE_COLOR_3F, col_rgb, ImGuiCond.Once)
+    --     else
+    --         ImGui.SetDragDropPayload(IMGUI_PAYLOAD_TYPE_COLOR_4F, col_rgb, ImGuiCond.Once)
+    --     end
+    --     ImGui.ColorButton(desc_id, col, flags)
+    --     ImGui.SameLine()
+    --     ImGui.TextEx("Color")
+    --     ImGui.EndDragDropSource()
+    -- end
+
+    -- Tooltip
+    if bit.band(flags, ImGuiColorEditFlags.NoTooltip) == 0 and hovered and ImGui.IsItemHovered(ImGuiHoveredFlags_ForTooltip) then
+        ImGui.ColorTooltip(desc_id, col, bit.band(flags, bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.AlphaMask_)))
+    end
+end
+
+--- @param text? string
+--- @param col   float[]
+--- @param flags ImGuiColorEditFlags
+function ImGui.ColorTooltip(text, col, flags)
+    local g = ImGui.GetCurrentContext()
+
+    if not ImGui.BeginTooltipEx(ImGuiTooltipFlags.OverridePrevious, ImGuiWindowFlags_None) then
+        return
+    end
+
+    local text_end = text and ImGui.FindRenderedTextEnd(text, nil) or 1
+    if text_end > 1 then
+        --- @cast text string
+        ImGui.TextEx(text, text_end)
+        ImGui.Separator()
+    end
+
+    local sz = ImVec2(g.FontSize * 3 + g.Style.FramePadding.y * 2, g.FontSize * 3 + g.Style.FramePadding.y * 2)
+    local cf = ImVec4(col[1], col[2], col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col[4])
+    local cr = IM_F32_TO_INT8_SAT(col[1])
+    local cg = IM_F32_TO_INT8_SAT(col[2])
+    local cb = IM_F32_TO_INT8_SAT(col[3])
+    local ca = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 255 or IM_F32_TO_INT8_SAT(col[4])
+
+    local flags_to_forward = bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.AlphaMask_)
+    ImGui.ColorButton("##preview", cf, bit.bor(bit.band(flags, flags_to_forward), ImGuiColorEditFlags.NoTooltip), sz)
+    ImGui.SameLine()
+
+    if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 or bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
+        if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
+            ImGui.Text("#%02X%02X%02X\nR: %d, G: %d, B: %d\n(%.3f, %.3f, %.3f)", cr, cg, cb, cr, cg, cb, col[1], col[2], col[3])
+        else
+            ImGui.Text("#%02X%02X%02X%02X\nR:%d, G:%d, B:%d, A:%d\n(%.3f, %.3f, %.3f, %.3f)", cr, cg, cb, ca, cr, cg, cb, ca, col[1], col[2], col[3], col[4])
+        end
+    elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+        if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
+            ImGui.Text("H: %.3f, S: %.3f, V: %.3f", col[1], col[2], col[3])
+        else
+            ImGui.Text("H: %.3f, S: %.3f, V: %.3f, A: %.3f", col[1], col[2], col[3], col[4])
+        end
+    end
+
+    ImGui.EndTooltip()
+end
+
+--- @param ref_col float[]
+--- @param flags   ImGuiColorEditFlags
+function ImGui.ColorPickerOptionsPopup(ref_col, flags)
+    local allow_opt_picker = bit.band(flags, ImGuiColorEditFlags.PickerMask_) == 0
+    local allow_opt_alpha_bar = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) == 0) and (bit.band(flags, ImGuiColorEditFlags.AlphaBar) == 0)
+
+    if (not allow_opt_picker and not allow_opt_alpha_bar) or not ImGui.BeginPopup("context") then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    ImGui.PushItemFlag(ImGuiItemFlags_NoMarkEdited, true)
+    if allow_opt_picker then
+        local picker_size = ImVec2(g.FontSize * 8, ImMax(g.FontSize * 8 - (ImGui.GetFrameHeight() + g.Style.ItemInnerSpacing.x), 1.0)) -- FIXME: Picker size copied from main picker function
+        ImGui.PushItemWidth(picker_size.x)
+        for picker_type = 0, 1 do
+            if picker_type > 0 then
+                ImGui.Separator()
+            end
+            ImGui.PushID(picker_type)
+            local picker_flags = bit.bor(ImGuiColorEditFlags.NoInputs, ImGuiColorEditFlags.NoOptions, ImGuiColorEditFlags.NoLabel, ImGuiColorEditFlags.NoSidePreview, bit.band(flags, ImGuiColorEditFlags.NoAlpha))
+            if picker_type == 0 then
+                picker_flags = bit.bor(picker_flags, ImGuiColorEditFlags.PickerHueBar)
+            end
+            if picker_type == 1 then
+                picker_flags = bit.bor(picker_flags, ImGuiColorEditFlags.PickerHueWheel)
+            end
+            local backup_pos = ImGui.GetCursorScreenPos()
+            -- By default, Selectable() is closing popup
+            if ImGui.Selectable("##selectable", false, 0, picker_size) then
+                g.ColorEditOptions = bit.bor(bit.band(g.ColorEditOptions, bit.bnot(ImGuiColorEditFlags.PickerMask_)), bit.band(picker_flags, ImGuiColorEditFlags.PickerMask_))
+            end
+            ImGui.SetCursorScreenPos(backup_pos)
+            local previewing_ref_col = ImVec4()
+            for i = 1, (bit.band(picker_flags, ImGuiColorEditFlags.NoAlpha) ~= 0 and 3 or 4) do
+                previewing_ref_col[i] = ref_col[i]
+            end
+            ImGui.ColorPicker4("##previewing_picker", previewing_ref_col, picker_flags)
+            ImGui.PopID()
+        end
+        ImGui.PopItemWidth()
+    end
+    if allow_opt_alpha_bar then
+        if allow_opt_picker then
+            ImGui.Separator()
+        end
+        _, g.ColorEditOptions = ImGui.CheckboxFlags("Alpha Bar", g.ColorEditOptions, ImGuiColorEditFlags.AlphaBar)
+    end
+    ImGui.PopItemFlag()
+    ImGui.EndPopup()
 end
 
 ----------------------------------------------------------------
@@ -1626,7 +2315,7 @@ end
 --- @return int
 function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, size_arg)
     local g = ImGui.GetCurrentContext()
-    local window = g.CurrentWindow
+    local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return -1
     end
