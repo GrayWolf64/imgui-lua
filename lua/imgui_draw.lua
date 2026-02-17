@@ -3185,13 +3185,13 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
             self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
             self.VtxBuffer.Data[vtx_write_ptr].pos.x = p1.x - dm_x
             self.VtxBuffer.Data[vtx_write_ptr].pos.y = p1.y - dm_y
-            self.VtxBuffer.Data[vtx_write_ptr].uv = uv
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, uv)
             self.VtxBuffer.Data[vtx_write_ptr].col = col
 
             self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
             self.VtxBuffer.Data[vtx_write_ptr + 1].pos.x = p1.x + dm_x
             self.VtxBuffer.Data[vtx_write_ptr + 1].pos.y = p1.y + dm_y
-            self.VtxBuffer.Data[vtx_write_ptr + 1].uv = uv
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, uv)
             self.VtxBuffer.Data[vtx_write_ptr + 1].col = col_trans
 
             self._VtxWritePtr = vtx_write_ptr + 2
@@ -3654,25 +3654,25 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             self.VtxBuffer.Data[vtx_write_ptr] = ImDrawVert()
             self.VtxBuffer.Data[vtx_write_ptr].pos.x = p1.x + dy
             self.VtxBuffer.Data[vtx_write_ptr].pos.y = p1.y - dx
-            self.VtxBuffer.Data[vtx_write_ptr].uv = opaque_uv
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, opaque_uv)
             self.VtxBuffer.Data[vtx_write_ptr].col = col
 
             self.VtxBuffer.Data[vtx_write_ptr + 1] = ImDrawVert()
             self.VtxBuffer.Data[vtx_write_ptr + 1].pos.x = p2.x + dy
             self.VtxBuffer.Data[vtx_write_ptr + 1].pos.y = p2.y - dx
-            self.VtxBuffer.Data[vtx_write_ptr + 1].uv = opaque_uv
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, opaque_uv)
             self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
 
             self.VtxBuffer.Data[vtx_write_ptr + 2] = ImDrawVert()
             self.VtxBuffer.Data[vtx_write_ptr + 2].pos.x = p2.x - dy
             self.VtxBuffer.Data[vtx_write_ptr + 2].pos.y = p2.y + dx
-            self.VtxBuffer.Data[vtx_write_ptr + 2].uv = opaque_uv
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, opaque_uv)
             self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
 
             self.VtxBuffer.Data[vtx_write_ptr + 3] = ImDrawVert()
             self.VtxBuffer.Data[vtx_write_ptr + 3].pos.x = p1.x - dy
             self.VtxBuffer.Data[vtx_write_ptr + 3].pos.y = p1.y + dx
-            self.VtxBuffer.Data[vtx_write_ptr + 3].uv = opaque_uv
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].uv, opaque_uv)
             self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
 
             self._VtxWritePtr = vtx_write_ptr + 4

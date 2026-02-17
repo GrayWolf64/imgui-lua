@@ -3702,8 +3702,8 @@ end
 --- @param name     string
 --- @param open?    bool
 --- @param flags?   ImGuiWindowFlags
---- @return bool is_open      # The updated `open` passed in
---- @return bool is_collapsed # You always need to call `ImGui.End()` even if false is returned
+--- @return bool is_open       # The updated `open` passed in
+--- @return bool no_skip_items # You always need to call `ImGui.End()` even if false is returned
 function ImGui.Begin(name, open, flags)
     if flags == nil then flags = 0     end
 
