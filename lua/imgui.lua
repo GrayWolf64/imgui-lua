@@ -2195,8 +2195,8 @@ function ImGui.IsMouseClicked(button, is_repeat, flags, owner_id)
     return true
 end
 
---- @param button   ImGuiMouseButton
---- @param owner_id ImGuiID
+--- @param button    ImGuiMouseButton
+--- @param owner_id? ImGuiID
 function ImGui.IsMouseReleased(button, owner_id)
     if owner_id == nil then owner_id = ImGuiKeyOwner_Any end
 
@@ -4345,6 +4345,8 @@ function ImGui.Begin(name, open, flags)
         if window.AutoFitFramesY > 0 then
             window.AutoFitFramesY = window.AutoFitFramesY - 1
         end
+
+        g.NextWindowData:ClearFlags()
 
         if want_focus then
             ImGui.FocusWindow(window)
@@ -6516,8 +6518,38 @@ function ImGui.FindBestWindowPosForPopup(window)
     return window.Pos
 end
 
+--- @param flags ImGuiPopupFlags
+--- @return ImGuiMouseButton
+function ImGui.GetMouseButtonFromPopupFlags(flags)
+if not IMGUI_DISABLE_OBSOLETE_FUNCTIONS then
+    if bit.band(flags, ImGuiPopupFlags_InvalidMask_) ~= 0 then
+        return bit.band(flags, ImGuiPopupFlags_InvalidMask_)
+    end
+else
+    IM_ASSERT(bit.band(flags, ImGuiPopupFlags_InvalidMask_) == 0)
+end
+
+    if bit.band(flags, ImGuiPopupFlags_MouseButtonMask_) ~= 0 then
+        return bit.rshift(bit.band(flags, ImGuiPopupFlags_MouseButtonMask_), ImGuiPopupFlags_MouseButtonShift_) - 1
+    end
+
+    return ImGuiMouseButton.Right -- Default == 1
+end
+
+--- @param str_id?      string
+--- @param popup_flags? ImGuiPopupFlags
 function ImGui.OpenPopupOnItemClick(str_id, popup_flags)
-    -- TODO:
+    if popup_flags == nil then popup_flags = 0 end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+    local mouse_button = ImGui.GetMouseButtonFromPopupFlags(popup_flags)
+    if ImGui.IsMouseReleased(mouse_button) and ImGui.IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup) then
+        local id
+        if str_id then id = window:GetID(str_id) else id = g.LastItemData.ID end
+        IM_ASSERT(id ~= 0)
+        ImGui.OpenPopupEx(id, popup_flags)
+    end
 end
 
 ---------------------------------------------------------------------------------------
