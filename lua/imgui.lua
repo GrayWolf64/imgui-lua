@@ -650,7 +650,7 @@ local function ApplyWindowSettings(window, settings)
     ImVec2_Copy(window.ViewportPos, main_viewport.Pos)
     if (settings.ViewportId ~= 0) then
         window.ViewportId = settings.ViewportId
-        window.ViewportPos = ImVec2(settings.ViewportPos.x, settings.ViewportPos.y)
+        ImVec2_Copy(window.ViewportPos, settings.ViewportPos)
     end
     window.Pos = ImTruncV2(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
     if settings.Size.x > 0 and settings.Size.y > 0 then
@@ -667,9 +667,9 @@ local function InitOrLoadWindowSettings(window, settings)
     -- Initial window state with e.g. default/arbitrary window position
     -- Use SetNextWindowPos() with the appropriate condition flag to change the initial position of a window.
     local main_viewport = ImGui.GetMainViewport()
-    window.Pos = main_viewport.Pos + ImVec2(60, 60)
-    window.Size = ImVec2(0, 0)
-    window.SizeFull = ImVec2(0, 0)
+    ImVec2_Copy(window.Pos, main_viewport.Pos + ImVec2(60, 60))
+    ImVec2_Copy(window.Size, ImVec2(0, 0))
+    ImVec2_Copy(window.SizeFull, ImVec2(0, 0))
     ImVec2_Copy(window.ViewportPos, main_viewport.Pos)
     window.SetWindowPosAllowFlags = bit.bor(ImGuiCond.Always, ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)
     window.SetWindowSizeAllowFlags = window.SetWindowPosAllowFlags
@@ -679,9 +679,9 @@ local function InitOrLoadWindowSettings(window, settings)
         SetWindowConditionAllowFlags(window, ImGuiCond.FirstUseEver, false)
         ApplyWindowSettings(window, settings)
     end
-    ImVec2_Copy(window.DC.CursorStartPos, ImVec2(window.Pos.x, window.Pos.y)) -- So first call to CalcWindowContentSizes() doesn't return crazy values
-    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorStartPos)
-    ImVec2_Copy(window.DC.IdealMaxPos, window.DC.CursorStartPos)
+    ImVec2_Copy(window.DC.CursorStartPos, window.Pos) -- So first call to CalcWindowContentSizes() doesn't return crazy values
+    ImVec2_Copy(window.DC.CursorMaxPos, window.Pos)
+    ImVec2_Copy(window.DC.IdealMaxPos, window.Pos)
 
     if bit.band(window.Flags, ImGuiWindowFlags_AlwaysAutoResize) ~= 0 then
         window.AutoFitFramesX = 2
@@ -786,7 +786,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
 
     g.LastItemData.ID = id
     ImRect_Copy(g.LastItemData.Rect, bb)
-    g.LastItemData.NavRect = nav_bb_arg and nav_bb_arg or bb
+    ImRect_Copy(g.LastItemData.NavRect, nav_bb_arg and nav_bb_arg or bb)
     g.LastItemData.ItemFlags = bit.bor(g.CurrentItemFlags, g.NextItemData.ItemFlags, extra_flags)
     g.LastItemData.StatusFlags = ImGuiItemStatusFlags.None
 
@@ -6603,12 +6603,12 @@ function ImGui.NavCalcPreferredRefPos(window_type)
     else
         -- When navigation is active and mouse is disabled, pick a position around the bottom left of the currently navigated item
         local activated_shortcut = g.ActiveId ~= 0 and g.ActiveIdFromShortcut and g.ActiveId == g.LastItemData.ID
-        local ref_rect
 
+        local ref_rect = ImRect()
         if activated_shortcut and (bit.band(window_type, ImGuiWindowFlags_Popup) ~= 0) then
-            ref_rect = g.LastItemData.NavRect
+            ImRect_Copy(ref_rect, g.LastItemData.NavRect)
         elseif window ~= nil then
-            ref_rect = ImGui.WindowRectRelToAbs(window, window.NavRectRel[ImAxisToStr[g.NavLayer]])
+            ImRect_Copy(ref_rect, ImGui.WindowRectRelToAbs(window, window.NavRectRel[ImAxisToStr[g.NavLayer]]))
         end
 
         -- Take account of upcoming scrolling (maybe set mouse pos should be done in EndFrame?)
