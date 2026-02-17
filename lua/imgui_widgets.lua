@@ -1982,7 +1982,7 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
 end
 
 --- @param text? string
---- @param col   float[]
+--- @param col   ImVec4
 --- @param flags ImGuiColorEditFlags
 function ImGui.ColorTooltip(text, col, flags)
     local g = ImGui.GetCurrentContext()
@@ -1999,11 +1999,11 @@ function ImGui.ColorTooltip(text, col, flags)
     end
 
     local sz = ImVec2(g.FontSize * 3 + g.Style.FramePadding.y * 2, g.FontSize * 3 + g.Style.FramePadding.y * 2)
-    local cf = ImVec4(col[1], col[2], col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col[4])
-    local cr = IM_F32_TO_INT8_SAT(col[1])
-    local cg = IM_F32_TO_INT8_SAT(col[2])
-    local cb = IM_F32_TO_INT8_SAT(col[3])
-    local ca = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 255 or IM_F32_TO_INT8_SAT(col[4])
+    local cf = ImVec4(col.x, col.y, col.z, (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col.w)
+    local cr = IM_F32_TO_INT8_SAT(col.x)
+    local cg = IM_F32_TO_INT8_SAT(col.y)
+    local cb = IM_F32_TO_INT8_SAT(col.z)
+    local ca = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 255 or IM_F32_TO_INT8_SAT(col.w)
 
     local flags_to_forward = bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.AlphaMask_)
     ImGui.ColorButton("##preview", cf, bit.bor(bit.band(flags, flags_to_forward), ImGuiColorEditFlags.NoTooltip), sz)
@@ -2011,15 +2011,15 @@ function ImGui.ColorTooltip(text, col, flags)
 
     if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 or bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
         if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
-            ImGui.Text("#%02X%02X%02X\nR: %d, G: %d, B: %d\n(%.3f, %.3f, %.3f)", cr, cg, cb, cr, cg, cb, col[1], col[2], col[3])
+            ImGui.Text("#%02X%02X%02X\nR: %d, G: %d, B: %d\n(%.3f, %.3f, %.3f)", cr, cg, cb, cr, cg, cb, col.x, col.y, col.z)
         else
-            ImGui.Text("#%02X%02X%02X%02X\nR:%d, G:%d, B:%d, A:%d\n(%.3f, %.3f, %.3f, %.3f)", cr, cg, cb, ca, cr, cg, cb, ca, col[1], col[2], col[3], col[4])
+            ImGui.Text("#%02X%02X%02X%02X\nR:%d, G:%d, B:%d, A:%d\n(%.3f, %.3f, %.3f, %.3f)", cr, cg, cb, ca, cr, cg, cb, ca, col.x, col.y, col.z, col.w)
         end
     elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
         if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
-            ImGui.Text("H: %.3f, S: %.3f, V: %.3f", col[1], col[2], col[3])
+            ImGui.Text("H: %.3f, S: %.3f, V: %.3f", col.x, col.y, col.z)
         else
-            ImGui.Text("H: %.3f, S: %.3f, V: %.3f, A: %.3f", col[1], col[2], col[3], col[4])
+            ImGui.Text("H: %.3f, S: %.3f, V: %.3f, A: %.3f", col.x, col.y, col.z, col.w)
         end
     end
 

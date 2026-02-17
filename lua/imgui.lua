@@ -4756,6 +4756,10 @@ function ImGui.UpdateMouseInputs()
         io.MouseDelta = ImVec2(0.0, 0.0)
     end
 
+    local mouse_stationary_threshold = (io.MouseSource == ImGuiMouseSource.Mouse) and 2.0 or 3.0
+    local mouse_stationary = (ImLengthSqr(io.MouseDelta) <= mouse_stationary_threshold * mouse_stationary_threshold)
+    g.MouseStationaryTimer = mouse_stationary and (g.MouseStationaryTimer + io.DeltaTime) or 0.0
+
     for i = 0, 2 do -- IM_COUNTOF(io.MouseDown)
         io.MouseClicked[i] = io.MouseDown[i] and (io.MouseDownDuration[i] < 0)
         io.MouseClickedCount[i] = 0
