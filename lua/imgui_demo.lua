@@ -117,17 +117,17 @@ end
 
 end
 
-local open = true
-
-function ImGui.ShowDemoWindow()
+function ImGui.ShowDemoWindow(open)
     open = ImGui.Begin("ImGui Sincerely Demo", open)
     if not open then
         ImGui.End()
-        return
+        return open
     end
 
     DemoWindowWidgetsBasic()
     DemoWindowWidgetsColorAndPickers()
 
     ImGui.End()
+
+    return open
 end

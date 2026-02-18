@@ -42,13 +42,16 @@ concommand.Add("imgui_test", function()
 
     ImGui_ImplGMOD.Init(viewport, true)
 
-    function viewport.PaintOver(self, w, h)
+    local show_demo_window = true
 
+    function viewport.PaintOver(self, w, h)
         ImGui_ImplGMOD.NewFrame()
 
         ImGui.NewFrame()
 
-        ImGui.ShowDemoWindow()
+        if show_demo_window then
+            show_demo_window = ImGui.ShowDemoWindow(show_demo_window)
+        end
 
         ImGui.EndFrame()
 

@@ -5619,24 +5619,23 @@ function ImGui.ColorConvertHSVtoRGB(h, s, v)
     end
 end
 
---- @param idx        ImGuiCol
+--- @param col        ImGuiCol|ImVec4
 --- @param alpha_mul? float
 --- @return ImU32
-function ImGui.GetColorU32(idx, alpha_mul)
+function ImGui.GetColorU32(col, alpha_mul)
     if alpha_mul == nil then alpha_mul = 1.0 end
 
-    local g = GImGui
-    local c = g.Style.Colors[idx]
-    c.w = c.w * g.Style.Alpha * alpha_mul
-    return ImGui.ColorConvertFloat4ToU32(c)
-end
-
---- @param col ImVec4
---- @return ImU32
-function ImGui.GetColorU32_V4(col)
     local style = GImGui.Style
-    local c = col
-    c.w = c.w * style.Alpha
+
+    local c
+    if type(col) == "number" then
+        c = style.Colors[col]
+        c.w = c.w * style.Alpha * alpha_mul
+    else --- @cast col ImVec4
+        c = col
+        c.w = c.w * style.Alpha
+    end
+
     return ImGui.ColorConvertFloat4ToU32(c)
 end
 
