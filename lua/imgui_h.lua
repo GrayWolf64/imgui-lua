@@ -959,23 +959,25 @@ ImGuiMouseCursor = {
     COUNT      = 11
 }
 
---- @alias ImGuiViewportFlags int
-ImGuiViewportFlags_None                = 0
-ImGuiViewportFlags_IsPlatformWindow    = bit.lshift(1, 0)
-ImGuiViewportFlags_IsPlatformMonitor   = bit.lshift(1, 1)
-ImGuiViewportFlags_OwnedByApp          = bit.lshift(1, 2)
-ImGuiViewportFlags_NoDecoration        = bit.lshift(1, 3)
-ImGuiViewportFlags_NoTaskBarIcon       = bit.lshift(1, 4)
-ImGuiViewportFlags_NoFocusOnAppearing  = bit.lshift(1, 5)
-ImGuiViewportFlags_NoFocusOnClick      = bit.lshift(1, 6)
-ImGuiViewportFlags_NoInputs            = bit.lshift(1, 7)
-ImGuiViewportFlags_NoRendererClear     = bit.lshift(1, 8)
-ImGuiViewportFlags_NoAutoMerge         = bit.lshift(1, 9)
-ImGuiViewportFlags_TopMost             = bit.lshift(1, 10)
-ImGuiViewportFlags_CanHostOtherWindows = bit.lshift(1, 11)
+--- @enum ImGuiViewportFlags
+ImGuiViewportFlags = {
+    None                = 0,
+    IsPlatformWindow    = bit.lshift(1, 0),
+    IsPlatformMonitor   = bit.lshift(1, 1),
+    OwnedByApp          = bit.lshift(1, 2),
+    NoDecoration        = bit.lshift(1, 3),
+    NoTaskBarIcon       = bit.lshift(1, 4),
+    NoFocusOnAppearing  = bit.lshift(1, 5),
+    NoFocusOnClick      = bit.lshift(1, 6),
+    NoInputs            = bit.lshift(1, 7),
+    NoRendererClear     = bit.lshift(1, 8),
+    NoAutoMerge         = bit.lshift(1, 9),
+    TopMost             = bit.lshift(1, 10),
+    CanHostOtherWindows = bit.lshift(1, 11),
 
-ImGuiViewportFlags_IsMinimized = bit.lshift(1, 12)
-ImGuiViewportFlags_IsFocused   = bit.lshift(1, 13)
+    IsMinimized = bit.lshift(1, 12),
+    IsFocused   = bit.lshift(1, 13)
+}
 
 --- @class ImGuiViewport
 --- @field ID                    ImGuiID
