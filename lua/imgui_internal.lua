@@ -129,13 +129,22 @@ function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
 IM_F32_TO_INT8_SAT = function(val) return math.floor(ImSaturate(val) * 255.0 + 0.5) end
 
+--- @class ImGuiColorMod
+--- @field Col         ImGuiCol
+--- @field BackupValue ImVec4
+
 --- @param col          ImGuiCol
 --- @param backup_value ImVec4
+--- @return ImGuiColorMod
 function ImGuiColorMod(col, backup_value)
-    return {
+    local this = {
         Col = col,
-        BackupValue = backup_value
+        BackupValue = ImVec4()
     }
+
+    ImVec4_Copy(this.BackupValue, backup_value)
+
+    return this
 end
 
 --- @param lhs ImVec2
@@ -1109,6 +1118,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         DragDropAcceptIdPrev = 0, DragDropAcceptIdCurr = 0,
 
+        LocalizationTable = {},
+
         DebugLogFlags = bit.bor(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
         DebugFlashStyleColorIdx = nil,
     }
@@ -1935,3 +1946,44 @@ ImGuiDebugLogFlags.EventMask_ = bit.bor(
     ImGuiDebugLogFlags.EventDocking,
     ImGuiDebugLogFlags.EventViewport
 )
+
+--- @enum ImGuiLocKey
+ImGuiLocKey = {
+    VersionStr                    = 1,
+    TableSizeOne                  = 2,
+    TableSizeAllFit               = 3,
+    TableSizeAllDefault           = 4,
+    TableResetOrder               = 5,
+    WindowingMainMenuBar          = 6,
+    WindowingPopup                = 7,
+    WindowingUntitled             = 8,
+    OpenLink_s                    = 9,
+    CopyLink                      = 10,
+    DockingHideTabBar             = 11,
+    DockingHoldShiftToDock        = 12,
+    DockingDragToUndockOrMoveNode = 13,
+    COUNT                         = 13
+}
+
+--- @class ImGuiLocEntry
+--- @field Key  ImGuiLocKey
+--- @field Text string
+
+--- @param key  ImGuiLocKey
+--- @param text string
+--- @return ImGuiLocEntry
+--- @nodiscard
+function ImGuiLocEntry(key, text)
+    return {
+        Key  = key,
+        Text = text
+    }
+end
+
+--- @param key ImGuiLocKey
+--- @return string
+function ImGui.LocalizeGetMsg(key)
+    local g = ImGui.GetCurrentContext()
+    local msg = g.LocalizationTable[key]
+    if msg then return msg else return "*Missing Text*" end
+end

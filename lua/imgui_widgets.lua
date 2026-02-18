@@ -951,6 +951,84 @@ function ImGui.RadioButton(label, v, v_button)
     return pressed, v
 end
 
+--- @param label string
+function ImGui.TextLink(label)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local id = window:GetID(label)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+
+    local pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
+    local size = ImGui.CalcTextSize(label, label_end, true)
+    local bb = ImRect(pos, pos + size)
+    ImGui.ItemSize(size, 0.0)
+    if not ImGui.ItemAdd(bb, id) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
+    ImGui.RenderNavCursor(bb, id)
+
+    if hovered then
+        ImGui.SetMouseCursor(ImGuiMouseCursor.Hand)
+    end
+
+    local text_colf = ImVec4()
+    ImVec4_Copy(text_colf, g.Style.Colors[ImGuiCol.TextLink])
+    local line_colf = ImVec4()
+    ImVec4_Copy(line_colf, text_colf)
+    do
+        -- FIXME-STYLE: Read comments above. This widget is NOT written in the same style as some earlier widgets,
+        -- as we are currently experimenting/planning a different styling system.
+        local h, s, v = ImGui.ColorConvertRGBtoHSV(text_colf.x, text_colf.y, text_colf.z)
+        if held or hovered then
+            v = ImSaturate(v + (held and 0.4 or 0.3))
+            h = ImFmod(h + 0.02, 1.0)
+        end
+        text_colf.x, text_colf.y, text_colf.z = ImGui.ColorConvertHSVtoRGB(h, s, v)
+        v = ImSaturate(v - 0.20)
+        line_colf.x, line_colf.y, line_colf.z = ImGui.ColorConvertHSVtoRGB(h, s, v)
+    end
+
+    local line_y = bb.Max.y + ImFloor(g.FontBaked.Descent * g.FontBakedScale * 0.20)
+    window.DrawList:AddLine(ImVec2(bb.Min.x, line_y), ImVec2(bb.Max.x, line_y), ImGui.GetColorU32_V4(line_colf)) -- FIXME-TEXT: Underline mode -- FIXME-DPI
+
+    ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32_V4(text_colf))
+    ImGui.RenderText(bb.Min, label, label_end)
+    ImGui.PopStyleColor()
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags)
+    return pressed
+end
+
+--- @param label string
+--- @param url   string
+function ImGui.TextLinkOpenURL(label, url)
+    local g = ImGui.GetCurrentContext()
+    if url == nil then
+        url = label
+    end
+    local pressed = ImGui.TextLink(label)
+    if pressed and g.PlatformIO.Platform_OpenInShellFn ~= nil then
+        g.PlatformIO.Platform_OpenInShellFn(g, url)
+    end
+
+    ImGui.SetItemTooltip(ImGui.LocalizeGetMsg(ImGuiLocKey.OpenLink_s), url) -- It is more reassuring for user to _always_ display URL when we same as label
+
+    -- if ImGui.BeginPopupContextItem() then
+    --     if ImGui.MenuItem(ImGui.LocalizeGetMsg(ImGuiLocKey.CopyLink)) then
+    --         ImGui.SetClipboardText(url)
+    --     end
+    --     ImGui.EndPopup()
+    -- end
+
+    return pressed
+end
+
 ----------------------------------------------------------------
 -- [SECTION] Low-level Layout helpers
 ----------------------------------------------------------------

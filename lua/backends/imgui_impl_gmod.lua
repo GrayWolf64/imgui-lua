@@ -267,6 +267,10 @@ local function ImGui_ImplGMOD_SwapBuffers()
     return
 end
 
+local function ImGui_ImplGMOD_OpenInShellFn(g, url)
+    gui.OpenURL(url)
+end
+
 --- @param platform_has_own_dc bool
 local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     local platform_io = ImGui.GetPlatformIO()
@@ -282,6 +286,8 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
 
     platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
     platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
+
+    platform_io.Platform_OpenInShellFn = ImGui_ImplGMOD_OpenInShellFn
 
     local main_viewport = ImGui.GetMainViewport()
     local bd = ImGui_ImplGMOD_GetBackendData()

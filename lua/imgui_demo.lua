@@ -1,6 +1,47 @@
 --- ImGui Sincerely WIP
 -- (Demo Code)
 
+local DemoWindowWidgetsBasic
+do
+
+local clicked = 0
+local checked = true
+local radio_v = 0
+
+function DemoWindowWidgetsBasic()
+    ImGui.SeparatorText("General")
+
+    if ImGui.Button("Button") then
+        clicked = clicked + 1
+    end
+
+    if clicked % 2 ~= 0 then
+        ImGui.SameLine()
+        ImGui.Text("Thanks for clicking me!")
+    end
+
+    _, check = ImGui.Checkbox("checkbox", check)
+
+    _, radio_v = ImGui.RadioButton("radio a", radio_v, 0) ImGui.SameLine()
+    _, radio_v = ImGui.RadioButton("radio b", radio_v, 1) ImGui.SameLine()
+    _, radio_v = ImGui.RadioButton("radio c", radio_v, 2)
+
+    ImGui.AlignTextToFramePadding()
+    ImGui.TextLinkOpenURL("Hyperlink", "https://github.com/GrayWolf64/imgui-lua")
+
+    for i = 1, 7 do
+        if i > 1 then
+            ImGui.SameLine()
+        end
+        ImGui.PushID(i)
+        -- TODO: Styling
+        ImGui.Button("Click")
+        ImGui.PopID()
+    end
+end
+
+end
+
 local DemoWindowWidgetsColorAndPickers
 do
 
@@ -76,6 +117,17 @@ end
 
 end
 
+local open = true
+
 function ImGui.ShowDemoWindow()
+    open = ImGui.Begin("ImGui Sincerely Demo", open)
+    if not open then
+        ImGui.End()
+        return
+    end
+
+    DemoWindowWidgetsBasic()
     DemoWindowWidgetsColorAndPickers()
+
+    ImGui.End()
 end

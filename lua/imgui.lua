@@ -564,10 +564,27 @@ function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
 end
 
---- void ImGui::Initialize()
+local GLocalizationEntriesEnUS = {
+    ImGuiLocEntry(ImGuiLocKey.VersionStr,                    "ImGui Sincerely WIP"),
+    ImGuiLocEntry(ImGuiLocKey.TableSizeOne,                  "Size column to fit###SizeOne"),
+    ImGuiLocEntry(ImGuiLocKey.TableSizeAllFit,               "Size all columns to fit###SizeAll"),
+    ImGuiLocEntry(ImGuiLocKey.TableSizeAllDefault,           "Size all columns to default###SizeAll"),
+    ImGuiLocEntry(ImGuiLocKey.TableResetOrder,               "Reset order###ResetOrder"),
+    ImGuiLocEntry(ImGuiLocKey.WindowingMainMenuBar,          "(Main menu bar)"),
+    ImGuiLocEntry(ImGuiLocKey.WindowingPopup,                "(Popup)"),
+    ImGuiLocEntry(ImGuiLocKey.WindowingUntitled,             "(Untitled)"),
+    ImGuiLocEntry(ImGuiLocKey.OpenLink_s,                    "Open '%s'"),
+    ImGuiLocEntry(ImGuiLocKey.CopyLink,                      "Copy Link###CopyLink"),
+    ImGuiLocEntry(ImGuiLocKey.DockingHideTabBar,             "Hide tab bar###HideTabBar"),
+    ImGuiLocEntry(ImGuiLocKey.DockingHoldShiftToDock,        "Hold SHIFT to enable Docking window."),
+    ImGuiLocEntry(ImGuiLocKey.DockingDragToUndockOrMoveNode, "Click and drag to move or undock whole node."),
+}
+
 function ImGui.Initialize()
     local g = GImGui
     IM_ASSERT(not g.Initialized and not g.SettingsLoaded)
+
+    ImGui.LocalizeRegisterEntries(GLocalizationEntriesEnUS, #GLocalizationEntriesEnUS)
 
     local viewport = ImGuiViewportP()
     viewport.ID = IMGUI_VIEWPORT_DEFAULT_ID
@@ -5640,13 +5657,17 @@ function ImGui.GetColorU32_U32(col, alpha_mul)
 end
 
 --- @param idx ImGuiCol
---- @param col ImVec4
+--- @param col ImU32|ImVec4
 function ImGui.PushStyleColor(idx, col)
     local g = GImGui
     local backup = ImGuiColorMod(idx, g.Style.Colors[idx])
     g.ColorStack:push_back(backup)
     if g.DebugFlashStyleColorIdx ~= idx then
-        g.Style.Colors[idx] = col
+        if type(col) == "number" then
+            ImGui.ColorConvertU32ToFloat4(col, g.Style.Colors[idx])
+        else --- @cast col ImVec4
+            ImVec4_Copy(g.Style.Colors[idx], col)
+        end
     end
 end
 
@@ -5662,7 +5683,7 @@ function ImGui.PopStyleColor(count)
 
     while count > 0 do
         local backup = g.ColorStack:back()
-        g.Style.Colors[backup.Col] = backup.BackupValue
+        ImVec4_Copy(g.Style.Colors[backup.Col], backup.BackupValue)
         g.ColorStack:pop_back()
         count = count - 1
     end
@@ -6644,6 +6665,19 @@ end
 function ImGui.IsDragDropPayloadBeingAccepted()
     local g = GImGui
     return g.DragDropActive and g.DragDropAcceptIdPrev ~= 0
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] LOCALIZATION
+---------------------------------------------------------------------------------------
+
+--- @param entries ImGuiLocEntry[]
+--- @param count   int
+function ImGui.LocalizeRegisterEntries(entries, count)
+    local g = GImGui
+    for n = 1, count do
+        g.LocalizationTable[entries[n].Key] = entries[n].Text
+    end
 end
 
 ---------------------------------------------------------------------------------------
