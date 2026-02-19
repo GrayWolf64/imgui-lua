@@ -961,6 +961,14 @@ function ImGui.Unindent(indent_w)
     window.DC.CursorPos.x = window.Pos.x + window.DC.Indent.x + window.DC.ColumnsOffset.x
 end
 
+-- Affect large frame+labels widgets only
+--- @param item_width float
+function ImGui.SetNextItemWidth(item_width)
+    local g = GImGui
+    g.NextItemData.HasFlags = bit.bor(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasWidth)
+    g.NextItemData.Width = item_width
+end
+
 --- @param item_width float
 function ImGui.PushItemWidth(item_width)
     local g = GImGui

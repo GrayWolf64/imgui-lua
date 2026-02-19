@@ -1568,8 +1568,135 @@ local function ColorEditRestoreHS(col, H, S, V)
     return H, S, V
 end
 
+do --[[ColorEdit4]]
+
+local ids = { "##X", "##Y", "##Z", "##W" }
+local fmt_table_int = {
+    {   "%3d",   "%3d",   "%3d",   "%3d" }, -- Short display
+    { "R:%3d", "G:%3d", "B:%3d", "A:%3d" }, -- Long display for RGBA
+    { "H:%3d", "S:%3d", "V:%3d", "A:%3d" }  -- Long display for HSVA
+}
+local fmt_table_float = {
+    {   "%0.3f",   "%0.3f",   "%0.3f",   "%0.3f" }, -- Short display
+    { "R:%0.3f", "G:%0.3f", "B:%0.3f", "A:%0.3f" }, -- Long display for RGBA
+    { "H:%0.3f", "S:%0.3f", "V:%0.3f", "A:%0.3f" }  -- Long display for HSVA
+}
+-- TODO: SetNextItemColorMarker(), ...
+--- @param label string
+--- @param col   float[]
+--- @param flags ImGuiColorEditFlags
 function ImGui.ColorEdit4(label, col, flags)
-    -- TODO:
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local square_sz = ImGui.GetFrameHeight()
+    local label_display_end = ImGui.FindRenderedTextEnd(label)
+    local w_full = ImGui.CalcItemWidth()
+    g.NextItemData:ClearFlags()
+
+    ImGui.BeginGroup()
+    ImGui.PushID(label)
+    local set_current_color_edit_id = (g.ColorEditCurrentID == 0)
+    if set_current_color_edit_id then
+        g.ColorEditCurrentID = window.IDStack:back()
+    end
+
+    -- If we're not showing any slider there's no point in doing any HSV conversions
+    local flags_untouched = flags
+    if bit.band(flags, ImGuiColorEditFlags.NoInputs) ~= 0 then
+        flags = bit.bor(bit.band(flags, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.NoOptions)
+    end
+
+    -- Context menu: display and modify options (before defaults are applied)
+    if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+        ImGui.ColorEditOptionsPopup(col, flags)
+    end
+
+    -- Read stored options
+    if bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.DisplayMask_))
+    end
+    if bit.band(flags, ImGuiColorEditFlags.DataTypeMask_) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.DataTypeMask_))
+    end
+    if bit.band(flags, ImGuiColorEditFlags.PickerMask_) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.PickerMask_))
+    end
+    if bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.InputMask_))
+    end
+    flags = bit.bor(flags, bit.band(g.ColorEditOptions, bit.bnot(bit.bor(ImGuiColorEditFlags.DisplayMask_, ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.PickerMask_, ImGuiColorEditFlags.InputMask_))))
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.DisplayMask_))) -- Check that only 1 is selected
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.InputMask_)))   -- Check that only 1 is selected
+
+    local alpha = bit.band(flags, ImGuiColorEditFlags.NoAlpha) == 0
+    local hdr = bit.band(flags, ImGuiColorEditFlags.HDR) ~= 0
+    local components = alpha and 4 or 3
+    local w_button = (bit.band(flags, ImGuiColorEditFlags.NoSmallPreview) ~= 0) and 0.0 or (square_sz + style.ItemInnerSpacing.x)
+    local w_inputs = ImMax(w_full - w_button, 1.0)
+    w_full = w_inputs + w_button
+
+    -- Convert to the formats we need
+    local f = { col[1], col[2], col[3], alpha and col[4] or 1.0 }
+    if bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 and bit.band(flags, ImGuiColorEditFlags.DisplayRGB) ~= 0 then
+        f[1], f[2], f[3] = ImGui.ColorConvertHSVtoRGB(f[1], f[2], f[3])
+    elseif bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 and bit.band(flags, ImGuiColorEditFlags.DisplayHSV) ~= 0 then
+        -- Hue is lost when converting from grayscale rgb (saturation=0). Restore it.
+        f[1], f[2], f[3] = ImGui.ColorConvertRGBtoHSV(f[1], f[2], f[3])
+        f[1], f[2], f[3] = ColorEditRestoreHS(col, f[1], f[2], f[3])
+    end
+    local i = { IM_F32_TO_INT8_UNBOUND(f[1]), IM_F32_TO_INT8_UNBOUND(f[2]), IM_F32_TO_INT8_UNBOUND(f[3]), IM_F32_TO_INT8_UNBOUND(f[4]) }
+
+    local value_changed = false
+    local value_changed_as_float = false
+
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    local inputs_offset_x = (style.ColorButtonPosition == ImGuiDir.Left) and w_button or 0.0
+    window.DC.CursorPos.x = pos.x + inputs_offset_x
+
+    if bit.band(flags, bit.bor(ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.DisplayHSV)) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
+        local w_items = w_inputs - style.ItemInnerSpacing.x * (components - 1)
+        local w_per_component = IM_TRUNC(w_items / components)
+        local draw_color_marker = bit.band(flags, bit.bor(ImGuiColorEditFlags.DisplayHSV, ImGuiColorEditFlags.NoColorMarkers)) == 0
+        local hide_prefix = draw_color_marker or (w_per_component <= ImGui.CalcTextSize((bit.band(flags, ImGuiColorEditFlags.Float) ~= 0) and "M:0.000" or "M:000").x)
+
+        local fmt_idx
+        if hide_prefix then
+            fmt_idx = 1
+        elseif bit.band(flags, ImGuiColorEditFlags.DisplayHSV) ~= 0 then
+            fmt_idx = 3
+        else
+            fmt_idx = 2
+        end
+        local drag_flags = draw_color_marker and ImGuiSliderFlags.ColorMarkers or ImGuiSliderFlags.None
+
+        local prev_split = 0.0
+        for n = 1, components do
+            if n > 1 then
+                ImGui.SameLine(0, style.ItemInnerSpacing.x)
+            end
+            local next_split = IM_TRUNC(w_items * n / components)
+            ImGui.SetNextItemWidth(ImMax(next_split - prev_split, 1.0))
+            prev_split = next_split
+            if draw_color_marker then
+
+            end
+
+        end
+    elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
+
+    end
+
+    ImGui.PopID()
+    ImGui.EndGroup()
+
+end
+
 end
 
 -- Helper for ColorPicker4()
@@ -2130,6 +2257,10 @@ function ImGui.ColorTooltip(text, col, flags)
     end
 
     ImGui.EndTooltip()
+end
+
+function ImGui.ColorEditOptionsPopup(col, flags)
+    -- TODO:
 end
 
 --- @param ref_col float[]

@@ -1750,6 +1750,22 @@ ImGuiColorEditFlags.InputMask_ = bit.bor(
     ImGuiColorEditFlags.InputHSV
 )
 
+--- @enum ImGuiSliderFlags
+ImGuiSliderFlags = {
+    None            = 0,
+    Logarithmic     = bit.lshift(1, 5),  -- Make the widget logarithmic (linear otherwise). Consider using ImGuiSliderFlags.NoRoundToFormat with this if using a format-string with small amount of digits.
+    NoRoundToFormat = bit.lshift(1, 6),  -- Disable rounding underlying value to match precision of the display format string (e.g. %.3f values are rounded to those 3 digits).
+    NoInput         = bit.lshift(1, 7),  -- Disable Ctrl+Click or Enter key allowing to input text directly into the widget.
+    WrapAround      = bit.lshift(1, 8),  -- Enable wrapping around from max to min and from min to max. Only supported by DragXXX() functions for now.
+    ClampOnInput    = bit.lshift(1, 9),  -- Clamp value to min/max bounds when input manually with Ctrl+Click. By default Ctrl+Click allows going out of bounds.
+    ClampZeroRange  = bit.lshift(1, 10), -- Clamp even if min==max==0.0f. Otherwise due to legacy reason DragXXX functions don't clamp with those values. When your clamping limits are dynamic you almost always want to use it.
+    NoSpeedTweaks   = bit.lshift(1, 11), -- Disable keyboard modifiers altering tweak speed. Useful if you want to alter tweak speed yourself based on your own logic.
+    ColorMarkers    = bit.lshift(1, 12), -- DragScalarN(), SliderScalarN(): Draw R/G/B/A color markers on each component.
+    InvalidMask_    = 0x7000000F,        -- [Internal] We treat using those bits as being potentially a 'float power' argument from legacy API (obsoleted 2020-08) that has got miscast to this enum, and will trigger an assert if needed.
+}
+
+ImGuiSliderFlags.AlwaysClamp        = bit.bor(ImGuiSliderFlags.ClampOnInput, ImGuiSliderFlags.ClampZeroRange)
+
 --- @class ImGuiWindowClass
 --- @field ClassId                    ImGuiID
 --- @field ParentViewportId           ImGuiID

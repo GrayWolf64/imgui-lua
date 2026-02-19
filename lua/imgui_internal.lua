@@ -127,6 +127,7 @@ end
 
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
+IM_F32_TO_INT8_UNBOUND = function(val) return math.floor(val * 255.0 + (val >= 0 and 0.5 or -0.5)) end
 IM_F32_TO_INT8_SAT = function(val) return math.floor(ImSaturate(val) * 255.0 + 0.5) end
 
 --- @class ImGuiColorMod
@@ -834,6 +835,9 @@ function ImGuiStyle()
         GrabRounding = 0.0,
 
         WindowBorderHoverPadding = 4.0,
+
+        ColorMarkerSize = 3.0,
+        ColorButtonPosition = ImGuiDir.Right,
 
         SeparatorTextBorderSize = 3.0,
         SeparatorTextAlign      = ImVec2(0.0, 0.5),
