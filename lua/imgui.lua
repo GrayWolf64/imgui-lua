@@ -771,7 +771,7 @@ end
 --- @param r_min  ImVec2
 --- @param r_max  ImVec2
 --- @param clip?  bool
-local function IsMouseHoveringRect(r_min, r_max, clip)
+function ImGui.IsMouseHoveringRect(r_min, r_max, clip)
     if clip == nil then clip = true end
 
     local g = GImGui
@@ -789,6 +789,19 @@ local function IsMouseHoveringRect(r_min, r_max, clip)
     end
 
     return true
+end
+
+-- Return if a mouse click/drag went past the given threshold. Valid to call during the MouseReleased frame.
+-- [Internal] This doesn't test if the button is pressed
+--- @param button         ImGuiMouseButton
+--- @param lock_threshold float
+function ImGui.IsMouseDragPastThreshold(button, lock_threshold)
+    local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
+    if lock_threshold < 0.0 then
+        lock_threshold = g.IO.MouseDragThreshold
+    end
+    return g.IO.MouseDragMaxDistanceSqr[button] >= lock_threshold * lock_threshold
 end
 
 --- @param bb           ImRect
@@ -845,7 +858,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
         g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible)
     end
 
-    if IsMouseHoveringRect(bb.Min, bb.Max) then
+    if ImGui.IsMouseHoveringRect(bb.Min, bb.Max) then
         g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredRect)
     end
 
@@ -1666,7 +1679,7 @@ function ImGui.ItemHoverable(id, bb, item_flags)
         return false
     end
 
-    if not IsMouseHoveringRect(bb.Min, bb.Max) then
+    if not ImGui.IsMouseHoveringRect(bb.Min, bb.Max) then
         return false
     end
 
@@ -2156,6 +2169,17 @@ function ImGui.CalcTypematicRepeatAmount(t0, t1, repeat_delay, repeat_rate)
     end
 
     return count_t1 - count_t0
+end
+
+--- @param flags        ImGuiInputFlags
+--- @return float repeat_delay
+--- @return float repeat_rate
+function ImGui.GetTypematicRepeatRate(flags)
+    local g = GImGui
+    flags = bit.band(flags, ImGuiInputFlags_RepeatRateMask_)
+    if     flags == ImGuiInputFlags_RepeatRateNavMove  then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.80; return repeat_delay, repeat_rate
+    elseif flags == ImGuiInputFlags_RepeatRateNavTweak then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.30; return repeat_delay, repeat_rate
+    else                                                    repeat_delay = g.IO.KeyRepeatDelay * 1.00; repeat_rate = g.IO.KeyRepeatRate * 1.00; return repeat_delay, repeat_rate end
 end
 
 --- @param mouse_pos? ImVec2
@@ -4393,7 +4417,7 @@ function ImGui.Begin(name, open, flags)
 
         window.DC.WindowItemStatusFlags = ImGuiItemStatusFlags.None
 
-        if IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false) then
+        if ImGui.IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false) then
             window.DC.WindowItemStatusFlags = bit.bor(window.DC.WindowItemStatusFlags, ImGuiItemStatusFlags.HoveredRect)
         end
         ImGui.SetLastItemDataForWindow(window, title_bar_rect)
@@ -4827,6 +4851,19 @@ function ImGui.UpdateMouseInputs()
             io.MouseClickedTime[i] = g.Time
             io.MouseClickedPos[i] = io.MousePos
             io.MouseClickedCount[i] = io.MouseClickedLastCount[i]
+            io.MouseDragMaxDistanceAbs[i] = ImVec2(0.0, 0.0)
+            io.MouseDragMaxDistanceSqr[i] = 0.0
+        elseif io.MouseDown[i] then
+            -- Maintain the maximum distance we reaching from the initial click position, which is used with dragging threshold
+            local delta_from_click_pos
+            if ImGui.IsMousePosValid(io.MousePos) then
+                delta_from_click_pos = (io.MousePos - io.MouseClickedPos[i])
+            else
+                delta_from_click_pos = ImVec2(0.0, 0.0)
+            end
+            io.MouseDragMaxDistanceSqr[i] = ImMax(io.MouseDragMaxDistanceSqr[i], ImLengthSqr(delta_from_click_pos))
+            io.MouseDragMaxDistanceAbs[i].x = ImMax(io.MouseDragMaxDistanceAbs[i].x, (delta_from_click_pos.x < 0.0) and -delta_from_click_pos.x or delta_from_click_pos.x)
+            io.MouseDragMaxDistanceAbs[i].y = ImMax(io.MouseDragMaxDistanceAbs[i].y, (delta_from_click_pos.y < 0.0) and -delta_from_click_pos.y or delta_from_click_pos.y)
         end
 
         io.MouseDoubleClicked[i] = (io.MouseClickedCount[i] == 2)
@@ -6656,6 +6693,30 @@ function ImGui.NavCalcPreferredRefPos(window_type)
 
         return ImTruncV2(pos)  -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
     end
+end
+
+--- @param axis ImGuiAxis
+--- @return float
+function ImGui.GetNavTweakPressedAmount(axis)
+    local g = GImGui
+    local repeat_delay, repeat_rate = ImGui.GetTypematicRepeatRate(ImGuiInputFlags_RepeatRateNavTweak)
+
+    local key_less, key_more
+    if g.NavInputSource == ImGuiInputSource.Gamepad then
+        key_less = (axis == ImGuiAxis.X) and ImGuiKey.GamepadDpadLeft or ImGuiKey.GamepadDpadUp
+        key_more = (axis == ImGuiAxis.X) and ImGuiKey.GamepadDpadRight or ImGuiKey.GamepadDpadDown
+    else
+        key_less = (axis == ImGuiAxis.X) and ImGuiKey.LeftArrow or ImGuiKey.UpArrow
+        key_more = (axis == ImGuiAxis.X) and ImGuiKey.RightArrow or ImGuiKey.DownArrow
+    end
+
+    local amount = ImGui.GetKeyPressedAmount(key_more, repeat_delay, repeat_rate) - ImGui.GetKeyPressedAmount(key_less, repeat_delay, repeat_rate)
+
+    if amount ~= 0.0 and ImGui.IsKeyDown(key_less) and ImGui.IsKeyDown(key_more) then -- Cancel when opposite directions are held, regardless of repeat phase
+        amount = 0.0
+    end
+
+    return amount
 end
 
 function ImGui.NavMoveRequestCancel()

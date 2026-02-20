@@ -1,6 +1,8 @@
 --- ImGui Sincerely WIP
 -- (Widgets Code)
 
+local DRAG_MOUSE_THRESHOLD_FACTOR = 0.50 -- Multiplier for the default value of io.MouseDragThreshold to make DragFloat/DragInt react faster to mouse drags
+
 ----------------------------------------------------------------
 -- [SECTION] TEXT
 ----------------------------------------------------------------
@@ -1531,9 +1533,144 @@ local GDefaultRgbaColorMarkers = {
     IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
 }
 
+local GetMinimumStepAtDecimalPrecision do
+
+local min_steps = { 1.0, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001, 0.000000001 }
+
+--- @param decimal_precision int
+--- @return float
+function GetMinimumStepAtDecimalPrecision(decimal_precision)
+    if decimal_precision < 0 then
+        return FLT_MIN
+    end
+    if decimal_precision < #min_steps then
+        return min_steps[decimal_precision + 1]
+    else
+        return ImPow(10.0, -decimal_precision)
+    end
+end
+
+end
+
+local ImParseFormatFindStart
+
+--- @param format    string
+--- @param data_type ImGuiDataType
+--- @param v         number
+function ImGui.RoundScalarWithFormatT(format, data_type, v)
+    -- IM_UNUSED(data_type)
+    IM_ASSERT(data_type == ImGuiDataType.Float or data_type == ImGuiDataType.Double)
+    local fmt_start = ImParseFormatFindStart(format)
+    if string.byte(format, fmt_start) ~= 37 or string.byte(format, fmt_start + 1) == 37 then
+        return v -- Don't apply if the value is not visible in the format string
+    end
+
+    -- Sanitize format
+    -- Currently does nothing to sanitize
+
+    local str = ImFormatString(format, v)
+    v = tonumber(str) --[[@as number]]
+    return v
+end
+
 ----------------------------------------------------------------
 -- [SECTION] DRAGXXX
 ----------------------------------------------------------------
+
+--- @param fmt string
+function ImParseFormatFindStart(fmt)
+    local len = #fmt
+    local i = 1
+    local c
+    while i < len do
+        c = string.byte(fmt, i)
+        if c == 37 and string.byte(fmt, i + 1) ~= 37 then -- '%'
+            return i
+        elseif c == 37 then
+            i = i + 1
+        end
+        i = i + 1
+    end
+    return nil
+end
+
+--- @param fmt string
+--- @param pos int
+local function ImParseFormatFindEnd(fmt, pos)
+    -- Printf/scanf types modifiers: I/L/h/j/l/t/w/z. Other uppercase letters qualify as types aka end of the format
+    if string.byte(fmt, pos) ~= 37 then -- '%'
+        return pos
+    end
+    local ignored_uppercase_mask = bit.bor(bit.lshift(1, 73 - 65), bit.lshift(1, 76 - 65))
+    local ignored_lowercase_mask = bit.bor(bit.lshift(1, 104 - 97), bit.lshift(1, 106 - 97), bit.lshift(1, 108 - 97), bit.lshift(1, 116 - 97), bit.lshift(1, 119 - 97), bit.lshift(1, 122 - 97))
+    local len = #fmt
+    local c
+    for i = pos, len do
+        c = string.byte(fmt, i)
+        if c >= 65 and c <= 90 and (bit.band(bit.lshift(1, c - 65), ignored_uppercase_mask) == 0) then
+            return i + 1
+        end
+        if c >= 97 and c <= 122 and (bit.band(bit.lshift(1, c - 97), ignored_lowercase_mask) == 0) then
+            return i + 1
+        end
+    end
+    return len + 1
+end
+
+--- @param str string
+--- @param pos int
+local function ImAtoi(str, pos)
+    local negative = false
+    if string.byte(str, pos) == 45 then -- '-'
+        negative = true
+        pos = pos + 1
+    end
+    if string.byte(str, pos) == 43 then -- '+'
+        pos = pos + 1
+    end
+    local len = #str
+    local v = 0
+    local c = string.byte(str, pos)
+    while c >= 48 and c <= 57 do
+        v = v * 10 + c - 48
+        pos = pos + 1
+        c = string.byte(str, pos)
+        if pos > len then break end
+    end
+    return negative and -v or v, pos
+end
+
+--- @param fmt               string
+--- @param default_precision int
+local function ImParseFormatPrecision(fmt, default_precision)
+    local pos = ImParseFormatFindStart(fmt)
+    if not pos then
+        return default_precision
+    end
+    pos = pos + 1
+    local len = #fmt
+    local c = string.byte(fmt, pos)
+    while c >= 48 and c <= 57 do
+        pos = pos + 1
+        c = string.byte(fmt, pos)
+        if pos > len then break end
+    end
+    local precision = INT_MAX
+    if c == 46 then -- '.'
+        precision, pos = ImAtoi(fmt, pos + 1)
+        if precision < 0 or precision > 99 then
+            precision = default_precision
+        end
+    end
+    c = string.byte(fmt, pos)
+    if c == 101 or c == 69 then -- Maximum precision with scientific notation
+        precision = -1
+    end
+    if (c == 103 or c == 71) and precision == INT_MAX then
+        precision = -1
+    end
+    return (precision == INT_MAX) and default_precision or precision
+end
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
 --- @param data_type ImGuiDataType
@@ -1543,13 +1680,156 @@ local GDefaultRgbaColorMarkers = {
 --- @param v_max     number
 --- @param format    string
 --- @param flags     ImGuiSliderFlags
+--- @return number new_v   # Updated `v`
+--- @return bool   changed
 function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
+    local g = ImGui.GetCurrentContext()
+    local axis = (bit.band(flags, ImGuiSliderFlags.Vertical) ~= 0) and ImGuiAxis.Y or ImGuiAxis.X
+    local is_bounded = (v_min < v_max) or ((v_min == v_max) and (v_min ~= 0.0 or (bit.band(flags, ImGuiSliderFlags.ClampZeroRange) ~= 0)))
+    local is_wrapped = is_bounded and (bit.band(flags, ImGuiSliderFlags.WrapAround) ~= 0)
+    local is_logarithmic = bit.band(flags, ImGuiSliderFlags.Logarithmic) ~= 0
+    local is_floating_point = (data_type == ImGuiDataType.Float) or (data_type == ImGuiDataType.Double)
+
+    -- Default tweak speed
+    if v_speed == 0.0 and is_bounded and (v_max - v_min < math.huge) then
+        v_speed = (v_max - v_min) * g.DragSpeedDefaultRatio
+    end
+
+    -- Inputs accumulates into g.DragCurrentAccum, which is flushed into the current value as soon as it makes a difference with our precision settings
+    local adjust_delta = 0.0
+    if g.ActiveIdSource == ImGuiInputSource.Mouse and ImGui.IsMousePosValid() and ImGui.IsMouseDragPastThreshold(0, g.IO.MouseDragThreshold * DRAG_MOUSE_THRESHOLD_FACTOR) then
+        adjust_delta = g.IO.MouseDelta[axis] -- Assuming MouseDelta is 1-indexed
+        if g.IO.KeyAlt and bit.band(flags, ImGuiSliderFlags.NoSpeedTweaks) == 0 then
+            adjust_delta = adjust_delta / 100.0
+        end
+        if g.IO.KeyShift and bit.band(flags, ImGuiSliderFlags.NoSpeedTweaks) == 0 then
+            adjust_delta = adjust_delta * 10.0
+        end
+    elseif g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
+        local decimal_precision
+        if is_floating_point then
+            decimal_precision = ImParseFormatPrecision(format, 3)
+        else
+            decimal_precision = 0
+        end
+        local slow_key = (g.NavInputSource == ImGuiInputSource.Gamepad) and ImGuiKey.NavGamepadTweakSlow or ImGuiKey.NavKeyboardTweakSlow
+        local fast_key = (g.NavInputSource == ImGuiInputSource.Gamepad) and ImGuiKey.NavGamepadTweakFast or ImGuiKey.NavKeyboardTweakFast
+
+        local tweak_factor
+        if bit.band(flags, ImGuiSliderFlags.NoSpeedTweaks) ~= 0 then
+            tweak_factor = 1.0
+        elseif ImGui.IsKeyDown(slow_key) then
+            tweak_factor = 1.0 / 10.0
+        elseif ImGui.IsKeyDown(fast_key) then
+            tweak_factor = 10.0
+        else
+            tweak_factor = 1.0
+        end
+
+        adjust_delta = ImGui.GetNavTweakPressedAmount(axis) * tweak_factor
+        v_speed = ImMax(v_speed, GetMinimumStepAtDecimalPrecision(decimal_precision))
+    end
+    adjust_delta = adjust_delta * v_speed
+
+    -- For vertical drag we currently assume that Up=higher value (like we do with vertical sliders). This may become a parameter
+    if axis == ImGuiAxis.Y then
+        adjust_delta = -adjust_delta
+    end
+
+    -- For logarithmic use our range is effectively 0..1 so scale the delta into that range
+    if is_logarithmic and (v_max - v_min < FLT_MAX) and (v_max - v_min > 0.000001) then  -- Epsilon to avoid /0
+        adjust_delta = adjust_delta / (v_max - v_min)
+    end
+
+    -- Clear current value on activation
+    -- Avoid altering values and clamping when we are _already_ past the limits and heading in the same direction, so e.g. if range is 0..255, current value is 300 and we are pushing to the right side, keep the 300.
+    local is_just_activated = g.ActiveIdIsJustActivated
+    local is_already_past_limits_and_pushing_outward = is_bounded and not is_wrapped and ((v >= v_max and adjust_delta > 0.0) or (v <= v_min and adjust_delta < 0.0))
+    if is_just_activated or is_already_past_limits_and_pushing_outward then
+        g.DragCurrentAccum = 0.0
+        g.DragCurrentAccumDirty = false
+    elseif adjust_delta ~= 0.0 then
+        g.DragCurrentAccum = g.DragCurrentAccum + adjust_delta
+        g.DragCurrentAccumDirty = true
+    end
+
+    if not g.DragCurrentAccumDirty then
+        return v, false
+    end
+
+    local v_cur = v
+    local v_old_ref_for_accum_remainder = 0.0
+
+    local logarithmic_zero_epsilon = 0.0 -- Only valid when is_logarithmic is true
+    local zero_deadzone_halfsize = 0.0 -- Drag widgets have no deadzone (as it doesn't make sense)
+    if is_logarithmic then
+        -- When using logarithmic sliders, we need to clamp to avoid hitting zero, but our choice of clamp value greatly affects slider precision. We attempt to use the specified precision to estimate a good lower bound.
+        local decimal_precision
+        if is_floating_point then
+            decimal_precision = ImParseFormatPrecision(format, 3)
+        else
+            decimal_precision = 1
+        end
+        logarithmic_zero_epsilon = ImPow(0.1, decimal_precision)
+
+        -- Convert to parametric space, apply delta, convert back
+        local v_old_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        local v_new_parametric = v_old_parametric + g.DragCurrentAccum
+        v_cur = ImGui.ScaleValueFromRatioT(data_type, v_new_parametric, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        v_old_ref_for_accum_remainder = v_old_parametric
+    else
+        v_cur = v_cur + g.DragCurrentAccum
+    end
+
+    -- Round to user desired precision based on format string
+    if is_floating_point and bit.band(flags, ImGuiSliderFlags.NoRoundToFormat) == 0 then
+        v_cur = ImGui.RoundScalarWithFormatT(format, data_type, v_cur)
+    end
+
+    -- Preserve remainder after rounding has been applied. This also allow slow tweaking of values
+    g.DragCurrentAccumDirty = false
+    if is_logarithmic then
+        -- Convert to parametric space, apply delta, convert back
+        local v_new_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        g.DragCurrentAccum = v_new_parametric - v_old_ref_for_accum_remainder
+    else
+        g.DragCurrentAccum = v_cur - v
+    end
+
+    if v ~= v_cur and is_bounded then
+        if is_wrapped then
+            -- Wrap values
+            if v_cur < v_min then
+                v_cur = v_cur + (v_max - v_min) + (is_floating_point and 0 or 1)
+            end
+            if v_cur > v_max then
+                v_cur = v_cur - (v_max - v_min) - (is_floating_point and 0 or 1)
+            end
+        else
+            -- Clamp values + handle overflow/wrap-around for integer types
+            if v_cur < v_min or (v_cur > v and adjust_delta < 0.0 and not is_floating_point) then
+                v_cur = v_min
+            end
+            if v_cur > v_max or (v_cur < v and adjust_delta > 0.0 and not is_floating_point) then
+                v_cur = v_max
+            end
+        end
+    end
+
+    -- Apply result
+    if v == v_cur then
+        return v, false
+    end
+    v = v_cur
+    return v, true
 end
 
 function ImGui.DragBehavior(id, data_type, v, speed, min, max, format, flags)
+
 end
 
 function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, flags)
+
 end
 
 ----------------------------------------------------------------

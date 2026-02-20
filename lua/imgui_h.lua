@@ -888,7 +888,7 @@ function ImGuiIO()
 
         MouseDelta = ImVec2(),
 
-        MouseDown             = {[0] = false, [1] = false, [2] = false},
+        MouseDown = {[0] = false, [1] = false, [2] = false},
 
         MouseWheel = 0,
         MouseWheelH = 0,
@@ -916,6 +916,9 @@ function ImGuiIO()
         MouseClickedLastCount = {[0] =  0, [1] =  0, [2] =  0},
         MouseDownDuration     = {[0] = -1, [1] = -1, [2] = -1},
         MouseDownDurationPrev = {[0] = -1, [1] = -1, [2] = -1},
+
+        MouseDragMaxDistanceAbs = {[0] = 0, [1] = 0, [2] = 0},
+        MouseDragMaxDistanceSqr = {[0] = 0, [1] = 0, [2] = 0},
 
         MouseDownOwned    = {[0] = nil, [1] = nil, [2] = nil},
         MouseClickedTime  = {[0] = 0, [1] = 0, [2] = 0},

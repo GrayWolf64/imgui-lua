@@ -12,7 +12,9 @@ local stbrp_context = IM_INCLUDE"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
 
-FLT_MAX = 3.40282346638529e+38
+FLT_MIN = 1.1754943508223e-38
+FLT_MAX = 3.4028234663853e+38
+INT_MAX = 0x7fffffff
 IM_PI   = math.pi
 ImPow   = math.pow
 ImLog   = math.log
@@ -1107,6 +1109,13 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ScrollbarSeekMode = 0,
         ScrollbarClickDeltaToGrabCenter = 0.0,
 
+        SliderGrabClickOffset = 0.0,
+        SliderCurrentAccum = 0.0,
+        SliderCurrentAccumDirty = false,
+        DragCurrentAccumDirty = false,
+        DragCurrentAccum = 0.0,
+        DragSpeedDefaultRatio = 1.0 / 100.0,
+
         TooltipOverrideCount = 0,
         TooltipPreviousWindow = nil,
 
@@ -1754,6 +1763,11 @@ ImGuiKey_Mouse_BEGIN    = ImGuiKey.MouseLeft
 ImGuiKey_Mouse_END      = ImGuiKey.MouseWheelY + 1
 ImGuiKey_Aliases_BEGIN  = ImGuiKey_Mouse_BEGIN
 ImGuiKey_Aliases_END    = ImGuiKey_Mouse_END
+
+ImGuiKey.NavKeyboardTweakSlow = ImGuiMod_Ctrl
+ImGuiKey.NavKeyboardTweakFast = ImGuiMod_Shift
+ImGuiKey.NavGamepadTweakSlow = ImGuiKey.GamepadL1
+ImGuiKey.NavGamepadTweakFast = ImGuiKey.GamepadR1
 
 --- @enum ImGuiInputEventType
 ImGuiInputEventType = {
