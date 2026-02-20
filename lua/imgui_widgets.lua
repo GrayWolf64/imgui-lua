@@ -1553,6 +1553,168 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
 end
 
 ----------------------------------------------------------------
+-- [SECTION] SLIDERXXX
+----------------------------------------------------------------
+
+-- Convert a value v in the output space of a slider into a parametric position on the slider itself (the logical opposite of ScaleValueFromRatioT)
+--- @param data_type                ImGuiDataType
+--- @param v                        number
+--- @param v_min                    number
+--- @param v_max                    number
+--- @param is_logarithmic           bool
+--- @param logarithmic_zero_epsilon float
+--- @param zero_deadzone_halfsize   float
+function ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+    if v_min == v_max then
+        return 0.0
+    end
+    -- IM_UNUSED(data_type)
+
+    local v_clamped
+    if v_min < v_max then
+        v_clamped = ImClamp(v, v_min, v_max)
+    else
+        v_clamped = ImClamp(v, v_max, v_min)
+    end
+    if is_logarithmic then
+        local flipped = v_max < v_min
+        if flipped then -- Handle the case where the range is backwards
+            v_min, v_max = v_max, v_min
+        end
+
+        -- Fudge min/max to avoid getting close to log(0)
+        local v_min_fudged
+        if ImAbs(v_min) < logarithmic_zero_epsilon then
+            v_min_fudged = (v_min < 0.0) and -logarithmic_zero_epsilon or logarithmic_zero_epsilon
+        else
+            v_min_fudged = v_min
+        end
+        local v_max_fudged
+        if ImAbs(v_max) < logarithmic_zero_epsilon then
+            v_max_fudged = (v_max < 0.0) and -logarithmic_zero_epsilon or logarithmic_zero_epsilon
+        else
+            v_max_fudged = v_max
+        end
+
+        -- Awkward special cases - we need ranges of the form (-100 .. 0) to convert to (-100 .. -epsilon), not (-100 .. epsilon)
+        if v_min == 0.0 and v_max < 0.0 then
+            v_min_fudged = -logarithmic_zero_epsilon
+        elseif v_max == 0.0 and v_min < 0.0 then
+            v_max_fudged = -logarithmic_zero_epsilon
+        end
+
+        local result
+        if v_clamped <= v_min_fudged then
+            result = 0.0 -- Workaround for values that are in-range but below our fudge
+        elseif v_clamped >= v_max_fudged then
+            result = 1.0 -- Workaround for values that are in-range but above our fudge
+        elseif v_min * v_max < 0.0 then -- Range crosses zero, so split into two portions
+            local zero_point_center = (-v_min) / (v_max - v_min) -- The zero point in parametric space.  There's an argument we should take the logarithmic nature into account when calculating this, but for now this should do (and the most common case of a symmetrical range works fine)
+            local zero_point_snap_L = zero_point_center - zero_deadzone_halfsize
+            local zero_point_snap_R = zero_point_center + zero_deadzone_halfsize
+            if v == 0.0 then
+                result = zero_point_center -- Special case for exactly zero
+            elseif v < 0.0 then
+                result = (1.0 - (ImLog(-v_clamped / logarithmic_zero_epsilon) / ImLog(-v_min_fudged / logarithmic_zero_epsilon))) * zero_point_snap_L
+            else
+                result = zero_point_snap_R + ((ImLog(v_clamped / logarithmic_zero_epsilon) / ImLog(v_max_fudged / logarithmic_zero_epsilon)) * (1.0 - zero_point_snap_R))
+            end
+        elseif v_min < 0.0 or v_max < 0.0 then -- Entirely negative slider
+            result = 1.0 - (ImLog(-v_clamped / -v_max_fudged) / ImLog(-v_min_fudged / -v_max_fudged))
+        else
+            result = ImLog(v_clamped / v_min_fudged) / ImLog(v_max_fudged / v_min_fudged)
+        end
+
+        return flipped and (1.0 - result) or result
+    else
+        -- Linear slider
+        return (v_clamped - v_min) / (v_max - v_min)
+    end
+end
+
+-- Convert a parametric position on a slider into a value v in the output space (the logical opposite of ScaleRatioFromValueT)
+--- @param data_type                ImGuiDataType
+--- @param t                        float
+--- @param v_min                    number
+--- @param v_max                    number
+--- @param is_logarithmic           bool
+--- @param logarithmic_zero_epsilon float
+--- @param zero_deadzone_halfsize   float
+function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+    -- We special-case the extents because otherwise our logarithmic fudging can lead to "mathematically correct"
+    -- but non-intuitive behaviors like a fully-left slider not actually reaching the minimum value. Also generally simpler.
+    if t <= 0.0 or v_min == v_max then
+        return v_min
+    end
+    if t >= 1.0 then
+        return v_max
+    end
+
+    local result = 0
+    if is_logarithmic then
+        -- Fudge min/max to avoid getting silly results close to zero
+        local v_min_fudged
+        if ImAbs(v_min) < logarithmic_zero_epsilon then
+            v_min_fudged = (v_min < 0.0) and -logarithmic_zero_epsilon or logarithmic_zero_epsilon
+        else
+            v_min_fudged = v_min
+        end
+        local v_max_fudged
+        if ImAbs(v_max) < logarithmic_zero_epsilon then
+            v_max_fudged = (v_max < 0.0) and -logarithmic_zero_epsilon or logarithmic_zero_epsilon
+        else
+            v_max_fudged = v_max
+        end
+
+        local flipped = v_max < v_min -- Check if range is "backwards"
+        if flipped then
+            v_min_fudged, v_max_fudged = v_max_fudged, v_min_fudged
+        end
+
+        -- Awkward special case - we need ranges of the form (-100 .. 0) to convert to (-100 .. -epsilon), not (-100 .. epsilon)
+        if v_max == 0.0 and v_min < 0.0 then
+            v_max_fudged = -logarithmic_zero_epsilon
+        end
+
+        local t_with_flip = flipped and (1.0 - t) or t -- t, but flipped if necessary to account for us flipping the range
+
+        if v_min * v_max < 0.0 then -- Range crosses zero, so we have to do this in two parts
+            local zero_point_center = (-ImMin(v_min, v_max)) / ImAbs(v_max - v_min) -- The zero point in parametric space
+            local zero_point_snap_L = zero_point_center - zero_deadzone_halfsize
+            local zero_point_snap_R = zero_point_center + zero_deadzone_halfsize
+
+            if t_with_flip >= zero_point_snap_L and t_with_flip <= zero_point_snap_R then
+                result = 0.0 -- Special case to make getting exactly zero possible (the epsilon prevents it otherwise)
+            elseif t_with_flip < zero_point_center then
+                result = -(logarithmic_zero_epsilon * ImPow(-v_min_fudged / logarithmic_zero_epsilon, 1.0 - (t_with_flip / zero_point_snap_L)))
+            else
+                result = logarithmic_zero_epsilon * ImPow(v_max_fudged / logarithmic_zero_epsilon, (t_with_flip - zero_point_snap_R) / (1.0 - zero_point_snap_R))
+            end
+        elseif v_min < 0.0 or v_max < 0.0 then  -- Entirely negative slider
+            result = -(-v_max_fudged * ImPow(-v_min_fudged / -v_max_fudged, 1.0 - t_with_flip))
+        else
+            result = v_min_fudged * ImPow(v_max_fudged / v_min_fudged, t_with_flip)
+        end
+    else
+        -- Linear slider
+        local is_floating_point = (data_type == ImGuiDataType.Float) or (data_type == ImGuiDataType.Double)
+        if is_floating_point then
+            result = ImLerp(v_min, v_max, t)
+        elseif t < 1.0 then
+            -- - For integer values we want the clicking position to match the grab box so we round above
+            --   This code is carefully tuned to work with large values (e.g. high ranges of U64) while preserving this property..
+            -- - Not doing a *1.0 multiply at the end of a range as it tends to be lossy. While absolute aiming at a large s64/u64
+            --   range is going to be imprecise anyway, with this check we at least make the edge values matches expected limits.
+            local v_new_off_f = (v_max - v_min) * t
+            local offset = (v_min > v_max) and -0.5 or 0.5
+            result = v_min + v_new_off_f + offset
+        end
+    end
+
+    return result
+end
+
+----------------------------------------------------------------
 -- [SECTION] COLOR EDIT / PICKER
 ----------------------------------------------------------------
 

@@ -14,6 +14,8 @@ IM_TABSIZE = 4
 
 FLT_MAX = 3.40282346638529e+38
 IM_PI   = math.pi
+ImPow   = math.pow
+ImLog   = math.log
 ImAbs   = math.abs
 ImFabs  = math.abs
 ImFmod  = math.fmod
