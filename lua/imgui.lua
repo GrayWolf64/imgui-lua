@@ -2630,11 +2630,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         local _, hovered, held = ImGui.ButtonBehavior(resize_rect, resize_grip_id, bit.bor(ImGuiButtonFlags_FlattenChildren, ImGuiButtonFlags_NoNavFocus))
 
         if hovered or held then
-            if bit.band(resize_grip_n, 1) ~= 0 then
-                ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNESW)
-            else
-                ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNWSE)
-            end
+            ImGui.SetMouseCursor((bit.band(resize_grip_n, 1) ~= 0) and ImGuiMouseCursor.ResizeNESW or ImGuiMouseCursor.ResizeNWSE)
         end
 
         if held and g.IO.MouseDoubleClicked[0] then
@@ -2697,23 +2693,14 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             hovered = false
         end
         if hovered or held then
-            if axis == ImGuiAxis.X then
-                ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeEW)
-            else
-                ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeNS)
-            end
+            ImGui.SetMouseCursor((axis == ImGuiAxis.X) and ImGuiMouseCursor.ResizeEW or ImGuiMouseCursor.ResizeNS)
         end
         if held and g.IO.MouseDoubleClicked[0] then
             -- Double-clicking bottom or right border auto-fit on this axis
             -- FIXME: Support top and right borders: rework CalcResizePosSizeFromAnyCorner() to be reusable in both cases.
             if border_n == 1 or border_n == 3 then  -- Right and bottom border
                 local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, bit.lshift(1, axis))
-                if axis == 0 then
-                    size_target.x = CalcWindowSizeAfterConstraint(window, size_auto_fit).x
-                elseif axis == 1 then
-                    size_target.y = CalcWindowSizeAfterConstraint(window, size_auto_fit).y
-                end
-
+                size_target[axis] = CalcWindowSizeAfterConstraint(window, size_auto_fit)[axis]
                 ret_auto_fit_mask = bit.bor(ret_auto_fit_mask, bit.lshift(1, axis))
                 hovered = false
                 held = false  -- So border doesn't show highlighted at new position
@@ -2733,36 +2720,20 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             local border_curr = window.Pos + ImMinVec2(def.SegmentN1, def.SegmentN2) * window.Size
             local border_target_rel_mode_for_axis
             local border_target_abs_mode_for_axis
-            if axis == 0 then
-                border_target_rel_mode_for_axis = border_curr.x + g.IO.MouseDelta.x
-                border_target_abs_mode_for_axis = g.IO.MousePos.x - g.ActiveIdClickOffset.x + g.WindowsBorderHoverPadding
-            elseif axis == 1 then
-                border_target_rel_mode_for_axis = border_curr.y + g.IO.MouseDelta.y
-                border_target_abs_mode_for_axis = g.IO.MousePos.y - g.ActiveIdClickOffset.y + g.WindowsBorderHoverPadding
-            end
+            border_target_rel_mode_for_axis = border_curr[axis] + g.IO.MouseDelta[axis]
+            border_target_abs_mode_for_axis = g.IO.MousePos[axis] - g.ActiveIdClickOffset[axis] + g.WindowsBorderHoverPadding -- Match ButtonBehavior() padding above
 
             -- Use absolute mode position
             local border_target = ImVec2()
             ImVec2_Copy(border_target, window.Pos)
-            if axis == 0 then
-                border_target.x = border_target_abs_mode_for_axis
-            elseif axis == 1 then
-                border_target.y = border_target_abs_mode_for_axis
-            end
+            border_target[axis] = border_target_abs_mode_for_axis
 
             -- Use relative mode target for child window, ignore resize when moving back toward the ideal absolute position.
             local ignore_resize = false
             if g.WindowResizeRelativeMode then
-                if axis == 0 then
-                    border_target.x = border_target_rel_mode_for_axis
-                    if g.IO.MouseDelta.x == 0.0 or ((g.IO.MouseDelta.x > 0.0) == (border_target_rel_mode_for_axis > border_target_abs_mode_for_axis)) then
-                        ignore_resize = true
-                    end
-                elseif axis == 1 then
-                    border_target.y = border_target_rel_mode_for_axis
-                    if g.IO.MouseDelta.y == 0.0 or ((g.IO.MouseDelta.y > 0.0) == (border_target_rel_mode_for_axis > border_target_abs_mode_for_axis)) then
-                        ignore_resize = true
-                    end
+                border_target[axis] = border_target_rel_mode_for_axis
+                if g.IO.MouseDelta[axis] == 0.0 or ((g.IO.MouseDelta[axis] > 0.0) == (border_target_rel_mode_for_axis > border_target_abs_mode_for_axis)) then
+                    ignore_resize = true
                 end
             end
 
