@@ -160,9 +160,9 @@ end
 
 MT.ImVec2.__newindex = function(t, k, v)
     if k == ImGuiAxis.X then
-        return rawset(t, "x", v)
+        rawset(t, "x", v)
     elseif k == ImGuiAxis.Y then
-        return rawset(t, "y", v)
+        rawset(t, "y", v)
     end
 end
 
