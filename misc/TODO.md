@@ -13,4 +13,3 @@
 - GMod Backend: GMod render.MaxTextureWidth/Height()
 - Widgets: `DragXXX` & `Slider` -> `ColorEdit` -> `TextInput` -> `CollapsingHeader`
 - API: Some render text related functions take in `text_begin`, which is usually 1. Consider removing this param?
-- `ImAxisToStr` doesn't look good

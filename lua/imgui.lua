@@ -4864,11 +4864,11 @@ local function FindBestWheelingWindow(wheel)
     local g = GImGui
     local windows = {nil, nil}
     for axis = 0, 1 do
-        if wheel[ImAxisToStr[axis]] ~= 0.0 then
+        if wheel[axis] ~= 0.0 then
             windows[axis + 1] = g.HoveredWindow
             local window = g.HoveredWindow
             while bit.band(window.Flags, ImGuiWindowFlags_ChildWindow) ~= 0 do
-                local has_scrolling = (window.ScrollMax[ImAxisToStr[axis]] ~= 0.0)
+                local has_scrolling = (window.ScrollMax[axis] ~= 0.0)
                 local inputs_disabled = (bit.band(window.Flags, ImGuiWindowFlags_NoScrollWithMouse) ~= 0) and not (bit.band(window.Flags, ImGuiWindowFlags_NoMouseInputs) ~= 0)
 
                 if has_scrolling and not inputs_disabled then
@@ -5960,10 +5960,7 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
     local scroll = window.Scroll
     local decoration_size = ImVec2(window.DecoOuterSizeX1 + window.DecoInnerSizeX1 + window.DecoOuterSizeX2, window.DecoOuterSizeY1 + window.DecoInnerSizeY1 + window.DecoOuterSizeY2)
 
-    local axis
-    for i = 0, 1 do
-        axis = ImAxisToStr[i]
-
+    for axis = 0, 1 do
         if window.ScrollTarget[axis] < FLT_MAX then
             local center_ratio = window.ScrollTargetCenterRatio[axis]
             local scroll_target = window.ScrollTarget[axis]
@@ -6640,7 +6637,7 @@ function ImGui.NavCalcPreferredRefPos(window_type)
         if activated_shortcut and (bit.band(window_type, ImGuiWindowFlags_Popup) ~= 0) then
             ImRect_Copy(ref_rect, g.LastItemData.NavRect)
         elseif window ~= nil then
-            ImRect_Copy(ref_rect, ImGui.WindowRectRelToAbs(window, window.NavRectRel[ImAxisToStr[g.NavLayer]]))
+            ImRect_Copy(ref_rect, ImGui.WindowRectRelToAbs(window, window.NavRectRel[g.NavLayer]))
         end
 
         -- Take account of upcoming scrolling (maybe set mouse pos should be done in EndFrame?)

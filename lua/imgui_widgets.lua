@@ -572,7 +572,7 @@ function ImGui.GetWindowScrollbarRect(window, axis)
     local inner_rect = window.InnerRect
 
     -- (ScrollbarSizes.x = width of Y scrollbar; ScrollbarSizes.y = height of X scrollbar)
-    local scrollbar_size = window.ScrollbarSizes[ImAxisToStr[axis == ImGuiAxis.X and ImGuiAxis.Y or ImGuiAxis.X]]
+    local scrollbar_size = window.ScrollbarSizes[axis == ImGuiAxis.X and ImGuiAxis.Y or ImGuiAxis.X]
     IM_ASSERT(scrollbar_size >= 0.0)
 
     local border_size = IM_ROUND(window.WindowBorderSize * 0.5)
@@ -638,7 +638,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
 
     IM_ASSERT(ImMax(size_contents_v, size_visible_v) > 0.0)
     local win_size_v = ImMax(ImMax(size_contents_v, size_visible_v), 1)
-    local grab_h_minsize = ImMin(bb:GetSize()[ImAxisToStr[axis]], style.GrabMinSize)
+    local grab_h_minsize = ImMin(bb:GetSize()[axis], style.GrabMinSize)
     local grab_h_pixels = ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v)
     local grab_h_norm = grab_h_pixels / scrollbar_size_v
 
@@ -649,8 +649,8 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     local scroll_ratio = ImSaturate(p_scroll_v / scroll_max)
     local grab_v_norm = scroll_ratio * (scrollbar_size_v - grab_h_pixels) / scrollbar_size_v
     if held and allow_interaction and grab_h_norm < 1.0 then
-        local scrollbar_pos_v = bb.Min[ImAxisToStr[axis]]
-        local mouse_pos_v = g.IO.MousePos[ImAxisToStr[axis]]
+        local scrollbar_pos_v = bb.Min[axis]
+        local mouse_pos_v = g.IO.MousePos[axis]
         local clicked_v_norm = ImSaturate((mouse_pos_v - scrollbar_pos_v) / scrollbar_size_v)
 
         local held_dir
@@ -728,14 +728,13 @@ function ImGui.Scrollbar(axis)
 
     -- Calculate scrollbar bounding box
     local bb = ImGui.GetWindowScrollbarRect(window, axis)
-    local axis_str = ImAxisToStr[axis]
     local rounding_corners = ImGui.CalcRoundingFlagsForRectInRect(bb, window:Rect(), g.Style.WindowBorderSize)
-    local size_visible = window.InnerRect.Max[axis_str] - window.InnerRect.Min[axis_str]
-    local size_contents = window.ContentSize[axis_str] + window.WindowPadding[axis_str] * 2.0
-    local scroll = window.Scroll[axis_str]
+    local size_visible = window.InnerRect.Max[axis] - window.InnerRect.Min[axis]
+    local size_contents = window.ContentSize[axis] + window.WindowPadding[axis] * 2.0
+    local scroll = window.Scroll[axis]
     local held
     held, scroll = ImGui.ScrollbarEx(bb, id, axis, scroll, size_visible, size_contents, rounding_corners)
-    window.Scroll[axis_str] = scroll
+    window.Scroll[axis] = scroll
 end
 
 --- @param label string

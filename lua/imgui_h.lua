@@ -144,11 +144,27 @@ function ImTextureRect(x, y, w, h)
     }
 end
 
+-- This structure supports indexing on string keys `x`, `y` and number keys `ImGuiAxis.X`, `ImGuiAxis.Y`.
+-- But note that the later is likely to be more expensive.
 --- @class ImVec2
 --- @field x number
 --- @field y number
 MT.ImVec2 = {}
-MT.ImVec2.__index = MT.ImVec2
+MT.ImVec2.__index = function(t, k)
+    if k == ImGuiAxis.X then
+        return rawget(t, "x")
+    elseif k == ImGuiAxis.Y then
+        return rawget(t, "y")
+    end
+end
+
+MT.ImVec2.__newindex = function(t, k, v)
+    if k == ImGuiAxis.X then
+        return rawset(t, "x", v)
+    elseif k == ImGuiAxis.Y then
+        return rawset(t, "y", v)
+    end
+end
 
 --- @param x? number
 --- @param y? number

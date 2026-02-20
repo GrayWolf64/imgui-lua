@@ -1799,10 +1799,6 @@ ImGuiAxis = {
     Y    = 1
 }
 
-ImAxisToStr = {
-    [0] = "x", [1] = "y"
-}
-
 --- @enum ImGuiPlotType
 ImGuiPlotType = {
     Lines     = 0,
