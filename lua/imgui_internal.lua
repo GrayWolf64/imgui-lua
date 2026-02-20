@@ -492,6 +492,13 @@ function MT.ImDrawList:PathStroke(col, flags, thickness)
     self._Path.Size = 0
 end
 
+--- @param col ImU32
+function ImGui.SetNextItemColorMarker(col)
+    local g = ImGui.GetCurrentContext()
+    g.NextItemData.HasFlags = bit.bor(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker)
+    g.NextItemData.ColorMarker = col
+end
+
 --- @class ImDrawListSharedData
 --- @field TexUvWhitePixel       ImVec2
 --- @field TexUvLines            ImVec4

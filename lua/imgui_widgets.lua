@@ -1525,7 +1525,36 @@ function ImGui.EndComboPreview()
 end
 
 ----------------------------------------------------------------
--- [SECTION] COLOR PICKER
+-- [SECTION] DATA TYPE & DATA FORMATTING [Internal]
+----------------------------------------------------------------
+
+local GDefaultRgbaColorMarkers = {
+    IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
+}
+
+----------------------------------------------------------------
+-- [SECTION] DRAGXXX
+----------------------------------------------------------------
+
+-- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
+--- @param data_type ImGuiDataType
+--- @param v         number
+--- @param v_speed   float
+--- @param v_min     number
+--- @param v_max     number
+--- @param format    string
+--- @param flags     ImGuiSliderFlags
+function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
+end
+
+function ImGui.DragBehavior(id, data_type, v, speed, min, max, format, flags)
+end
+
+function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, flags)
+end
+
+----------------------------------------------------------------
+-- [SECTION] COLOR EDIT / PICKER
 ----------------------------------------------------------------
 
 --- @param col float[]
@@ -1581,7 +1610,7 @@ local fmt_table_float = {
     { "R:%0.3f", "G:%0.3f", "B:%0.3f", "A:%0.3f" }, -- Long display for RGBA
     { "H:%0.3f", "S:%0.3f", "V:%0.3f", "A:%0.3f" }  -- Long display for HSVA
 }
--- TODO: SetNextItemColorMarker(), ...
+-- TODO:
 --- @param label string
 --- @param col   float[]
 --- @param flags ImGuiColorEditFlags
@@ -1684,13 +1713,25 @@ function ImGui.ColorEdit4(label, col, flags)
             ImGui.SetNextItemWidth(ImMax(next_split - prev_split, 1.0))
             prev_split = next_split
             if draw_color_marker then
+                ImGui.SetNextItemColorMarker(GDefaultRgbaColorMarkers[n])
+            end
+
+            -- FIXME: When ImGuiColorEditFlags_HDR flag is passed HS values snap in weird ways when SV values go below 0
+            if bit.band(flags, ImGuiColorEditFlags.Float) ~= 0 then
+
+            else
 
             end
 
+            if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+                ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+            end
         end
     elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
-
+        -- RGB Hexadecimal Input
     end
+
+    local picker_active_window = nil
 
     ImGui.PopID()
     ImGui.EndGroup()
