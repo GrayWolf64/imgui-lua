@@ -6941,6 +6941,9 @@ function ImGui.TranslateWindowsInViewport(viewport, old_pos, new_pos, old_size, 
     end
 end
 
+-- If the backend doesn't support ImGuiBackendFlags_HasMouseHoveredViewport or doesn't honor ImGuiViewportFlags_NoInputs for it, we do a search ourselves.
+-- A) It won't take account of the possibility that non-imgui windows may be in-between our dragged window and our target window.
+-- B) It requires Platform_GetWindowFocus to be implemented by backend.
 --- @param mouse_platform_pos ImVec2
 --- @return ImGuiViewportP?
 function ImGui.FindHoveredViewportFromPlatformWindowStack(mouse_platform_pos)
@@ -6949,7 +6952,9 @@ function ImGui.FindHoveredViewportFromPlatformWindowStack(mouse_platform_pos)
     for _, viewport in g.Viewports:iter() do
         if bit.band(viewport.Flags, bit.bor(ImGuiViewportFlags.NoInputs, ImGuiViewportFlags.IsMinimized)) == 0 and viewport:GetMainRect():ContainsV2(mouse_platform_pos) then
             if best_candidate == nil or best_candidate.LastFocusedStampCount < viewport.LastFocusedStampCount then
-                best_candidate = viewport
+                if viewport.PlatformWindowCreated then
+                    best_candidate = viewport
+                end
             end
         end
     end
@@ -7195,7 +7200,7 @@ function ImGui.UpdateViewportsNewFrame()
         -- If the backend doesn't know how to honor ImGuiViewportFlags.NoInputs, we do a search ourselves. Note that this search:
         -- A) won't take account of the possibility that non-imgui windows may be in-between our dragged window and our target window.
         -- B) won't take account of how the backend apply parent<>child relationship to secondary viewports, which affects their Z order.
-        -- C) uses LastFrameAsRefViewport as a flawed replacement for the last time a window was focused (we could/should fix that by introducing Focus functions in PlatformIO)
+        -- C) uses LastFocusedStampCount as a flawed replacement for the last time a window was focused (we could/should fix that by introducing Focus functions in PlatformIO)
         viewport_hovered = ImGui.FindHoveredViewportFromPlatformWindowStack(g.IO.MousePos)
     end
 
