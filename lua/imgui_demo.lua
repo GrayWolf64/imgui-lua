@@ -117,6 +117,48 @@ end
 
 end
 
+local DemoWindowWidgetsPlotting
+do
+    local animate = true
+    local arr = { 0.6, 0.1, 1.0, 0.5, 0.92, 0.1, 0.2 }
+
+    local values_sz = 90
+    local values = {} for i = 1, values_sz do values[i] = 0 end
+    local values_offset = 0
+    local refresh_time = 0.0
+    local phase = 0.0
+
+    function DemoWindowWidgetsPlotting()
+        _, animate = ImGui.Checkbox("Animate", animate)
+
+        -- Plot as lines and plot as histogram
+        ImGui.PlotLines("Frame Times", arr, nil, #arr)
+        ImGui.PlotHistogram("Histogram", arr, nil, #arr, 0, nil, 0.0, 1.0, ImVec2(0, 80.0))
+
+        if not animate or refresh_time == 0.0 then
+            refresh_time = ImGui.GetTime()
+        end
+        while refresh_time < ImGui.GetTime() do -- Create data at fixed 60 Hz rate for the demo
+            values[values_offset + 1] = math.cos(phase)
+            values_offset = (values_offset + 1) % values_sz
+            phase = phase + 0.10 * values_offset
+            refresh_time = refresh_time + 1.0 / 60.0
+        end
+
+        -- Plots can display overlay texts
+        -- (in this example, we will display an average value)
+        do
+            local average = 0.0
+            for i = 1, values_sz do
+                average = average + values[i]
+            end
+            average = average / values_sz
+            local overlay = string.format("avg %f", average)
+            ImGui.PlotLines("Lines", values, nil, values_sz, values_offset, overlay, -1.0, 1.0, ImVec2(0, 80.0))
+        end
+    end
+end
+
 function ImGui.ShowDemoWindow(open)
     open = ImGui.Begin("ImGui Sincerely Demo", open)
     if not open then
@@ -126,6 +168,7 @@ function ImGui.ShowDemoWindow(open)
 
     DemoWindowWidgetsBasic()
     DemoWindowWidgetsColorAndPickers()
+    DemoWindowWidgetsPlotting()
 
     ImGui.End()
 
