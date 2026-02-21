@@ -4380,6 +4380,70 @@ function ImGui.RenderArrowPointingAt(draw_list, pos, half_sz, direction, col)
     end
 end
 
+local function ImAcos01(x)
+    if x <= 0.0 then return IM_PI * 0.5 end
+    if x >= 1.0 then return 0.0 end
+    return ImAcos(x)
+end
+
+-- FIXME: Cleanup and move code to ImDrawList
+--- @param draw_list ImDrawList
+--- @param rect      ImRect
+--- @param col       ImU32
+--- @param fill_x0   float
+--- @param fill_x1   float
+--- @param rounding  float
+function ImGui.RenderRectFilledInRangeH(draw_list, rect, col, fill_x0, fill_x1, rounding)
+    if fill_x0 > fill_x1 then
+        return
+    end
+
+    local p0 = ImVec2(fill_x0, rect.Min.y)
+    local p1 = ImVec2(fill_x1, rect.Max.y)
+
+    if rounding == 0.0 then
+        draw_list:AddRectFilled(p0, p1, col, 0.0)
+        return
+    end
+
+    rounding = ImClamp(ImMin((rect.Max.x - rect.Min.x) * 0.5, (rect.Max.y - rect.Min.y) * 0.5) - 1.0, 0.0, rounding)
+    local inv_rounding = 1.0 / rounding
+    local arc0_b = ImAcos01(1.0 - (p0.x - rect.Min.x) * inv_rounding)
+    local arc0_e = ImAcos01(1.0 - (p1.x - rect.Min.x) * inv_rounding)
+    local half_pi = IM_PI * 0.5 -- We will == compare to this because we know this is the exact value ImAcos01 can return.
+    local x0 = ImMax(p0.x, rect.Min.x + rounding)
+
+    if arc0_b == arc0_e then
+        draw_list:PathLineTo(ImVec2(x0, p1.y))
+        draw_list:PathLineTo(ImVec2(x0, p0.y))
+    elseif arc0_b == 0.0 and arc0_e == half_pi then
+        draw_list:PathArcToFast(ImVec2(x0, p1.y - rounding), rounding, 3, 6) -- BL
+        draw_list:PathArcToFast(ImVec2(x0, p0.y + rounding), rounding, 6, 9) -- TR
+    else
+        draw_list:PathArcTo(ImVec2(x0, p1.y - rounding), rounding, math.pi - arc0_e, math.pi - arc0_b) -- BL
+        draw_list:PathArcTo(ImVec2(x0, p0.y + rounding), rounding, math.pi + arc0_b, math.pi + arc0_e) -- TR
+    end
+
+    if p1.x > rect.Min.x + rounding then
+        local arc1_b = ImAcos01(1.0 - (rect.Max.x - p1.x) * inv_rounding)
+        local arc1_e = ImAcos01(1.0 - (rect.Max.x - p0.x) * inv_rounding)
+        local x1 = ImMin(p1.x, rect.Max.x - rounding)
+
+        if arc1_b == arc1_e then
+            draw_list:PathLineTo(ImVec2(x1, p0.y))
+            draw_list:PathLineTo(ImVec2(x1, p1.y))
+        elseif arc1_b == 0.0 and arc1_e == half_pi then
+            draw_list:PathArcToFast(ImVec2(x1, p0.y + rounding), rounding, 9, 12) -- TR
+            draw_list:PathArcToFast(ImVec2(x1, p1.y - rounding), rounding, 0, 3)  -- BR
+        else
+            draw_list:PathArcTo(ImVec2(x1, p0.y + rounding), rounding, -arc1_e, -arc1_b) -- TR
+            draw_list:PathArcTo(ImVec2(x1, p1.y - rounding), rounding, arc1_b, arc1_e)   -- BR
+        end
+    end
+
+    draw_list:PathFillConvex(col)
+end
+
 --- @param r_in      ImRect
 --- @param r_outer   ImRect
 --- @param threshold float

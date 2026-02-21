@@ -14,7 +14,12 @@ IM_TABSIZE = 4
 
 FLT_MIN = 1.1754943508223e-38
 FLT_MAX = 3.4028234663853e+38
+INT_MIN = -0x7fffffff - 1
 INT_MAX = 0x7fffffff
+UINT_MAX = 0x7fffffff * 2 + 1
+LLONG_MIN = -9223372036854775807 - 1
+LLONG_MAX = 9223372036854775807
+
 IM_PI   = math.pi
 ImPow   = math.pow
 ImLog   = math.log
@@ -2009,4 +2014,10 @@ function ImGui.LocalizeGetMsg(key)
     local g = ImGui.GetCurrentContext()
     local msg = g.LocalizationTable[key]
     if msg then return msg else return "*Missing Text*" end
+end
+
+--- @param id ImGuiID
+function ImGui.TempInputIsActive(id)
+    local g = ImGui.GetCurrentContext()
+    return g.ActiveId == id and g.TempInputId == id
 end

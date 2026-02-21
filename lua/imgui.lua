@@ -1670,7 +1670,7 @@ end
 --- @param bb         ImRect
 --- @param id         ImGuiID
 --- @param item_flags ImGuiItemFlags
-function ImGui.ItemHoverable(id, bb, item_flags)
+function ImGui.ItemHoverable(bb, id, item_flags)
     local g = GImGui
 
     local window = g.CurrentWindow
@@ -3074,6 +3074,13 @@ function ImGui.RenderFrameBorder(p_min, p_max, rounding)
         window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), ImGui.GetColorU32(ImGuiCol.BorderShadow), rounding, 0, border_size)
         window.DrawList:AddRect(p_min, p_max, ImGui.GetColorU32(ImGuiCol.Border), rounding, 0, border_size)
     end
+end
+
+--- @param bb       ImRect
+--- @param col      ImU32
+--- @param rounding float
+function ImGui.RenderColorComponentMarker(bb, col, rounding)
+    -- TODO:
 end
 
 --- @param window      ImGuiWindow

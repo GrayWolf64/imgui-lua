@@ -1785,6 +1785,9 @@ ImGuiSliderFlags = {
 
 ImGuiSliderFlags.AlwaysClamp        = bit.bor(ImGuiSliderFlags.ClampOnInput, ImGuiSliderFlags.ClampZeroRange)
 
+ImGuiSliderFlags.Vertical = bit.lshift(1, 20) -- Should this slider be orientated vertically?
+ImGuiSliderFlags.ReadOnly = bit.lshift(1, 21) -- Consider using g.NextItemData.ItemFlags |= ImGuiItemFlags_ReadOnly instead
+
 --- @class ImGuiWindowClass
 --- @field ClassId                    ImGuiID
 --- @field ParentViewportId           ImGuiID

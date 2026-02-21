@@ -3,6 +3,21 @@
 
 local DRAG_MOUSE_THRESHOLD_FACTOR = 0.50 -- Multiplier for the default value of io.MouseDragThreshold to make DragFloat/DragInt react faster to mouse drags
 
+local IM_S8_MIN = -128
+local IM_S8_MAX = 127
+local IM_U8_MIN = 0
+local IM_U8_MAX = 0xFF
+local IM_S16_MIN = -32768
+local IM_S16_MAX = 32767
+local IM_U16_MIN = 0
+local IM_U16_MAX = 0xFFFF
+local IM_S32_MIN = INT_MIN
+local IM_S32_MAX = INT_MAX
+local IM_U32_MIN = 0
+local IM_U32_MAX = UINT_MAX
+local IM_S64_MIN = LLONG_MIN
+local IM_S64_MAX = LLONG_MAX
+
 ----------------------------------------------------------------
 -- [SECTION] TEXT
 ----------------------------------------------------------------
@@ -213,7 +228,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
     end
 
     local pressed = false
-    local hovered = ImGui.ItemHoverable(id, bb, item_flags)
+    local hovered = ImGui.ItemHoverable(bb, id, item_flags)
     if g.DragDropActive then
         if (bit.band(flags, ImGuiButtonFlags_PressedOnDragDropHold) ~= 0) and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags_SourceNoHoldToOpenOthers) == 0) and ImGui.IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) then
             hovered = true
@@ -1533,6 +1548,15 @@ local GDefaultRgbaColorMarkers = {
     IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
 }
 
+local GDataTypeInfo = {
+
+}
+
+--- @param data_type ImGuiDataType
+function ImGui.DataTypeGetInfo(data_type)
+
+end
+
 local GetMinimumStepAtDecimalPrecision do
 
 local min_steps = { 1.0, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001, 0.000000001 }
@@ -1824,12 +1848,123 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
     return v, true
 end
 
-function ImGui.DragBehavior(id, data_type, v, speed, min, max, format, flags)
+function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
+    IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
 
+    local g = ImGui.GetCurrentContext()
+    if g.ActiveId == id then
+        if g.ActiveIdSource == ImGuiInputSource.Mouse and not g.IO.MouseDown[0] then
+            ImGui.ClearActiveID()
+        elseif (g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad) and g.NavActivatePressedId == id and not g.ActiveIdIsJustActivated then
+            ImGui.ClearActiveID()
+        end
+    end
+    if g.ActiveId ~= id then
+        return v, false
+    end
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_ReadOnly) ~= 0 or bit.band(flags, ImGuiSliderFlags.ReadOnly) ~= 0 then
+        return v, false
+    end
+
+    if data_type == ImGuiDataType.S8 then
+        return ImGui.DragBehaviorT(ImGuiDataType.S32, v, v_speed, min and min or IM_S8_MIN, max and max or IM_S8_MAX, format, flags)
+    elseif data_type == ImGuiDataType.U8 then
+        return ImGui.DragBehaviorT(ImGuiDataType.U32, v, v_speed, min and min or IM_U8_MIN, max and max or IM_U8_MAX, format, flags)
+    elseif data_type == ImGuiDataType.S16 then
+        return ImGui.DragBehaviorT(ImGuiDataType.S32, v, v_speed, min and min or IM_S16_MIN, max and max or IM_S16_MAX, format, flags)
+    elseif data_type == ImGuiDataType.U16 then
+        return ImGui.DragBehaviorT(ImGuiDataType.U32, v, v_speed, min and min or IM_U16_MIN, max and max or IM_U16_MAX, format, flags)
+    elseif data_type == ImGuiDataType.S32 then
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S32_MIN, max and max or IM_S32_MAX, format, flags)
+    elseif data_type == ImGuiDataType.U32 then
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_U32_MIN, max and max or IM_U32_MAX, format, flags)
+    elseif data_type == ImGuiDataType.S64 then
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S64_MIN, max and max or IM_S64_MAX, format, flags)
+    elseif data_type == ImGuiDataType.U64 then
+        -- Native Lua can't handle this
+    elseif data_type == ImGuiDataType.Float then
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -FLT_MAX, max and max or FLT_MAX, format, flags)
+    elseif data_type == ImGuiDataType.Double then
+        -- Native Lua can't handle this losslessly
+    elseif data_type == ImGuiDataType.COUNT then
+        -- Do nothing
+    end
+
+    IM_ASSERT(false)
+    return v, false
 end
 
 function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, flags)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return data, false
+    end
 
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local id = window:GetID(label)
+    local w = ImGui.CalcItemWidth()
+    local color_marker = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker) ~= 0) and g.NextItemData.ColorMarker or 0
+
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0))
+    local total_bb = ImRect(frame_bb.Min, frame_bb.Max + ImVec2((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0, 0.0))
+
+    local temp_input_allowed = (bit.band(flags, ImGuiSliderFlags.NoInput) == 0)
+    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    if not ImGui.ItemAdd(total_bb, id, frame_bb, temp_input_allowed and ImGuiItemFlags_Inputable or 0) then
+        return data, false
+    end
+
+    -- Default format string when passing NULL
+    if format == nil then
+        format = ImGui.DataTypeGetInfo(data_type).PrintFmt
+    end
+
+    local hovered = ImGui.ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags)
+    local temp_input_is_active = temp_input_allowed and ImGui.TempInputIsActive(id)
+    if not temp_input_is_active then
+        -- TODO:
+    end
+
+    if temp_input_is_active then
+        -- TODO:
+    end
+
+    -- Draw frame
+    local frame_col = ImGui.GetColorU32(g.ActiveId == id and ImGuiCol.FrameBgActive or hovered and ImGuiCol.FrameBgHovered or ImGuiCol.FrameBg)
+    ImGui.RenderNavCursor(frame_bb, id)
+    ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, false, style.FrameRounding)
+
+    if color_marker ~= 0 and style.ColorMarkerSize > 0.0 then
+        ImGui.RenderColorComponentMarker(frame_bb, ImGui.GetColorU32_U32(color_marker), style.FrameRounding)
+    end
+
+    ImGui.RenderFrameBorder(frame_bb.Min, frame_bb.Max, g.Style.FrameRounding)
+
+    -- Drag behavior
+    local value_changed
+    data, value_changed = ImGui.DragBehavior(id, data_type, data, v_speed, p_min, p_max, format, flags)
+    if value_changed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    -- Display value using user-provided display format so user can add prefix/suffix/decorations to the value
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), 1, nil, nil, ImVec2(0.5, 0.5))
+
+    if label_size.x > 0.0 then
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label)
+    end
+
+    return data, value_changed
+end
+
+function ImGui.DragFloat(label, v, v_speed, v_min, v_max, format, flags)
+    return ImGui.DragScalar(label, ImGuiDataType.Float, v, v_speed, v_min, v_max, format, flags)
+end
+
+function ImGui.DragInt(label, v, v_speed, v_min, v_max, format, flags)
+    return ImGui.DragScalar(label, ImGuiDataType.S32, v, v_speed, v_min, v_max, format, flags)
 end
 
 ----------------------------------------------------------------
@@ -2159,9 +2294,14 @@ function ImGui.ColorEdit4(label, col, flags)
 
             -- FIXME: When ImGuiColorEditFlags_HDR flag is passed HS values snap in weird ways when SV values go below 0
             if bit.band(flags, ImGuiColorEditFlags.Float) ~= 0 then
-
+                local changed
+                f[n], changed = ImGui.DragFloat(ids[n], f[n], 1.0 / 255.0, 0.0, hdr and 0.0 or 1.0, fmt_table_float[fmt_idx][n], drag_flags)
+                value_changed = value_changed or changed
+                value_changed_as_float = value_changed_as_float or value_changed
             else
-
+                local changed
+                i[n], changed = ImGui.DragInt(ids[n], i[n], 1.0, 0, hdr and 0 or 255, fmt_table_int[fmt_idx][n], drag_flags)
+                value_changed = value_changed or changed
             end
 
             if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
