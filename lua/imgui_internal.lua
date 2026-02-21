@@ -14,6 +14,7 @@ IM_TABSIZE = 4
 
 FLT_MIN = 1.1754943508223e-38
 FLT_MAX = 3.4028234663853e+38
+DBL_MAX = 1.7976931348623e+308
 INT_MIN = -0x7fffffff - 1
 INT_MAX = 0x7fffffff
 UINT_MAX = 0x7fffffff * 2 + 1
@@ -672,6 +673,12 @@ function ImGuiStyleMod(idx, v)
 
     return this
 end
+
+--- Type information associated to one ImGuiDataType. Retrieve with DataTypeGetInfo().\
+--- Unlike cpp impl, `Size` and `ScanFmt` fields are absent here
+--- @class ImGuiDataTypeInfo
+--- @field Name     string # Short descriptive name for the type, for debugging
+--- @field PrintFmt string # Default printf format for the type
 
 --- @class ImGuiLastItemData
 
@@ -1996,17 +2003,6 @@ ImGuiLocKey = {
 --- @class ImGuiLocEntry
 --- @field Key  ImGuiLocKey
 --- @field Text string
-
---- @param key  ImGuiLocKey
---- @param text string
---- @return ImGuiLocEntry
---- @nodiscard
-function ImGuiLocEntry(key, text)
-    return {
-        Key  = key,
-        Text = text
-    }
-end
 
 --- @param key ImGuiLocKey
 --- @return string

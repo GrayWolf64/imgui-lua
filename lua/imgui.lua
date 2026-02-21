@@ -564,6 +564,15 @@ function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
 end
 
+--- @param key  ImGuiLocKey
+--- @param text string
+--- @return ImGuiLocEntry
+--- @nodiscard
+--- @package
+local function ImGuiLocEntry(key, text)
+    return { Key = key, Text = text }
+end
+
 local GLocalizationEntriesEnUS = {
     ImGuiLocEntry(ImGuiLocKey.VersionStr,                    "ImGui Sincerely WIP"),
     ImGuiLocEntry(ImGuiLocKey.TableSizeOne,                  "Size column to fit###SizeOne"),

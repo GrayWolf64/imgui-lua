@@ -1549,13 +1549,33 @@ local GDefaultRgbaColorMarkers = {
     IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
 }
 
-local GDataTypeInfo = {
+--- @param name      string
+--- @param print_fmt string
+--- @return ImGuiDataTypeInfo
+--- @nodiscard
+--- @package
+local function ImGuiDataTypeInfo(name, print_fmt)
+    return { Name = name, PrintFmt = print_fmt }
+end
 
+local GDataTypeInfo = {
+    ImGuiDataTypeInfo("S8",     "%d"),
+    ImGuiDataTypeInfo("U8",     "%u"),
+    ImGuiDataTypeInfo("S16",    "%d"),
+    ImGuiDataTypeInfo("U16",    "%u"),
+    ImGuiDataTypeInfo("S32",    "%d"),
+    ImGuiDataTypeInfo("U32",    "%u"),
+    ImGuiDataTypeInfo("S64",    "%lld"),
+    ImGuiDataTypeInfo("float",  "%.3f"),
+    ImGuiDataTypeInfo("double", "%f"),
+    ImGuiDataTypeInfo("bool",   "%d"),
+    ImGuiDataTypeInfo("string", "%s")
 }
 
 --- @param data_type ImGuiDataType
 function ImGui.DataTypeGetInfo(data_type)
-
+    IM_ASSERT(data_type >= 1 and data_type <= ImGuiDataType.COUNT)
+    return GDataTypeInfo[data_type]
 end
 
 local GetMinimumStepAtDecimalPrecision do
@@ -1849,6 +1869,14 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
     return v, true
 end
 
+--- @param id        ImGuiID
+--- @param data_type ImGuiDataType
+--- @param v         number
+--- @param v_speed   float
+--- @param min       number
+--- @param max       number
+--- @param format    string
+--- @param flags     ImGuiSliderFlags
 function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
     IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
 
@@ -1881,14 +1909,10 @@ function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_U32_MIN, max and max or IM_U32_MAX, format, flags)
     elseif data_type == ImGuiDataType.S64 then
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S64_MIN, max and max or IM_S64_MAX, format, flags)
-    elseif data_type == ImGuiDataType.U64 then
-        -- Native Lua can't handle this
     elseif data_type == ImGuiDataType.Float then
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -FLT_MAX, max and max or FLT_MAX, format, flags)
     elseif data_type == ImGuiDataType.Double then
-        -- Native Lua can't handle this losslessly
-    elseif data_type == ImGuiDataType.COUNT then
-        -- Do nothing
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -DBL_MAX, max and max or DBL_MAX, format, flags)
     end
 
     IM_ASSERT(false)
@@ -2187,7 +2211,7 @@ local fmt_table_float = {
     { "R:%0.3f", "G:%0.3f", "B:%0.3f", "A:%0.3f" }, -- Long display for RGBA
     { "H:%0.3f", "S:%0.3f", "V:%0.3f", "A:%0.3f" }  -- Long display for HSVA
 }
--- TODO:
+
 --- @param label string
 --- @param col   float[]
 --- @param flags ImGuiColorEditFlags
@@ -2311,6 +2335,7 @@ function ImGui.ColorEdit4(label, col, flags)
         end
     elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
         -- RGB Hexadecimal Input
+        -- TODO:
     end
 
     local picker_active_window = nil

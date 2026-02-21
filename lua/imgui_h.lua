@@ -1615,22 +1615,21 @@ ImGuiDragDropFlags_AcceptDrawAsHovered     = bit.lshift(1, 13)
 
 ImGuiDragDropFlags_AcceptPeekOnly = bit.bor(ImGuiDragDropFlags_AcceptBeforeDelivery, ImGuiDragDropFlags_AcceptNoDrawDefaultRect)
 
---- A primary data type
+--- Note that `U64` isn't supported
 --- @enum ImGuiDataType
 ImGuiDataType = {
-    S8     = 0,  -- signed char / char
-    U8     = 1,  -- unsigned char
-    S16    = 2,  -- short
-    U16    = 3,  -- unsigned short
-    S32    = 4,  -- int
-    U32    = 5,  -- unsigned int
-    S64    = 6,  -- long long / __int64
-    U64    = 7,  -- unsigned long long / unsigned __int64
+    S8     = 1,  -- signed char / char
+    U8     = 2,  -- unsigned char
+    S16    = 3,  -- short
+    U16    = 4,  -- unsigned short
+    S32    = 5,  -- int
+    U32    = 6,  -- unsigned int
+    S64    = 7,  -- long long / __int64
     Float  = 8,  -- float
     Double = 9,  -- double
     Bool   = 10, -- bool (provided for user convenience, not supported by scalar widgets)
     String = 11, -- string (provided for user convenience, not supported by scalar widgets)
-    COUNT  = 12
+    COUNT  = 11
 }
 
 IM_COL32_R_SHIFT = 0
