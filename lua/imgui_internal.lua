@@ -1102,7 +1102,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ColorEditCurrentID = 0, ColorEditSavedID = 0,
         ColorEditSavedHue = 0.0, ColorEditSavedSat = 0.0,
         ColorEditSavedColor = 0,
-        ColorPickerRef = {0, 0, 0, 0},
+        ColorPickerRef = ImVec4(),
 
         DrawListSharedData = ImDrawListSharedData(),
 
