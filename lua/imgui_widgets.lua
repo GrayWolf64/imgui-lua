@@ -2336,13 +2336,98 @@ function ImGui.ColorEdit4(label, col, flags)
     elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
         -- RGB Hexadecimal Input
         -- TODO:
+
+        if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+        end
     end
 
     local picker_active_window = nil
+    if bit.band(flags, ImGuiColorEditFlags.NoSmallPreview) == 0 then
+        local button_offset_x = (bit.band(flags, ImGuiColorEditFlags.NoInputs) ~= 0 or style.ColorButtonPosition == ImGuiDir.Left) and 0.0 or (w_inputs + style.ItemInnerSpacing.x)
+        ImVec2_Copy(window.DC.CursorPos, ImVec2(pos.x + button_offset_x, pos.y))
 
+        local col_v4 = ImVec4(col[1], col[2], col[3], alpha and col[4] or 1.0)
+        if ImGui.ColorButton("##ColorButton", col_v4, flags) then
+            if bit.band(flags, ImGuiColorEditFlags.NoPicker) == 0 then
+                -- Store current color and open a picker
+                ImVec4_Copy(g.ColorPickerRef, col_v4)
+                ImGui.OpenPopup("picker")
+                ImGui.SetNextWindowPos(g.LastItemData.Rect:GetBL() + ImVec2(0.0, style.ItemSpacing.y))
+            end
+        end
+        if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+        end
+
+        if ImGui.BeginPopup("picker") then
+            if g.CurrentWindow.BeginCount == 1 then
+                picker_active_window = g.CurrentWindow
+                if label ~= "" and label_display_end > 1 then
+                    ImGui.TextEx(label, label_display_end)
+                    ImGui.Spacing()
+                end
+                local picker_flags_to_forward = bit.bor(ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.PickerMask_, ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.HDR, ImGuiColorEditFlags.NoAlpha, ImGuiColorEditFlags.AlphaBar)
+                local picker_flags = bit.bor(bit.band(flags_untouched, picker_flags_to_forward), ImGuiColorEditFlags.DisplayMask_, ImGuiColorEditFlags.NoLabel, ImGuiColorEditFlags.AlphaPreviewHalf)
+                ImGui.SetNextItemWidth(square_sz * 12.0) -- Use 256 + bar sizes?
+                value_changed = value_changed or ImGui.ColorPicker4("##picker", col, picker_flags, g.ColorPickerRef)
+            end
+            ImGui.EndPopup()
+        end
+    end
+
+    if label ~= "" and label_display_end > 1 and bit.band(flags, ImGuiColorEditFlags.NoLabel) == 0 then
+        -- Position not necessarily next to last submitted button (e.g. if style.ColorButtonPosition == ImGuiDir_Left),
+        -- but we need to use SameLine() to setup baseline correctly. Might want to refactor SameLine() to simplify this
+        ImGui.SameLine(0.0, style.ItemInnerSpacing.x)
+        window.DC.CursorPos.x = pos.x + ((bit.band(flags, ImGuiColorEditFlags.NoInputs) ~= 0) and w_button or (w_full + style.ItemInnerSpacing.x))
+        ImGui.TextEx(label, label_display_end)
+    end
+
+    -- Convert back
+    if value_changed and picker_active_window == nil then
+        if not value_changed_as_float then
+            for n = 1, 4 do
+                f[n] = i[n] / 255.0
+            end
+        end
+        if bit.band(flags, ImGuiColorEditFlags.DisplayHSV) ~= 0 and bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+            g.ColorEditSavedHue = f[1]
+            g.ColorEditSavedSat = f[2]
+            f[1], f[2], f[3] = ImGui.ColorConvertHSVtoRGB(f[1], f[2], f[3])
+            g.ColorEditSavedID = g.ColorEditCurrentID
+            g.ColorEditSavedColor = ImGui.ColorConvertFloat4ToU32(ImVec4(f[1], f[2], f[3], 0))
+        end
+        if bit.band(flags, ImGuiColorEditFlags.DisplayRGB) ~= 0 and bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+            f[1], f[2], f[3] = ImGui.ColorConvertRGBtoHSV(f[1], f[2], f[3])
+        end
+
+        col[1] = f[1]
+        col[2] = f[2]
+        col[3] = f[3]
+        if alpha then
+            col[4] = f[4]
+        end
+    end
+
+    if set_current_color_edit_id then
+        g.ColorEditCurrentID = 0
+    end
     ImGui.PopID()
     ImGui.EndGroup()
 
+    -- Drag and Drop Target
+
+    -- When picker is being actively used, use its active id so IsItemActive() will function on ColorEdit4()
+    if picker_active_window and g.ActiveId ~= 0 and g.ActiveIdWindow == picker_active_window then
+        g.LastItemData.ID = g.ActiveId
+    end
+
+    if value_changed and g.LastItemData.ID ~= 0 then -- In case of ID collision, the second EndGroup() won't catch g.ActiveId
+        ImGui.MarkItemEdited(g.LastItemData.ID)
+    end
+
+    return value_changed
 end
 
 end

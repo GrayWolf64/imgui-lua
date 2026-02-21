@@ -184,13 +184,37 @@ function ImVec2_Copy(dest, src)
     dest.x = src.x; dest.y = src.y
 end
 
+-- This structure supports indexing on string keys `x`, `y`, `z`, `w` and number keys 1, 2, 3, 4.
+-- But note that the later is likely to be more expensive.
 --- @class ImVec4
 --- @field x number
 --- @field y number
 --- @field z number
 --- @field w number
 MT.ImVec4 = {}
-MT.ImVec4.__index = MT.ImVec4
+MT.ImVec4.__index = function(t, k)
+    if k == 1 then
+        return rawget(t, "x")
+    elseif k == 2 then
+        return rawget(t, "y")
+    elseif k == 3 then
+        return rawget(t, "z")
+    elseif k == 4 then
+        return rawget(t, "w")
+    end
+end
+
+MT.ImVec4.__newindex = function(t, k, v)
+    if k == 1 then
+        rawset(t, "x", v)
+    elseif k == 2 then
+        rawset(t, "y", v)
+    elseif k == 3 then
+        rawset(t, "z", v)
+    elseif k == 4 then
+        rawset(t, "w", v)
+    end
+end
 
 --- @return ImVec4
 --- @nodiscard

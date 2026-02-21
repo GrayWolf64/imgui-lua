@@ -944,6 +944,13 @@ end
 --- @field Viewports                          ImVector<ImGuiViewportP>
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
 --- @field DebugFlashStyleColorIdx            ImGuiCol
+--- @field ColorEditOptions                   ImGuiColorEditFlags            # Store user options for color edit widgets
+--- @field ColorEditCurrentID                 ImGuiID                        # Set temporarily while inside of the parent-most ColorEdit4/ColorPicker4 (because they call each others)
+--- @field ColorEditSavedID                   ImGuiID                        # ID we are saving/restoring HS for
+--- @field ColorEditSavedHue                  float                          # Backup of last Hue associated to LastColor, so we can restore Hue in lossy RGB<>HSV round trips
+--- @field ColorEditSavedSat                  float                          # Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
+--- @field ColorEditSavedColor                ImU32                          # RGB value with alpha set to 0
+--- @field ColorPickerRef                     ImVec4                         # Initial/reference color at the time of opening the color picker
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1095,6 +1102,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ColorEditCurrentID = 0, ColorEditSavedID = 0,
         ColorEditSavedHue = 0.0, ColorEditSavedSat = 0.0,
         ColorEditSavedColor = 0,
+        ColorPickerRef = {0, 0, 0, 0},
 
         DrawListSharedData = ImDrawListSharedData(),
 

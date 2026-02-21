@@ -6105,6 +6105,23 @@ end
 -- [SECTION] POPUPS
 ---------------------------------------------------------------------------------------
 
+--- @param id           ImGuiID|string
+--- @param popup_flags? ImGuiPopupFlags
+function ImGui.OpenPopup(id, popup_flags)
+    if popup_flags == nil then popup_flags = 0 end
+
+    if type(id) == "number" then
+        ImGui.OpenPopupEx(id, popup_flags)
+    else --- @cast id string
+        local g = GImGui
+        local _id = g.CurrentWindow:GetID(id)
+        IMGUI_DEBUG_LOG_POPUP("[popup] OpenPopup(\"%s\" -> 0x%08X)", id, _id)
+        ImGui.OpenPopupEx(_id, popup_flags)
+    end
+end
+
+--- @param id          ImGuiID
+--- @param popup_flags ImGuiPopupFlags
 function ImGui.OpenPopupEx(id, popup_flags)
     local g = GImGui
     local parent_window = g.CurrentWindow
