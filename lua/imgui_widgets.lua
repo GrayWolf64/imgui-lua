@@ -1035,6 +1035,7 @@ function ImGui.TextLinkOpenURL(label, url)
 
     ImGui.SetItemTooltip(ImGui.LocalizeGetMsg(ImGuiLocKey.OpenLink_s), url) -- It is more reassuring for user to _always_ display URL when we same as label
 
+    -- TODO:
     -- if ImGui.BeginPopupContextItem() then
     --     if ImGui.MenuItem(ImGui.LocalizeGetMsg(ImGuiLocKey.CopyLink)) then
     --         ImGui.SetClipboardText(url)

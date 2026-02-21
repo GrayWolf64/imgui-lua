@@ -280,7 +280,7 @@ function ImGui.StyleColorsLight(dst)
     colors[ImGuiCol.ModalWindowDimBg]          = ImVec4(0.20, 0.20, 0.20, 0.35)
 end
 
---- @param draw_list ImDrawList
+--- @param draw_list      ImDrawList
 --- @param vert_start_idx int
 --- @param vert_end_idx   int
 --- @param gradient_p0    ImVec2

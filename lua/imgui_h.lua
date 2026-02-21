@@ -1703,42 +1703,42 @@ ImGuiSelectableFlags = {
 --- @enum ImGuiColorEditFlags
 ImGuiColorEditFlags = {
     None           = 0,
-    NoAlpha        = bit.lshift(1, 1),  -- ColorEdit, ColorPicker, ColorButton: ignore Alpha component (will only read 3 components from the input pointer).
-    NoPicker       = bit.lshift(1, 2),  -- ColorEdit: disable picker when clicking on color square.
-    NoOptions      = bit.lshift(1, 3),  -- ColorEdit: disable toggling options menu when right-clicking on inputs/small preview.
+    NoAlpha        = bit.lshift(1, 1),  -- ColorEdit, ColorPicker, ColorButton: ignore Alpha component (will only read 3 components from the input pointer)
+    NoPicker       = bit.lshift(1, 2),  -- ColorEdit: disable picker when clicking on color square
+    NoOptions      = bit.lshift(1, 3),  -- ColorEdit: disable toggling options menu when right-clicking on inputs/small preview
     NoSmallPreview = bit.lshift(1, 4),  -- ColorEdit, ColorPicker: disable color square preview next to the inputs. (e.g. to show only the inputs)
-    NoInputs       = bit.lshift(1, 5),  -- ColorEdit, ColorPicker: disable inputs sliders/text widgets (e.g. to show only the small preview color square).
-    NoTooltip      = bit.lshift(1, 6),  -- ColorEdit, ColorPicker, ColorButton: disable tooltip when hovering the preview.
-    NoLabel        = bit.lshift(1, 7),  -- ColorEdit, ColorPicker: disable display of inline text label (the label is still forwarded to the tooltip and picker).
-    NoSidePreview  = bit.lshift(1, 8),  -- ColorPicker: disable bigger color preview on right side of the picker, use small color square preview instead.
-    NoDragDrop     = bit.lshift(1, 9),  -- ColorEdit: disable drag and drop target/source. ColorButton: disable drag and drop source.
+    NoInputs       = bit.lshift(1, 5),  -- ColorEdit, ColorPicker: disable inputs sliders/text widgets (e.g. to show only the small preview color square)
+    NoTooltip      = bit.lshift(1, 6),  -- ColorEdit, ColorPicker, ColorButton: disable tooltip when hovering the preview
+    NoLabel        = bit.lshift(1, 7),  -- ColorEdit, ColorPicker: disable display of inline text label (the label is still forwarded to the tooltip and picker)
+    NoSidePreview  = bit.lshift(1, 8),  -- ColorPicker: disable bigger color preview on right side of the picker, use small color square preview instead
+    NoDragDrop     = bit.lshift(1, 9),  -- ColorEdit: disable drag and drop target/source. ColorButton: disable drag and drop source
     NoBorder       = bit.lshift(1, 10), -- ColorButton: disable border (which is enforced by default)
-    NoColorMarkers = bit.lshift(1, 11), -- ColorEdit: disable rendering R/G/B/A color marker. May also be disabled globally by setting style.ColorMarkerSize = 0.
+    NoColorMarkers = bit.lshift(1, 11), -- ColorEdit: disable rendering R/G/B/A color marker. May also be disabled globally by setting style.ColorMarkerSize = 0
 
     -- Alpha preview
-    -- - Prior to 1.91.8 (2025/01/21): alpha was made opaque in the preview by default using old name ImGuiColorEditFlags_AlphaPreview.
-    -- - We now display the preview as transparent by default. You can use ImGuiColorEditFlags_AlphaOpaque to use old behavior.
-    -- - The new flags may be combined better and allow finer controls.
-    AlphaOpaque      = bit.lshift(1, 12), -- ColorEdit, ColorPicker, ColorButton: disable alpha in the preview,. Contrary to _NoAlpha it may still be edited when calling ColorEdit4()/ColorPicker4(). For ColorButton() this does the same as _NoAlpha.
-    AlphaNoBg        = bit.lshift(1, 13), -- ColorEdit, ColorPicker, ColorButton: disable rendering a checkerboard background behind transparent color.
-    AlphaPreviewHalf = bit.lshift(1, 14), -- ColorEdit, ColorPicker, ColorButton: display half opaque / half transparent preview.
+    -- - Prior to 1.91.8 (2025/01/21): alpha was made opaque in the preview by default using old name ImGuiColorEditFlags_AlphaPreview
+    -- - We now display the preview as transparent by default. You can use ImGuiColorEditFlags_AlphaOpaque to use old behavior
+    -- - The new flags may be combined better and allow finer controls
+    AlphaOpaque      = bit.lshift(1, 12), -- ColorEdit, ColorPicker, ColorButton: disable alpha in the preview,. Contrary to _NoAlpha it may still be edited when calling ColorEdit4()/ColorPicker4(). For ColorButton() this does the same as _NoAlpha
+    AlphaNoBg        = bit.lshift(1, 13), -- ColorEdit, ColorPicker, ColorButton: disable rendering a checkerboard background behind transparent color
+    AlphaPreviewHalf = bit.lshift(1, 14), -- ColorEdit, ColorPicker, ColorButton: display half opaque / half transparent preview
 
-    -- User Options (right-click on widget to change some of them).
-    AlphaBar       = bit.lshift(1, 18), -- ColorEdit, ColorPicker: show vertical alpha bar/gradient in picker.
-    HDR            = bit.lshift(1, 19), -- (WIP) ColorEdit: Currently only disable 0.0f..1.0f limits in RGBA edition (note: you probably want to use ImGuiColorEditFlags_Float flag as well).
-    DisplayRGB     = bit.lshift(1, 20), -- [Display]  -- ColorEdit: override _display_ type among RGB/HSV/Hex. ColorPicker: select any combination using one or more of RGB/HSV/Hex.
-    DisplayHSV     = bit.lshift(1, 21), -- [Display]  -- "
-    DisplayHex     = bit.lshift(1, 22), -- [Display]  -- "
-    Uint8          = bit.lshift(1, 23), -- [DataType] -- ColorEdit, ColorPicker, ColorButton: _display_ values formatted as 0..255.
-    Float          = bit.lshift(1, 24), -- [DataType] -- ColorEdit, ColorPicker, ColorButton: _display_ values formatted as 0.0f..1.0f floats instead of 0..255 integers. No round-trip of value via integers.
-    PickerHueBar   = bit.lshift(1, 25), -- [Picker]   -- ColorPicker: bar for Hue, rectangle for Sat/Value.
-    PickerHueWheel = bit.lshift(1, 26), -- [Picker]   -- ColorPicker: wheel for Hue, triangle for Sat/Value.
-    InputRGB       = bit.lshift(1, 27), -- [Input]    -- ColorEdit, ColorPicker: input and output data in RGB format.
-    InputHSV       = bit.lshift(1, 28)  -- [Input]    -- ColorEdit, ColorPicker: input and output data in HSV format.
+    -- User Options (right-click on widget to change some of them)
+    AlphaBar       = bit.lshift(1, 18), -- ColorEdit, ColorPicker: show vertical alpha bar/gradient in picker
+    HDR            = bit.lshift(1, 19), -- (WIP) ColorEdit: Currently only disable 0.0f..1.0f limits in RGBA edition (note: you probably want to use ImGuiColorEditFlags_Float flag as well)
+    DisplayRGB     = bit.lshift(1, 20), -- [Display]  -- ColorEdit: override _display_ type among RGB/HSV/Hex. ColorPicker: select any combination using one or more of RGB/HSV/Hex
+    DisplayHSV     = bit.lshift(1, 21), -- [Display]
+    DisplayHex     = bit.lshift(1, 22), -- [Display]
+    Uint8          = bit.lshift(1, 23), -- [DataType] -- ColorEdit, ColorPicker, ColorButton: _display_ values formatted as 0..255
+    Float          = bit.lshift(1, 24), -- [DataType] -- ColorEdit, ColorPicker, ColorButton: _display_ values formatted as 0.0f..1.0f floats instead of 0..255 integers. No round-trip of value via integers
+    PickerHueBar   = bit.lshift(1, 25), -- [Picker]   -- ColorPicker: bar for Hue, rectangle for Sat/Value
+    PickerHueWheel = bit.lshift(1, 26), -- [Picker]   -- ColorPicker: wheel for Hue, triangle for Sat/Value
+    InputRGB       = bit.lshift(1, 27), -- [Input]    -- ColorEdit, ColorPicker: input and output data in RGB format
+    InputHSV       = bit.lshift(1, 28)  -- [Input]    -- ColorEdit, ColorPicker: input and output data in HSV format
 }
 
 -- Defaults Options. You can set application defaults using SetColorEditOptions(). The intent is that you probably don't want to
--- override them in most of your calls. Let the user choose via the option menu and/or call SetColorEditOptions() once during startup.
+-- override them in most of your calls. Let the user choose via the option menu and/or call SetColorEditOptions() once during startup
 ImGuiColorEditFlags.DefaultOptions_ = bit.bor(ImGuiColorEditFlags.Uint8, ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.InputRGB, ImGuiColorEditFlags.PickerHueBar)
 
 ImGuiColorEditFlags.AlphaMask_ = bit.bor(
@@ -1772,15 +1772,15 @@ ImGuiColorEditFlags.InputMask_ = bit.bor(
 --- @enum ImGuiSliderFlags
 ImGuiSliderFlags = {
     None            = 0,
-    Logarithmic     = bit.lshift(1, 5),  -- Make the widget logarithmic (linear otherwise). Consider using ImGuiSliderFlags.NoRoundToFormat with this if using a format-string with small amount of digits.
-    NoRoundToFormat = bit.lshift(1, 6),  -- Disable rounding underlying value to match precision of the display format string (e.g. %.3f values are rounded to those 3 digits).
-    NoInput         = bit.lshift(1, 7),  -- Disable Ctrl+Click or Enter key allowing to input text directly into the widget.
-    WrapAround      = bit.lshift(1, 8),  -- Enable wrapping around from max to min and from min to max. Only supported by DragXXX() functions for now.
-    ClampOnInput    = bit.lshift(1, 9),  -- Clamp value to min/max bounds when input manually with Ctrl+Click. By default Ctrl+Click allows going out of bounds.
-    ClampZeroRange  = bit.lshift(1, 10), -- Clamp even if min==max==0.0f. Otherwise due to legacy reason DragXXX functions don't clamp with those values. When your clamping limits are dynamic you almost always want to use it.
-    NoSpeedTweaks   = bit.lshift(1, 11), -- Disable keyboard modifiers altering tweak speed. Useful if you want to alter tweak speed yourself based on your own logic.
-    ColorMarkers    = bit.lshift(1, 12), -- DragScalarN(), SliderScalarN(): Draw R/G/B/A color markers on each component.
-    InvalidMask_    = 0x7000000F,        -- [Internal] We treat using those bits as being potentially a 'float power' argument from legacy API (obsoleted 2020-08) that has got miscast to this enum, and will trigger an assert if needed.
+    Logarithmic     = bit.lshift(1, 5),  -- Make the widget logarithmic (linear otherwise). Consider using ImGuiSliderFlags.NoRoundToFormat with this if using a format-string with small amount of digits
+    NoRoundToFormat = bit.lshift(1, 6),  -- Disable rounding underlying value to match precision of the display format string (e.g. %.3f values are rounded to those 3 digits)
+    NoInput         = bit.lshift(1, 7),  -- Disable Ctrl+Click or Enter key allowing to input text directly into the widget
+    WrapAround      = bit.lshift(1, 8),  -- Enable wrapping around from max to min and from min to max. Only supported by DragXXX() functions for now
+    ClampOnInput    = bit.lshift(1, 9),  -- Clamp value to min/max bounds when input manually with Ctrl+Click. By default Ctrl+Click allows going out of bounds
+    ClampZeroRange  = bit.lshift(1, 10), -- Clamp even if min==max==0.0f. Otherwise due to legacy reason DragXXX functions don't clamp with those values. When your clamping limits are dynamic you almost always want to use it
+    NoSpeedTweaks   = bit.lshift(1, 11), -- Disable keyboard modifiers altering tweak speed. Useful if you want to alter tweak speed yourself based on your own logic
+    ColorMarkers    = bit.lshift(1, 12), -- DragScalarN(), SliderScalarN(): Draw R/G/B/A color markers on each component
+    InvalidMask_    = 0x7000000F,        -- [Internal] We treat using those bits as being potentially a 'float power' argument from legacy API (obsoleted 2020-08) that has got miscast to this enum, and will trigger an assert if needed
 }
 
 ImGuiSliderFlags.AlwaysClamp        = bit.bor(ImGuiSliderFlags.ClampOnInput, ImGuiSliderFlags.ClampZeroRange)
