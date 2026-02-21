@@ -3089,7 +3089,12 @@ end
 --- @param col      ImU32
 --- @param rounding float
 function ImGui.RenderColorComponentMarker(bb, col, rounding)
-    -- TODO:
+    if bb.Min.x + 1 >= bb.Max.x then
+        return
+    end
+    local g = GImGui
+    local window = g.CurrentWindow
+    ImGui.RenderRectFilledInRangeH(window.DrawList, bb, col, bb.Min.x, ImMin(bb.Min.x + g.Style.ColorMarkerSize, bb.Max.x), rounding)
 end
 
 --- @param window      ImGuiWindow

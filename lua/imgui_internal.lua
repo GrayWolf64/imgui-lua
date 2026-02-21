@@ -843,6 +843,7 @@ function ImGuiStyle()
 
         FramePadding = ImVec2(4, 3),
         FrameRounding = 0.0,
+        FrameBorderSize = 0.0,
         WindowPadding = ImVec2(8, 8),
 
         TouchExtraPadding = ImVec2(0, 0),
@@ -893,7 +894,6 @@ function ImGuiStyle()
 
         MouseCursorScale = 1.0,
 
-        FrameBorderSize = 1,
         ItemSpacing = ImVec2(8, 4),
         ItemInnerSpacing = ImVec2(4, 4),
 
@@ -1227,6 +1227,7 @@ end
 --- @field CursorStartPosLossyness ImVec2
 --- @field TextWrapPos             float
 --- @field TextWrapPosStack        ImVector
+--- @field MenuBarAppending        bool
 --- @field MenuBarOffset           ImVec2
 --- @field ChildWindows            ImVector<ImGuiWindow>
 --- @field LayoutType              ImGuiLayoutType
@@ -1260,6 +1261,7 @@ local function ImGuiWindowTempData()
         ItemWidthStack = ImVector(),
         TextWrapPosStack = ImVector(),
 
+        MenuBarAppending = false, -- FIXME: Remove this
         MenuBarOffset = ImVec2(),
 
         ChildWindows = ImVector(),
@@ -1316,6 +1318,13 @@ end
 --- @nodiscard
 function MT.ImGuiWindow:TitleBarRect()
     return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
+end
+
+--- @return ImRect
+--- @nodiscard
+function MT.ImGuiWindow:MenuBarRect()
+    local y1 = self.Pos.y + self.TitleBarHeight
+    return ImRect(self.Pos.x, y1, self.Pos.x + self.SizeFull.x, y1 + self.MenuBarHeight)
 end
 
 --- @return ImGuiWindow

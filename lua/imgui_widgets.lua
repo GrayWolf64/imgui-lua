@@ -3470,3 +3470,58 @@ function ImGui.PlotHistogram(label, values_or_getter, data, values_count, values
         ImGui.PlotEx(ImGuiPlotType.Histogram, label, Plot_ArrayGetter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size)
     end
 end
+
+----------------------------------------------------------------
+-- [SECTION] MENU RELATED
+----------------------------------------------------------------
+
+-- FIXME: Provided a rectangle perhaps e.g. a BeginMenuBarEx() could be used anywhere..
+-- Currently the main responsibility of this function being to setup clip-rect + horizontal layout + menu navigation layer.
+-- Ideally we also want this to be responsible for claiming space out of the main window scrolling rectangle, in which case ImGuiWindowFlags_MenuBar will become unnecessary.
+-- Then later the same system could be used for multiple menu-bars, scrollbars, side-bars.
+function ImGui.BeginMenuBar()
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+    if bit.band(window.Flags, ImGuiWindowFlags_MenuBar) == 0 then
+        return false
+    end
+
+    IM_ASSERT(not window.DC.MenuBarAppending)
+    ImGui.BeginGroup() -- FIXME: Misleading to use a group for that backup/restore
+    ImGui.PushID("##MenuBar")
+
+    -- We don't clip with current window clipping rectangle as it is already set to the area below. However we clip with window full rect.
+    -- We remove 1 worth of rounding to Max.x to that text in long menus and small windows don't tend to display over the lower-right rounded area, which looks particularly glitchy.
+    local border_top = ImMax(IM_ROUND(window.WindowBorderSize * 0.5 - window.TitleBarHeight), 0.0)
+    local border_half = IM_ROUND(window.WindowBorderSize * 0.5)
+    local bar_rect = window:MenuBarRect()
+    local clip_rect = ImRect(ImFloor(bar_rect.Min.x + border_half), ImFloor(bar_rect.Min.y + border_top), ImFloor(ImMax(bar_rect.Min.x, bar_rect.Max.x - ImMax(window.WindowRounding, border_half))), ImFloor(bar_rect.Max.y))
+    clip_rect:ClipWith(window.OuterRectClipped)
+    ImGui.PushClipRect(clip_rect.Min, clip_rect.Max, false)
+
+    -- We overwrite CursorMaxPos because BeginGroup sets it to CursorPos (essentially the .EmitItem hack in EndMenuBar() would need something analogous here, maybe a BeginGroupEx() with flags)
+    ImVec2_Copy(window.DC.CursorPos, ImVec2(bar_rect.Min.x + window.DC.MenuBarOffset.x, bar_rect.Min.y + window.DC.MenuBarOffset.y))
+    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
+    window.DC.LayoutType = ImGuiLayoutType.Horizontal
+    window.DC.IsSameLine = false
+    window.DC.NavLayerCurrent = ImGuiNavLayer.Menu
+    window.DC.MenuBarAppending = true
+    ImGui.AlignTextToFramePadding()
+
+    return true
+end
+
+function ImGui.EndMenuBar()
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+    local g = ImGui.GetCurrentContext()
+
+    IM_ASSERT(bit.band(window.Flags, ImGuiWindowFlags_MenuBar) ~= 0)
+    IM_ASSERT(window.DC.MenuBarAppending);
+
+    -- TODO:
+end
