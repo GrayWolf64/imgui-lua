@@ -12,8 +12,17 @@ local stbrp_context = IM_INCLUDE"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
 
-FLT_MAX = 3.40282346638529e+38
+FLT_MIN = 1.1754943508223e-38
+FLT_MAX = 3.4028234663853e+38
+INT_MIN = -0x7fffffff - 1
+INT_MAX = 0x7fffffff
+UINT_MAX = 0x7fffffff * 2 + 1
+LLONG_MIN = -9223372036854775807 - 1
+LLONG_MAX = 9223372036854775807
+
 IM_PI   = math.pi
+ImPow   = math.pow
+ImLog   = math.log
 ImAbs   = math.abs
 ImFabs  = math.abs
 ImFmod  = math.fmod
@@ -39,12 +48,20 @@ ImCeil  = math.ceil
 ImSin   = math.sin
 ImCos   = math.cos
 ImAcos  = math.acos
+ImAtan2 = math.atan2
 ImSqrt  = math.sqrt
 
 --- @param a number
 --- @param b number
 --- @param t number
 function ImLerp(a, b, t) return ((a) + ((b) - (a)) * (t)) end
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @param t float
+function ImLerpV2V2(a, b, t)
+    return ImVec2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+end
 
 --- @param a ImVec2
 --- @param b ImVec2
@@ -119,20 +136,45 @@ end
 
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
+IM_F32_TO_INT8_UNBOUND = function(val) return math.floor(val * 255.0 + (val >= 0 and 0.5 or -0.5)) end
 IM_F32_TO_INT8_SAT = function(val) return math.floor(ImSaturate(val) * 255.0 + 0.5) end
+
+--- @class ImGuiColorMod
+--- @field Col         ImGuiCol
+--- @field BackupValue ImVec4
 
 --- @param col          ImGuiCol
 --- @param backup_value ImVec4
+--- @return ImGuiColorMod
 function ImGuiColorMod(col, backup_value)
-    return {
+    local this = {
         Col = col,
-        BackupValue = backup_value
+        BackupValue = ImVec4()
     }
+
+    ImVec4_Copy(this.BackupValue, backup_value)
+
+    return this
 end
 
 --- @param lhs ImVec2
 --- @return float
 function ImLengthSqr(lhs) return (lhs.x * lhs.x) + (lhs.y * lhs.y) end
+
+--- @param v     ImVec2
+--- @param cos_a float
+--- @param sin_a float
+--- @return ImVec2
+--- @nodiscard
+function ImRotate(v, cos_a, sin_a)
+    return ImVec2(v.x * cos_a - v.y * sin_a, v.x * sin_a + v.y * cos_a)
+end
+
+--- @param a ImVec2
+--- @param b ImVec2
+function ImDot(a, b)
+    return a.x * b.x + a.y * b.y
+end
 
 --- @return int?
 function ImMemchr(str, char, start_pos)
@@ -457,6 +499,13 @@ function MT.ImDrawList:PathStroke(col, flags, thickness)
 
     self:AddPolyline(self._Path.Data, self._Path.Size, col, flags, thickness)
     self._Path.Size = 0
+end
+
+--- @param col ImU32
+function ImGui.SetNextItemColorMarker(col)
+    local g = ImGui.GetCurrentContext()
+    g.NextItemData.HasFlags = bit.bor(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker)
+    g.NextItemData.ColorMarker = col
 end
 
 --- @class ImDrawListSharedData
@@ -786,6 +835,7 @@ function ImGuiStyle()
         Alpha = 1.0,
 
         FramePadding = ImVec2(4, 3),
+        FrameRounding = 0.0,
         WindowPadding = ImVec2(8, 8),
 
         TouchExtraPadding = ImVec2(0, 0),
@@ -802,6 +852,9 @@ function ImGuiStyle()
 
         WindowBorderHoverPadding = 4.0,
 
+        ColorMarkerSize = 3.0,
+        ColorButtonPosition = ImGuiDir.Right,
+
         SeparatorTextBorderSize = 3.0,
         SeparatorTextAlign      = ImVec2(0.0, 0.5),
         SeparatorTextPadding    = ImVec2(20.0, 3.0),
@@ -817,6 +870,8 @@ function ImGuiStyle()
         CircleTessellationMaxError = 0.30,
 
         HoverStationaryDelay = 0.15,
+        HoverDelayShort = 0.15,
+        HoverDelayNormal = 0.40,
 
         PopupBorderSize = 1.0,
 
@@ -1029,6 +1084,10 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         WithinEndChildID = 0,
 
         BeginMenuDepth = 0, BeginComboDepth = 0,
+        ColorEditOptions = ImGuiColorEditFlags.DefaultOptions_,
+        ColorEditCurrentID = 0, ColorEditSavedID = 0,
+        ColorEditSavedHue = 0.0, ColorEditSavedSat = 0.0,
+        ColorEditSavedColor = 0,
 
         DrawListSharedData = ImDrawListSharedData(),
 
@@ -1055,6 +1114,13 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ScrollbarSeekMode = 0,
         ScrollbarClickDeltaToGrabCenter = 0.0,
 
+        SliderGrabClickOffset = 0.0,
+        SliderCurrentAccum = 0.0,
+        SliderCurrentAccumDirty = false,
+        DragCurrentAccumDirty = false,
+        DragCurrentAccum = 0.0,
+        DragSpeedDefaultRatio = 1.0 / 100.0,
+
         TooltipOverrideCount = 0,
         TooltipPreviousWindow = nil,
 
@@ -1078,6 +1144,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         DragDropSourceFlags = 0,
 
         DragDropAcceptIdPrev = 0, DragDropAcceptIdCurr = 0,
+
+        LocalizationTable = {},
 
         DebugLogFlags = bit.bor(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
         DebugFlashStyleColorIdx = nil,
@@ -1169,11 +1237,12 @@ local function ImGuiWindowTempData()
         Indent                  = ImVec1(),
         ColumnsOffset           = ImVec1(),
         GroupOffset             = ImVec1(),
-        CursorStartPosLossyness = ImVec1(),
+        CursorStartPosLossyness = ImVec2(),
 
         ItemWidth = 0,
         ItemWidthDefault = 0,
         TextWrapPos = 0,
+        ItemWidthStack = ImVector(),
         TextWrapPosStack = ImVector(),
 
         MenuBarOffset = ImVec2(),
@@ -1700,6 +1769,11 @@ ImGuiKey_Mouse_END      = ImGuiKey.MouseWheelY + 1
 ImGuiKey_Aliases_BEGIN  = ImGuiKey_Mouse_BEGIN
 ImGuiKey_Aliases_END    = ImGuiKey_Mouse_END
 
+ImGuiKey.NavKeyboardTweakSlow = ImGuiMod_Ctrl
+ImGuiKey.NavKeyboardTweakFast = ImGuiMod_Shift
+ImGuiKey.NavGamepadTweakSlow = ImGuiKey.GamepadL1
+ImGuiKey.NavGamepadTweakFast = ImGuiKey.GamepadR1
+
 --- @enum ImGuiInputEventType
 ImGuiInputEventType = {
     None          = 0,
@@ -1744,10 +1818,6 @@ ImGuiAxis = {
     None = -1,
     X    = 0,
     Y    = 1
-}
-
-ImAxisToStr = {
-    [0] = "x", [1] = "y"
 }
 
 --- @enum ImGuiPlotType
@@ -1904,3 +1974,50 @@ ImGuiDebugLogFlags.EventMask_ = bit.bor(
     ImGuiDebugLogFlags.EventDocking,
     ImGuiDebugLogFlags.EventViewport
 )
+
+--- @enum ImGuiLocKey
+ImGuiLocKey = {
+    VersionStr                    = 1,
+    TableSizeOne                  = 2,
+    TableSizeAllFit               = 3,
+    TableSizeAllDefault           = 4,
+    TableResetOrder               = 5,
+    WindowingMainMenuBar          = 6,
+    WindowingPopup                = 7,
+    WindowingUntitled             = 8,
+    OpenLink_s                    = 9,
+    CopyLink                      = 10,
+    DockingHideTabBar             = 11,
+    DockingHoldShiftToDock        = 12,
+    DockingDragToUndockOrMoveNode = 13,
+    COUNT                         = 13
+}
+
+--- @class ImGuiLocEntry
+--- @field Key  ImGuiLocKey
+--- @field Text string
+
+--- @param key  ImGuiLocKey
+--- @param text string
+--- @return ImGuiLocEntry
+--- @nodiscard
+function ImGuiLocEntry(key, text)
+    return {
+        Key  = key,
+        Text = text
+    }
+end
+
+--- @param key ImGuiLocKey
+--- @return string
+function ImGui.LocalizeGetMsg(key)
+    local g = ImGui.GetCurrentContext()
+    local msg = g.LocalizationTable[key]
+    if msg then return msg else return "*Missing Text*" end
+end
+
+--- @param id ImGuiID
+function ImGui.TempInputIsActive(id)
+    local g = ImGui.GetCurrentContext()
+    return g.ActiveId == id and g.TempInputId == id
+end

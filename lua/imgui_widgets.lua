@@ -1,6 +1,23 @@
 --- ImGui Sincerely WIP
 -- (Widgets Code)
 
+local DRAG_MOUSE_THRESHOLD_FACTOR = 0.50 -- Multiplier for the default value of io.MouseDragThreshold to make DragFloat/DragInt react faster to mouse drags
+
+local IM_S8_MIN = -128
+local IM_S8_MAX = 127
+local IM_U8_MIN = 0
+local IM_U8_MAX = 0xFF
+local IM_S16_MIN = -32768
+local IM_S16_MAX = 32767
+local IM_U16_MIN = 0
+local IM_U16_MAX = 0xFFFF
+local IM_S32_MIN = INT_MIN
+local IM_S32_MAX = INT_MAX
+local IM_U32_MIN = 0
+local IM_U32_MAX = UINT_MAX
+local IM_S64_MIN = LLONG_MIN
+local IM_S64_MAX = LLONG_MAX
+
 ----------------------------------------------------------------
 -- [SECTION] TEXT
 ----------------------------------------------------------------
@@ -211,7 +228,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
     end
 
     local pressed = false
-    local hovered = ImGui.ItemHoverable(id, bb, item_flags)
+    local hovered = ImGui.ItemHoverable(bb, id, item_flags)
     if g.DragDropActive then
         if (bit.band(flags, ImGuiButtonFlags_PressedOnDragDropHold) ~= 0) and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags_SourceNoHoldToOpenOthers) == 0) and ImGui.IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) then
             hovered = true
@@ -449,6 +466,36 @@ function ImGui.SmallButton(label)
     return pressed
 end
 
+--- @param str_id   string
+--- @param size_arg ImVec2
+--- @param flags?   ImGuiButtonFlags
+function ImGui.InvisibleButton(str_id, size_arg, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    -- Ensure zero-size fits to contents
+    local size = ImGui.CalcItemSize(ImVec2(size_arg.x ~= 0.0 and size_arg.x or -FLT_MIN, size_arg.y ~= 0.0 and size_arg.y or -FLT_MIN), 0.0, 0.0)
+
+    local id = window:GetID(str_id)
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
+    ImGui.ItemSize(size)
+
+    local item_flags = (bit.band(flags, ImGuiButtonFlags_EnableNav) ~= 0) and ImGuiItemFlags_None or ImGuiItemFlags_NoNav
+    if not ImGui.ItemAdd(bb, id, nil, item_flags) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, flags)
+    ImGui.RenderNavCursor(bb, id)
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, str_id, g.LastItemData.StatusFlags)
+    return pressed
+end
+
 --- @param id  ImGuiID
 --- @param pos ImVec2
 --- @return bool
@@ -542,7 +589,7 @@ function ImGui.GetWindowScrollbarRect(window, axis)
     local inner_rect = window.InnerRect
 
     -- (ScrollbarSizes.x = width of Y scrollbar; ScrollbarSizes.y = height of X scrollbar)
-    local scrollbar_size = window.ScrollbarSizes[ImAxisToStr[axis == ImGuiAxis.X and ImGuiAxis.Y or ImGuiAxis.X]]
+    local scrollbar_size = window.ScrollbarSizes[axis == ImGuiAxis.X and ImGuiAxis.Y or ImGuiAxis.X]
     IM_ASSERT(scrollbar_size >= 0.0)
 
     local border_size = IM_ROUND(window.WindowBorderSize * 0.5)
@@ -608,7 +655,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
 
     IM_ASSERT(ImMax(size_contents_v, size_visible_v) > 0.0)
     local win_size_v = ImMax(ImMax(size_contents_v, size_visible_v), 1)
-    local grab_h_minsize = ImMin(bb:GetSize()[ImAxisToStr[axis]], style.GrabMinSize)
+    local grab_h_minsize = ImMin(bb:GetSize()[axis], style.GrabMinSize)
     local grab_h_pixels = ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v)
     local grab_h_norm = grab_h_pixels / scrollbar_size_v
 
@@ -619,8 +666,8 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     local scroll_ratio = ImSaturate(p_scroll_v / scroll_max)
     local grab_v_norm = scroll_ratio * (scrollbar_size_v - grab_h_pixels) / scrollbar_size_v
     if held and allow_interaction and grab_h_norm < 1.0 then
-        local scrollbar_pos_v = bb.Min[ImAxisToStr[axis]]
-        local mouse_pos_v = g.IO.MousePos[ImAxisToStr[axis]]
+        local scrollbar_pos_v = bb.Min[axis]
+        local mouse_pos_v = g.IO.MousePos[axis]
         local clicked_v_norm = ImSaturate((mouse_pos_v - scrollbar_pos_v) / scrollbar_size_v)
 
         local held_dir
@@ -698,14 +745,13 @@ function ImGui.Scrollbar(axis)
 
     -- Calculate scrollbar bounding box
     local bb = ImGui.GetWindowScrollbarRect(window, axis)
-    local axis_str = ImAxisToStr[axis]
     local rounding_corners = ImGui.CalcRoundingFlagsForRectInRect(bb, window:Rect(), g.Style.WindowBorderSize)
-    local size_visible = window.InnerRect.Max[axis_str] - window.InnerRect.Min[axis_str]
-    local size_contents = window.ContentSize[axis_str] + window.WindowPadding[axis_str] * 2.0
-    local scroll = window.Scroll[axis_str]
+    local size_visible = window.InnerRect.Max[axis] - window.InnerRect.Min[axis]
+    local size_contents = window.ContentSize[axis] + window.WindowPadding[axis] * 2.0
+    local scroll = window.Scroll[axis]
     local held
     held, scroll = ImGui.ScrollbarEx(bb, id, axis, scroll, size_visible, size_contents, rounding_corners)
-    window.Scroll[axis_str] = scroll
+    window.Scroll[axis] = scroll
 end
 
 --- @param label string
@@ -814,6 +860,33 @@ function ImGui.Checkbox(label, v)
     return pressed, v
 end
 
+--- @param label       string
+--- @param flags       int
+--- @param flags_value int
+--- @return bool is_pressed
+--- @return int  flags_new  # Updated `flags`
+function ImGui.CheckboxFlags(label, flags, flags_value)
+    local all_on = bit.band(flags, flags_value) == flags_value
+    local any_on = bit.band(flags, flags_value) ~= 0
+    local pressed
+    if not all_on and any_on then
+        local g = ImGui.GetCurrentContext()
+        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags_MixedValue)
+        pressed, all_on = ImGui.Checkbox(label, all_on)
+    else
+        pressed, all_on = ImGui.Checkbox(label, all_on)
+    end
+    if pressed then
+        if all_on then
+            flags = bit.bor(flags, flags_value)
+        else
+            flags = bit.band(flags, bit.bnot(flags_value))
+        end
+    end
+
+    return pressed, flags
+end
+
 --- @param label  string
 --- @param active bool
 --- @return bool is_pressed
@@ -892,6 +965,85 @@ function ImGui.RadioButton(label, v, v_button)
         v = v_button
     end
     return pressed, v
+end
+
+--- @param label string
+function ImGui.TextLink(label)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local id = window:GetID(label)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+
+    local pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
+    local size = ImGui.CalcTextSize(label, label_end, true)
+    local bb = ImRect(pos, pos + size)
+    ImGui.ItemSize(size, 0.0)
+    if not ImGui.ItemAdd(bb, id) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
+    ImGui.RenderNavCursor(bb, id)
+
+    if hovered then
+        ImGui.SetMouseCursor(ImGuiMouseCursor.Hand)
+    end
+
+    local text_colf = ImVec4()
+    ImVec4_Copy(text_colf, g.Style.Colors[ImGuiCol.TextLink])
+    local line_colf = ImVec4()
+    ImVec4_Copy(line_colf, text_colf)
+    do
+        -- FIXME-STYLE: Read comments above. This widget is NOT written in the same style as some earlier widgets,
+        -- as we are currently experimenting/planning a different styling system.
+        local h, s, v = ImGui.ColorConvertRGBtoHSV(text_colf.x, text_colf.y, text_colf.z)
+        if held or hovered then
+            v = ImSaturate(v + (held and 0.4 or 0.3))
+            h = ImFmod(h + 0.02, 1.0)
+        end
+        text_colf.x, text_colf.y, text_colf.z = ImGui.ColorConvertHSVtoRGB(h, s, v)
+        v = ImSaturate(v - 0.20)
+        line_colf.x, line_colf.y, line_colf.z = ImGui.ColorConvertHSVtoRGB(h, s, v)
+    end
+
+    local line_y = bb.Max.y + ImFloor(g.FontBaked.Descent * g.FontBakedScale * 0.20)
+    window.DrawList:AddLine(ImVec2(bb.Min.x, line_y), ImVec2(bb.Max.x, line_y), ImGui.GetColorU32(line_colf)) -- FIXME-TEXT: Underline mode -- FIXME-DPI
+
+    ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(text_colf))
+    ImGui.RenderText(bb.Min, label, label_end)
+    ImGui.PopStyleColor()
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags)
+    return pressed
+end
+
+--- @param label string
+--- @param url   string
+function ImGui.TextLinkOpenURL(label, url)
+    local g = ImGui.GetCurrentContext()
+    if url == nil then
+        url = label
+    end
+    local pressed = ImGui.TextLink(label)
+    if pressed and g.PlatformIO.Platform_OpenInShellFn ~= nil then
+        g.PlatformIO.Platform_OpenInShellFn(g, url)
+    end
+
+    ImGui.SetItemTooltip(ImGui.LocalizeGetMsg(ImGuiLocKey.OpenLink_s), url) -- It is more reassuring for user to _always_ display URL when we same as label
+
+    -- TODO:
+    -- if ImGui.BeginPopupContextItem() then
+    --     if ImGui.MenuItem(ImGui.LocalizeGetMsg(ImGuiLocKey.CopyLink)) then
+    --         ImGui.SetClipboardText(url)
+    --     end
+    --     ImGui.EndPopup()
+    -- end
+
+    return pressed
 end
 
 ----------------------------------------------------------------
@@ -1353,7 +1505,7 @@ function ImGui.BeginComboPreview()
     preview_data.BackupPrevLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
     preview_data.BackupLayout = window.DC.LayoutType
 
-    window.DC.CursorPos = preview_data.PreviewRect.Min + g.Style.FramePadding
+    ImVec2_Copy(window.DC.CursorPos, preview_data.PreviewRect.Min + g.Style.FramePadding)
     ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
     window.DC.LayoutType = ImGuiLayoutType.Horizontal
     window.DC.IsSameLine = false
@@ -1379,14 +1531,1411 @@ function ImGui.EndComboPreview()
 
     ImGui.PopClipRect()
 
-    window.DC.CursorPos              = preview_data.BackupCursorPos
-    window.DC.CursorMaxPos           = ImMaxVec2(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos)
-    window.DC.CursorPosPrevLine      = preview_data.BackupCursorPosPrevLine
+    ImVec2_Copy(window.DC.CursorPos, preview_data.BackupCursorPos)
+    ImVec2_Copy(window.DC.CursorMaxPos, ImMaxVec2(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos))
+    ImVec2_Copy(window.DC.CursorPosPrevLine, preview_data.BackupCursorPosPrevLine)
     window.DC.PrevLineTextBaseOffset = preview_data.BackupPrevLineTextBaseOffset
-    window.DC.LayoutType             = preview_data.BackupLayout
-    window.DC.IsSameLine             = false
+    window.DC.LayoutType = preview_data.BackupLayout
+    window.DC.IsSameLine = false
 
     preview_data.PreviewRect = ImRect()
+end
+
+----------------------------------------------------------------
+-- [SECTION] DATA TYPE & DATA FORMATTING [Internal]
+----------------------------------------------------------------
+
+local GDefaultRgbaColorMarkers = {
+    IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
+}
+
+local GDataTypeInfo = {
+
+}
+
+--- @param data_type ImGuiDataType
+function ImGui.DataTypeGetInfo(data_type)
+
+end
+
+local GetMinimumStepAtDecimalPrecision do
+
+local min_steps = { 1.0, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001, 0.000000001 }
+
+--- @param decimal_precision int
+--- @return float
+function GetMinimumStepAtDecimalPrecision(decimal_precision)
+    if decimal_precision < 0 then
+        return FLT_MIN
+    end
+    if decimal_precision < #min_steps then
+        return min_steps[decimal_precision + 1]
+    else
+        return ImPow(10.0, -decimal_precision)
+    end
+end
+
+end
+
+local ImParseFormatFindStart
+
+--- @param format    string
+--- @param data_type ImGuiDataType
+--- @param v         number
+function ImGui.RoundScalarWithFormatT(format, data_type, v)
+    -- IM_UNUSED(data_type)
+    IM_ASSERT(data_type == ImGuiDataType.Float or data_type == ImGuiDataType.Double)
+    local fmt_start = ImParseFormatFindStart(format)
+    if string.byte(format, fmt_start) ~= 37 or string.byte(format, fmt_start + 1) == 37 then
+        return v -- Don't apply if the value is not visible in the format string
+    end
+
+    -- Sanitize format
+    -- Currently does nothing to sanitize
+
+    local str = ImFormatString(format, v)
+    v = tonumber(str) --[[@as number]]
+    return v
+end
+
+----------------------------------------------------------------
+-- [SECTION] DRAGXXX
+----------------------------------------------------------------
+
+--- @param fmt string
+function ImParseFormatFindStart(fmt)
+    local len = #fmt
+    local i = 1
+    local c
+    while i < len do
+        c = string.byte(fmt, i)
+        if c == 37 and string.byte(fmt, i + 1) ~= 37 then -- '%'
+            return i
+        elseif c == 37 then
+            i = i + 1
+        end
+        i = i + 1
+    end
+    return nil
+end
+
+--- @param fmt string
+--- @param pos int
+local function ImParseFormatFindEnd(fmt, pos)
+    -- Printf/scanf types modifiers: I/L/h/j/l/t/w/z. Other uppercase letters qualify as types aka end of the format
+    if string.byte(fmt, pos) ~= 37 then -- '%'
+        return pos
+    end
+    local ignored_uppercase_mask = bit.bor(bit.lshift(1, 73 - 65), bit.lshift(1, 76 - 65))
+    local ignored_lowercase_mask = bit.bor(bit.lshift(1, 104 - 97), bit.lshift(1, 106 - 97), bit.lshift(1, 108 - 97), bit.lshift(1, 116 - 97), bit.lshift(1, 119 - 97), bit.lshift(1, 122 - 97))
+    local len = #fmt
+    local c
+    for i = pos, len do
+        c = string.byte(fmt, i)
+        if c >= 65 and c <= 90 and (bit.band(bit.lshift(1, c - 65), ignored_uppercase_mask) == 0) then
+            return i + 1
+        end
+        if c >= 97 and c <= 122 and (bit.band(bit.lshift(1, c - 97), ignored_lowercase_mask) == 0) then
+            return i + 1
+        end
+    end
+    return len + 1
+end
+
+--- @param str string
+--- @param pos int
+local function ImAtoi(str, pos)
+    local negative = false
+    if string.byte(str, pos) == 45 then -- '-'
+        negative = true
+        pos = pos + 1
+    end
+    if string.byte(str, pos) == 43 then -- '+'
+        pos = pos + 1
+    end
+    local len = #str
+    local v = 0
+    local c = string.byte(str, pos)
+    while c >= 48 and c <= 57 do
+        v = v * 10 + c - 48
+        pos = pos + 1
+        c = string.byte(str, pos)
+        if pos > len then break end
+    end
+    return negative and -v or v, pos
+end
+
+--- @param fmt               string
+--- @param default_precision int
+local function ImParseFormatPrecision(fmt, default_precision)
+    local pos = ImParseFormatFindStart(fmt)
+    if not pos then
+        return default_precision
+    end
+    pos = pos + 1
+    local len = #fmt
+    local c = string.byte(fmt, pos)
+    while c >= 48 and c <= 57 do
+        pos = pos + 1
+        c = string.byte(fmt, pos)
+        if pos > len then break end
+    end
+    local precision = INT_MAX
+    if c == 46 then -- '.'
+        precision, pos = ImAtoi(fmt, pos + 1)
+        if precision < 0 or precision > 99 then
+            precision = default_precision
+        end
+    end
+    c = string.byte(fmt, pos)
+    if c == 101 or c == 69 then -- Maximum precision with scientific notation
+        precision = -1
+    end
+    if (c == 103 or c == 71) and precision == INT_MAX then
+        precision = -1
+    end
+    return (precision == INT_MAX) and default_precision or precision
+end
+
+-- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
+--- @param data_type ImGuiDataType
+--- @param v         number
+--- @param v_speed   float
+--- @param v_min     number
+--- @param v_max     number
+--- @param format    string
+--- @param flags     ImGuiSliderFlags
+--- @return number new_v   # Updated `v`
+--- @return bool   changed
+function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
+    local g = ImGui.GetCurrentContext()
+    local axis = (bit.band(flags, ImGuiSliderFlags.Vertical) ~= 0) and ImGuiAxis.Y or ImGuiAxis.X
+    local is_bounded = (v_min < v_max) or ((v_min == v_max) and (v_min ~= 0.0 or (bit.band(flags, ImGuiSliderFlags.ClampZeroRange) ~= 0)))
+    local is_wrapped = is_bounded and (bit.band(flags, ImGuiSliderFlags.WrapAround) ~= 0)
+    local is_logarithmic = bit.band(flags, ImGuiSliderFlags.Logarithmic) ~= 0
+    local is_floating_point = (data_type == ImGuiDataType.Float) or (data_type == ImGuiDataType.Double)
+
+    -- Default tweak speed
+    if v_speed == 0.0 and is_bounded and (v_max - v_min < math.huge) then
+        v_speed = (v_max - v_min) * g.DragSpeedDefaultRatio
+    end
+
+    -- Inputs accumulates into g.DragCurrentAccum, which is flushed into the current value as soon as it makes a difference with our precision settings
+    local adjust_delta = 0.0
+    if g.ActiveIdSource == ImGuiInputSource.Mouse and ImGui.IsMousePosValid() and ImGui.IsMouseDragPastThreshold(0, g.IO.MouseDragThreshold * DRAG_MOUSE_THRESHOLD_FACTOR) then
+        adjust_delta = g.IO.MouseDelta[axis] -- Assuming MouseDelta is 1-indexed
+        if g.IO.KeyAlt and bit.band(flags, ImGuiSliderFlags.NoSpeedTweaks) == 0 then
+            adjust_delta = adjust_delta / 100.0
+        end
+        if g.IO.KeyShift and bit.band(flags, ImGuiSliderFlags.NoSpeedTweaks) == 0 then
+            adjust_delta = adjust_delta * 10.0
+        end
+    elseif g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
+        local decimal_precision
+        if is_floating_point then
+            decimal_precision = ImParseFormatPrecision(format, 3)
+        else
+            decimal_precision = 0
+        end
+        local slow_key = (g.NavInputSource == ImGuiInputSource.Gamepad) and ImGuiKey.NavGamepadTweakSlow or ImGuiKey.NavKeyboardTweakSlow
+        local fast_key = (g.NavInputSource == ImGuiInputSource.Gamepad) and ImGuiKey.NavGamepadTweakFast or ImGuiKey.NavKeyboardTweakFast
+
+        local tweak_factor
+        if bit.band(flags, ImGuiSliderFlags.NoSpeedTweaks) ~= 0 then
+            tweak_factor = 1.0
+        elseif ImGui.IsKeyDown(slow_key) then
+            tweak_factor = 1.0 / 10.0
+        elseif ImGui.IsKeyDown(fast_key) then
+            tweak_factor = 10.0
+        else
+            tweak_factor = 1.0
+        end
+
+        adjust_delta = ImGui.GetNavTweakPressedAmount(axis) * tweak_factor
+        v_speed = ImMax(v_speed, GetMinimumStepAtDecimalPrecision(decimal_precision))
+    end
+    adjust_delta = adjust_delta * v_speed
+
+    -- For vertical drag we currently assume that Up=higher value (like we do with vertical sliders). This may become a parameter
+    if axis == ImGuiAxis.Y then
+        adjust_delta = -adjust_delta
+    end
+
+    -- For logarithmic use our range is effectively 0..1 so scale the delta into that range
+    if is_logarithmic and (v_max - v_min < FLT_MAX) and (v_max - v_min > 0.000001) then  -- Epsilon to avoid /0
+        adjust_delta = adjust_delta / (v_max - v_min)
+    end
+
+    -- Clear current value on activation
+    -- Avoid altering values and clamping when we are _already_ past the limits and heading in the same direction, so e.g. if range is 0..255, current value is 300 and we are pushing to the right side, keep the 300.
+    local is_just_activated = g.ActiveIdIsJustActivated
+    local is_already_past_limits_and_pushing_outward = is_bounded and not is_wrapped and ((v >= v_max and adjust_delta > 0.0) or (v <= v_min and adjust_delta < 0.0))
+    if is_just_activated or is_already_past_limits_and_pushing_outward then
+        g.DragCurrentAccum = 0.0
+        g.DragCurrentAccumDirty = false
+    elseif adjust_delta ~= 0.0 then
+        g.DragCurrentAccum = g.DragCurrentAccum + adjust_delta
+        g.DragCurrentAccumDirty = true
+    end
+
+    if not g.DragCurrentAccumDirty then
+        return v, false
+    end
+
+    local v_cur = v
+    local v_old_ref_for_accum_remainder = 0.0
+
+    local logarithmic_zero_epsilon = 0.0 -- Only valid when is_logarithmic is true
+    local zero_deadzone_halfsize = 0.0 -- Drag widgets have no deadzone (as it doesn't make sense)
+    if is_logarithmic then
+        -- When using logarithmic sliders, we need to clamp to avoid hitting zero, but our choice of clamp value greatly affects slider precision. We attempt to use the specified precision to estimate a good lower bound.
+        local decimal_precision
+        if is_floating_point then
+            decimal_precision = ImParseFormatPrecision(format, 3)
+        else
+            decimal_precision = 1
+        end
+        logarithmic_zero_epsilon = ImPow(0.1, decimal_precision)
+
+        -- Convert to parametric space, apply delta, convert back
+        local v_old_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        local v_new_parametric = v_old_parametric + g.DragCurrentAccum
+        v_cur = ImGui.ScaleValueFromRatioT(data_type, v_new_parametric, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        v_old_ref_for_accum_remainder = v_old_parametric
+    else
+        v_cur = v_cur + g.DragCurrentAccum
+    end
+
+    -- Round to user desired precision based on format string
+    if is_floating_point and bit.band(flags, ImGuiSliderFlags.NoRoundToFormat) == 0 then
+        v_cur = ImGui.RoundScalarWithFormatT(format, data_type, v_cur)
+    end
+
+    -- Preserve remainder after rounding has been applied. This also allow slow tweaking of values
+    g.DragCurrentAccumDirty = false
+    if is_logarithmic then
+        -- Convert to parametric space, apply delta, convert back
+        local v_new_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        g.DragCurrentAccum = v_new_parametric - v_old_ref_for_accum_remainder
+    else
+        g.DragCurrentAccum = v_cur - v
+    end
+
+    if v ~= v_cur and is_bounded then
+        if is_wrapped then
+            -- Wrap values
+            if v_cur < v_min then
+                v_cur = v_cur + (v_max - v_min) + (is_floating_point and 0 or 1)
+            end
+            if v_cur > v_max then
+                v_cur = v_cur - (v_max - v_min) - (is_floating_point and 0 or 1)
+            end
+        else
+            -- Clamp values + handle overflow/wrap-around for integer types
+            if v_cur < v_min or (v_cur > v and adjust_delta < 0.0 and not is_floating_point) then
+                v_cur = v_min
+            end
+            if v_cur > v_max or (v_cur < v and adjust_delta > 0.0 and not is_floating_point) then
+                v_cur = v_max
+            end
+        end
+    end
+
+    -- Apply result
+    if v == v_cur then
+        return v, false
+    end
+    v = v_cur
+    return v, true
+end
+
+function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
+    IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
+
+    local g = ImGui.GetCurrentContext()
+    if g.ActiveId == id then
+        if g.ActiveIdSource == ImGuiInputSource.Mouse and not g.IO.MouseDown[0] then
+            ImGui.ClearActiveID()
+        elseif (g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad) and g.NavActivatePressedId == id and not g.ActiveIdIsJustActivated then
+            ImGui.ClearActiveID()
+        end
+    end
+    if g.ActiveId ~= id then
+        return v, false
+    end
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_ReadOnly) ~= 0 or bit.band(flags, ImGuiSliderFlags.ReadOnly) ~= 0 then
+        return v, false
+    end
+
+    if data_type == ImGuiDataType.S8 then
+        return ImGui.DragBehaviorT(ImGuiDataType.S32, v, v_speed, min and min or IM_S8_MIN, max and max or IM_S8_MAX, format, flags)
+    elseif data_type == ImGuiDataType.U8 then
+        return ImGui.DragBehaviorT(ImGuiDataType.U32, v, v_speed, min and min or IM_U8_MIN, max and max or IM_U8_MAX, format, flags)
+    elseif data_type == ImGuiDataType.S16 then
+        return ImGui.DragBehaviorT(ImGuiDataType.S32, v, v_speed, min and min or IM_S16_MIN, max and max or IM_S16_MAX, format, flags)
+    elseif data_type == ImGuiDataType.U16 then
+        return ImGui.DragBehaviorT(ImGuiDataType.U32, v, v_speed, min and min or IM_U16_MIN, max and max or IM_U16_MAX, format, flags)
+    elseif data_type == ImGuiDataType.S32 then
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S32_MIN, max and max or IM_S32_MAX, format, flags)
+    elseif data_type == ImGuiDataType.U32 then
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_U32_MIN, max and max or IM_U32_MAX, format, flags)
+    elseif data_type == ImGuiDataType.S64 then
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S64_MIN, max and max or IM_S64_MAX, format, flags)
+    elseif data_type == ImGuiDataType.U64 then
+        -- Native Lua can't handle this
+    elseif data_type == ImGuiDataType.Float then
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -FLT_MAX, max and max or FLT_MAX, format, flags)
+    elseif data_type == ImGuiDataType.Double then
+        -- Native Lua can't handle this losslessly
+    elseif data_type == ImGuiDataType.COUNT then
+        -- Do nothing
+    end
+
+    IM_ASSERT(false)
+    return v, false
+end
+
+function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, flags)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return data, false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local id = window:GetID(label)
+    local w = ImGui.CalcItemWidth()
+    local color_marker = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker) ~= 0) and g.NextItemData.ColorMarker or 0
+
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0))
+    local total_bb = ImRect(frame_bb.Min, frame_bb.Max + ImVec2((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0, 0.0))
+
+    local temp_input_allowed = (bit.band(flags, ImGuiSliderFlags.NoInput) == 0)
+    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    if not ImGui.ItemAdd(total_bb, id, frame_bb, temp_input_allowed and ImGuiItemFlags_Inputable or 0) then
+        return data, false
+    end
+
+    -- Default format string when passing NULL
+    if format == nil then
+        format = ImGui.DataTypeGetInfo(data_type).PrintFmt
+    end
+
+    local hovered = ImGui.ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags)
+    local temp_input_is_active = temp_input_allowed and ImGui.TempInputIsActive(id)
+    if not temp_input_is_active then
+        -- TODO:
+    end
+
+    if temp_input_is_active then
+        -- TODO:
+    end
+
+    -- Draw frame
+    local frame_col = ImGui.GetColorU32(g.ActiveId == id and ImGuiCol.FrameBgActive or hovered and ImGuiCol.FrameBgHovered or ImGuiCol.FrameBg)
+    ImGui.RenderNavCursor(frame_bb, id)
+    ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, false, style.FrameRounding)
+
+    if color_marker ~= 0 and style.ColorMarkerSize > 0.0 then
+        ImGui.RenderColorComponentMarker(frame_bb, ImGui.GetColorU32_U32(color_marker), style.FrameRounding)
+    end
+
+    ImGui.RenderFrameBorder(frame_bb.Min, frame_bb.Max, g.Style.FrameRounding)
+
+    -- Drag behavior
+    local value_changed
+    data, value_changed = ImGui.DragBehavior(id, data_type, data, v_speed, p_min, p_max, format, flags)
+    if value_changed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    -- Display value using user-provided display format so user can add prefix/suffix/decorations to the value
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), 1, nil, nil, ImVec2(0.5, 0.5))
+
+    if label_size.x > 0.0 then
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label)
+    end
+
+    return data, value_changed
+end
+
+function ImGui.DragFloat(label, v, v_speed, v_min, v_max, format, flags)
+    return ImGui.DragScalar(label, ImGuiDataType.Float, v, v_speed, v_min, v_max, format, flags)
+end
+
+function ImGui.DragInt(label, v, v_speed, v_min, v_max, format, flags)
+    return ImGui.DragScalar(label, ImGuiDataType.S32, v, v_speed, v_min, v_max, format, flags)
+end
+
+----------------------------------------------------------------
+-- [SECTION] SLIDERXXX
+----------------------------------------------------------------
+
+-- Convert a value v in the output space of a slider into a parametric position on the slider itself (the logical opposite of ScaleValueFromRatioT)
+--- @param data_type                ImGuiDataType
+--- @param v                        number
+--- @param v_min                    number
+--- @param v_max                    number
+--- @param is_logarithmic           bool
+--- @param logarithmic_zero_epsilon float
+--- @param zero_deadzone_halfsize   float
+function ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+    if v_min == v_max then
+        return 0.0
+    end
+    -- IM_UNUSED(data_type)
+
+    local v_clamped
+    if v_min < v_max then
+        v_clamped = ImClamp(v, v_min, v_max)
+    else
+        v_clamped = ImClamp(v, v_max, v_min)
+    end
+    if is_logarithmic then
+        local flipped = v_max < v_min
+        if flipped then -- Handle the case where the range is backwards
+            v_min, v_max = v_max, v_min
+        end
+
+        -- Fudge min/max to avoid getting close to log(0)
+        local v_min_fudged
+        if ImAbs(v_min) < logarithmic_zero_epsilon then
+            v_min_fudged = (v_min < 0.0) and -logarithmic_zero_epsilon or logarithmic_zero_epsilon
+        else
+            v_min_fudged = v_min
+        end
+        local v_max_fudged
+        if ImAbs(v_max) < logarithmic_zero_epsilon then
+            v_max_fudged = (v_max < 0.0) and -logarithmic_zero_epsilon or logarithmic_zero_epsilon
+        else
+            v_max_fudged = v_max
+        end
+
+        -- Awkward special cases - we need ranges of the form (-100 .. 0) to convert to (-100 .. -epsilon), not (-100 .. epsilon)
+        if v_min == 0.0 and v_max < 0.0 then
+            v_min_fudged = -logarithmic_zero_epsilon
+        elseif v_max == 0.0 and v_min < 0.0 then
+            v_max_fudged = -logarithmic_zero_epsilon
+        end
+
+        local result
+        if v_clamped <= v_min_fudged then
+            result = 0.0 -- Workaround for values that are in-range but below our fudge
+        elseif v_clamped >= v_max_fudged then
+            result = 1.0 -- Workaround for values that are in-range but above our fudge
+        elseif v_min * v_max < 0.0 then -- Range crosses zero, so split into two portions
+            local zero_point_center = (-v_min) / (v_max - v_min) -- The zero point in parametric space.  There's an argument we should take the logarithmic nature into account when calculating this, but for now this should do (and the most common case of a symmetrical range works fine)
+            local zero_point_snap_L = zero_point_center - zero_deadzone_halfsize
+            local zero_point_snap_R = zero_point_center + zero_deadzone_halfsize
+            if v == 0.0 then
+                result = zero_point_center -- Special case for exactly zero
+            elseif v < 0.0 then
+                result = (1.0 - (ImLog(-v_clamped / logarithmic_zero_epsilon) / ImLog(-v_min_fudged / logarithmic_zero_epsilon))) * zero_point_snap_L
+            else
+                result = zero_point_snap_R + ((ImLog(v_clamped / logarithmic_zero_epsilon) / ImLog(v_max_fudged / logarithmic_zero_epsilon)) * (1.0 - zero_point_snap_R))
+            end
+        elseif v_min < 0.0 or v_max < 0.0 then -- Entirely negative slider
+            result = 1.0 - (ImLog(-v_clamped / -v_max_fudged) / ImLog(-v_min_fudged / -v_max_fudged))
+        else
+            result = ImLog(v_clamped / v_min_fudged) / ImLog(v_max_fudged / v_min_fudged)
+        end
+
+        return flipped and (1.0 - result) or result
+    else
+        -- Linear slider
+        return (v_clamped - v_min) / (v_max - v_min)
+    end
+end
+
+-- Convert a parametric position on a slider into a value v in the output space (the logical opposite of ScaleRatioFromValueT)
+--- @param data_type                ImGuiDataType
+--- @param t                        float
+--- @param v_min                    number
+--- @param v_max                    number
+--- @param is_logarithmic           bool
+--- @param logarithmic_zero_epsilon float
+--- @param zero_deadzone_halfsize   float
+function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+    -- We special-case the extents because otherwise our logarithmic fudging can lead to "mathematically correct"
+    -- but non-intuitive behaviors like a fully-left slider not actually reaching the minimum value. Also generally simpler.
+    if t <= 0.0 or v_min == v_max then
+        return v_min
+    end
+    if t >= 1.0 then
+        return v_max
+    end
+
+    local result = 0
+    if is_logarithmic then
+        -- Fudge min/max to avoid getting silly results close to zero
+        local v_min_fudged
+        if ImAbs(v_min) < logarithmic_zero_epsilon then
+            v_min_fudged = (v_min < 0.0) and -logarithmic_zero_epsilon or logarithmic_zero_epsilon
+        else
+            v_min_fudged = v_min
+        end
+        local v_max_fudged
+        if ImAbs(v_max) < logarithmic_zero_epsilon then
+            v_max_fudged = (v_max < 0.0) and -logarithmic_zero_epsilon or logarithmic_zero_epsilon
+        else
+            v_max_fudged = v_max
+        end
+
+        local flipped = v_max < v_min -- Check if range is "backwards"
+        if flipped then
+            v_min_fudged, v_max_fudged = v_max_fudged, v_min_fudged
+        end
+
+        -- Awkward special case - we need ranges of the form (-100 .. 0) to convert to (-100 .. -epsilon), not (-100 .. epsilon)
+        if v_max == 0.0 and v_min < 0.0 then
+            v_max_fudged = -logarithmic_zero_epsilon
+        end
+
+        local t_with_flip = flipped and (1.0 - t) or t -- t, but flipped if necessary to account for us flipping the range
+
+        if v_min * v_max < 0.0 then -- Range crosses zero, so we have to do this in two parts
+            local zero_point_center = (-ImMin(v_min, v_max)) / ImAbs(v_max - v_min) -- The zero point in parametric space
+            local zero_point_snap_L = zero_point_center - zero_deadzone_halfsize
+            local zero_point_snap_R = zero_point_center + zero_deadzone_halfsize
+
+            if t_with_flip >= zero_point_snap_L and t_with_flip <= zero_point_snap_R then
+                result = 0.0 -- Special case to make getting exactly zero possible (the epsilon prevents it otherwise)
+            elseif t_with_flip < zero_point_center then
+                result = -(logarithmic_zero_epsilon * ImPow(-v_min_fudged / logarithmic_zero_epsilon, 1.0 - (t_with_flip / zero_point_snap_L)))
+            else
+                result = logarithmic_zero_epsilon * ImPow(v_max_fudged / logarithmic_zero_epsilon, (t_with_flip - zero_point_snap_R) / (1.0 - zero_point_snap_R))
+            end
+        elseif v_min < 0.0 or v_max < 0.0 then  -- Entirely negative slider
+            result = -(-v_max_fudged * ImPow(-v_min_fudged / -v_max_fudged, 1.0 - t_with_flip))
+        else
+            result = v_min_fudged * ImPow(v_max_fudged / v_min_fudged, t_with_flip)
+        end
+    else
+        -- Linear slider
+        local is_floating_point = (data_type == ImGuiDataType.Float) or (data_type == ImGuiDataType.Double)
+        if is_floating_point then
+            result = ImLerp(v_min, v_max, t)
+        elseif t < 1.0 then
+            -- - For integer values we want the clicking position to match the grab box so we round above
+            --   This code is carefully tuned to work with large values (e.g. high ranges of U64) while preserving this property..
+            -- - Not doing a *1.0 multiply at the end of a range as it tends to be lossy. While absolute aiming at a large s64/u64
+            --   range is going to be imprecise anyway, with this check we at least make the edge values matches expected limits.
+            local v_new_off_f = (v_max - v_min) * t
+            local offset = (v_min > v_max) and -0.5 or 0.5
+            result = v_min + v_new_off_f + offset
+        end
+    end
+
+    return result
+end
+
+----------------------------------------------------------------
+-- [SECTION] COLOR EDIT / PICKER
+----------------------------------------------------------------
+
+--- @param col float[]
+--- @param H   float
+--- @return float
+local function ColorEditRestoreH(col, H)
+    local g = ImGui.GetCurrentContext()
+    IM_ASSERT(g.ColorEditCurrentID ~= 0)
+    if g.ColorEditSavedID ~= g.ColorEditCurrentID or g.ColorEditSavedColor ~= ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0)) then
+        return H
+    end
+    H = g.ColorEditSavedHue
+    return H
+end
+
+--- @param col float[]
+--- @param H float
+--- @param S float
+--- @param V float
+--- @return float, float, float
+local function ColorEditRestoreHS(col, H, S, V)
+    local g = ImGui.GetCurrentContext()
+    IM_ASSERT(g.ColorEditCurrentID ~= 0)
+
+    if g.ColorEditSavedID ~= g.ColorEditCurrentID or g.ColorEditSavedColor ~= ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0)) then
+        return H, S, V
+    end
+
+    -- When S == 0, H is undefined.
+    -- When H == 1 it wraps around to 0.
+    if S == 0.0 or (H == 0.0 and g.ColorEditSavedHue == 1) then
+        H = g.ColorEditSavedHue
+    end
+
+    -- When V == 0, S is undefined.
+    if V == 0.0 then
+        S = g.ColorEditSavedSat
+    end
+
+    return H, S, V
+end
+
+do --[[ColorEdit4]]
+
+local ids = { "##X", "##Y", "##Z", "##W" }
+local fmt_table_int = {
+    {   "%3d",   "%3d",   "%3d",   "%3d" }, -- Short display
+    { "R:%3d", "G:%3d", "B:%3d", "A:%3d" }, -- Long display for RGBA
+    { "H:%3d", "S:%3d", "V:%3d", "A:%3d" }  -- Long display for HSVA
+}
+local fmt_table_float = {
+    {   "%0.3f",   "%0.3f",   "%0.3f",   "%0.3f" }, -- Short display
+    { "R:%0.3f", "G:%0.3f", "B:%0.3f", "A:%0.3f" }, -- Long display for RGBA
+    { "H:%0.3f", "S:%0.3f", "V:%0.3f", "A:%0.3f" }  -- Long display for HSVA
+}
+-- TODO:
+--- @param label string
+--- @param col   float[]
+--- @param flags ImGuiColorEditFlags
+function ImGui.ColorEdit4(label, col, flags)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local square_sz = ImGui.GetFrameHeight()
+    local label_display_end = ImGui.FindRenderedTextEnd(label)
+    local w_full = ImGui.CalcItemWidth()
+    g.NextItemData:ClearFlags()
+
+    ImGui.BeginGroup()
+    ImGui.PushID(label)
+    local set_current_color_edit_id = (g.ColorEditCurrentID == 0)
+    if set_current_color_edit_id then
+        g.ColorEditCurrentID = window.IDStack:back()
+    end
+
+    -- If we're not showing any slider there's no point in doing any HSV conversions
+    local flags_untouched = flags
+    if bit.band(flags, ImGuiColorEditFlags.NoInputs) ~= 0 then
+        flags = bit.bor(bit.band(flags, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.NoOptions)
+    end
+
+    -- Context menu: display and modify options (before defaults are applied)
+    if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+        ImGui.ColorEditOptionsPopup(col, flags)
+    end
+
+    -- Read stored options
+    if bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.DisplayMask_))
+    end
+    if bit.band(flags, ImGuiColorEditFlags.DataTypeMask_) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.DataTypeMask_))
+    end
+    if bit.band(flags, ImGuiColorEditFlags.PickerMask_) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.PickerMask_))
+    end
+    if bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.InputMask_))
+    end
+    flags = bit.bor(flags, bit.band(g.ColorEditOptions, bit.bnot(bit.bor(ImGuiColorEditFlags.DisplayMask_, ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.PickerMask_, ImGuiColorEditFlags.InputMask_))))
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.DisplayMask_))) -- Check that only 1 is selected
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.InputMask_)))   -- Check that only 1 is selected
+
+    local alpha = bit.band(flags, ImGuiColorEditFlags.NoAlpha) == 0
+    local hdr = bit.band(flags, ImGuiColorEditFlags.HDR) ~= 0
+    local components = alpha and 4 or 3
+    local w_button = (bit.band(flags, ImGuiColorEditFlags.NoSmallPreview) ~= 0) and 0.0 or (square_sz + style.ItemInnerSpacing.x)
+    local w_inputs = ImMax(w_full - w_button, 1.0)
+    w_full = w_inputs + w_button
+
+    -- Convert to the formats we need
+    local f = { col[1], col[2], col[3], alpha and col[4] or 1.0 }
+    if bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 and bit.band(flags, ImGuiColorEditFlags.DisplayRGB) ~= 0 then
+        f[1], f[2], f[3] = ImGui.ColorConvertHSVtoRGB(f[1], f[2], f[3])
+    elseif bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 and bit.band(flags, ImGuiColorEditFlags.DisplayHSV) ~= 0 then
+        -- Hue is lost when converting from grayscale rgb (saturation=0). Restore it.
+        f[1], f[2], f[3] = ImGui.ColorConvertRGBtoHSV(f[1], f[2], f[3])
+        f[1], f[2], f[3] = ColorEditRestoreHS(col, f[1], f[2], f[3])
+    end
+    local i = { IM_F32_TO_INT8_UNBOUND(f[1]), IM_F32_TO_INT8_UNBOUND(f[2]), IM_F32_TO_INT8_UNBOUND(f[3]), IM_F32_TO_INT8_UNBOUND(f[4]) }
+
+    local value_changed = false
+    local value_changed_as_float = false
+
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    local inputs_offset_x = (style.ColorButtonPosition == ImGuiDir.Left) and w_button or 0.0
+    window.DC.CursorPos.x = pos.x + inputs_offset_x
+
+    if bit.band(flags, bit.bor(ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.DisplayHSV)) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
+        local w_items = w_inputs - style.ItemInnerSpacing.x * (components - 1)
+        local w_per_component = IM_TRUNC(w_items / components)
+        local draw_color_marker = bit.band(flags, bit.bor(ImGuiColorEditFlags.DisplayHSV, ImGuiColorEditFlags.NoColorMarkers)) == 0
+        local hide_prefix = draw_color_marker or (w_per_component <= ImGui.CalcTextSize((bit.band(flags, ImGuiColorEditFlags.Float) ~= 0) and "M:0.000" or "M:000").x)
+
+        local fmt_idx
+        if hide_prefix then
+            fmt_idx = 1
+        elseif bit.band(flags, ImGuiColorEditFlags.DisplayHSV) ~= 0 then
+            fmt_idx = 3
+        else
+            fmt_idx = 2
+        end
+        local drag_flags = draw_color_marker and ImGuiSliderFlags.ColorMarkers or ImGuiSliderFlags.None
+
+        local prev_split = 0.0
+        for n = 1, components do
+            if n > 1 then
+                ImGui.SameLine(0, style.ItemInnerSpacing.x)
+            end
+            local next_split = IM_TRUNC(w_items * n / components)
+            ImGui.SetNextItemWidth(ImMax(next_split - prev_split, 1.0))
+            prev_split = next_split
+            if draw_color_marker then
+                ImGui.SetNextItemColorMarker(GDefaultRgbaColorMarkers[n])
+            end
+
+            -- FIXME: When ImGuiColorEditFlags_HDR flag is passed HS values snap in weird ways when SV values go below 0
+            if bit.band(flags, ImGuiColorEditFlags.Float) ~= 0 then
+                local changed
+                f[n], changed = ImGui.DragFloat(ids[n], f[n], 1.0 / 255.0, 0.0, hdr and 0.0 or 1.0, fmt_table_float[fmt_idx][n], drag_flags)
+                value_changed = value_changed or changed
+                value_changed_as_float = value_changed_as_float or value_changed
+            else
+                local changed
+                i[n], changed = ImGui.DragInt(ids[n], i[n], 1.0, 0, hdr and 0 or 255, fmt_table_int[fmt_idx][n], drag_flags)
+                value_changed = value_changed or changed
+            end
+
+            if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+                ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+            end
+        end
+    elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
+        -- RGB Hexadecimal Input
+    end
+
+    local picker_active_window = nil
+
+    ImGui.PopID()
+    ImGui.EndGroup()
+
+end
+
+end
+
+-- Helper for ColorPicker4()
+--- @param draw_list ImDrawList
+--- @param pos       ImVec2
+--- @param half_sz   ImVec2
+--- @param bar_w     float
+--- @param alpha     float
+local function RenderArrowsForVerticalBar(draw_list, pos, half_sz, bar_w, alpha)
+    local alpha8 = IM_F32_TO_INT8_SAT(alpha)
+    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + half_sz.x + 1,         pos.y), ImVec2(half_sz.x + 2, half_sz.y + 1), ImGuiDir.Right, IM_COL32(0, 0, 0, alpha8))
+    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + half_sz.x,             pos.y), half_sz,                              ImGuiDir.Right, IM_COL32(255, 255, 255, alpha8))
+    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x - 1, pos.y), ImVec2(half_sz.x + 2, half_sz.y + 1), ImGuiDir.Left,  IM_COL32(0, 0, 0, alpha8))
+    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x,     pos.y), half_sz,                              ImGuiDir.Left,  IM_COL32(255, 255, 255, alpha8))
+end
+
+--- @param label    string
+--- @param col      float[]
+--- @param flags    ImGuiColorEditFlags
+--- @param ref_col? float[]
+function ImGui.ColorPicker4(label, col, flags, ref_col)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local draw_list = window.DrawList
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local io = g.IO
+
+    local width = ImGui.CalcItemWidth()
+    local is_readonly = bit.band(bit.bor(g.NextItemData.ItemFlags, g.CurrentItemFlags), ImGuiItemFlags_ReadOnly) ~= 0
+    g.NextItemData:ClearFlags()
+
+    ImGui.PushID(label)
+    local set_current_color_edit_id = (g.ColorEditCurrentID == 0)
+    if set_current_color_edit_id then
+        g.ColorEditCurrentID = window.IDStack:back()
+    end
+    ImGui.BeginGroup()
+
+    if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) == 0 then
+        flags = bit.bor(flags, ImGuiColorEditFlags.NoSmallPreview)
+    end
+
+    -- Context menu: display and store options.
+    if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+        ImGui.ColorPickerOptionsPopup(col, flags)
+    end
+
+    -- Read stored options
+    if bit.band(flags, ImGuiColorEditFlags.PickerMask_) == 0 then
+        local picker_flags = bit.band(g.ColorEditOptions, ImGuiColorEditFlags.PickerMask_)
+        if picker_flags ~= 0 then
+            flags = bit.bor(flags, picker_flags)
+        else
+            flags = bit.bor(flags, bit.band(ImGuiColorEditFlags.DefaultOptions_, ImGuiColorEditFlags.PickerMask_))
+        end
+    end
+    if bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
+        local input_flags = bit.band(g.ColorEditOptions, ImGuiColorEditFlags.InputMask_)
+        if input_flags ~= 0 then
+            flags = bit.bor(flags, input_flags)
+        else
+            flags = bit.bor(flags, bit.band(ImGuiColorEditFlags.DefaultOptions_, ImGuiColorEditFlags.InputMask_))
+        end
+    end
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.PickerMask_))) -- Check that only 1 is selected
+    IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.InputMask_)))  -- Check that only 1 is selected
+    if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.AlphaBar))
+    end
+
+    -- Setup
+    local components = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 3 or 4
+    local alpha_bar = (bit.band(flags, ImGuiColorEditFlags.AlphaBar) ~= 0) and (bit.band(flags, ImGuiColorEditFlags.NoAlpha) == 0)
+    local picker_pos = ImVec2()
+    ImVec2_Copy(picker_pos, window.DC.CursorPos)
+    local square_sz = ImGui.GetFrameHeight()
+    local bars_width = square_sz  -- Arbitrary smallish width of Hue/Alpha picking bars
+    local sv_picker_size = math.max(bars_width * 1, width - (alpha_bar and 2 or 1) * (bars_width + style.ItemInnerSpacing.x))  -- Saturation/Value picking box
+    local bar0_pos_x = picker_pos.x + sv_picker_size + style.ItemInnerSpacing.x
+    local bar1_pos_x = bar0_pos_x + bars_width + style.ItemInnerSpacing.x
+    local bars_triangles_half_sz = IM_TRUNC(bars_width * 0.20)
+
+    local backup_initial_col = {col[1], col[2], col[3], col[4]}
+
+    local wheel_thickness = sv_picker_size * 0.08
+    local wheel_r_outer = sv_picker_size * 0.50
+    local wheel_r_inner = wheel_r_outer - wheel_thickness
+    local wheel_center = ImVec2(picker_pos.x + (sv_picker_size + bars_width) * 0.5, picker_pos.y + sv_picker_size * 0.5)
+
+    -- Note: the triangle is displayed rotated with triangle_pa pointing to Hue, but most coordinates stays unrotated for logic.
+    local triangle_r = wheel_r_inner - math.floor(sv_picker_size * 0.027)
+    local triangle_pa = ImVec2(triangle_r, 0.0)  -- Hue point.
+    local triangle_pb = ImVec2(triangle_r * -0.5, triangle_r * -0.866025) -- Black point
+    local triangle_pc = ImVec2(triangle_r * -0.5, triangle_r *  0.866025) -- White point
+
+    local H = col[1]; local S = col[2]; local V = col[3]
+    local R = col[1]; local G = col[2]; local B = col[3]
+    if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+        -- Hue is lost when converting from grayscale rgb (saturation=0). Restore it.
+        H, S, V = ImGui.ColorConvertRGBtoHSV(R, G, B)
+        H, S, V = ColorEditRestoreHS(col, H, S, V)
+    elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+        R, G, B = ImGui.ColorConvertHSVtoRGB(H, S, V)
+    end
+
+    local value_changed = false; local value_changed_h = false; local value_changed_sv = false
+
+    ImGui.PushItemFlag(ImGuiItemFlags_NoNav, true)
+    if bit.band(flags, ImGuiColorEditFlags.PickerHueWheel) ~= 0 then
+        -- Hue wheel + SV triangle logic
+        ImGui.InvisibleButton("hsv", ImVec2(sv_picker_size + style.ItemInnerSpacing.x + bars_width, sv_picker_size))
+        if ImGui.IsItemActive() and not is_readonly then
+            local initial_off = g.IO.MouseClickedPos[0] - wheel_center
+            local current_off = g.IO.MousePos - wheel_center
+            local initial_dist2 = ImLengthSqr(initial_off)
+
+            if initial_dist2 >= (wheel_r_inner - 1) * (wheel_r_inner - 1) and initial_dist2 <= (wheel_r_outer + 1) * (wheel_r_outer + 1) then
+                -- Interactive with Hue wheel
+                H = ImAtan2(current_off.y, current_off.x) / IM_PI * 0.5
+                if H < 0.0 then
+                    H = H + 1.0
+                end
+                value_changed = true
+                value_changed_h = true
+            end
+
+            local cos_hue_angle = ImCos(-H * 2.0 * IM_PI)
+            local sin_hue_angle = ImSin(-H * 2.0 * IM_PI)
+            if ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, ImRotate(initial_off, cos_hue_angle, sin_hue_angle)) then
+                -- Interacting with SV triangle
+                local current_off_unrotated = ImRotate(current_off, cos_hue_angle, sin_hue_angle)
+                if not ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated) then
+                    current_off_unrotated = ImTriangleClosestPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
+                end
+                local uu, vv, ww
+                uu, vv, ww = ImTriangleBarycentricCoords(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
+                V = ImClamp(1.0 - vv, 0.0001, 1.0)
+                S = ImClamp(uu / V, 0.0001, 1.0)
+                value_changed = true
+                value_changed_sv = true
+            end
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+        end
+    elseif bit.band(flags, ImGuiColorEditFlags.PickerHueBar) ~= 0 then
+        -- SV rectangle logic
+        ImGui.InvisibleButton("sv", ImVec2(sv_picker_size, sv_picker_size))
+        if ImGui.IsItemActive() and not is_readonly then
+            S = ImSaturate((io.MousePos.x - picker_pos.x) / ImMax(sv_picker_size - 1, 0.0001))
+            V = 1.0 - ImSaturate((io.MousePos.y - picker_pos.y) / ImMax(sv_picker_size - 1, 0.0001))
+            H = ColorEditRestoreH(col, H)  -- Greatly reduces hue jitter and reset to 0 when hue == 255 and color is rapidly modified using SV square.
+            value_changed = true
+            value_changed_sv = true
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+        end
+
+        -- Hue bar logic
+        ImGui.SetCursorScreenPos(ImVec2(bar0_pos_x, picker_pos.y))
+        ImGui.InvisibleButton("hue", ImVec2(bars_width, sv_picker_size))
+        if ImGui.IsItemActive() and not is_readonly then
+            H = ImSaturate((io.MousePos.y - picker_pos.y) / ImMax(sv_picker_size - 1, 0.0001))
+            value_changed = true
+            value_changed_h = true
+        end
+    end
+
+    -- Alpha bar logic
+    if alpha_bar then
+        ImGui.SetCursorScreenPos(ImVec2(bar1_pos_x, picker_pos.y))
+        ImGui.InvisibleButton("alpha", ImVec2(bars_width, sv_picker_size))
+        if ImGui.IsItemActive() then
+            col[4] = 1.0 - ImSaturate((io.MousePos.y - picker_pos.y) / ImMax(sv_picker_size - 1, 0.0001))
+            value_changed = true
+        end
+    end
+    ImGui.PopItemFlag()
+
+    if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) == 0 then
+        ImGui.SameLine(0, style.ItemInnerSpacing.x)
+        ImGui.BeginGroup()
+    end
+
+    if bit.band(flags, ImGuiColorEditFlags.NoLabel) == 0 then
+        local label_display_end = ImGui.FindRenderedTextEnd(label)
+        if label ~= "" and label_display_end > 1 then
+            if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) ~= 0 then
+                ImGui.SameLine(0, style.ItemInnerSpacing.x)
+            end
+            ImGui.TextEx(label, label_display_end)
+        end
+    end
+
+    if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) == 0 then
+        ImGui.PushItemFlag(ImGuiItemFlags_NoNavDefaultFocus, true)
+        local col_v4 = ImVec4(col[1], col[2], col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col[4])
+
+        if bit.band(flags, ImGuiColorEditFlags.NoLabel) ~= 0 then
+            ImGui.Text("Current")
+        end
+
+        local sub_flags_to_forward = bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.HDR, ImGuiColorEditFlags.AlphaMask_, ImGuiColorEditFlags.NoTooltip)
+
+        ImGui.ColorButton("##current", col_v4, bit.band(flags, sub_flags_to_forward), ImVec2(square_sz * 3, square_sz * 2))
+
+        if ref_col ~= nil then
+            ImGui.Text("Original")
+            local ref_col_v4 = ImVec4(ref_col[1], ref_col[2], ref_col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or ref_col[4])
+            if ImGui.ColorButton("##original", ref_col_v4, bit.band(flags, sub_flags_to_forward), ImVec2(square_sz * 3, square_sz * 2)) then
+                for i = 1, components do
+                    col[i] = ref_col[i]
+                end
+                value_changed = true
+            end
+        end
+
+        ImGui.PopItemFlag()
+        ImGui.EndGroup()
+    end
+
+    -- Convert back color to RGB
+    if value_changed_h or value_changed_sv then
+        if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+            col[1], col[2], col[3] = ImGui.ColorConvertHSVtoRGB(H, S, V)  -- Lua 1-based indexing
+            g.ColorEditSavedHue = H
+            g.ColorEditSavedSat = S
+            g.ColorEditSavedID = g.ColorEditCurrentID
+            g.ColorEditSavedColor = ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0))
+        elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+            col[1] = H
+            col[2] = S
+            col[3] = V
+        end
+    end
+
+    -- R,G,B and H,S,V slider color editor
+    local value_changed_fix_hue_wrap = false
+    if bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
+        ImGui.PushItemWidth((alpha_bar and bar1_pos_x or bar0_pos_x) + bars_width - picker_pos.x)
+
+        local sub_flags_to_forward = bit.bor(ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.HDR, ImGuiColorEditFlags.AlphaMask_, ImGuiColorEditFlags.NoOptions, ImGuiColorEditFlags.NoTooltip, ImGuiColorEditFlags.NoSmallPreview)
+        local sub_flags = bit.bor(bit.band(flags, sub_flags_to_forward), ImGuiColorEditFlags.NoPicker)
+
+        if bit.band(flags, ImGuiColorEditFlags.DisplayRGB) ~= 0 or bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
+            if ImGui.ColorEdit4("##rgb", col, bit.bor(sub_flags, ImGuiColorEditFlags.DisplayRGB)) then
+                -- FIXME: Hackily differentiating using the DragInt (ActiveId != 0 && !ActiveIdAllowOverlap) vs. using the InputText or DropTarget.
+                -- For the later we don't want to run the hue-wrap canceling code. If you are well versed in HSV picker please provide your input! (See #2050)
+                value_changed_fix_hue_wrap = (g.ActiveId ~= 0 and not g.ActiveIdAllowOverlap)
+                value_changed = true
+            end
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.DisplayHSV) ~= 0 or bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
+            if ImGui.ColorEdit4("##hsv", col, bit.bor(sub_flags, ImGuiColorEditFlags.DisplayHSV)) then
+                value_changed = true
+            end
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 or bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
+            if ImGui.ColorEdit4("##hex", col, bit.bor(sub_flags, ImGuiColorEditFlags.DisplayHex)) then
+                value_changed = true
+            end
+        end
+
+        ImGui.PopItemWidth()
+    end
+
+    -- Try to cancel hue wrap (after ColorEdit4 call), if any
+    if value_changed_fix_hue_wrap and bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+        local new_H, new_S, new_V = ImGui.ColorConvertRGBtoHSV(col[1], col[2], col[3])  -- Lua 1-based indexing
+
+        if new_H <= 0 and H > 0 then
+            if new_V <= 0 and V ~= new_V then
+                col[1], col[2], col[3] = ImGui.ColorConvertHSVtoRGB(H, S, (new_V <= 0) and (V * 0.5) or new_V)
+            elseif new_S <= 0 then
+                col[1], col[2], col[3] = ImGui.ColorConvertHSVtoRGB(H, (new_S <= 0) and (S * 0.5) or new_S, new_V)
+            end
+        end
+    end
+
+    if value_changed then
+        if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+            R = col[1]
+            G = col[2]
+            B = col[3]
+            H, S, V = ImGui.ColorConvertRGBtoHSV(R, G, B)
+            H, S, V = ColorEditRestoreHS(col, H, S, V) -- Fix local Hue as display below will use it immediately.
+        elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+            H = col[1]
+            S = col[2]
+            V = col[3]
+            R, G, B = ImGui.ColorConvertHSVtoRGB(H, S, V)
+        end
+    end
+
+    local style_alpha8 = IM_F32_TO_INT8_SAT(style.Alpha)
+    local col_black = IM_COL32(0, 0, 0, style_alpha8)
+    local col_white = IM_COL32(255, 255, 255, style_alpha8)
+    local col_midgrey = IM_COL32(128, 128, 128, style_alpha8)
+    local col_hues = { IM_COL32(255, 0, 0, style_alpha8), IM_COL32(255, 255, 0, style_alpha8), IM_COL32(0, 255, 0, style_alpha8), IM_COL32(0, 255, 255, style_alpha8), IM_COL32(0, 0, 255, style_alpha8), IM_COL32(255, 0, 255, style_alpha8), IM_COL32(255, 0, 0, style_alpha8) }
+
+    local hue_color_f = ImVec4(1, 1, 1, style.Alpha)
+    hue_color_f.x, hue_color_f.y, hue_color_f.z = ImGui.ColorConvertHSVtoRGB(H, 1, 1)
+    local hue_color32 = ImGui.ColorConvertFloat4ToU32(hue_color_f)
+    local user_col32_striped_of_alpha = ImGui.ColorConvertFloat4ToU32(ImVec4(R, G, B, style.Alpha)) -- Important: this is still including the main rendering/style alpha!!
+
+    local sv_cursor_pos = ImVec2()
+
+    if bit.band(flags, ImGuiColorEditFlags.PickerHueWheel) ~= 0 then
+        -- Render Hue Wheel
+        local aeps = 0.5 / wheel_r_outer -- Half a pixel arc length in radians (2pi cancels out).
+        local segment_per_arc =ImMax(4, math.floor(wheel_r_outer / 12))
+
+        for n = 1, 6 do
+            local a0 = (n - 1) / 6.0 * 2.0 * IM_PI - aeps
+            local a1 = n / 6.0 * 2.0 * IM_PI + aeps
+            local vert_start_idx = draw_list.VtxBuffer.Size + 1
+
+            draw_list:PathArcTo(wheel_center, (wheel_r_inner + wheel_r_outer) * 0.5, a0, a1, segment_per_arc)
+            draw_list:PathStroke(col_white, 0, wheel_thickness)
+
+            local vert_end_idx = draw_list.VtxBuffer.Size + 1
+
+            -- Paint colors over existing vertices
+            local gradient_p0 = ImVec2(wheel_center.x + ImCos(a0) * wheel_r_inner, wheel_center.y + ImSin(a0) * wheel_r_inner)
+            local gradient_p1 = ImVec2(wheel_center.x + ImCos(a1) * wheel_r_inner, wheel_center.y + ImSin(a1) * wheel_r_inner)
+            ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx, vert_end_idx, gradient_p0, gradient_p1, col_hues[n], col_hues[n + 1])
+        end
+
+        -- Render Cursor + preview on Hue Wheel
+        local cos_hue_angle = ImCos(H * 2.0 * IM_PI)
+        local sin_hue_angle = ImSin(H * 2.0 * IM_PI)
+
+        local hue_cursor_pos = ImVec2(wheel_center.x + cos_hue_angle * (wheel_r_inner + wheel_r_outer) * 0.5, wheel_center.y + sin_hue_angle * (wheel_r_inner + wheel_r_outer) * 0.5)
+
+        local hue_cursor_rad = value_changed_h and (wheel_thickness * 0.65) or (wheel_thickness * 0.55)
+        local hue_cursor_segments = draw_list:_CalcCircleAutoSegmentCount(hue_cursor_rad) -- Lock segment count so the +1 one matches others.
+
+        draw_list:AddCircleFilled(hue_cursor_pos, hue_cursor_rad, hue_color32, hue_cursor_segments)
+        draw_list:AddCircle(hue_cursor_pos, hue_cursor_rad + 1, col_midgrey, hue_cursor_segments)
+        draw_list:AddCircle(hue_cursor_pos, hue_cursor_rad, col_white, hue_cursor_segments)
+
+        -- Render SV triangle (rotated according to hue)
+        local tra = wheel_center + ImRotate(triangle_pa, cos_hue_angle, sin_hue_angle)
+        local trb = wheel_center + ImRotate(triangle_pb, cos_hue_angle, sin_hue_angle)
+        local trc = wheel_center + ImRotate(triangle_pc, cos_hue_angle, sin_hue_angle)
+
+        local uv_white = ImGui.GetFontTexUvWhitePixel()
+        draw_list:PrimReserve(3, 3)
+        draw_list:PrimVtx(tra, uv_white, hue_color32)
+        draw_list:PrimVtx(trb, uv_white, col_black)
+        draw_list:PrimVtx(trc, uv_white, col_white)
+        draw_list:AddTriangle(tra, trb, trc, col_midgrey, 1.5)
+
+        sv_cursor_pos = ImLerpV2V2(ImLerpV2V2(trc, tra, ImSaturate(S)), trb, ImSaturate(1 - V))
+    elseif bit.band(flags, ImGuiColorEditFlags.PickerHueBar) ~= 0 then
+        -- Render SV Square
+        draw_list:AddRectFilledMultiColor(picker_pos, picker_pos + ImVec2(sv_picker_size, sv_picker_size), col_white, hue_color32, hue_color32, col_white)
+        draw_list:AddRectFilledMultiColor(picker_pos, picker_pos + ImVec2(sv_picker_size, sv_picker_size), 0, 0, col_black, col_black)
+        ImGui.RenderFrameBorder(picker_pos, picker_pos + ImVec2(sv_picker_size, sv_picker_size), 0.0)
+
+        -- Sneakily prevent the circle to stick out too much
+        sv_cursor_pos.x = ImClamp(IM_ROUND(picker_pos.x + ImSaturate(S) * sv_picker_size), picker_pos.x + 2, picker_pos.x + sv_picker_size - 2)
+        sv_cursor_pos.y = ImClamp(IM_ROUND(picker_pos.y + ImSaturate(1 - V) * sv_picker_size), picker_pos.y + 2, picker_pos.y + sv_picker_size - 2)
+
+        -- Render Hue Bar
+        for i = 1, 6 do
+            draw_list:AddRectFilledMultiColor(ImVec2(bar0_pos_x, picker_pos.y + (i - 1) * (sv_picker_size / 6)), ImVec2(bar0_pos_x + bars_width, picker_pos.y + i * (sv_picker_size / 6)), col_hues[i], col_hues[i], col_hues[i + 1], col_hues[i + 1])
+        end
+
+        local bar0_line_y = IM_ROUND(picker_pos.y + H * sv_picker_size)
+        ImGui.RenderFrameBorder(ImVec2(bar0_pos_x, picker_pos.y), ImVec2(bar0_pos_x + bars_width, picker_pos.y + sv_picker_size), 0.0)
+        RenderArrowsForVerticalBar(draw_list, ImVec2(bar0_pos_x - 1, bar0_line_y), ImVec2(bars_triangles_half_sz + 1, bars_triangles_half_sz), bars_width + 2.0, style.Alpha)
+    end
+
+    -- Render cursor/preview circle (clamp S/V within 0..1 range because floating points colors may lead HSV values to be out of range)
+    local sv_cursor_rad = value_changed_sv and (wheel_thickness * 0.55) or (wheel_thickness * 0.40)
+    local sv_cursor_segments = draw_list:_CalcCircleAutoSegmentCount(sv_cursor_rad)  -- Lock segment count so the +1 one matches others.
+    draw_list:AddCircleFilled(sv_cursor_pos, sv_cursor_rad, user_col32_striped_of_alpha, sv_cursor_segments)
+    draw_list:AddCircle(sv_cursor_pos, sv_cursor_rad + 1, col_midgrey, sv_cursor_segments)
+    draw_list:AddCircle(sv_cursor_pos, sv_cursor_rad, col_white, sv_cursor_segments)
+
+    -- Render alpha bar
+    if alpha_bar then
+        local alpha = ImSaturate(col[4])
+        local bar1_bb = ImRect(bar1_pos_x, picker_pos.y, bar1_pos_x + bars_width, picker_pos.y + sv_picker_size)
+        ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, bar1_bb.Min, bar1_bb.Max, 0, bar1_bb:GetWidth() / 2.0, ImVec2(0.0, 0.0))
+        draw_list:AddRectFilledMultiColor(bar1_bb.Min, bar1_bb.Max, user_col32_striped_of_alpha, user_col32_striped_of_alpha, bit.band(user_col32_striped_of_alpha, bit.bnot(IM_COL32_A_MASK)), bit.band(user_col32_striped_of_alpha, bit.bnot(IM_COL32_A_MASK)))
+
+        local bar1_line_y = IM_ROUND(picker_pos.y + (1.0 - alpha) * sv_picker_size)
+        ImGui.RenderFrameBorder(bar1_bb.Min, bar1_bb.Max, 0.0)
+        RenderArrowsForVerticalBar(draw_list, ImVec2(bar1_pos_x - 1, bar1_line_y), ImVec2(bars_triangles_half_sz + 1, bars_triangles_half_sz), bars_width + 2.0, style.Alpha)
+    end
+
+    ImGui.EndGroup()
+
+    if value_changed then
+        for i = 1, components do
+            if backup_initial_col[i] ~= col[i] then
+                break
+            end
+            if i == components then
+                value_changed = false
+            end
+        end
+    end
+
+    if value_changed and g.LastItemData.ID ~= 0 then -- In case of ID collision, the second EndGroup() won't catch g.ActiveId
+        ImGui.MarkItemEdited(g.LastItemData.ID)
+    end
+
+    if set_current_color_edit_id then
+        g.ColorEditCurrentID = 0
+    end
+
+    ImGui.PopID()
+
+    return value_changed
+end
+
+--- @param desc_id   string
+--- @param col       ImVec4
+--- @param flags?    ImGuiColorEditFlags
+--- @param size_arg? ImVec2
+function ImGui.ColorButton(desc_id, col, flags, size_arg)
+    if flags    == nil then flags    = 0            end
+    if size_arg == nil then size_arg = ImVec2(0, 0) end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local id = window:GetID(desc_id)
+    local default_size = ImGui.GetFrameHeight()
+    local size = ImVec2(size_arg.x == 0.0 and default_size or size_arg.x, size_arg.y == 0.0 and default_size or size_arg.y)
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
+    ImGui.ItemSizeR(bb, (size.y >= default_size) and g.Style.FramePadding.y or 0.0)
+    if not ImGui.ItemAdd(bb, id) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
+
+    if bit.band(flags, bit.bor(ImGuiColorEditFlags.NoAlpha, ImGuiColorEditFlags.AlphaOpaque)) ~= 0 then
+        flags = bit.band(flags, bit.bnot(bit.bor(ImGuiColorEditFlags.AlphaNoBg, ImGuiColorEditFlags.AlphaPreviewHalf)))
+    end
+
+    local col_rgb = ImVec4(col.x, col.y, col.z, col.w)
+    if bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+        col_rgb.x, col_rgb.y, col_rgb.z = ImGui.ColorConvertHSVtoRGB(col_rgb.x, col_rgb.y, col_rgb.z)
+    end
+
+    local col_rgb_without_alpha = ImVec4(col_rgb.x, col_rgb.y, col_rgb.z, 1.0)
+    local grid_step = ImMin(size.x, size.y) / 2.99
+    local rounding = ImMin(g.Style.FrameRounding, grid_step * 0.5)
+    local bb_inner = ImRect()
+    ImRect_Copy(bb_inner, bb)
+    local off = 0.0
+    if bit.band(flags, ImGuiColorEditFlags.NoBorder) == 0 then
+        off = -0.75
+        bb_inner:Expand(off)
+    end
+    if bit.band(flags, ImGuiColorEditFlags.AlphaPreviewHalf) ~= 0 and col_rgb.w < 1.0 then
+        local mid_x = IM_ROUND((bb_inner.Min.x + bb_inner.Max.x) * 0.5)
+        if bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
+            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32(col_rgb), grid_step, ImVec2(-grid_step + off, off), rounding, ImDrawFlags_RoundCornersRight)
+        else
+            window.DrawList:AddRectFilled(ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32(col_rgb), rounding, ImDrawFlags_RoundCornersRight)
+        end
+        window.DrawList:AddRectFilled(bb_inner.Min, ImVec2(mid_x, bb_inner.Max.y), ImGui.GetColorU32(col_rgb_without_alpha), rounding, ImDrawFlags_RoundCornersLeft)
+    else
+        local col_source = (bit.band(flags, ImGuiColorEditFlags.AlphaOpaque) ~= 0) and col_rgb_without_alpha or col_rgb
+        if col_source.w < 1.0 and bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
+            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, bb_inner.Min, bb_inner.Max, ImGui.GetColorU32(col_source), grid_step, ImVec2(off, off), rounding)
+        else
+            window.DrawList:AddRectFilled(bb_inner.Min, bb_inner.Max, ImGui.GetColorU32(col_source), rounding)
+        end
+    end
+    ImGui.RenderNavCursor(bb, id)
+    if bit.band(flags, ImGuiColorEditFlags.NoBorder) == 0 then
+        if g.Style.FrameBorderSize > 0.0 then
+            ImGui.RenderFrameBorder(bb.Min, bb.Max, rounding)
+        else
+            window.DrawList:AddRect(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), rounding)
+        end
+    end
+
+    -- Drag and Drop Source
+    -- NB: The ActiveId test is merely an optional micro-optimization, BeginDragDropSource() does the same test.
+    -- if g.ActiveId == id and bit.band(flags, ImGuiColorEditFlags.NoDragDrop) == 0 and ImGui.BeginDragDropSource() then
+    --     if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
+    --         ImGui.SetDragDropPayload(IMGUI_PAYLOAD_TYPE_COLOR_3F, col_rgb, ImGuiCond.Once)
+    --     else
+    --         ImGui.SetDragDropPayload(IMGUI_PAYLOAD_TYPE_COLOR_4F, col_rgb, ImGuiCond.Once)
+    --     end
+    --     ImGui.ColorButton(desc_id, col, flags)
+    --     ImGui.SameLine()
+    --     ImGui.TextEx("Color")
+    --     ImGui.EndDragDropSource()
+    -- end
+
+    -- Tooltip
+    if bit.band(flags, ImGuiColorEditFlags.NoTooltip) == 0 and hovered and ImGui.IsItemHovered(ImGuiHoveredFlags_ForTooltip) then
+        ImGui.ColorTooltip(desc_id, col, bit.band(flags, bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.AlphaMask_)))
+    end
+end
+
+--- @param text? string
+--- @param col   ImVec4
+--- @param flags ImGuiColorEditFlags
+function ImGui.ColorTooltip(text, col, flags)
+    local g = ImGui.GetCurrentContext()
+
+    if not ImGui.BeginTooltipEx(ImGuiTooltipFlags.OverridePrevious, ImGuiWindowFlags_None) then
+        return
+    end
+
+    local text_end = text and ImGui.FindRenderedTextEnd(text, nil) or 1
+    if text_end > 1 then
+        --- @cast text string
+        ImGui.TextEx(text, text_end)
+        ImGui.Separator()
+    end
+
+    local sz = ImVec2(g.FontSize * 3 + g.Style.FramePadding.y * 2, g.FontSize * 3 + g.Style.FramePadding.y * 2)
+    local cf = ImVec4(col.x, col.y, col.z, (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col.w)
+    local cr = IM_F32_TO_INT8_SAT(col.x)
+    local cg = IM_F32_TO_INT8_SAT(col.y)
+    local cb = IM_F32_TO_INT8_SAT(col.z)
+    local ca = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 255 or IM_F32_TO_INT8_SAT(col.w)
+
+    local flags_to_forward = bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.AlphaMask_)
+    ImGui.ColorButton("##preview", cf, bit.bor(bit.band(flags, flags_to_forward), ImGuiColorEditFlags.NoTooltip), sz)
+    ImGui.SameLine()
+
+    if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 or bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
+        if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
+            ImGui.Text("#%02X%02X%02X\nR: %d, G: %d, B: %d\n(%.3f, %.3f, %.3f)", cr, cg, cb, cr, cg, cb, col.x, col.y, col.z)
+        else
+            ImGui.Text("#%02X%02X%02X%02X\nR:%d, G:%d, B:%d, A:%d\n(%.3f, %.3f, %.3f, %.3f)", cr, cg, cb, ca, cr, cg, cb, ca, col.x, col.y, col.z, col.w)
+        end
+    elseif bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+        if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
+            ImGui.Text("H: %.3f, S: %.3f, V: %.3f", col.x, col.y, col.z)
+        else
+            ImGui.Text("H: %.3f, S: %.3f, V: %.3f, A: %.3f", col.x, col.y, col.z, col.w)
+        end
+    end
+
+    ImGui.EndTooltip()
+end
+
+function ImGui.ColorEditOptionsPopup(col, flags)
+    -- TODO:
+end
+
+--- @param ref_col float[]
+--- @param flags   ImGuiColorEditFlags
+function ImGui.ColorPickerOptionsPopup(ref_col, flags)
+    local allow_opt_picker = bit.band(flags, ImGuiColorEditFlags.PickerMask_) == 0
+    local allow_opt_alpha_bar = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) == 0) and (bit.band(flags, ImGuiColorEditFlags.AlphaBar) == 0)
+
+    if (not allow_opt_picker and not allow_opt_alpha_bar) or not ImGui.BeginPopup("context") then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    ImGui.PushItemFlag(ImGuiItemFlags_NoMarkEdited, true)
+    if allow_opt_picker then
+        local picker_size = ImVec2(g.FontSize * 8, ImMax(g.FontSize * 8 - (ImGui.GetFrameHeight() + g.Style.ItemInnerSpacing.x), 1.0)) -- FIXME: Picker size copied from main picker function
+        ImGui.PushItemWidth(picker_size.x)
+        for picker_type = 0, 1 do
+            if picker_type > 0 then
+                ImGui.Separator()
+            end
+            ImGui.PushID(picker_type)
+            local picker_flags = bit.bor(ImGuiColorEditFlags.NoInputs, ImGuiColorEditFlags.NoOptions, ImGuiColorEditFlags.NoLabel, ImGuiColorEditFlags.NoSidePreview, bit.band(flags, ImGuiColorEditFlags.NoAlpha))
+            if picker_type == 0 then
+                picker_flags = bit.bor(picker_flags, ImGuiColorEditFlags.PickerHueBar)
+            end
+            if picker_type == 1 then
+                picker_flags = bit.bor(picker_flags, ImGuiColorEditFlags.PickerHueWheel)
+            end
+            local backup_pos = ImGui.GetCursorScreenPos()
+            -- By default, Selectable() is closing popup
+            if ImGui.Selectable("##selectable", false, 0, picker_size) then
+                g.ColorEditOptions = bit.bor(bit.band(g.ColorEditOptions, bit.bnot(ImGuiColorEditFlags.PickerMask_)), bit.band(picker_flags, ImGuiColorEditFlags.PickerMask_))
+            end
+            ImGui.SetCursorScreenPos(backup_pos)
+            local previewing_ref_col = ImVec4()
+            for i = 1, (bit.band(picker_flags, ImGuiColorEditFlags.NoAlpha) ~= 0 and 3 or 4) do
+                previewing_ref_col[i] = ref_col[i]
+            end
+            ImGui.ColorPicker4("##previewing_picker", previewing_ref_col, picker_flags)
+            ImGui.PopID()
+        end
+        ImGui.PopItemWidth()
+    end
+    if allow_opt_alpha_bar then
+        if allow_opt_picker then
+            ImGui.Separator()
+        end
+        _, g.ColorEditOptions = ImGui.CheckboxFlags("Alpha Bar", g.ColorEditOptions, ImGuiColorEditFlags.AlphaBar)
+    end
+    ImGui.PopItemFlag()
+    ImGui.EndPopup()
 end
 
 ----------------------------------------------------------------
@@ -1626,7 +3175,7 @@ end
 --- @return int
 function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, size_arg)
     local g = ImGui.GetCurrentContext()
-    local window = g.CurrentWindow
+    local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return -1
     end
