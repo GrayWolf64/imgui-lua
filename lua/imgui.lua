@@ -2915,12 +2915,11 @@ end
 --- @param text_size_if_known? ImVec2
 --- @param align?              ImVec2
 --- @param clip_rect?          ImRect
-function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, text_size_if_known, align, clip_rect)
-    if text_begin == nil then text_begin = 1            end
-    if not align         then align      = ImVec2(0, 0) end
+function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_known, align, clip_rect)
+    if not align then align = ImVec2(0, 0) end
 
     local text_display_end = ImGui.FindRenderedTextEnd(text, text_end)
-    local text_len = text_display_end - text_begin
+    local text_len = text_display_end - 1
 
     if text_len == 0 then
         return
@@ -2928,7 +2927,7 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, t
 
     local g = GImGui
     local window = g.CurrentWindow
-    ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
+    ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, 1, text_display_end, text_size_if_known, align, clip_rect)
     -- if (g.LogEnabled)
     --     LogRenderedText(&pos_min, text, text_display_end);
 end
@@ -3318,7 +3317,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, open)
     -- TODO:
     -- end
 
-    ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, 1, nil, text_size, style.WindowTitleAlign, clip_r)
+    ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, nil, text_size, style.WindowTitleAlign, clip_r)
 
     return open
 end

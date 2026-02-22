@@ -433,12 +433,12 @@ function ImGui.ButtonEx(label, size_arg, flags)
         col = ImGui.GetColorU32(ImGuiCol.Button)
     end
 
-    -- TODO: RenderNavCursor(bb, id);
+    ImGui.RenderNavCursor(bb, id)
     ImGui.RenderFrame(bb.Min, bb.Max, col, true, style.FrameRounding)
 
     -- if (g.LogEnabled)
     --     LogSetNextTextDecoration("[", "]");
-    ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, 1, nil, label_size, style.ButtonTextAlign, bb)
+    ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, nil, label_size, style.ButtonTextAlign, bb)
 
     -- Automatically close popups
     --if (pressed && !(flags & ImGuiButtonFlags_DontClosePopups) && (window->Flags & ImGuiWindowFlags_Popup))
@@ -1378,7 +1378,7 @@ function ImGui.BeginCombo(label, preview_value, flags)
         if g.LogEnabled then
             ImGui.LogSetNextTextDecoration("{", "}")
         end
-        ImGui.RenderTextClipped(bb.Min + style.FramePadding, ImVec2(value_x2, bb.Max.y), preview_value, 1, nil, nil)
+        ImGui.RenderTextClipped(bb.Min + style.FramePadding, ImVec2(value_x2, bb.Max.y), preview_value, nil, nil)
     end
 
     if label_size.x > 0 then
@@ -1975,7 +1975,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     end
 
     -- Display value using user-provided display format so user can add prefix/suffix/decorations to the value
-    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), 1, nil, nil, ImVec2(0.5, 0.5))
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.5))
 
     if label_size.x > 0.0 then
         ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label)
@@ -3251,7 +3251,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
 
     -- Text stays at the submission position. Alignment/clipping extents ignore SpanAllColumns.
     if is_visible then
-        ImGui.RenderTextClipped(pos, ImVec2(ImMin(pos.x + size.x, window.WorkRect.Max.x), pos.y + size.y), label, 1, nil, label_size, style.SelectableTextAlign, bb)
+        ImGui.RenderTextClipped(pos, ImVec2(ImMin(pos.x + size.x, window.WorkRect.Max.x), pos.y + size.y), label, nil, label_size, style.SelectableTextAlign, bb)
     end
 
     -- Automatically close popups
@@ -3388,7 +3388,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
     end
 
     if overlay_text then
-        ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, overlay_text, nil, nil, nil, ImVec2(0.5, 0.0))
+        ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, overlay_text, nil, nil, ImVec2(0.5, 0.0))
     end
 
     if label_size.x > 0.0 then
