@@ -2448,19 +2448,19 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
     return s
 end
 
---- @param font             ImFont
---- @param size             float
---- @param max_width        float
---- @param wrap_width       float
---- @param text             string
---- @param text_begin       int
---- @param text_end_display int?
---- @param text_end         int?
---- @param flags            ImDrawTextFlags
+--- @param font              ImFont
+--- @param size              float
+--- @param max_width         float
+--- @param wrap_width        float
+--- @param text              string
+--- @param text_begin        int
+--- @param text_end_display? int
+--- @param text_end?         int
+--- @param out_offset?       ImVec2
+--- @param flags             ImDrawTextFlags
 --- @return ImVec2 text_size
---- @return int    out_remaining
---- @return ImVec2 out_offset
-function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begin, text_end_display, text_end, flags)
+--- @return int    remaining
+function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begin, text_end_display, text_end, out_offset, flags)
     if not text_end then
         text_end = #text + 1
     end
@@ -2546,7 +2546,10 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
         text_size.x = line_width
     end
 
-    local out_offset = ImVec2(line_width, text_size.y + line_height)
+    if out_offset then
+        out_offset.x = line_width
+        out_offset.y = text_size.y + line_height
+    end
 
     if (line_width > 0 or text_size.y == 0.0) then
         text_size.y = text_size.y + line_height
@@ -2554,7 +2557,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
 
     local out_remaining = s
 
-    return text_size, out_remaining, out_offset
+    return text_size, out_remaining
 end
 
 --- @param size       float
@@ -2564,7 +2567,7 @@ end
 --- @param text_begin int
 --- @param text_end?  int
 function MT.ImFont:CalcTextSizeA(size, max_width, wrap_width, text, text_begin, text_end)
-    return ImFontCalcTextSizeEx(self, size, max_width, wrap_width, text, text_begin, text_end, text_end, ImDrawTextFlags.None)
+    return ImFontCalcTextSizeEx(self, size, max_width, wrap_width, text, text_begin, text_end, text_end, nil, ImDrawTextFlags.None)
 end
 
 --- Note: as with every ImDrawList drawing function, this expects that the font atlas texture is bound.
