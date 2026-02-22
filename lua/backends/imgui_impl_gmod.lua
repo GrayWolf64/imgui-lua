@@ -104,6 +104,8 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed
                 mouse_button = ImGuiMouseButton.Left
             elseif key_code == MOUSE_RIGHT then
                 mouse_button = ImGuiMouseButton.Right
+            elseif key_code == MOUSE_MIDDLE then
+                mouse_button = ImGuiMouseButton.Middle
             end
 
             io:AddMouseButtonEvent(mouse_button, is_down)

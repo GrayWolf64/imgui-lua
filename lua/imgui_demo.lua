@@ -93,7 +93,7 @@ function DemoWindowWidgetsColorAndPickers()
         _, ref_color = ImGui.Checkbox("With Ref Color", ref_color)
         if ref_color then
             ImGui.SameLine()
-            ImGui.ColorEdit4("##RefColor", ref_color_v.x, bit.bor(ImGuiColorEditFlags.NoInputs, base_flags))
+            ImGui.ColorEdit4("##RefColor", ref_color_v, bit.bor(ImGuiColorEditFlags.NoInputs, base_flags))
         end
     end
 

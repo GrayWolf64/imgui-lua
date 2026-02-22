@@ -6143,7 +6143,7 @@ function ImGui.OpenPopupEx(id, popup_flags)
     popup_ref.RestoreNavWindow = g.NavWindow -- When popup closes focus may be restored to NavWindow (depend on window type).
     popup_ref.OpenFrameCount = g.FrameCount
     popup_ref.OpenParentId = parent_window.IDStack:back()
-    popup_ref.OpenPopupPos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags_Popup)
+    ImVec2_Copy(popup_ref.OpenPopupPos, ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags_Popup))
     if ImGui.IsMousePosValid(g.IO.MousePos) then
         ImVec2_Copy(popup_ref.OpenMousePos, g.IO.MousePos)
     else
@@ -7281,8 +7281,8 @@ function ImGui.UpdateViewportsEndFrame()
 
     for i = 1, g.Viewports.Size do
         local viewport = g.Viewports.Data[i]
-        viewport.LastPos = ImVec2(viewport.Pos.x, viewport.Pos.y)
-        viewport.LastSize = ImVec2(viewport.Size.x, viewport.Size.y)
+        ImVec2_Copy(viewport.LastPos, ImVec2(viewport.Pos.x, viewport.Pos.y))
+        ImVec2_Copy(viewport.LastSize, ImVec2(viewport.Size.x, viewport.Size.y))
 
         if viewport.LastFrameActive < g.FrameCount or viewport.Size.x <= 0.0 or viewport.Size.y <= 0.0 then
             if i > 1 then  -- Always include main viewport in the list
