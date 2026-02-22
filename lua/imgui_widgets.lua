@@ -143,7 +143,7 @@ function ImGui.TextV(fmt, ...)
         return
     end
 
-    local text = string.format(fmt, ...)
+    local text = ImFormatString(fmt, ...)
     ImGui.TextEx(text, nil, ImGuiTextFlags.NoWidthForLargeClippedText)
 end
 
@@ -2337,6 +2337,8 @@ function ImGui.ColorEdit4(label, col, flags)
         -- RGB Hexadecimal Input
         -- TODO:
 
+        ImGui.SetNextItemWidth(w_inputs)
+
         if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
             ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
         end
@@ -2511,7 +2513,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     ImVec2_Copy(picker_pos, window.DC.CursorPos)
     local square_sz = ImGui.GetFrameHeight()
     local bars_width = square_sz  -- Arbitrary smallish width of Hue/Alpha picking bars
-    local sv_picker_size = math.max(bars_width * 1, width - (alpha_bar and 2 or 1) * (bars_width + style.ItemInnerSpacing.x))  -- Saturation/Value picking box
+    local sv_picker_size = ImMax(bars_width * 1, width - (alpha_bar and 2 or 1) * (bars_width + style.ItemInnerSpacing.x))  -- Saturation/Value picking box
     local bar0_pos_x = picker_pos.x + sv_picker_size + style.ItemInnerSpacing.x
     local bar1_pos_x = bar0_pos_x + bars_width + style.ItemInnerSpacing.x
     local bars_triangles_half_sz = IM_TRUNC(bars_width * 0.20)
@@ -2992,8 +2994,80 @@ function ImGui.ColorTooltip(text, col, flags)
     ImGui.EndTooltip()
 end
 
+--- @param col   float[]
+--- @param flags ImGuiColorEditFlags
 function ImGui.ColorEditOptionsPopup(col, flags)
-    -- TODO:
+    local allow_opt_inputs = bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0
+    local allow_opt_datatype = bit.band(flags, ImGuiColorEditFlags.DataTypeMask_) == 0
+
+    if (not allow_opt_inputs and not allow_opt_datatype) or not ImGui.BeginPopup("context") then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    ImGui.PushItemFlag(ImGuiItemFlags_NoMarkEdited, true)
+    local opts = g.ColorEditOptions
+    if allow_opt_inputs then
+        if ImGui.RadioButton("RGB", bit.band(opts, ImGuiColorEditFlags.DisplayRGB) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayRGB)
+        end
+        if ImGui.RadioButton("HSV", bit.band(opts, ImGuiColorEditFlags.DisplayHSV) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayHSV)
+        end
+        if ImGui.RadioButton("Hex", bit.band(opts, ImGuiColorEditFlags.DisplayHex) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayHex)
+        end
+    end
+    if allow_opt_datatype then
+        if allow_opt_inputs then ImGui.Separator() end
+        if ImGui.RadioButton("0..255", bit.band(opts, ImGuiColorEditFlags.Uint8) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DataTypeMask_)), ImGuiColorEditFlags.Uint8)
+        end
+        if ImGui.RadioButton("0.00..1.00", bit.band(opts, ImGuiColorEditFlags.Float) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DataTypeMask_)), ImGuiColorEditFlags.Float)
+        end
+    end
+
+    if allow_opt_inputs or allow_opt_datatype then
+        ImGui.Separator()
+    end
+    if ImGui.Button("Copy as..", ImVec2(-1, 0)) then
+        ImGui.OpenPopup("Copy")
+    end
+    if ImGui.BeginPopup("Copy") then
+        local cr = IM_F32_TO_INT8_SAT(col[1])
+        local cg = IM_F32_TO_INT8_SAT(col[2])
+        local cb = IM_F32_TO_INT8_SAT(col[3])
+        local ca = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 255 or IM_F32_TO_INT8_SAT(col[4])
+
+        local buf1 = ImFormatString("(%.3ff, %.3ff, %.3ff, %.3ff)", col[1], col[2], col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col[4])
+        if ImGui.Selectable(buf1) then
+            ImGui.SetClipboardText(buf1)
+        end
+
+        local buf2 = ImFormatString("(%d,%d,%d,%d)", cr, cg, cb, ca)
+        if ImGui.Selectable(buf2) then
+            ImGui.SetClipboardText(buf2)
+        end
+
+        local buf3 = ImFormatString("#%02X%02X%02X", cr, cg, cb)
+        if ImGui.Selectable(buf3) then
+            ImGui.SetClipboardText(buf3)
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.NoAlpha) == 0 then
+            local buf4 = ImFormatString("#%02X%02X%02X%02X", cr, cg, cb, ca)
+            if ImGui.Selectable(buf4) then
+                ImGui.SetClipboardText(buf4)
+            end
+        end
+
+        ImGui.EndPopup()
+    end
+
+    g.ColorEditOptions = opts
+    ImGui.PopItemFlag()
+    ImGui.EndPopup()
 end
 
 --- @param ref_col float[]
@@ -3059,12 +3133,13 @@ end
 -- With this scheme, ImGuiSelectableFlags_SpanAllColumns and ImGuiSelectableFlags_AllowOverlap are also frequently used flags.
 -- FIXME: Selectable() with (size.x == 0.0f) and (SelectableTextAlign.x > 0.0f) followed by SameLine() is currently not supported.
 --- @param label     string
---- @param selected  bool
+--- @param selected? bool
 --- @param flags?    ImGuiSelectableFlags
 --- @param size_arg? any
 --- @return bool is_pressed
 --- @return bool is_selected # Updated `selected`
 function ImGui.Selectable(label, selected, flags, size_arg)
+    if selected == nil then selected = false        end
     if flags    == nil then flags    = 0            end
     if size_arg == nil then size_arg = ImVec2(0, 0) end
 

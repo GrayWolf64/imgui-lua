@@ -125,7 +125,7 @@ function DemoWindowWidgetsColorAndPickers()
     if display_mode == 3 then flags = bit.bor(flags, ImGuiColorEditFlags.DisplayHSV) end
     if display_mode == 4 then flags = bit.bor(flags, ImGuiColorEditFlags.DisplayHex) end
 
-    ImGui.ColorPicker4("MyColor##4", color, flags, ref_color and ref_color_v.x or nil)
+    ImGui.ColorPicker4("MyColor##4", color, flags, ref_color and ref_color_v or nil)
 end
 
 end

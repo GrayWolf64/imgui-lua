@@ -3416,7 +3416,7 @@ function ImGui.SetWindowPos(window, pos, cond)
 
     IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
     window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)))
-    window.SetWindowPosVal = ImVec2(FLT_MAX, FLT_MAX)
+    ImVec2_Copy(window.SetWindowPosVal, ImVec2(FLT_MAX, FLT_MAX))
 
     local old_pos = ImVec2()
     ImVec2_Copy(old_pos, window.Pos)
@@ -6318,7 +6318,7 @@ function ImGui.BeginPopupEx(id, extra_window_flags)
     end
 
     IM_ASSERT(bit.band(extra_window_flags, ImGuiWindowFlags_ChildMenu) == 0) -- Use BeginPopupMenuEx()
-    local name = ImFormatString("##Popup_%08x", name) -- No recycling, so we can close/open during the same frame
+    local name = ImFormatString("##Popup_%08x", id) -- No recycling, so we can close/open during the same frame
 
     local is_open
     _, is_open = ImGui.Begin(name, nil, bit.bor(extra_window_flags, ImGuiWindowFlags_Popup, ImGuiWindowFlags_NoDocking))
