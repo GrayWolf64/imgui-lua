@@ -143,7 +143,7 @@ function ImGui.TextV(fmt, ...)
         return
     end
 
-    local text = string.format(fmt, ...)
+    local text = ImFormatString(fmt, ...)
     ImGui.TextEx(text, nil, ImGuiTextFlags.NoWidthForLargeClippedText)
 end
 
@@ -433,12 +433,12 @@ function ImGui.ButtonEx(label, size_arg, flags)
         col = ImGui.GetColorU32(ImGuiCol.Button)
     end
 
-    -- TODO: RenderNavCursor(bb, id);
+    ImGui.RenderNavCursor(bb, id)
     ImGui.RenderFrame(bb.Min, bb.Max, col, true, style.FrameRounding)
 
     -- if (g.LogEnabled)
     --     LogSetNextTextDecoration("[", "]");
-    ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, 1, nil, label_size, style.ButtonTextAlign, bb)
+    ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, nil, label_size, style.ButtonTextAlign, bb)
 
     -- Automatically close popups
     --if (pressed && !(flags & ImGuiButtonFlags_DontClosePopups) && (window->Flags & ImGuiWindowFlags_Popup))
@@ -1378,7 +1378,7 @@ function ImGui.BeginCombo(label, preview_value, flags)
         if g.LogEnabled then
             ImGui.LogSetNextTextDecoration("{", "}")
         end
-        ImGui.RenderTextClipped(bb.Min + style.FramePadding, ImVec2(value_x2, bb.Max.y), preview_value, 1, nil, nil)
+        ImGui.RenderTextClipped(bb.Min + style.FramePadding, ImVec2(value_x2, bb.Max.y), preview_value, nil, nil)
     end
 
     if label_size.x > 0 then
@@ -1549,13 +1549,33 @@ local GDefaultRgbaColorMarkers = {
     IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
 }
 
-local GDataTypeInfo = {
+--- @param name      string
+--- @param print_fmt string
+--- @return ImGuiDataTypeInfo
+--- @nodiscard
+--- @package
+local function ImGuiDataTypeInfo(name, print_fmt)
+    return { Name = name, PrintFmt = print_fmt }
+end
 
+local GDataTypeInfo = {
+    ImGuiDataTypeInfo("S8",     "%d"),
+    ImGuiDataTypeInfo("U8",     "%u"),
+    ImGuiDataTypeInfo("S16",    "%d"),
+    ImGuiDataTypeInfo("U16",    "%u"),
+    ImGuiDataTypeInfo("S32",    "%d"),
+    ImGuiDataTypeInfo("U32",    "%u"),
+    ImGuiDataTypeInfo("S64",    "%lld"),
+    ImGuiDataTypeInfo("float",  "%.3f"),
+    ImGuiDataTypeInfo("double", "%f"),
+    ImGuiDataTypeInfo("bool",   "%d"),
+    ImGuiDataTypeInfo("string", "%s")
 }
 
 --- @param data_type ImGuiDataType
 function ImGui.DataTypeGetInfo(data_type)
-
+    IM_ASSERT(data_type >= 1 and data_type <= ImGuiDataType.COUNT)
+    return GDataTypeInfo[data_type]
 end
 
 local GetMinimumStepAtDecimalPrecision do
@@ -1849,6 +1869,14 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
     return v, true
 end
 
+--- @param id        ImGuiID
+--- @param data_type ImGuiDataType
+--- @param v         number
+--- @param v_speed   float
+--- @param min       number
+--- @param max       number
+--- @param format    string
+--- @param flags     ImGuiSliderFlags
 function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
     IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
 
@@ -1881,14 +1909,10 @@ function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_U32_MIN, max and max or IM_U32_MAX, format, flags)
     elseif data_type == ImGuiDataType.S64 then
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S64_MIN, max and max or IM_S64_MAX, format, flags)
-    elseif data_type == ImGuiDataType.U64 then
-        -- Native Lua can't handle this
     elseif data_type == ImGuiDataType.Float then
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -FLT_MAX, max and max or FLT_MAX, format, flags)
     elseif data_type == ImGuiDataType.Double then
-        -- Native Lua can't handle this losslessly
-    elseif data_type == ImGuiDataType.COUNT then
-        -- Do nothing
+        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -DBL_MAX, max and max or DBL_MAX, format, flags)
     end
 
     IM_ASSERT(false)
@@ -1951,7 +1975,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     end
 
     -- Display value using user-provided display format so user can add prefix/suffix/decorations to the value
-    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), 1, nil, nil, ImVec2(0.5, 0.5))
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.5))
 
     if label_size.x > 0.0 then
         ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label)
@@ -2187,7 +2211,7 @@ local fmt_table_float = {
     { "R:%0.3f", "G:%0.3f", "B:%0.3f", "A:%0.3f" }, -- Long display for RGBA
     { "H:%0.3f", "S:%0.3f", "V:%0.3f", "A:%0.3f" }  -- Long display for HSVA
 }
--- TODO:
+
 --- @param label string
 --- @param col   float[]
 --- @param flags ImGuiColorEditFlags
@@ -2311,13 +2335,101 @@ function ImGui.ColorEdit4(label, col, flags)
         end
     elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
         -- RGB Hexadecimal Input
+        -- TODO:
+
+        ImGui.SetNextItemWidth(w_inputs)
+
+        if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+        end
     end
 
     local picker_active_window = nil
+    if bit.band(flags, ImGuiColorEditFlags.NoSmallPreview) == 0 then
+        local button_offset_x = (bit.band(flags, ImGuiColorEditFlags.NoInputs) ~= 0 or style.ColorButtonPosition == ImGuiDir.Left) and 0.0 or (w_inputs + style.ItemInnerSpacing.x)
+        ImVec2_Copy(window.DC.CursorPos, ImVec2(pos.x + button_offset_x, pos.y))
 
+        local col_v4 = ImVec4(col[1], col[2], col[3], alpha and col[4] or 1.0)
+        if ImGui.ColorButton("##ColorButton", col_v4, flags) then
+            if bit.band(flags, ImGuiColorEditFlags.NoPicker) == 0 then
+                -- Store current color and open a picker
+                ImVec4_Copy(g.ColorPickerRef, col_v4)
+                ImGui.OpenPopup("picker")
+                ImGui.SetNextWindowPos(g.LastItemData.Rect:GetBL() + ImVec2(0.0, style.ItemSpacing.y))
+            end
+        end
+        if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+        end
+
+        if ImGui.BeginPopup("picker") then
+            if g.CurrentWindow.BeginCount == 1 then
+                picker_active_window = g.CurrentWindow
+                if label ~= "" and label_display_end > 1 then
+                    ImGui.TextEx(label, label_display_end)
+                    ImGui.Spacing()
+                end
+                local picker_flags_to_forward = bit.bor(ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.PickerMask_, ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.HDR, ImGuiColorEditFlags.NoAlpha, ImGuiColorEditFlags.AlphaBar)
+                local picker_flags = bit.bor(bit.band(flags_untouched, picker_flags_to_forward), ImGuiColorEditFlags.DisplayMask_, ImGuiColorEditFlags.NoLabel, ImGuiColorEditFlags.AlphaPreviewHalf)
+                ImGui.SetNextItemWidth(square_sz * 12.0) -- Use 256 + bar sizes?
+                value_changed = value_changed or ImGui.ColorPicker4("##picker", col, picker_flags, g.ColorPickerRef)
+            end
+            ImGui.EndPopup()
+        end
+    end
+
+    if label ~= "" and label_display_end > 1 and bit.band(flags, ImGuiColorEditFlags.NoLabel) == 0 then
+        -- Position not necessarily next to last submitted button (e.g. if style.ColorButtonPosition == ImGuiDir_Left),
+        -- but we need to use SameLine() to setup baseline correctly. Might want to refactor SameLine() to simplify this
+        ImGui.SameLine(0.0, style.ItemInnerSpacing.x)
+        window.DC.CursorPos.x = pos.x + ((bit.band(flags, ImGuiColorEditFlags.NoInputs) ~= 0) and w_button or (w_full + style.ItemInnerSpacing.x))
+        ImGui.TextEx(label, label_display_end)
+    end
+
+    -- Convert back
+    if value_changed and picker_active_window == nil then
+        if not value_changed_as_float then
+            for n = 1, 4 do
+                f[n] = i[n] / 255.0
+            end
+        end
+        if bit.band(flags, ImGuiColorEditFlags.DisplayHSV) ~= 0 and bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 then
+            g.ColorEditSavedHue = f[1]
+            g.ColorEditSavedSat = f[2]
+            f[1], f[2], f[3] = ImGui.ColorConvertHSVtoRGB(f[1], f[2], f[3])
+            g.ColorEditSavedID = g.ColorEditCurrentID
+            g.ColorEditSavedColor = ImGui.ColorConvertFloat4ToU32(ImVec4(f[1], f[2], f[3], 0))
+        end
+        if bit.band(flags, ImGuiColorEditFlags.DisplayRGB) ~= 0 and bit.band(flags, ImGuiColorEditFlags.InputHSV) ~= 0 then
+            f[1], f[2], f[3] = ImGui.ColorConvertRGBtoHSV(f[1], f[2], f[3])
+        end
+
+        col[1] = f[1]
+        col[2] = f[2]
+        col[3] = f[3]
+        if alpha then
+            col[4] = f[4]
+        end
+    end
+
+    if set_current_color_edit_id then
+        g.ColorEditCurrentID = 0
+    end
     ImGui.PopID()
     ImGui.EndGroup()
 
+    -- Drag and Drop Target
+
+    -- When picker is being actively used, use its active id so IsItemActive() will function on ColorEdit4()
+    if picker_active_window and g.ActiveId ~= 0 and g.ActiveIdWindow == picker_active_window then
+        g.LastItemData.ID = g.ActiveId
+    end
+
+    if value_changed and g.LastItemData.ID ~= 0 then -- In case of ID collision, the second EndGroup() won't catch g.ActiveId
+        ImGui.MarkItemEdited(g.LastItemData.ID)
+    end
+
+    return value_changed
 end
 
 end
@@ -2401,7 +2513,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     ImVec2_Copy(picker_pos, window.DC.CursorPos)
     local square_sz = ImGui.GetFrameHeight()
     local bars_width = square_sz  -- Arbitrary smallish width of Hue/Alpha picking bars
-    local sv_picker_size = math.max(bars_width * 1, width - (alpha_bar and 2 or 1) * (bars_width + style.ItemInnerSpacing.x))  -- Saturation/Value picking box
+    local sv_picker_size = ImMax(bars_width * 1, width - (alpha_bar and 2 or 1) * (bars_width + style.ItemInnerSpacing.x))  -- Saturation/Value picking box
     local bar0_pos_x = picker_pos.x + sv_picker_size + style.ItemInnerSpacing.x
     local bar1_pos_x = bar0_pos_x + bars_width + style.ItemInnerSpacing.x
     local bars_triangles_half_sz = IM_TRUNC(bars_width * 0.20)
@@ -2882,8 +2994,80 @@ function ImGui.ColorTooltip(text, col, flags)
     ImGui.EndTooltip()
 end
 
+--- @param col   float[]
+--- @param flags ImGuiColorEditFlags
 function ImGui.ColorEditOptionsPopup(col, flags)
-    -- TODO:
+    local allow_opt_inputs = bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0
+    local allow_opt_datatype = bit.band(flags, ImGuiColorEditFlags.DataTypeMask_) == 0
+
+    if (not allow_opt_inputs and not allow_opt_datatype) or not ImGui.BeginPopup("context") then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    ImGui.PushItemFlag(ImGuiItemFlags_NoMarkEdited, true)
+    local opts = g.ColorEditOptions
+    if allow_opt_inputs then
+        if ImGui.RadioButton("RGB", bit.band(opts, ImGuiColorEditFlags.DisplayRGB) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayRGB)
+        end
+        if ImGui.RadioButton("HSV", bit.band(opts, ImGuiColorEditFlags.DisplayHSV) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayHSV)
+        end
+        if ImGui.RadioButton("Hex", bit.band(opts, ImGuiColorEditFlags.DisplayHex) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayHex)
+        end
+    end
+    if allow_opt_datatype then
+        if allow_opt_inputs then ImGui.Separator() end
+        if ImGui.RadioButton("0..255", bit.band(opts, ImGuiColorEditFlags.Uint8) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DataTypeMask_)), ImGuiColorEditFlags.Uint8)
+        end
+        if ImGui.RadioButton("0.00..1.00", bit.band(opts, ImGuiColorEditFlags.Float) ~= 0) then
+            opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DataTypeMask_)), ImGuiColorEditFlags.Float)
+        end
+    end
+
+    if allow_opt_inputs or allow_opt_datatype then
+        ImGui.Separator()
+    end
+    if ImGui.Button("Copy as..", ImVec2(-1, 0)) then
+        ImGui.OpenPopup("Copy")
+    end
+    if ImGui.BeginPopup("Copy") then
+        local cr = IM_F32_TO_INT8_SAT(col[1])
+        local cg = IM_F32_TO_INT8_SAT(col[2])
+        local cb = IM_F32_TO_INT8_SAT(col[3])
+        local ca = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 255 or IM_F32_TO_INT8_SAT(col[4])
+
+        local buf1 = ImFormatString("(%.3ff, %.3ff, %.3ff, %.3ff)", col[1], col[2], col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col[4])
+        if ImGui.Selectable(buf1) then
+            ImGui.SetClipboardText(buf1)
+        end
+
+        local buf2 = ImFormatString("(%d,%d,%d,%d)", cr, cg, cb, ca)
+        if ImGui.Selectable(buf2) then
+            ImGui.SetClipboardText(buf2)
+        end
+
+        local buf3 = ImFormatString("#%02X%02X%02X", cr, cg, cb)
+        if ImGui.Selectable(buf3) then
+            ImGui.SetClipboardText(buf3)
+        end
+
+        if bit.band(flags, ImGuiColorEditFlags.NoAlpha) == 0 then
+            local buf4 = ImFormatString("#%02X%02X%02X%02X", cr, cg, cb, ca)
+            if ImGui.Selectable(buf4) then
+                ImGui.SetClipboardText(buf4)
+            end
+        end
+
+        ImGui.EndPopup()
+    end
+
+    g.ColorEditOptions = opts
+    ImGui.PopItemFlag()
+    ImGui.EndPopup()
 end
 
 --- @param ref_col float[]
@@ -2949,12 +3133,13 @@ end
 -- With this scheme, ImGuiSelectableFlags_SpanAllColumns and ImGuiSelectableFlags_AllowOverlap are also frequently used flags.
 -- FIXME: Selectable() with (size.x == 0.0f) and (SelectableTextAlign.x > 0.0f) followed by SameLine() is currently not supported.
 --- @param label     string
---- @param selected  bool
+--- @param selected? bool
 --- @param flags?    ImGuiSelectableFlags
 --- @param size_arg? any
 --- @return bool is_pressed
 --- @return bool is_selected # Updated `selected`
 function ImGui.Selectable(label, selected, flags, size_arg)
+    if selected == nil then selected = false        end
     if flags    == nil then flags    = 0            end
     if size_arg == nil then size_arg = ImVec2(0, 0) end
 
@@ -3141,7 +3326,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
 
     -- Text stays at the submission position. Alignment/clipping extents ignore SpanAllColumns.
     if is_visible then
-        ImGui.RenderTextClipped(pos, ImVec2(ImMin(pos.x + size.x, window.WorkRect.Max.x), pos.y + size.y), label, 1, nil, label_size, style.SelectableTextAlign, bb)
+        ImGui.RenderTextClipped(pos, ImVec2(ImMin(pos.x + size.x, window.WorkRect.Max.x), pos.y + size.y), label, nil, label_size, style.SelectableTextAlign, bb)
     end
 
     -- Automatically close popups
@@ -3278,7 +3463,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
     end
 
     if overlay_text then
-        ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, overlay_text, nil, nil, nil, ImVec2(0.5, 0.0))
+        ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, overlay_text, nil, nil, ImVec2(0.5, 0.0))
     end
 
     if label_size.x > 0.0 then
@@ -3359,4 +3544,59 @@ function ImGui.PlotHistogram(label, values_or_getter, data, values_count, values
         data = ImGuiPlotArrayGetterData(values_or_getter, stride)
         ImGui.PlotEx(ImGuiPlotType.Histogram, label, Plot_ArrayGetter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size)
     end
+end
+
+----------------------------------------------------------------
+-- [SECTION] MENU RELATED
+----------------------------------------------------------------
+
+-- FIXME: Provided a rectangle perhaps e.g. a BeginMenuBarEx() could be used anywhere..
+-- Currently the main responsibility of this function being to setup clip-rect + horizontal layout + menu navigation layer.
+-- Ideally we also want this to be responsible for claiming space out of the main window scrolling rectangle, in which case ImGuiWindowFlags_MenuBar will become unnecessary.
+-- Then later the same system could be used for multiple menu-bars, scrollbars, side-bars.
+function ImGui.BeginMenuBar()
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+    if bit.band(window.Flags, ImGuiWindowFlags_MenuBar) == 0 then
+        return false
+    end
+
+    IM_ASSERT(not window.DC.MenuBarAppending)
+    ImGui.BeginGroup() -- FIXME: Misleading to use a group for that backup/restore
+    ImGui.PushID("##MenuBar")
+
+    -- We don't clip with current window clipping rectangle as it is already set to the area below. However we clip with window full rect.
+    -- We remove 1 worth of rounding to Max.x to that text in long menus and small windows don't tend to display over the lower-right rounded area, which looks particularly glitchy.
+    local border_top = ImMax(IM_ROUND(window.WindowBorderSize * 0.5 - window.TitleBarHeight), 0.0)
+    local border_half = IM_ROUND(window.WindowBorderSize * 0.5)
+    local bar_rect = window:MenuBarRect()
+    local clip_rect = ImRect(ImFloor(bar_rect.Min.x + border_half), ImFloor(bar_rect.Min.y + border_top), ImFloor(ImMax(bar_rect.Min.x, bar_rect.Max.x - ImMax(window.WindowRounding, border_half))), ImFloor(bar_rect.Max.y))
+    clip_rect:ClipWith(window.OuterRectClipped)
+    ImGui.PushClipRect(clip_rect.Min, clip_rect.Max, false)
+
+    -- We overwrite CursorMaxPos because BeginGroup sets it to CursorPos (essentially the .EmitItem hack in EndMenuBar() would need something analogous here, maybe a BeginGroupEx() with flags)
+    ImVec2_Copy(window.DC.CursorPos, ImVec2(bar_rect.Min.x + window.DC.MenuBarOffset.x, bar_rect.Min.y + window.DC.MenuBarOffset.y))
+    ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
+    window.DC.LayoutType = ImGuiLayoutType.Horizontal
+    window.DC.IsSameLine = false
+    window.DC.NavLayerCurrent = ImGuiNavLayer.Menu
+    window.DC.MenuBarAppending = true
+    ImGui.AlignTextToFramePadding()
+
+    return true
+end
+
+function ImGui.EndMenuBar()
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+    local g = ImGui.GetCurrentContext()
+
+    IM_ASSERT(bit.band(window.Flags, ImGuiWindowFlags_MenuBar) ~= 0)
+    IM_ASSERT(window.DC.MenuBarAppending);
+
+    -- TODO:
 end

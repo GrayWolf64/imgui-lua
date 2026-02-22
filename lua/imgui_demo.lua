@@ -8,6 +8,10 @@ local clicked = 0
 local checked = true
 local radio_v = 0
 
+local col0 = ImVec4(0, 0, 0, 1)
+local col1 = ImVec4(0, 0, 0, 1)
+local col2 = ImVec4(0, 0, 0, 1)
+
 function DemoWindowWidgetsBasic()
     ImGui.SeparatorText("General")
 
@@ -34,8 +38,17 @@ function DemoWindowWidgetsBasic()
             ImGui.SameLine()
         end
         ImGui.PushID(i)
-        -- TODO: Styling
+
+        col0.x, col0.y, col0.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.6, 0.6)
+        col1.x, col1.y, col1.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.7, 0.7)
+        col2.x, col2.y, col2.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.8, 0.8)
+        ImGui.PushStyleColor(ImGuiCol.Button, col0)
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, col1)
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, col2)
+
         ImGui.Button("Click")
+
+        ImGui.PopStyleColor(3)
         ImGui.PopID()
     end
 end
@@ -80,7 +93,7 @@ function DemoWindowWidgetsColorAndPickers()
         _, ref_color = ImGui.Checkbox("With Ref Color", ref_color)
         if ref_color then
             ImGui.SameLine()
-            ImGui.ColorEdit4("##RefColor", ref_color_v.x, bit.bor(ImGuiColorEditFlags.NoInputs, base_flags))
+            ImGui.ColorEdit4("##RefColor", ref_color_v, bit.bor(ImGuiColorEditFlags.NoInputs, base_flags))
         end
     end
 
@@ -112,7 +125,7 @@ function DemoWindowWidgetsColorAndPickers()
     if display_mode == 3 then flags = bit.bor(flags, ImGuiColorEditFlags.DisplayHSV) end
     if display_mode == 4 then flags = bit.bor(flags, ImGuiColorEditFlags.DisplayHex) end
 
-    ImGui.ColorPicker4("MyColor##4", color, flags, ref_color and ref_color_v.x or nil)
+    ImGui.ColorPicker4("MyColor##4", color, flags, ref_color and ref_color_v or nil)
 end
 
 end

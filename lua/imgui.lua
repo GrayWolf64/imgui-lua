@@ -564,6 +564,15 @@ function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
 end
 
+--- @param key  ImGuiLocKey
+--- @param text string
+--- @return ImGuiLocEntry
+--- @nodiscard
+--- @package
+local function ImGuiLocEntry(key, text)
+    return { Key = key, Text = text }
+end
+
 local GLocalizationEntriesEnUS = {
     ImGuiLocEntry(ImGuiLocKey.VersionStr,                    "ImGui Sincerely WIP"),
     ImGuiLocEntry(ImGuiLocKey.TableSizeOne,                  "Size column to fit###SizeOne"),
@@ -2906,12 +2915,11 @@ end
 --- @param text_size_if_known? ImVec2
 --- @param align?              ImVec2
 --- @param clip_rect?          ImRect
-function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, text_size_if_known, align, clip_rect)
-    if text_begin == nil then text_begin = 1            end
-    if not align         then align      = ImVec2(0, 0) end
+function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_known, align, clip_rect)
+    if not align then align = ImVec2(0, 0) end
 
     local text_display_end = ImGui.FindRenderedTextEnd(text, text_end)
-    local text_len = text_display_end - text_begin
+    local text_len = text_display_end - 1
 
     if text_len == 0 then
         return
@@ -2919,7 +2927,7 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_begin, text_end, t
 
     local g = GImGui
     local window = g.CurrentWindow
-    ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
+    ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, 1, text_display_end, text_size_if_known, align, clip_rect)
     -- if (g.LogEnabled)
     --     LogRenderedText(&pos_min, text, text_display_end);
 end
@@ -3080,7 +3088,12 @@ end
 --- @param col      ImU32
 --- @param rounding float
 function ImGui.RenderColorComponentMarker(bb, col, rounding)
-    -- TODO:
+    if bb.Min.x + 1 >= bb.Max.x then
+        return
+    end
+    local g = GImGui
+    local window = g.CurrentWindow
+    ImGui.RenderRectFilledInRangeH(window.DrawList, bb, col, bb.Min.x, ImMin(bb.Min.x + g.Style.ColorMarkerSize, bb.Max.x), rounding)
 end
 
 --- @param window      ImGuiWindow
@@ -3304,7 +3317,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, open)
     -- TODO:
     -- end
 
-    ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, 1, nil, text_size, style.WindowTitleAlign, clip_r)
+    ImGui.RenderTextClipped(layout_r.Min, layout_r.Max, name, nil, text_size, style.WindowTitleAlign, clip_r)
 
     return open
 end
@@ -3403,7 +3416,7 @@ function ImGui.SetWindowPos(window, pos, cond)
 
     IM_ASSERT(cond == 0 or ImIsPowerOfTwo(cond))
     window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)))
-    window.SetWindowPosVal = ImVec2(FLT_MAX, FLT_MAX)
+    ImVec2_Copy(window.SetWindowPosVal, ImVec2(FLT_MAX, FLT_MAX))
 
     local old_pos = ImVec2()
     ImVec2_Copy(old_pos, window.Pos)
@@ -6096,6 +6109,23 @@ end
 -- [SECTION] POPUPS
 ---------------------------------------------------------------------------------------
 
+--- @param id           ImGuiID|string
+--- @param popup_flags? ImGuiPopupFlags
+function ImGui.OpenPopup(id, popup_flags)
+    if popup_flags == nil then popup_flags = 0 end
+
+    if type(id) == "number" then
+        ImGui.OpenPopupEx(id, popup_flags)
+    else --- @cast id string
+        local g = GImGui
+        local _id = g.CurrentWindow:GetID(id)
+        IMGUI_DEBUG_LOG_POPUP("[popup] OpenPopup(\"%s\" -> 0x%08X)", id, _id)
+        ImGui.OpenPopupEx(_id, popup_flags)
+    end
+end
+
+--- @param id          ImGuiID
+--- @param popup_flags ImGuiPopupFlags
 function ImGui.OpenPopupEx(id, popup_flags)
     local g = GImGui
     local parent_window = g.CurrentWindow
@@ -6113,7 +6143,7 @@ function ImGui.OpenPopupEx(id, popup_flags)
     popup_ref.RestoreNavWindow = g.NavWindow -- When popup closes focus may be restored to NavWindow (depend on window type).
     popup_ref.OpenFrameCount = g.FrameCount
     popup_ref.OpenParentId = parent_window.IDStack:back()
-    popup_ref.OpenPopupPos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags_Popup)
+    ImVec2_Copy(popup_ref.OpenPopupPos, ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags_Popup))
     if ImGui.IsMousePosValid(g.IO.MousePos) then
         ImVec2_Copy(popup_ref.OpenMousePos, g.IO.MousePos)
     else
@@ -6288,7 +6318,7 @@ function ImGui.BeginPopupEx(id, extra_window_flags)
     end
 
     IM_ASSERT(bit.band(extra_window_flags, ImGuiWindowFlags_ChildMenu) == 0) -- Use BeginPopupMenuEx()
-    local name = ImFormatString("##Popup_%08x", name) -- No recycling, so we can close/open during the same frame
+    local name = ImFormatString("##Popup_%08x", id) -- No recycling, so we can close/open during the same frame
 
     local is_open
     _, is_open = ImGui.Begin(name, nil, bit.bor(extra_window_flags, ImGuiWindowFlags_Popup, ImGuiWindowFlags_NoDocking))
@@ -7251,8 +7281,8 @@ function ImGui.UpdateViewportsEndFrame()
 
     for i = 1, g.Viewports.Size do
         local viewport = g.Viewports.Data[i]
-        viewport.LastPos = ImVec2(viewport.Pos.x, viewport.Pos.y)
-        viewport.LastSize = ImVec2(viewport.Size.x, viewport.Size.y)
+        ImVec2_Copy(viewport.LastPos, ImVec2(viewport.Pos.x, viewport.Pos.y))
+        ImVec2_Copy(viewport.LastSize, ImVec2(viewport.Size.x, viewport.Size.y))
 
         if viewport.LastFrameActive < g.FrameCount or viewport.Size.x <= 0.0 or viewport.Size.y <= 0.0 then
             if i > 1 then  -- Always include main viewport in the list

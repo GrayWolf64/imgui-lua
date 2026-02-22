@@ -14,6 +14,7 @@ IM_TABSIZE = 4
 
 FLT_MIN = 1.1754943508223e-38
 FLT_MAX = 3.4028234663853e+38
+DBL_MAX = 1.7976931348623e+308
 INT_MIN = -0x7fffffff - 1
 INT_MAX = 0x7fffffff
 UINT_MAX = 0x7fffffff * 2 + 1
@@ -673,6 +674,12 @@ function ImGuiStyleMod(idx, v)
     return this
 end
 
+--- Type information associated to one ImGuiDataType. Retrieve with DataTypeGetInfo().\
+--- Unlike cpp impl, `Size` and `ScanFmt` fields are absent here
+--- @class ImGuiDataTypeInfo
+--- @field Name     string # Short descriptive name for the type, for debugging
+--- @field PrintFmt string # Default printf format for the type
+
 --- @class ImGuiLastItemData
 
 --- @return ImGuiLastItemData
@@ -836,6 +843,7 @@ function ImGuiStyle()
 
         FramePadding = ImVec2(4, 3),
         FrameRounding = 0.0,
+        FrameBorderSize = 0.0,
         WindowPadding = ImVec2(8, 8),
 
         TouchExtraPadding = ImVec2(0, 0),
@@ -886,7 +894,6 @@ function ImGuiStyle()
 
         MouseCursorScale = 1.0,
 
-        FrameBorderSize = 1,
         ItemSpacing = ImVec2(8, 4),
         ItemInnerSpacing = ImVec2(4, 4),
 
@@ -937,6 +944,13 @@ end
 --- @field Viewports                          ImVector<ImGuiViewportP>
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
 --- @field DebugFlashStyleColorIdx            ImGuiCol
+--- @field ColorEditOptions                   ImGuiColorEditFlags            # Store user options for color edit widgets
+--- @field ColorEditCurrentID                 ImGuiID                        # Set temporarily while inside of the parent-most ColorEdit4/ColorPicker4 (because they call each others)
+--- @field ColorEditSavedID                   ImGuiID                        # ID we are saving/restoring HS for
+--- @field ColorEditSavedHue                  float                          # Backup of last Hue associated to LastColor, so we can restore Hue in lossy RGB<>HSV round trips
+--- @field ColorEditSavedSat                  float                          # Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
+--- @field ColorEditSavedColor                ImU32                          # RGB value with alpha set to 0
+--- @field ColorPickerRef                     ImVec4                         # Initial/reference color at the time of opening the color picker
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1088,6 +1102,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ColorEditCurrentID = 0, ColorEditSavedID = 0,
         ColorEditSavedHue = 0.0, ColorEditSavedSat = 0.0,
         ColorEditSavedColor = 0,
+        ColorPickerRef = ImVec4(),
 
         DrawListSharedData = ImDrawListSharedData(),
 
@@ -1212,6 +1227,7 @@ end
 --- @field CursorStartPosLossyness ImVec2
 --- @field TextWrapPos             float
 --- @field TextWrapPosStack        ImVector
+--- @field MenuBarAppending        bool
 --- @field MenuBarOffset           ImVec2
 --- @field ChildWindows            ImVector<ImGuiWindow>
 --- @field LayoutType              ImGuiLayoutType
@@ -1245,6 +1261,7 @@ local function ImGuiWindowTempData()
         ItemWidthStack = ImVector(),
         TextWrapPosStack = ImVector(),
 
+        MenuBarAppending = false, -- FIXME: Remove this
         MenuBarOffset = ImVec2(),
 
         ChildWindows = ImVector(),
@@ -1301,6 +1318,13 @@ end
 --- @nodiscard
 function MT.ImGuiWindow:TitleBarRect()
     return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
+end
+
+--- @return ImRect
+--- @nodiscard
+function MT.ImGuiWindow:MenuBarRect()
+    local y1 = self.Pos.y + self.TitleBarHeight
+    return ImRect(self.Pos.x, y1, self.Pos.x + self.SizeFull.x, y1 + self.MenuBarHeight)
 end
 
 --- @return ImGuiWindow
@@ -1996,17 +2020,6 @@ ImGuiLocKey = {
 --- @class ImGuiLocEntry
 --- @field Key  ImGuiLocKey
 --- @field Text string
-
---- @param key  ImGuiLocKey
---- @param text string
---- @return ImGuiLocEntry
---- @nodiscard
-function ImGuiLocEntry(key, text)
-    return {
-        Key  = key,
-        Text = text
-    }
-end
 
 --- @param key ImGuiLocKey
 --- @return string
