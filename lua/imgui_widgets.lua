@@ -2570,6 +2570,10 @@ local function RenderArrowsForVerticalBar(draw_list, pos, half_sz, bar_w, alpha)
     ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x,     pos.y), half_sz,                              ImGuiDir.Left,  IM_COL32(255, 255, 255, alpha8))
 end
 
+do --[[ColorPicker4]]
+
+local backup_initial_col = {0, 0, 0, 0}
+
 --- @param label    string
 --- @param col      float[]
 --- @param flags    ImGuiColorEditFlags
@@ -2640,7 +2644,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     local bar1_pos_x = bar0_pos_x + bars_width + style.ItemInnerSpacing.x
     local bars_triangles_half_sz = IM_TRUNC(bars_width * 0.20)
 
-    local backup_initial_col = {col[1], col[2], col[3], col[4]}
+    backup_initial_col[1], backup_initial_col[2], backup_initial_col[3], backup_initial_col[4] = col[1], col[2], col[3], col[4]
 
     local wheel_thickness = sv_picker_size * 0.08
     local wheel_r_outer = sv_picker_size * 0.50
@@ -2980,6 +2984,8 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     ImGui.PopID()
 
     return value_changed
+end
+
 end
 
 --- @param desc_id   string
