@@ -681,6 +681,14 @@ end
 --- @field PrintFmt string # Default printf format for the type
 
 --- @class ImGuiLastItemData
+--- @field ID          ImGuiID
+--- @field ItemFlags   ImGuiItemFlags
+--- @field StatusFlags ImGuiItemStatusFlags
+--- @field Rect        ImRect
+--- @field NavRect     ImRect
+--- @field DisplayRect ImRect
+--- @field ClipRect    ImRect
+--- @field Shortcut    ImGuiKeyChord
 
 --- @return ImGuiLastItemData
 --- @nodiscard
@@ -696,6 +704,19 @@ function ImGuiLastItemData()
         ClipRect    = ImRect(),
         Shortcut    = 0
     }
+end
+
+--- @param dest ImGuiLastItemData
+--- @param src  ImGuiLastItemData
+function ImGuiLastItemData_Copy(dest, src)
+    dest.ID = src.ID
+    dest.ItemFlags = src.ItemFlags
+    dest.StatusFlags = src.StatusFlags
+    ImRect_Copy(dest.Rect, src.Rect)
+    ImRect_Copy(dest.NavRect, src.NavRect)
+    ImRect_Copy(dest.DisplayRect, src.DisplayRect)
+    ImRect_Copy(dest.ClipRect, src.ClipRect)
+    dest.Shortcut = src.Shortcut
 end
 
 --- @class ImGuiNextItemData
@@ -915,7 +936,7 @@ end
 function ImGuiWindowStackData()
     return {
         Window                              = nil,
-        ParentLastItemDataBackup            = nil,
+        ParentLastItemDataBackup            = ImGuiLastItemData(),
         StackSizesInBegin                   = nil,
         DisabledOverrideReenable            = nil,
         DisabledOverrideReenableAlphaBackup = nil

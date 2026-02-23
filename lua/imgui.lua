@@ -3823,7 +3823,7 @@ function ImGui.Begin(name, open, flags)
     g.CurrentWindowStack.Data[g.CurrentWindowStack.Size] = ImGuiWindowStackData()
     local window_stack_data = g.CurrentWindowStack.Data[g.CurrentWindowStack.Size]
     window_stack_data.Window = window
-    window_stack_data.ParentLastItemDataBackup = g.LastItemData
+    ImGuiLastItemData_Copy(window_stack_data.ParentLastItemDataBackup, g.LastItemData)
     window_stack_data.DisabledOverrideReenable = (bit.band(flags, ImGuiWindowFlags_Tooltip) ~= 0) and (bit.band(g.CurrentItemFlags, ImGuiItemFlags_Disabled) ~= 0)
     window_stack_data.DisabledOverrideReenableAlphaBackup = 0.0
 
@@ -4510,7 +4510,7 @@ function ImGui.End()
     end
 
     -- Pop from window stack
-    g.LastItemData = window_stack_data.ParentLastItemDataBackup
+    ImGuiLastItemData_Copy(g.LastItemData, window_stack_data.ParentLastItemDataBackup)
     if bit.band(window.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
         g.BeginMenuDepth = g.BeginMenuDepth - 1
     end
