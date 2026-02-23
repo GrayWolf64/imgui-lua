@@ -2263,7 +2263,7 @@ function BuildLoadGlyphGetAdvanceOrFallback(baked, codepoint)
     return ImFontBaked_BuildLoadGlyphAdvanceX(baked, codepoint)
 end
 
---- @param text       string
+--- @param text       ImString
 --- @param text_begin int
 --- @param text_end   int
 --- @param flags      ImDrawTextFlags
@@ -2272,12 +2272,12 @@ function ImTextCalcWordWrapNextLineStart(text, text_begin, text_end, flags)
     local pos = text_begin
 
     if bit.band(flags, ImDrawTextFlags.WrapKeepBlanks) == 0 then
-        while pos < text_end and ImCharIsBlankA(string.byte(text, pos)) do
+        while pos < text_end and ImCharIsBlankA(ImStrByte(text, pos)) do
             pos = pos + 1
         end
     end
 
-    if pos < text_end and string.byte(text, pos) == chr'\n' then
+    if pos < text_end and ImStrByte(text, pos) == chr'\n' then
         pos = pos + 1
     end
 
@@ -2311,7 +2311,7 @@ function ImTextClassifierSetCharClassFromStr(bits, codepoint_min, codepoint_end,
     local s_end = #s + 1
     local pos = 1
     while (pos < s_end) do
-        local wanted, c = ImTextCharFromUtf8(s, pos, s_end)
+        local wanted, c = ImText.CharFromUtf8(s, pos, s_end)
         pos = pos + wanted
         ImTextClassifierSetCharClass(bits, codepoint_min, codepoint_end, char_class, c)
     end
@@ -2341,7 +2341,7 @@ end
 
 --- @param font       ImFont
 --- @param size       float
---- @param text       string
+--- @param text       ImString
 --- @param pos        int
 --- @param text_end   int
 --- @param wrap_width float
@@ -2366,12 +2366,12 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
 
     while s < text_end do
         --- @type unsigned_int
-        local c = string.byte(text, s)
+        local c = ImStrByte(text, s)
         local next_s
         if c < 0x80 then
             next_s = s + 1
         else
-            local wanted, out_char = ImTextCharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
             c = out_char
             next_s = s + wanted
         end
@@ -2440,7 +2440,7 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
     end
 
     if s == pos and s < text_end then
-        local bytes = ImTextCountUtf8BytesFromChar(text, s, text_end)
+        local bytes = ImText.CountUtf8BytesFromChar(text, s, text_end)
 
         return s + bytes
     end
@@ -2452,7 +2452,7 @@ end
 --- @param size              float
 --- @param max_width         float
 --- @param wrap_width        float
---- @param text              string
+--- @param text              ImString
 --- @param text_begin        int
 --- @param text_end_display? int
 --- @param text_end?         int
@@ -2502,16 +2502,16 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
         end
 
         local prev_s = s
-        local c = string.byte(text, s)
+        local c = ImStrByte(text, s)
         if c < 0x80 then
             s = s + 1
         else
-            local wanted, out_char = ImTextCharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
             c = out_char
             s = s + wanted
         end
 
-        if c == chr'\n' then
+        if c == 10 then -- '\n'
             text_size.x = ImMax(text_size.x, line_width)
             text_size.y = text_size.y + line_height
             line_width = 0.0
@@ -2522,7 +2522,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
             goto CONTINUE
         end
 
-        if c == chr'\r' then
+        if c == 13 then -- '\r'
             goto CONTINUE
         end
 
@@ -4227,7 +4227,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         if c < 0x80 then
             s = s + 1
         else
-            local wanted, out_char = ImTextCharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
             c = out_char
             s = s + wanted
         end

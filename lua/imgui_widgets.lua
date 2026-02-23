@@ -2155,6 +2155,97 @@ function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, is_logarithmic, 
 end
 
 ----------------------------------------------------------------
+-- [SECTION] INPUT TEXT
+----------------------------------------------------------------
+
+ImStb = {}
+
+ImStb.TEXTEDIT_K_LEFT      = 0x200000 -- keyboard input to move cursor left
+ImStb.TEXTEDIT_K_RIGHT     = 0x200001 -- keyboard input to move cursor right
+ImStb.TEXTEDIT_K_UP        = 0x200002 -- keyboard input to move cursor up
+ImStb.TEXTEDIT_K_DOWN      = 0x200003 -- keyboard input to move cursor down
+ImStb.TEXTEDIT_K_LINESTART = 0x200004 -- keyboard input to move cursor to start of line
+ImStb.TEXTEDIT_K_LINEEND   = 0x200005 -- keyboard input to move cursor to end of line
+ImStb.TEXTEDIT_K_TEXTSTART = 0x200006 -- keyboard input to move cursor to start of text
+ImStb.TEXTEDIT_K_TEXTEND   = 0x200007 -- keyboard input to move cursor to end of text
+ImStb.TEXTEDIT_K_DELETE    = 0x200008 -- keyboard input to delete selection or character under cursor
+ImStb.TEXTEDIT_K_BACKSPACE = 0x200009 -- keyboard input to delete selection or character left of cursor
+ImStb.TEXTEDIT_K_UNDO      = 0x20000A -- keyboard input to perform undo
+ImStb.TEXTEDIT_K_REDO      = 0x20000B -- keyboard input to perform redo
+ImStb.TEXTEDIT_K_WORDLEFT  = 0x20000C -- keyboard input to move cursor left one word
+ImStb.TEXTEDIT_K_WORDRIGHT = 0x20000D -- keyboard input to move cursor right one word
+ImStb.TEXTEDIT_K_PGUP      = 0x20000E -- keyboard input to move cursor up a page
+ImStb.TEXTEDIT_K_PGDOWN    = 0x20000F -- keyboard input to move cursor down a page
+ImStb.TEXTEDIT_K_SHIFT     = 0x400000
+
+ImStb.TEXTEDIT_NEWLINE = 10 -- '\n'
+
+include"imstb_textedit.lua"
+
+--- @param ctx  ImGuiContext
+--- @param text             ImString
+--- @param text_begin       int
+--- @param text_end_display int
+--- @param text_end         int
+--- @param out_offset?      ImVec2
+--- @param flags?           ImDrawTextFlags
+local function InputTextCalcTextSize(ctx, text, text_begin, text_end_display, text_end, out_offset, flags)
+    if flags == nil then flags = 0 end
+
+    local g = ctx
+    local obj = g.InputTextState
+    IM_ASSERT(text_end_display >= text_begin and text_end_display <= text_end)
+    return ImFontCalcTextSizeEx(g.Font, g.FontSize, FLT_MAX, obj.WrapWidth, text, text_begin, text_end_display, text_end, out_offset, flags)
+end
+
+--- @param obj ImGuiInputTextState
+--- @return int
+function ImStb.TEXTEDIT_STRINGLEN(obj) return obj.TextLen end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int                 # 1-based
+function ImStb.TEXTEDIT_GETCHAR(obj, idx) IM_ASSERT(idx >= 1 and idx <= obj.TextLen + 1); return obj.TextSrc[idx] end
+
+--- @param obj            ImGuiInputTextState
+--- @param line_start_idx int                 # 1-based
+--- @param char_idx       int                 # 1-based
+--- @return float
+function ImStb.TEXTEDIT_GETWIDTH(obj, line_start_idx, char_idx) local _, c = ImText.CharFromUtf8(obj.TextSrc, line_start_idx + char_idx - 1, obj.TextLen + 1); if c == 10 then return IMSTB_TEXTEDIT_GETWIDTH_NEWLINE end; local g = obj.Ctx; return g.FontBaked:GetCharAdvance(c) * g.FontBakedScale end
+
+--- @param r              StbTexteditRow
+--- @param obj            ImGuiInputTextState
+--- @param line_start_idx int                 # 1-based
+function ImStb.TEXTEDIT_LAYOUTROW(r, obj, line_start_idx)
+    local text = obj.TextSrc
+    local size, text_remaining = InputTextCalcTextSize(obj.Ctx, text, line_start_idx, obj.TextLen + 1, obj.TextLen + 1, nil, bit.bor(ImDrawTextFlags.StopOnNewLine, ImDrawTextFlags.WrapKeepBlanks))
+    r.x0 = 0.0
+    r.x1 = size.x
+    r.baseline_y_delta = size.y
+    r.ymin = 0.0
+    r.ymax = size.y
+    r.num_chars = text_remaining - line_start_idx
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+function ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    if idx >= obj.TextLen then
+        return obj.TextLen + 1
+    end
+    return idx + ImText.CharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+function ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+    if idx <= 1 then
+        return -1
+    end
+    local p = ImText.FindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
+    return p
+end
+
+----------------------------------------------------------------
 -- [SECTION] COLOR EDIT / PICKER
 ----------------------------------------------------------------
 

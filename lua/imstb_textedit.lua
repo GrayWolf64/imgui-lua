@@ -2,6 +2,16 @@
 -- This is a Lua port of original `imstb_textedit.h`
 
 -- ALL TABLES IN THIS FILE ARE 1-BASED!
+-- Character Indexing:
+--     idx=n, the n'th char (1-based)
+-- Cursor Indexing:
+--     idx=n, the position before the n'th char
+--     idx=n+1, the position after the n'th char
+
+-- Symbols that must be defined before using this:
+local STB_TEXTEDIT_STRINGLEN = ImStb.TEXTEDIT_STRINGLEN
+local STB_TEXTEDIT_GETCHAR   = ImStb.TEXTEDIT_GETCHAR
+local STB_TEXTEDIT_GETWIDTH  = ImStb.TEXTEDIT_GETWIDTH
 
 ----------------------------------------------------------------
 ----------------------------------------------------------------
@@ -14,9 +24,6 @@
 ---
 --- @alias IMSTB_TEXTEDIT_POSITIONTYPE int
 --- @alias IMSTB_TEXTEDIT_CHARTYPE     char
-
-IMSTB_TEXTEDIT_UNDOSTATECOUNT = 99
-IMSTB_TEXTEDIT_UNDOCHARCOUNT  = 999
 
 --- @class StbUndoRecord
 --- @field where         IMSTB_TEXTEDIT_POSITIONTYPE
