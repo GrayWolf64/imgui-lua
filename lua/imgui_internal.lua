@@ -1884,6 +1884,17 @@ ImGuiPlotType = {
     Histogram = 1
 }
 
+--- @enum ImGuiActivateFlags
+ImGuiActivateFlags = {
+    None               = 0,
+    PreferInput        = bit.lshift(1, 0), -- Favor activation that requires keyboard text input (e.g. for Slider/Drag). Default for Enter key
+    PreferTweak        = bit.lshift(1, 1), -- Favor activation for tweaking with arrows or gamepad (e.g. for Slider/Drag). Default for Space key and if keyboard is not used
+    TryToPreserveState = bit.lshift(1, 2), -- Request widget to preserve state if it can (e.g. InputText will try to preserve cursor/selection)
+    FromTabbing        = bit.lshift(1, 3), -- Activation requested by a tabbing request (ImGuiNavMoveFlags_IsTabbing)
+    FromShortcut       = bit.lshift(1, 4), -- Activation requested by an item shortcut via SetNextItemShortcut() function
+    FromFocusApi       = bit.lshift(1, 5)  -- Activation requested by an api request (ImGuiNavMoveFlags_FocusApi)
+}
+
 --- @class ImGuiComboPreviewData
 --- @field PreviewRect                  ImRect
 --- @field BackupCursorPos              ImVec2

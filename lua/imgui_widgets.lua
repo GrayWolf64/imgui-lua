@@ -1743,7 +1743,7 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
     -- Inputs accumulates into g.DragCurrentAccum, which is flushed into the current value as soon as it makes a difference with our precision settings
     local adjust_delta = 0.0
     if g.ActiveIdSource == ImGuiInputSource.Mouse and ImGui.IsMousePosValid() and ImGui.IsMouseDragPastThreshold(0, g.IO.MouseDragThreshold * DRAG_MOUSE_THRESHOLD_FACTOR) then
-        adjust_delta = g.IO.MouseDelta[axis] -- Assuming MouseDelta is 1-indexed
+        adjust_delta = g.IO.MouseDelta[axis]
         if g.IO.KeyAlt and bit.band(flags, ImGuiSliderFlags.NoSpeedTweaks) == 0 then
             adjust_delta = adjust_delta / 100.0
         end
@@ -1949,7 +1949,38 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     local hovered = ImGui.ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags)
     local temp_input_is_active = temp_input_allowed and ImGui.TempInputIsActive(id)
     if not temp_input_is_active then
-        -- TODO:
+        local clicked = hovered and ImGui.IsMouseClicked(0, nil, ImGuiInputFlags_None, id)
+        local double_clicked = (hovered and g.IO.MouseClickedCount[0] == 2 and ImGui.TestKeyOwner(ImGuiKey.MouseLeft, id))
+        local make_active = (clicked or double_clicked or g.NavActivateId == id)
+        if make_active and (clicked or double_clicked) then
+            ImGui.SetKeyOwner(ImGuiKey.MouseLeft, id)
+        end
+        if make_active and temp_input_allowed then
+            if (clicked and g.IO.KeyCtrl) or double_clicked or (g.NavActivateId == id and bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) then
+                temp_input_is_active = true
+            end
+        end
+
+        -- (Optional) simple click (without moving) turns Drag into an InputText
+        if g.IO.ConfigDragClickToInputText and temp_input_allowed and not temp_input_is_active then
+            if g.ActiveId == id and hovered and g.IO.MouseReleased[0] and not ImGui.IsMouseDragPastThreshold(0, g.IO.MouseDragThreshold * DRAG_MOUSE_THRESHOLD_FACTOR) then
+                g.NavActivateId = id
+                g.NavActivateFlags = ImGuiActivateFlags.PreferInput
+                temp_input_is_active = true
+            end
+        end
+
+        -- Store initial value (not used by main lib but available as a convenience but some mods e.g. to revert)
+        if make_active then
+
+        end
+
+        if make_active and not temp_input_is_active then
+            ImGui.SetActiveID(id, window)
+            ImGui.SetFocusID(id, window)
+            ImGui.FocusWindow(window)
+            g.ActiveIdUsingNavDirMask = bit.bor(bit.lshift(1, ImGuiDir.Left), bit.lshift(1, ImGuiDir.Right))
+        end
     end
 
     if temp_input_is_active then
@@ -1969,7 +2000,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
 
     -- Drag behavior
     local value_changed
-    data, value_changed = ImGui.DragBehavior(id, data_type, data, v_speed, p_min, p_max, format, flags)
+    data, value_changed = ImGui.DragBehavior(id, data_type, data, v_speed, min, max, format, flags)
     if value_changed then
         ImGui.MarkItemEdited(id)
     end

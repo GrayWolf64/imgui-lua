@@ -941,7 +941,7 @@ function ImGuiIO()
         MouseDownDuration     = {[0] = -1, [1] = -1, [2] = -1},
         MouseDownDurationPrev = {[0] = -1, [1] = -1, [2] = -1},
 
-        MouseDragMaxDistanceAbs = {[0] = 0, [1] = 0, [2] = 0},
+        MouseDragMaxDistanceAbs = {[0] = ImVec2(), [1] = ImVec2(), [2] = ImVec2()},
         MouseDragMaxDistanceSqr = {[0] = 0, [1] = 0, [2] = 0},
 
         MouseDownOwned    = {[0] = nil, [1] = nil, [2] = nil},

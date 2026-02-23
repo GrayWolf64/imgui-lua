@@ -4855,7 +4855,7 @@ function ImGui.UpdateMouseInputs()
             io.MouseClickedTime[i] = g.Time
             io.MouseClickedPos[i] = io.MousePos
             io.MouseClickedCount[i] = io.MouseClickedLastCount[i]
-            io.MouseDragMaxDistanceAbs[i] = ImVec2(0.0, 0.0)
+            ImVec2_Copy(io.MouseDragMaxDistanceAbs[i], ImVec2(0.0, 0.0))
             io.MouseDragMaxDistanceSqr[i] = 0.0
         elseif io.MouseDown[i] then
             -- Maintain the maximum distance we reaching from the initial click position, which is used with dragging threshold
@@ -5431,7 +5431,7 @@ function ImGui.EndFrame()
         atlas.Locked = false
     end
 
-    g.IO.MousePosPrev = g.IO.MousePos
+    ImVec2_Copy(g.IO.MousePosPrev, g.IO.MousePos)
     g.IO.AppFocusLost = false
     g.IO.MouseWheel = 0.0
     g.IO.MouseWheelH = 0.0
