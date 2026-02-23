@@ -1881,3 +1881,7 @@ ImGuiInputTextFlags = {
     MergedItem           = bit.lshift(1, 27), -- For internal use by TempInputText(), will skip calling ItemAdd(). Require bounding-box to strictly match
     LocalizeDecimalPoint = bit.lshift(1, 28), -- For internal use by InputScalar() and TempInputScalar()
 }
+
+--- @class ImGuiInputTextCallbackData
+
+--- @alias ImGuiInputTextCallback fun(data: ImGuiInputTextCallbackData)

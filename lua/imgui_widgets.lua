@@ -2211,7 +2211,7 @@ ImStb.TEXTEDIT_K_SHIFT     = 0x400000
 
 ImStb.TEXTEDIT_NEWLINE = 10 -- '\n'
 
-include"imstb_textedit.lua"
+IM_INCLUDE"imstb_textedit.lua"
 
 --- @param ctx  ImGuiContext
 --- @param text             ImString
@@ -2274,6 +2274,37 @@ function ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
     end
     local p = ImText.FindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
     return p
+end
+
+-- Edit a string of text
+--- @param label              string
+--- @param hint               string
+--- @param buf                ImStringBuffer
+--- @param size_arg           ImVec2
+--- @param flags              ImGuiInputTextFlags
+--- @param callback?          ImGuiInputTextCallback
+--- @param callback_user_data any
+function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback_user_data)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    IM_ASSERT(buf ~= nil)
+    IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0))        -- Can't use both together (they both use up/down keys)
+    IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.CallbackCompletion) ~= 0 and bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0)) -- Can't use both together (they both use tab key)
+    IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.ElideLeft) ~= 0 and bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0))              -- Multiline does not not work with left-trimming
+    IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Password) == 0)  -- WordWrap does not work with Password mode
+    IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0) -- WordWrap does not work in single-line mode
+
+    local g = ImGui.GetCurrentContext()
+    local io = g.IO
+    local style = g.Style
+
+    local RENDER_SELECTION_WHEN_INACTIVE = false
+    local is_multiline = bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0
+
+    -- TODO:
 end
 
 ----------------------------------------------------------------

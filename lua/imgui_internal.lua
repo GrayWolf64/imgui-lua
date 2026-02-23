@@ -5,6 +5,7 @@
 --- @meta
 
 --- @alias ImString char[]|string
+--- @alias ImStringBuffer char[]
 
 local setmetatable = setmetatable
 
