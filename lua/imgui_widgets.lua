@@ -3755,7 +3755,29 @@ function ImGui.EndMenuBar()
     local g = ImGui.GetCurrentContext()
 
     IM_ASSERT(bit.band(window.Flags, ImGuiWindowFlags_MenuBar) ~= 0)
-    IM_ASSERT(window.DC.MenuBarAppending);
+    IM_ASSERT(window.DC.MenuBarAppending)
 
-    -- TODO:
+    -- Nav: When a move request within one of our child menu failed, capture the request to navigate among our siblings
+    if ImGui.NavMoveRequestButNoResultYet() and (g.NavMoveDir == ImGuiDir.Left or g.NavMoveDir == ImGuiDir.Right) and bit.band(g.NavWindow.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+        -- TODO:
+    else
+
+    end
+
+    ImGui.PopClipRect()
+    ImGui.PopID()
+    window.DC.MenuBarOffset.x = window.DC.CursorPos.x - window.Pos.x -- Save horizontal position so next append can reuse it. This is kinda equivalent to a per-layer CursorPos
+
+    -- FIXME: Extremely confusing, cleanup by (a) working on WorkRect stack system (b) not using a Group confusingly here
+    local group_data = g.GroupStack:back()
+    group_data.EmitItem = false
+    local restore_cursor_max_pos = ImVec2()
+    ImVec2_Copy(restore_cursor_max_pos, group_data.BackupCursorMaxPos)
+    window.DC.IdealMaxPos.x = ImMax(window.DC.IdealMaxPos.x, window.DC.CursorMaxPos.x - window.Scroll.x) -- Convert ideal extents for scrolling layer equivalent
+    ImGui.EndGroup() -- Restore position on layer 0 // FIXME: Misleading to use a group for that backup/restore
+    window.DC.LayoutType = ImGuiLayoutType.Vertical
+    window.DC.IsSameLine = false
+    window.DC.NavLayerCurrent = ImGuiNavLayer.Main
+    window.DC.MenuBarAppending = false
+    ImVec2_Copy(window.DC.CursorMaxPos, restore_cursor_max_pos)
 end

@@ -6740,6 +6740,11 @@ function ImGui.GetNavTweakPressedAmount(axis)
     return amount
 end
 
+function ImGui.NavMoveRequestButNoResultYet()
+    local g = GImGui
+    return g.NavMoveScoringItems and g.NavMoveResultLocal.ID == 0 and g.NavMoveResultOther.ID == 0
+end
+
 function ImGui.NavMoveRequestCancel()
     -- TODO:
 end
