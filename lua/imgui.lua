@@ -214,15 +214,11 @@ function ImHashData(data, size, seed)
         hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
     else
         size = size or #data
-        local _data
         for i = 1, size do
-            _data = data[i]
-            hash = bit.bxor(hash, _data)
+            hash = bit.bxor(hash, data[i])
             hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
         end
     end
-
-    assert(hash ~= 0, "ImHashData = 0!")
 
     return hash
 end
@@ -234,9 +230,33 @@ end
 --- @return int
 function ImHashStr(str, seed, size)
     if size == nil then size = #str end
+    if seed == nil then seed = 0    end
 
-    local data = {string.byte(str, 1, size)}
-    return ImHashData(data, size, seed)
+    local FNV_OFFSET_BASIS = 0x811C9DC5
+    local FNV_PRIME = 0x01000193
+
+    local hash = bit.bxor(FNV_OFFSET_BASIS, seed)
+
+    local i = 1
+    local c
+    while i <= size do
+        c = string.byte(str, i)
+
+        -- `###` to reset back to initial hash value
+        if c == 35 and string.byte(str, i + 1) == 35 and string.byte(str, i + 2) == 35 then
+            hash = bit.bxor(FNV_OFFSET_BASIS, seed)
+            i = i + 2
+            goto CONTINUE
+        end
+
+        hash = bit.bxor(hash, c)
+        hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
+
+        :: CONTINUE ::
+        i = i + 1
+    end
+
+    return hash
 end
 
 do --[[ImText.CharFromUtf8]]
@@ -1491,10 +1511,8 @@ function MT.ImGuiWindow:GetID(id)
 
     if t == "string" then
         return ImHashStr(id, seed)
-    elseif t == "number" then
+    else --- @cast id int
         return ImHashData(id, -1, seed)
-    else
-        error("GetID: expected string or number, got " .. t)
     end
 end
 
