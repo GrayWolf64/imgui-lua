@@ -190,7 +190,7 @@ function ImGui.TextWrapped(fmt, ...)
 end
 
 ----------------------------------------------------------------
--- [SECTION] BUTTONS, SCROLLBARS
+-- [SECTION] MAIN: BUTTONS, SCROLLBARS, ...
 ----------------------------------------------------------------
 
 --- @param bb     ImRect
@@ -965,6 +965,73 @@ function ImGui.RadioButton(label, v, v_button)
         v = v_button
     end
     return pressed, v
+end
+
+-- size_arg (for each axis) < 0.0f: align to end, 0.0f: auto, > 0.0f: specified size
+--- @param fraction  float
+--- @param size_arg? ImVec2
+--- @param overlay?  string
+function ImGui.ProgressBar(fraction, size_arg, overlay)
+    if size_arg == nil then size_arg = ImVec2(-FLT_MIN, 0) end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    local size = ImGui.CalcItemSize(size_arg, ImGui.CalcItemWidth(), g.FontSize + style.FramePadding.y * 2.0)
+    local bb = ImRect(pos, pos + size)
+    ImGui.ItemSize(size, style.FramePadding.y)
+    if not ImGui.ItemAdd(bb, 0) then
+        return
+    end
+
+    -- Fraction < 0.0 will display an indeterminate progress bar animation
+    -- The value must be animated along with time, so e.g. passing '-1.0 * ImGui.GetTime()' as fraction works
+    local is_indeterminate = (fraction < 0.0)
+    if not is_indeterminate then
+        fraction = ImSaturate(fraction)
+    end
+
+    -- Out of courtesy we accept a NaN fraction without crashing
+    local fill_n0 = 0.0
+    local fill_n1 = (fraction == fraction) and fraction or 0.0
+
+    if is_indeterminate then
+        local fill_width_n = 0.2
+        fill_n0 = ImFmod(-fraction, 1.0) * (1.0 + fill_width_n) - fill_width_n
+        fill_n1 = ImSaturate(fill_n0 + fill_width_n)
+        fill_n0 = ImSaturate(fill_n0)
+    end
+
+    -- Render
+    ImGui.RenderFrame(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), true, style.FrameRounding)
+    bb:ExpandV2(ImVec2(-style.FrameBorderSize, -style.FrameBorderSize))
+
+    local fill_x0 = ImLerp(bb.Min.x, bb.Max.x, fill_n0)
+    local fill_x1 = ImLerp(bb.Min.x, bb.Max.x, fill_n1)
+    if fill_x0 < fill_x1 then
+        ImGui.RenderRectFilledInRangeH(window.DrawList, bb, ImGui.GetColorU32(ImGuiCol.PlotHistogram), fill_x0, fill_x1, style.FrameRounding)
+    end
+
+    -- Default displaying the fraction as percentage string, but user can override it
+    -- Don't display text for indeterminate bars by default
+    if not is_indeterminate or overlay ~= nil then
+        if overlay == nil then
+            overlay = ImFormatString("%.0f%%", fraction * 100 + 0.01)
+        end
+
+        local overlay_size = ImGui.CalcTextSize(overlay, nil)
+        if overlay_size.x > 0.0 then
+            local text_x = is_indeterminate and ((bb.Min.x + bb.Max.x - overlay_size.x) * 0.5) or (fill_x1 + style.ItemSpacing.x)
+            ImGui.RenderTextClipped(ImVec2(ImClamp(text_x, bb.Min.x, bb.Max.x - overlay_size.x - style.ItemInnerSpacing.x), bb.Min.y), bb.Max, overlay, nil, overlay_size, ImVec2(0.0, 0.5), bb)
+        end
+    end
 end
 
 --- @param label string
