@@ -2,6 +2,16 @@
 -- This is a Lua port of original `imstb_textedit.h`
 
 -- ALL TABLES IN THIS FILE ARE 1-BASED!
+-- Character Indexing:
+--     idx=n, the n'th char (1-based)
+-- Cursor Indexing:
+--     idx=n, the position before the n'th char
+--     idx=n+1, the position after the n'th char
+
+-- Symbols that must be defined before using this:
+local STB_TEXTEDIT_STRINGLEN = ImStb.TEXTEDIT_STRINGLEN
+local STB_TEXTEDIT_GETCHAR   = ImStb.TEXTEDIT_GETCHAR
+local STB_TEXTEDIT_GETWIDTH  = ImStb.TEXTEDIT_GETWIDTH
 
 ----------------------------------------------------------------
 ----------------------------------------------------------------
@@ -14,9 +24,6 @@
 ---
 --- @alias IMSTB_TEXTEDIT_POSITIONTYPE int
 --- @alias IMSTB_TEXTEDIT_CHARTYPE     char
-
-IMSTB_TEXTEDIT_UNDOSTATECOUNT = 99
-IMSTB_TEXTEDIT_UNDOCHARCOUNT  = 999
 
 --- @class StbUndoRecord
 --- @field where         IMSTB_TEXTEDIT_POSITIONTYPE
@@ -36,8 +43,8 @@ local function StbUndoRecord()
 end
 
 --- @class StbUndoState
---- @field undo_rec        StbUndoRecord[]           # size = IMSTB_TEXTEDIT_UNDOSTATECOUNT
---- @field undo_char       IMSTB_TEXTEDIT_CHARTYPE[] # size = IMSTB_TEXTEDIT_UNDOCHARCOUNT
+--- @field undo_rec        StbUndoRecord[]           # size = ImStb.TEXTEDIT_UNDOSTATECOUNT
+--- @field undo_char       IMSTB_TEXTEDIT_CHARTYPE[] # size = ImStb.TEXTEDIT_UNDOCHARCOUNT
 --- @field undo_point      short
 --- @field redo_point      short
 --- @field undo_char_point int
@@ -47,12 +54,12 @@ end
 --- @nodiscard
 local function StbUndoState()
     local undo_rec = {}
-    for i = 1, IMSTB_TEXTEDIT_UNDOSTATECOUNT do
+    for i = 1, ImStb.TEXTEDIT_UNDOSTATECOUNT do
         undo_rec[i] = StbUndoRecord()
     end
 
     local undo_char = {}
-    for i = 1, IMSTB_TEXTEDIT_UNDOCHARCOUNT do
+    for i = 1, ImStb.TEXTEDIT_UNDOCHARCOUNT do
         undo_char[i] = 0
     end
 

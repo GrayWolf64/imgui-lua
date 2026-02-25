@@ -8,14 +8,16 @@
 --- @type ImGuiContext?
 local GImGui = nil
 
-ImGui = ImGui or {}
+ImGui = {}
+ImText = {}
+ImFile = {} -- Store methods for File object
 
 --[[
---- This executes Lua script at _filename and returns the result of the script.
---- @param _filename string
---- @return any
-function IM_INCLUDE(_filename)
-end
+    --- This executes Lua script at _filename and returns the result of the script.
+    --- @param _filename string
+    --- @return any
+    function IM_INCLUDE(_filename)
+    end
 ]]
 
 --- [GMod] Platform specific include function
@@ -52,42 +54,39 @@ local bit  = bit
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ---------------------------------------------------------------------------------------
 
---- Store methods for File object
-ImFile = {}
-
 --[[
---- This closes the _file.
---- @param _file any # File object
-function ImFile.close(_file)
-end
+    --- This closes the _file.
+    --- @param _file any # File object
+    function ImFile.close(_file)
+    end
 
---- This returns the size of _file in bytes.
---- @param _file any # File object
---- @return int
-function ImFile.size(_file)
-    return -1
-end
+    --- This returns the size of _file in bytes.
+    --- @param _file any # File object
+    --- @return int
+    function ImFile.size(_file)
+        return -1
+    end
 
---- This writes _str into _file.
---- @param _file any    # File object
---- @param _str  string
-function ImFile.write(_file, _str)
-end
+    --- This writes _str into _file.
+    --- @param _file any    # File object
+    --- @param _str  string
+    function ImFile.write(_file, _str)
+    end
 
---- This reads the specified _count of chars and returns them as a binary string.
---- @param _file any  # File object
---- @param _count int
---- @return string
-function ImFile.read(_file, _count)
-    return ""
-end
+    --- This reads the specified _count of chars and returns them as a binary string.
+    --- @param _file any  # File object
+    --- @param _count int
+    --- @return string
+    function ImFile.read(_file, _count)
+        return ""
+    end
 
---- This opens the file at _filename in _mode and returns the File object.
---- @param _filename string
---- @param _mode     string # e.g. "rb"
---- @return any
-function ImFileOpen(_filename, _mode)
-end
+    --- This opens the file at _filename in _mode and returns the File object.
+    --- @param _filename string
+    --- @param _mode     string # e.g. "rb"
+    --- @return any
+    function ImFileOpen(_filename, _mode)
+    end
 ]]
 
 --- [GMod] Platform specific
@@ -215,15 +214,11 @@ function ImHashData(data, size, seed)
         hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
     else
         size = size or #data
-        local _data
         for i = 1, size do
-            _data = data[i]
-            hash = bit.bxor(hash, _data)
+            hash = bit.bxor(hash, data[i])
             hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
         end
     end
-
-    assert(hash ~= 0, "ImHashData = 0!")
 
     return hash
 end
@@ -235,12 +230,36 @@ end
 --- @return int
 function ImHashStr(str, seed, size)
     if size == nil then size = #str end
+    if seed == nil then seed = 0    end
 
-    local data = {string.byte(str, 1, size)}
-    return ImHashData(data, size, seed)
+    local FNV_OFFSET_BASIS = 0x811C9DC5
+    local FNV_PRIME = 0x01000193
+
+    local hash = bit.bxor(FNV_OFFSET_BASIS, seed)
+
+    local i = 1
+    local c
+    while i <= size do
+        c = string.byte(str, i)
+
+        -- `###` to reset back to initial hash value
+        if c == 35 and string.byte(str, i + 1) == 35 and string.byte(str, i + 2) == 35 then
+            hash = bit.bxor(FNV_OFFSET_BASIS, seed)
+            i = i + 2
+            goto CONTINUE
+        end
+
+        hash = bit.bxor(hash, c)
+        hash = bit.band(hash * FNV_PRIME, 0xFFFFFFFF)
+
+        :: CONTINUE ::
+        i = i + 1
+    end
+
+    return hash
 end
 
-do --[[ImTextCharFromUtf8]]
+do --[[ImText.CharFromUtf8]]
 
 local lengths = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 4, 0}
 local masks   = {0x00, 0x7f, 0x1f, 0x0f, 0x07}
@@ -250,22 +269,23 @@ local shifte  = {0, 6, 4, 2, 0}
 
 local s = {0, 0, 0, 0}
 
---- @param in_text     string
+--- @param in_text     ImString
 --- @param pos         int
 --- @param in_text_end int
---- @return int, int
-function ImTextCharFromUtf8(in_text, pos, in_text_end)
-    local len = lengths[bit.rshift(string.byte(in_text, pos), 3) + 1]
+--- @return int          wanted
+--- @return unsigned_int out_char
+function ImText.CharFromUtf8(in_text, pos, in_text_end)
+    local len = lengths[bit.rshift(ImStrByte(in_text, pos), 3) + 1]
     local wanted = len > 0 and len or 1
 
     if in_text_end == nil then
         in_text_end = pos + wanted
     end
 
-    s[1] = (pos     < in_text_end) and string.byte(in_text, pos)     or 0
-    s[2] = (pos + 1 < in_text_end) and string.byte(in_text, pos + 1) or 0
-    s[3] = (pos + 2 < in_text_end) and string.byte(in_text, pos + 2) or 0
-    s[4] = (pos + 3 < in_text_end) and string.byte(in_text, pos + 3) or 0
+    s[1] = (pos     < in_text_end) and ImStrByte(in_text, pos)     or 0
+    s[2] = (pos + 1 < in_text_end) and ImStrByte(in_text, pos + 1) or 0
+    s[3] = (pos + 2 < in_text_end) and ImStrByte(in_text, pos + 2) or 0
+    s[4] = (pos + 3 < in_text_end) and ImStrByte(in_text, pos + 3) or 0
 
     local out_char
     out_char = bit.lshift(bit.band(s[1], masks[len + 1]), 18)
@@ -294,13 +314,26 @@ end
 
 end
 
---- @param in_text     string
+--- @param in_text     ImString
 --- @param pos         int
 --- @param in_text_end int
 --- @return int
-function ImTextCountUtf8BytesFromChar(in_text, pos, in_text_end)
-    local bytes, unused = ImTextCharFromUtf8(in_text, pos, in_text_end)
+function ImText.CountUtf8BytesFromChar(in_text, pos, in_text_end)
+    local bytes, unused = ImText.CharFromUtf8(in_text, pos, in_text_end)
     return bytes
+end
+
+--- @param text          ImString
+--- @param in_text_start int
+--- @param in_p          int
+function ImText.FindPreviousUtf8Codepoint(text, in_text_start, in_p)
+    while in_p > in_text_start do
+        in_p = in_p - 1
+        if bit.band(ImStrByte(text, in_p), 0xC0) ~= 0x80 then
+            return in_p
+        end
+    end
+    return in_text_start
 end
 
 --- @param a ImVec2
@@ -1478,10 +1511,8 @@ function MT.ImGuiWindow:GetID(id)
 
     if t == "string" then
         return ImHashStr(id, seed)
-    elseif t == "number" then
+    else --- @cast id int
         return ImHashData(id, -1, seed)
-    else
-        error("GetID: expected string or number, got " .. t)
     end
 end
 
@@ -4842,7 +4873,7 @@ function ImGui.UpdateMouseInputs()
             io.MouseClickedTime[i] = g.Time
             io.MouseClickedPos[i] = io.MousePos
             io.MouseClickedCount[i] = io.MouseClickedLastCount[i]
-            io.MouseDragMaxDistanceAbs[i] = ImVec2(0.0, 0.0)
+            ImVec2_Copy(io.MouseDragMaxDistanceAbs[i], ImVec2(0.0, 0.0))
             io.MouseDragMaxDistanceSqr[i] = 0.0
         elseif io.MouseDown[i] then
             -- Maintain the maximum distance we reaching from the initial click position, which is used with dragging threshold
@@ -5418,7 +5449,7 @@ function ImGui.EndFrame()
         atlas.Locked = false
     end
 
-    g.IO.MousePosPrev = g.IO.MousePos
+    ImVec2_Copy(g.IO.MousePosPrev, g.IO.MousePos)
     g.IO.AppFocusLost = false
     g.IO.MouseWheel = 0.0
     g.IO.MouseWheelH = 0.0
@@ -6725,6 +6756,11 @@ function ImGui.GetNavTweakPressedAmount(axis)
     end
 
     return amount
+end
+
+function ImGui.NavMoveRequestButNoResultYet()
+    local g = GImGui
+    return g.NavMoveScoringItems and g.NavMoveResultLocal.ID == 0 and g.NavMoveResultOther.ID == 0
 end
 
 function ImGui.NavMoveRequestCancel()

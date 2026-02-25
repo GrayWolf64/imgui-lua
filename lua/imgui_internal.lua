@@ -4,6 +4,9 @@
 
 --- @meta
 
+--- @alias ImString char[]|string
+--- @alias ImStringBuffer char[]
+
 local setmetatable = setmetatable
 
 local MT = ImGui.GetMetatables()
@@ -139,6 +142,17 @@ function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
 IM_F32_TO_INT8_UNBOUND = function(val) return math.floor(val * 255.0 + (val >= 0 and 0.5 or -0.5)) end
 IM_F32_TO_INT8_SAT = function(val) return math.floor(ImSaturate(val) * 255.0 + 0.5) end
+
+--- @param s ImString
+--- @param i int
+--- @return char
+function ImStrByte(s, i)
+    if type(s) == "string" then
+        return string.byte(s, i, i)
+    else --- @cast s char[]
+        return s[i]
+    end
+end
 
 --- @class ImGuiColorMod
 --- @field Col         ImGuiCol
@@ -1871,6 +1885,17 @@ ImGuiPlotType = {
     Histogram = 1
 }
 
+--- @enum ImGuiActivateFlags
+ImGuiActivateFlags = {
+    None               = 0,
+    PreferInput        = bit.lshift(1, 0), -- Favor activation that requires keyboard text input (e.g. for Slider/Drag). Default for Enter key
+    PreferTweak        = bit.lshift(1, 1), -- Favor activation for tweaking with arrows or gamepad (e.g. for Slider/Drag). Default for Space key and if keyboard is not used
+    TryToPreserveState = bit.lshift(1, 2), -- Request widget to preserve state if it can (e.g. InputText will try to preserve cursor/selection)
+    FromTabbing        = bit.lshift(1, 3), -- Activation requested by a tabbing request (ImGuiNavMoveFlags_IsTabbing)
+    FromShortcut       = bit.lshift(1, 4), -- Activation requested by an item shortcut via SetNextItemShortcut() function
+    FromFocusApi       = bit.lshift(1, 5)  -- Activation requested by an api request (ImGuiNavMoveFlags_FocusApi)
+}
+
 --- @class ImGuiComboPreviewData
 --- @field PreviewRect                  ImRect
 --- @field BackupCursorPos              ImVec2
@@ -2055,3 +2080,14 @@ function ImGui.TempInputIsActive(id)
     local g = ImGui.GetCurrentContext()
     return g.ActiveId == id and g.TempInputId == id
 end
+
+--- @alias ImStbTexteditState STB_TexteditState
+
+--- @class ImGuiInputTextState
+--- @field Ctx     ImGuiContext        # parent UI context (needs to be set explicitly by parent)
+--- @field Stb     ImStbTexteditState  # State for stb_textedit.lua
+--- @field Flags   ImGuiInputTextFlags
+--- @field ID      ImGuiID             # widget id owning the text state
+--- @field TextLen int                 # UTF-8 length of the string in TextA (in bytes)
+--- @field TextSrc char[]              # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
+--- @field TextA   ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)

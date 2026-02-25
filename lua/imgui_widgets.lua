@@ -190,7 +190,7 @@ function ImGui.TextWrapped(fmt, ...)
 end
 
 ----------------------------------------------------------------
--- [SECTION] BUTTONS, SCROLLBARS
+-- [SECTION] MAIN: BUTTONS, SCROLLBARS, ...
 ----------------------------------------------------------------
 
 --- @param bb     ImRect
@@ -965,6 +965,73 @@ function ImGui.RadioButton(label, v, v_button)
         v = v_button
     end
     return pressed, v
+end
+
+-- size_arg (for each axis) < 0.0f: align to end, 0.0f: auto, > 0.0f: specified size
+--- @param fraction  float
+--- @param size_arg? ImVec2
+--- @param overlay?  string
+function ImGui.ProgressBar(fraction, size_arg, overlay)
+    if size_arg == nil then size_arg = ImVec2(-FLT_MIN, 0) end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    local size = ImGui.CalcItemSize(size_arg, ImGui.CalcItemWidth(), g.FontSize + style.FramePadding.y * 2.0)
+    local bb = ImRect(pos, pos + size)
+    ImGui.ItemSize(size, style.FramePadding.y)
+    if not ImGui.ItemAdd(bb, 0) then
+        return
+    end
+
+    -- Fraction < 0.0 will display an indeterminate progress bar animation
+    -- The value must be animated along with time, so e.g. passing '-1.0 * ImGui.GetTime()' as fraction works
+    local is_indeterminate = (fraction < 0.0)
+    if not is_indeterminate then
+        fraction = ImSaturate(fraction)
+    end
+
+    -- Out of courtesy we accept a NaN fraction without crashing
+    local fill_n0 = 0.0
+    local fill_n1 = (fraction == fraction) and fraction or 0.0
+
+    if is_indeterminate then
+        local fill_width_n = 0.2
+        fill_n0 = ImFmod(-fraction, 1.0) * (1.0 + fill_width_n) - fill_width_n
+        fill_n1 = ImSaturate(fill_n0 + fill_width_n)
+        fill_n0 = ImSaturate(fill_n0)
+    end
+
+    -- Render
+    ImGui.RenderFrame(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), true, style.FrameRounding)
+    bb:ExpandV2(ImVec2(-style.FrameBorderSize, -style.FrameBorderSize))
+
+    local fill_x0 = ImLerp(bb.Min.x, bb.Max.x, fill_n0)
+    local fill_x1 = ImLerp(bb.Min.x, bb.Max.x, fill_n1)
+    if fill_x0 < fill_x1 then
+        ImGui.RenderRectFilledInRangeH(window.DrawList, bb, ImGui.GetColorU32(ImGuiCol.PlotHistogram), fill_x0, fill_x1, style.FrameRounding)
+    end
+
+    -- Default displaying the fraction as percentage string, but user can override it
+    -- Don't display text for indeterminate bars by default
+    if not is_indeterminate or overlay ~= nil then
+        if overlay == nil then
+            overlay = ImFormatString("%.0f%%", fraction * 100 + 0.01)
+        end
+
+        local overlay_size = ImGui.CalcTextSize(overlay, nil)
+        if overlay_size.x > 0.0 then
+            local text_x = is_indeterminate and ((bb.Min.x + bb.Max.x - overlay_size.x) * 0.5) or (fill_x1 + style.ItemSpacing.x)
+            ImGui.RenderTextClipped(ImVec2(ImClamp(text_x, bb.Min.x, bb.Max.x - overlay_size.x - style.ItemInnerSpacing.x), bb.Min.y), bb.Max, overlay, nil, overlay_size, ImVec2(0.0, 0.5), bb)
+        end
+    end
 end
 
 --- @param label string
@@ -1743,7 +1810,7 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
     -- Inputs accumulates into g.DragCurrentAccum, which is flushed into the current value as soon as it makes a difference with our precision settings
     local adjust_delta = 0.0
     if g.ActiveIdSource == ImGuiInputSource.Mouse and ImGui.IsMousePosValid() and ImGui.IsMouseDragPastThreshold(0, g.IO.MouseDragThreshold * DRAG_MOUSE_THRESHOLD_FACTOR) then
-        adjust_delta = g.IO.MouseDelta[axis] -- Assuming MouseDelta is 1-indexed
+        adjust_delta = g.IO.MouseDelta[axis]
         if g.IO.KeyAlt and bit.band(flags, ImGuiSliderFlags.NoSpeedTweaks) == 0 then
             adjust_delta = adjust_delta / 100.0
         end
@@ -1949,7 +2016,38 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     local hovered = ImGui.ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags)
     local temp_input_is_active = temp_input_allowed and ImGui.TempInputIsActive(id)
     if not temp_input_is_active then
-        -- TODO:
+        local clicked = hovered and ImGui.IsMouseClicked(0, nil, ImGuiInputFlags_None, id)
+        local double_clicked = (hovered and g.IO.MouseClickedCount[0] == 2 and ImGui.TestKeyOwner(ImGuiKey.MouseLeft, id))
+        local make_active = (clicked or double_clicked or g.NavActivateId == id)
+        if make_active and (clicked or double_clicked) then
+            ImGui.SetKeyOwner(ImGuiKey.MouseLeft, id)
+        end
+        if make_active and temp_input_allowed then
+            if (clicked and g.IO.KeyCtrl) or double_clicked or (g.NavActivateId == id and bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) then
+                temp_input_is_active = true
+            end
+        end
+
+        -- (Optional) simple click (without moving) turns Drag into an InputText
+        if g.IO.ConfigDragClickToInputText and temp_input_allowed and not temp_input_is_active then
+            if g.ActiveId == id and hovered and g.IO.MouseReleased[0] and not ImGui.IsMouseDragPastThreshold(0, g.IO.MouseDragThreshold * DRAG_MOUSE_THRESHOLD_FACTOR) then
+                g.NavActivateId = id
+                g.NavActivateFlags = ImGuiActivateFlags.PreferInput
+                temp_input_is_active = true
+            end
+        end
+
+        -- Store initial value (not used by main lib but available as a convenience but some mods e.g. to revert)
+        if make_active then
+
+        end
+
+        if make_active and not temp_input_is_active then
+            ImGui.SetActiveID(id, window)
+            ImGui.SetFocusID(id, window)
+            ImGui.FocusWindow(window)
+            g.ActiveIdUsingNavDirMask = bit.bor(bit.lshift(1, ImGuiDir.Left), bit.lshift(1, ImGuiDir.Right))
+        end
     end
 
     if temp_input_is_active then
@@ -1969,7 +2067,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
 
     -- Drag behavior
     local value_changed
-    data, value_changed = ImGui.DragBehavior(id, data_type, data, v_speed, p_min, p_max, format, flags)
+    data, value_changed = ImGui.DragBehavior(id, data_type, data, v_speed, min, max, format, flags)
     if value_changed then
         ImGui.MarkItemEdited(id)
     end
@@ -2152,6 +2250,132 @@ function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, is_logarithmic, 
     end
 
     return result
+end
+
+----------------------------------------------------------------
+-- [SECTION] INPUT TEXT
+----------------------------------------------------------------
+
+ImStb = {}
+
+ImStb.TEXTEDIT_K_LEFT      = 0x200000 -- keyboard input to move cursor left
+ImStb.TEXTEDIT_K_RIGHT     = 0x200001 -- keyboard input to move cursor right
+ImStb.TEXTEDIT_K_UP        = 0x200002 -- keyboard input to move cursor up
+ImStb.TEXTEDIT_K_DOWN      = 0x200003 -- keyboard input to move cursor down
+ImStb.TEXTEDIT_K_LINESTART = 0x200004 -- keyboard input to move cursor to start of line
+ImStb.TEXTEDIT_K_LINEEND   = 0x200005 -- keyboard input to move cursor to end of line
+ImStb.TEXTEDIT_K_TEXTSTART = 0x200006 -- keyboard input to move cursor to start of text
+ImStb.TEXTEDIT_K_TEXTEND   = 0x200007 -- keyboard input to move cursor to end of text
+ImStb.TEXTEDIT_K_DELETE    = 0x200008 -- keyboard input to delete selection or character under cursor
+ImStb.TEXTEDIT_K_BACKSPACE = 0x200009 -- keyboard input to delete selection or character left of cursor
+ImStb.TEXTEDIT_K_UNDO      = 0x20000A -- keyboard input to perform undo
+ImStb.TEXTEDIT_K_REDO      = 0x20000B -- keyboard input to perform redo
+ImStb.TEXTEDIT_K_WORDLEFT  = 0x20000C -- keyboard input to move cursor left one word
+ImStb.TEXTEDIT_K_WORDRIGHT = 0x20000D -- keyboard input to move cursor right one word
+ImStb.TEXTEDIT_K_PGUP      = 0x20000E -- keyboard input to move cursor up a page
+ImStb.TEXTEDIT_K_PGDOWN    = 0x20000F -- keyboard input to move cursor down a page
+ImStb.TEXTEDIT_K_SHIFT     = 0x400000
+
+ImStb.TEXTEDIT_NEWLINE = 10 -- '\n'
+
+ImStb.TEXTEDIT_UNDOSTATECOUNT   = 99
+ImStb.TEXTEDIT_UNDOCHARCOUNT    = 999
+ImStb.TEXTEDIT_GETWIDTH_NEWLINE = -1.0
+
+IM_INCLUDE"imstb_textedit.lua"
+
+--- @param ctx  ImGuiContext
+--- @param text             ImString
+--- @param text_begin       int
+--- @param text_end_display int
+--- @param text_end         int
+--- @param out_offset?      ImVec2
+--- @param flags?           ImDrawTextFlags
+local function InputTextCalcTextSize(ctx, text, text_begin, text_end_display, text_end, out_offset, flags)
+    if flags == nil then flags = 0 end
+
+    local g = ctx
+    local obj = g.InputTextState
+    IM_ASSERT(text_end_display >= text_begin and text_end_display <= text_end)
+    return ImFontCalcTextSizeEx(g.Font, g.FontSize, FLT_MAX, obj.WrapWidth, text, text_begin, text_end_display, text_end, out_offset, flags)
+end
+
+--- @param obj ImGuiInputTextState
+--- @return int
+function ImStb.TEXTEDIT_STRINGLEN(obj) return obj.TextLen end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int                 # 1-based
+function ImStb.TEXTEDIT_GETCHAR(obj, idx) IM_ASSERT(idx >= 1 and idx <= obj.TextLen + 1); return obj.TextSrc[idx] end
+
+--- @param obj            ImGuiInputTextState
+--- @param line_start_idx int                 # 1-based
+--- @param char_idx       int                 # 1-based
+--- @return float
+function ImStb.TEXTEDIT_GETWIDTH(obj, line_start_idx, char_idx) local _, c = ImText.CharFromUtf8(obj.TextSrc, line_start_idx + char_idx - 1, obj.TextLen + 1); if c == 10 then return IMSTB_TEXTEDIT_GETWIDTH_NEWLINE end; local g = obj.Ctx; return g.FontBaked:GetCharAdvance(c) * g.FontBakedScale end
+
+--- @param r              StbTexteditRow
+--- @param obj            ImGuiInputTextState
+--- @param line_start_idx int                 # 1-based
+function ImStb.TEXTEDIT_LAYOUTROW(r, obj, line_start_idx)
+    local text = obj.TextSrc
+    local size, text_remaining = InputTextCalcTextSize(obj.Ctx, text, line_start_idx, obj.TextLen + 1, obj.TextLen + 1, nil, bit.bor(ImDrawTextFlags.StopOnNewLine, ImDrawTextFlags.WrapKeepBlanks))
+    r.x0 = 0.0
+    r.x1 = size.x
+    r.baseline_y_delta = size.y
+    r.ymin = 0.0
+    r.ymax = size.y
+    r.num_chars = text_remaining - line_start_idx
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+function ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    if idx >= obj.TextLen then
+        return obj.TextLen + 1
+    end
+    return idx + ImText.CharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+function ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+    if idx <= 1 then
+        return -1
+    end
+    local p = ImText.FindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
+    return p
+end
+
+-- Edit a string of text
+--- @param label              string
+--- @param hint               string
+--- @param buf                ImStringBuffer
+--- @param size_arg           ImVec2
+--- @param flags              ImGuiInputTextFlags
+--- @param callback?          ImGuiInputTextCallback
+--- @param callback_user_data any
+function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback_user_data)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    IM_ASSERT(buf ~= nil)
+    IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0))        -- Can't use both together (they both use up/down keys)
+    IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.CallbackCompletion) ~= 0 and bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0)) -- Can't use both together (they both use tab key)
+    IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.ElideLeft) ~= 0 and bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0))              -- Multiline does not not work with left-trimming
+    IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Password) == 0)  -- WordWrap does not work with Password mode
+    IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0) -- WordWrap does not work in single-line mode
+
+    local g = ImGui.GetCurrentContext()
+    local io = g.IO
+    local style = g.Style
+
+    local RENDER_SELECTION_WHEN_INACTIVE = false
+    local is_multiline = bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0
+
+    -- TODO:
 end
 
 ----------------------------------------------------------------
@@ -2448,6 +2672,10 @@ local function RenderArrowsForVerticalBar(draw_list, pos, half_sz, bar_w, alpha)
     ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x,     pos.y), half_sz,                              ImGuiDir.Left,  IM_COL32(255, 255, 255, alpha8))
 end
 
+do --[[ColorPicker4]]
+
+local backup_initial_col = {0, 0, 0, 0}
+
 --- @param label    string
 --- @param col      float[]
 --- @param flags    ImGuiColorEditFlags
@@ -2518,7 +2746,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     local bar1_pos_x = bar0_pos_x + bars_width + style.ItemInnerSpacing.x
     local bars_triangles_half_sz = IM_TRUNC(bars_width * 0.20)
 
-    local backup_initial_col = {col[1], col[2], col[3], col[4]}
+    backup_initial_col[1], backup_initial_col[2], backup_initial_col[3], backup_initial_col[4] = col[1], col[2], col[3], col[4]
 
     local wheel_thickness = sv_picker_size * 0.08
     local wheel_r_outer = sv_picker_size * 0.50
@@ -2858,6 +3086,8 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     ImGui.PopID()
 
     return value_changed
+end
+
 end
 
 --- @param desc_id   string
@@ -3596,7 +3826,29 @@ function ImGui.EndMenuBar()
     local g = ImGui.GetCurrentContext()
 
     IM_ASSERT(bit.band(window.Flags, ImGuiWindowFlags_MenuBar) ~= 0)
-    IM_ASSERT(window.DC.MenuBarAppending);
+    IM_ASSERT(window.DC.MenuBarAppending)
 
-    -- TODO:
+    -- Nav: When a move request within one of our child menu failed, capture the request to navigate among our siblings
+    if ImGui.NavMoveRequestButNoResultYet() and (g.NavMoveDir == ImGuiDir.Left or g.NavMoveDir == ImGuiDir.Right) and bit.band(g.NavWindow.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+        -- TODO:
+    else
+
+    end
+
+    ImGui.PopClipRect()
+    ImGui.PopID()
+    window.DC.MenuBarOffset.x = window.DC.CursorPos.x - window.Pos.x -- Save horizontal position so next append can reuse it. This is kinda equivalent to a per-layer CursorPos
+
+    -- FIXME: Extremely confusing, cleanup by (a) working on WorkRect stack system (b) not using a Group confusingly here
+    local group_data = g.GroupStack:back()
+    group_data.EmitItem = false
+    local restore_cursor_max_pos = ImVec2()
+    ImVec2_Copy(restore_cursor_max_pos, group_data.BackupCursorMaxPos)
+    window.DC.IdealMaxPos.x = ImMax(window.DC.IdealMaxPos.x, window.DC.CursorMaxPos.x - window.Scroll.x) -- Convert ideal extents for scrolling layer equivalent
+    ImGui.EndGroup() -- Restore position on layer 0 // FIXME: Misleading to use a group for that backup/restore
+    window.DC.LayoutType = ImGuiLayoutType.Vertical
+    window.DC.IsSameLine = false
+    window.DC.NavLayerCurrent = ImGuiNavLayer.Main
+    window.DC.MenuBarAppending = false
+    ImVec2_Copy(window.DC.CursorMaxPos, restore_cursor_max_pos)
 end

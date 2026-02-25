@@ -1,6 +1,8 @@
 --- ImGui Sincerely WIP
 -- (Demo Code)
 
+local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
+
 local DemoWindowWidgetsBasic
 do
 
@@ -172,6 +174,44 @@ do
     end
 end
 
+local DemoWindowWidgetsProgressBars do
+
+local progress_accum = 0.0
+local progress_dir = 1.0
+
+function DemoWindowWidgetsProgressBars()
+    -- Animate a simple progress bar
+    progress_accum = progress_accum + progress_dir * 0.4 * ImGui.GetIO().DeltaTime
+    if progress_accum >= 1.1 then
+        progress_accum = 1.1
+        progress_dir = progress_dir * -1.0
+    end
+
+    if progress_accum <= -0.1 then
+        progress_accum = -0.1
+        progress_dir = progress_dir * -1.0
+    end
+
+    local progress = IM_CLAMP(progress_accum, 0.0, 1.0)
+
+    -- Typically we would use ImVec2(-1.0,0.0) or ImVec2(-math.huge,0.0) to use all available width,
+    -- or ImVec2(width,0.0) for a specified width. ImVec2(0.0,0.0) uses ItemWidth
+    ImGui.ProgressBar(progress, ImVec2(0.0, 0.0))
+    ImGui.SameLine(0.0, ImGui.GetStyle().ItemInnerSpacing.x)
+    ImGui.Text("Progress Bar")
+
+    local buf = string.format("%d/%d", math.floor(progress * 1753), 1753)
+    ImGui.ProgressBar(progress, ImVec2(0.0, 0.0), buf)
+
+    -- Pass an animated negative value, e.g. -1.0 * ImGui.GetTime() is the recommended value
+    -- Adjust the factor if you want to adjust the animation speed
+    ImGui.ProgressBar(-1.0 * ImGui.GetTime(), ImVec2(0.0, 0.0), "Searching..")
+    ImGui.SameLine(0.0, ImGui.GetStyle().ItemInnerSpacing.x)
+    ImGui.Text("Indeterminate")
+end
+
+end
+
 function ImGui.ShowDemoWindow(open)
     open = ImGui.Begin("ImGui Sincerely Demo", open)
     if not open then
@@ -182,6 +222,7 @@ function ImGui.ShowDemoWindow(open)
     DemoWindowWidgetsBasic()
     DemoWindowWidgetsColorAndPickers()
     DemoWindowWidgetsPlotting()
+    DemoWindowWidgetsProgressBars()
 
     ImGui.End()
 
