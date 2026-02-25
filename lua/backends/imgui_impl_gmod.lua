@@ -23,6 +23,9 @@ local ImGui_ImplGMOD_ProcessEvent
 --- @type function
 local ImGui_ImplGMOD_Shutdown
 
+--- @type function
+local ImGui_ImplGMOD_InvalidateEngineObjects
+
 local function ImGui_ImplGMOD_GetBackendData()
     return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
 end
@@ -57,7 +60,7 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
     VGUI_Hook(panel, "OnMouseReleased", function(a0, a1) a0:MouseCapture(false); ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil); end)
     VGUI_Hook(panel, "OnMouseWheeled", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, a1); end)
 
-    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; end)
+    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
 
     if is_main_viewport then
         VGUI_Hook(panel, "OnRemove", function() ImGui_ImplGMOD_Shutdown(); end)
@@ -297,8 +300,8 @@ local function ImGui_ImplGMOD_UpdateMonitors()
     io.Monitors:resize(0)
 
     local imgui_monitor = ImGuiPlatformMonitor()
-    imgui_monitor.MainSize = ImVec2(ScrW(), ScrH())
-    imgui_monitor.WorkSize = ImVec2(ScrW(), ScrH())
+    ImVec2_Copy(imgui_monitor.MainSize, ImVec2(ScrW(), ScrH()))
+    ImVec2_Copy(imgui_monitor.WorkSize, ImVec2(ScrW(), ScrH()))
 
     io.Monitors:push_back(imgui_monitor)
 
@@ -382,6 +385,21 @@ local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
     return true
 end
 
+function ImGui_ImplGMOD_InvalidateEngineObjects()
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    if not bd then
+        return
+    end
+
+    -- Destroy all textures
+    for _, tex in ImGui.GetPlatformIO().Textures:iter() do
+        if tex.RefCount == 1 then
+            tex:SetStatus(ImTextureStatus.WantDestroy)
+            ImGui_ImplGMOD_UpdateTexture(tex)
+        end
+    end
+end
+
 function ImGui_ImplGMOD_Shutdown()
     local bd = ImGui_ImplGMOD_GetBackendData()
     IM_ASSERT(bd ~= nil, "No platform backend to shutdown, or already shutdown?")
@@ -390,6 +408,7 @@ function ImGui_ImplGMOD_Shutdown()
     local platform_io = ImGui.GetPlatformIO()
 
     ImGui_ImplGMOD_ShutdownMultiViewportSupport()
+    ImGui_ImplGMOD_InvalidateEngineObjects()
 
     io.BackendPlatformName = nil
     io.BackendPlatformUserData = nil
