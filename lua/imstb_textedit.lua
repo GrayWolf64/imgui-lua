@@ -43,8 +43,8 @@ local function StbUndoRecord()
 end
 
 --- @class StbUndoState
---- @field undo_rec        StbUndoRecord[]           # size = IMSTB_TEXTEDIT_UNDOSTATECOUNT
---- @field undo_char       IMSTB_TEXTEDIT_CHARTYPE[] # size = IMSTB_TEXTEDIT_UNDOCHARCOUNT
+--- @field undo_rec        StbUndoRecord[]           # size = ImStb.TEXTEDIT_UNDOSTATECOUNT
+--- @field undo_char       IMSTB_TEXTEDIT_CHARTYPE[] # size = ImStb.TEXTEDIT_UNDOCHARCOUNT
 --- @field undo_point      short
 --- @field redo_point      short
 --- @field undo_char_point int
@@ -54,12 +54,12 @@ end
 --- @nodiscard
 local function StbUndoState()
     local undo_rec = {}
-    for i = 1, IMSTB_TEXTEDIT_UNDOSTATECOUNT do
+    for i = 1, ImStb.TEXTEDIT_UNDOSTATECOUNT do
         undo_rec[i] = StbUndoRecord()
     end
 
     local undo_char = {}
-    for i = 1, IMSTB_TEXTEDIT_UNDOCHARCOUNT do
+    for i = 1, ImStb.TEXTEDIT_UNDOCHARCOUNT do
         undo_char[i] = 0
     end
 

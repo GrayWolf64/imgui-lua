@@ -2081,10 +2081,6 @@ function ImGui.TempInputIsActive(id)
     return g.ActiveId == id and g.TempInputId == id
 end
 
-IMSTB_TEXTEDIT_UNDOSTATECOUNT   = 99
-IMSTB_TEXTEDIT_UNDOCHARCOUNT    = 999
-IMSTB_TEXTEDIT_GETWIDTH_NEWLINE = -1.0
-
 --- @alias ImStbTexteditState STB_TexteditState
 
 --- @class ImGuiInputTextState
