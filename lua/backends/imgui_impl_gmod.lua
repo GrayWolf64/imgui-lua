@@ -37,47 +37,30 @@ local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, derma_wi
     return nil
 end
 
---- @param panel Panel
+--- @param panel     Panel
+--- @param func_name string
+--- @param hook_func function
+local function VGUI_Hook(panel, func_name, hook_func)
+    local old_func = panel[func_name]
+    if old_func then
+        panel[func_name] = function(self, a1, a2, a3, a4) local ret = old_func(self, a1, a2, a3, a4); hook_func(self, a1, a2, a3, a4); return ret; end
+    else
+        panel[func_name] = function(self, a1, a2, a3, a4) hook_func(self, a1, a2, a3, a4); end
+    end
+end
+
+--- @param panel             Panel
+--- @param is_main_viewport? bool
 local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
-    local old_OnCursorMoved = panel.OnCursorMoved
-    panel.OnCursorMoved = function(self, x, y)
-        if old_OnCursorMoved then old_OnCursorMoved(self, x, y) end
-        x, y = input.GetCursorPos()
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y)
-    end
+    VGUI_Hook(panel, "OnCursorMoved", function(a0, a1, a2) a1, a2 = input.GetCursorPos(); ImGui_ImplGMOD_ProcessEvent(nil, nil, a1, a2); end)
+    VGUI_Hook(panel, "OnMousePressed", function(a0, a1) a0:MouseCapture(true); ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil); end)
+    VGUI_Hook(panel, "OnMouseReleased", function(a0, a1) a0:MouseCapture(false); ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil); end)
+    VGUI_Hook(panel, "OnMouseWheeled", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, a1); end)
 
-    local old_OnMousePressed = panel.OnMousePressed
-    panel.OnMousePressed = function(self, key_code)
-        if old_OnMousePressed then old_OnMousePressed(self, key_code) end
-        self:MouseCapture(true)
-        ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil)
-    end
-
-    local old_OnMouseReleased = panel.OnMouseReleased
-    panel.OnMouseReleased = function(self, key_code)
-        if old_OnMouseReleased then old_OnMouseReleased(self, key_code) end
-        self:MouseCapture(false)
-        ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
-    end
-
-    local old_OnMouseWheeled = panel.OnMouseWheeled
-    panel.OnMouseWheeled = function(self, scroll_delta)
-        if old_OnMouseWheeled then old_OnMouseWheeled(self, scroll_delta) end
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, nil, scroll_delta)
-    end
-
-    local old_OnScreenSizeChanged = panel.OnScreenSizeChanged
-    panel.OnScreenSizeChanged = function(self, old_w, old_h, new_w, new_h)
-        if old_OnScreenSizeChanged then old_OnScreenSizeChanged(self, old_w, old_h, new_w, new_h) end
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, true)
-    end
+    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; end)
 
     if is_main_viewport then
-        local old_OnRemove = panel.OnRemove
-        panel.OnRemove = function()
-            if old_OnRemove then old_OnRemove() end
-            ImGui_ImplGMOD_Shutdown()
-        end
+        VGUI_Hook(panel, "OnRemove", function() ImGui_ImplGMOD_Shutdown(); end)
     end
 end
 
@@ -91,7 +74,7 @@ end
 
 --- - Single-viewport mode: mouse position in GMod Derma window coordinates
 --- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
-function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed, scroll_delta)
+function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
     local bd = ImGui_ImplGMOD_GetBackendData()
     local io = ImGui.GetIO()
 
@@ -115,8 +98,6 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed
     elseif x and y then -- cursor position update
         io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
         io:AddMousePosEvent(x, y)
-    elseif is_display_changed then
-        bd.WantUpdateMonitors = true
     elseif scroll_delta then
         io:AddMouseWheelEvent(0.0, scroll_delta)
     end
@@ -248,6 +229,12 @@ local function ImGui_ImplGMOD_SetWindowSize(viewport, size)
     vd.DermaWindow:SetSize(size.x, size.y)
 end
 
+local function ImGui_ImplGMOD_GetWindowSize(viewport)
+    local vd = viewport.PlatformUserData
+    IM_ASSERT(IsValid(vd.DermaWindow))
+    return ImVec2(vd.DermaWindow:GetSize())
+end
+
 local function ImGui_ImplGMOD_SetWindowFocus(viewport)
     local vd = viewport.PlatformUserData
     IM_ASSERT(IsValid(vd.DermaWindow))
@@ -285,6 +272,7 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     platform_io.Platform_SetWindowTitle = ImGui_ImplGMOD_SetWindowTitle
 
     platform_io.Platform_GetWindowPos = ImGui_ImplGMOD_GetWindowPos
+    platform_io.Platform_GetWindowSize = ImGui_ImplGMOD_GetWindowSize
 
     platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
     platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
@@ -319,9 +307,6 @@ end
 
 --- @param window Panel
 local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
-    --- If lower, the window title cross or arrow will look bad
-    RunConsoleCommand("mat_antialias", "8")
-
     local io = ImGui.GetIO()
 
     local bd = ImGui_ImplGMOD_Data()
