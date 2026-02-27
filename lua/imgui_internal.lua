@@ -29,7 +29,7 @@ ImPow   = math.pow
 ImLog   = math.log
 ImAbs   = math.abs
 ImFabs  = math.abs
-ImFmod  = math.fmod
+ImFmod  = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
 ImMin = math.min
 

@@ -49,6 +49,7 @@ Thanks to [Dear ImGui](https://github.com/ocornut/imgui)!
 
 References:
 
+- [GitSparTV's LuaJIT Benchmarks](https://gitspartv.github.io/LuaJIT-Benchmarks/)
 - [Garry's Mod Wiki](https://wiki.facepunch.com/gmod/)
 - [Jaffies's paint lib](https://github.com/Jaffies/paint)
 - [Valve Developer Wiki](https://developer.valvesoftware.com/wiki/Main_Page)
