@@ -157,6 +157,12 @@ local CalcNextScrollFromScrollTargetAndClamp
 
 local MT = ImGui.GetMetatables()
 
+--- @param scale_factor float
+function MT.ImGuiStyle:ScaleAllSizes(scale_factor)
+    self._MainScale = self._MainScale * scale_factor
+    -- TODO:
+end
+
 local ImGuiResizeGripDef = {
     {CornerPosN = ImVec2(1, 1), InnerDir = ImVec2(-1, -1), AngleMin12 = 0, AngleMax12 = 3}, -- Bottom right grip
     {CornerPosN = ImVec2(0, 1), InnerDir = ImVec2( 1, -1), AngleMin12 = 3, AngleMax12 = 6}  -- Bottom left
@@ -5793,6 +5799,7 @@ local GStyleVarsInfo = {
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesRounding"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ButtonTextAlign"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SelectableTextAlign"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "SeparatorSize"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "SeparatorTextBorderSize"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SeparatorTextAlign"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SeparatorTextPadding")

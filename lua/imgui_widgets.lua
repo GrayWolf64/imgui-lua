@@ -1215,9 +1215,8 @@ function ImGui.SeparatorEx(flags, thickness)
 
         -- We don't provide our width to the layout so that it doesn't get feed back into AutoFit
         -- FIXME: This prevents ->CursorMaxPos based bounding box evaluation from working (e.g. TableEndCell)
-        local thickness_for_layout = (thickness == 1.0) and 0.0 or thickness  -- FIXME: See 1.70/1.71 Separator() change: makes legacy 1-px separator not affect layout yet. Should change.
         local bb = ImRect(ImVec2(x1, window.DC.CursorPos.y), ImVec2(x2, window.DC.CursorPos.y + thickness))
-        ImGui.ItemSize(ImVec2(0.0, thickness_for_layout))
+        ImGui.ItemSize(ImVec2(0.0, thickness))
 
         if ImGui.ItemAdd(bb, 0) then
             -- Draw
@@ -1242,7 +1241,6 @@ function ImGui.Separator()
     end
 
     -- Those flags should eventually be configurable by the user
-    -- FIXME: We cannot g.Style.SeparatorTextBorderSize for thickness as it relates to SeparatorText() which is a decorated separator, not defaulting to 1.0f.
     local flags
     if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
         flags = ImGuiSeparatorFlags.Vertical
@@ -1255,7 +1253,7 @@ function ImGui.Separator()
         flags = bit.bor(flags, ImGuiSeparatorFlags.SpanAllColumns)
     end
 
-    ImGui.SeparatorEx(flags, 1.0)
+    ImGui.SeparatorEx(flags, g.Style.SeparatorSize)
 end
 
 --- @param id         ImGuiID
