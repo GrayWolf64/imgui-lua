@@ -552,6 +552,12 @@ function ImGui_ImplGMOD_DestroyTexture(tex)
     tex:SetStatus(ImTextureStatus.Destroyed)
 end
 
+--- @param i int
+function RT_Name(i) return string.format("imgui_implgmod_rt#%d", i) end
+
+--- @param rt_name string
+local function MAT_Name(rt_name) return string.format("%s_%s", rt_name, "mat") end
+
 --- @param tex ImTextureData
 function ImGui_ImplGMOD_UpdateTexture(tex)
     local bd = ImGui_ImplGMOD_GetBackendData()
@@ -568,7 +574,7 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         backend_tex.Handle      = bd.CurrentTextureHandle
         bd.CurrentTextureHandle = bd.CurrentTextureHandle + 1
 
-        backend_tex.RenderTargetName = "imgui_ImplGMOD_RT#" .. tostring(backend_tex.Handle)
+        backend_tex.RenderTargetName = RT_Name(backend_tex.Handle)
 
         local render_target = GetRenderTargetEx(
             backend_tex.RenderTargetName,
@@ -579,16 +585,15 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
             IMAGE_FORMAT_RGBA8888
         )
 
-        local render_target_material = CreateMaterial(backend_tex.RenderTargetName .. "MAT", "UnlitGeneric", {
+        local render_target_material = CreateMaterial(MAT_Name(backend_tex.RenderTargetName), "UnlitGeneric", {
             ["$basetexture"] = render_target:GetName(),
             ["$translucent"] = 1,
             ["$vertexcolor"] = 1,
             ["$vertexalpha"] = 1,
             ["$ignorez"] = 1,
-            ["$linearwrite"] = 1,         -- Disable broken engine gamma correction for colors
-            ["$linearread_texture1"] = 1, -- Disable broken engine gamma correction for textures
-            ["$linearread_texture2"] = 1,
-            ["$linearread_texture3"] = 1
+            ["$nofog"] = 1,
+            ["$linearwrite"] = 1,   -- Disables SRGB conversion of shader results
+            ["$gammacolorread"] = 1 -- Disables SRGB conversion of color texture read
         })
 
         backend_tex.RenderTarget = render_target
