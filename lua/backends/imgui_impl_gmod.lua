@@ -8,6 +8,18 @@ local render  = render
 local surface = surface
 local mesh    = mesh
 
+-- One backend instance only needs one engine material, make it `error` initially
+local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", SysTime()), "UnlitGeneric", {
+    ["$basetexture"] = "error",
+    ["$translucent"] = 1,
+    ["$vertexcolor"] = 1,
+    ["$vertexalpha"] = 1,
+    ["$ignorez"] = 1,
+    ["$nofog"  ] = 1,
+    ["$linearwrite"   ] = 1, -- Disables SRGB conversion of shader results
+    ["$gammacolorread"] = 1  -- Disables SRGB conversion of color texture read
+})
+
 --- @type function
 local ImGui_ImplGMOD_DestroyTexture
 
@@ -486,7 +498,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 render.SetScissorRect(pcmd.ClipRect.x, pcmd.ClipRect.y, pcmd.ClipRect.z, pcmd.ClipRect.w, true)
 
                 local tex_id = pcmd:GetTexID()
-                render.SetMaterial(bd.TextureRegistry[tex_id].Material)
+                render.SetMaterial(g_EngineMaterial)
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
@@ -530,7 +542,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
     -- Display the atlas on my screen
     -- local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
     -- if atlas_tex then
-    --     render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), 20, 20, atlas_tex.Width, atlas_tex.Height)
+    --     render.DrawTextureToScreenRect(g_EngineMaterial:GetTexture("$basetexture"), 20, 20, atlas_tex.Width, atlas_tex.Height)
     -- end
 end
 
@@ -585,19 +597,8 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
             IMAGE_FORMAT_RGBA8888
         )
 
-        local render_target_material = CreateMaterial(MAT_Name(backend_tex.RenderTargetName), "UnlitGeneric", {
-            ["$basetexture"] = render_target:GetName(),
-            ["$translucent"] = 1,
-            ["$vertexcolor"] = 1,
-            ["$vertexalpha"] = 1,
-            ["$ignorez"] = 1,
-            ["$nofog"] = 1,
-            ["$linearwrite"] = 1,   -- Disables SRGB conversion of shader results
-            ["$gammacolorread"] = 1 -- Disables SRGB conversion of color texture read
-        })
-
         backend_tex.RenderTarget = render_target
-        backend_tex.Material = render_target_material
+        g_EngineMaterial:SetTexture("$basetexture", render_target)
 
         render.PushRenderTarget(backend_tex.RenderTarget)
 
