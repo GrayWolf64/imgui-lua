@@ -258,7 +258,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
         local mouse_button_released = -1
         for button = 0, 2 do
             if bit.band(flags, bit.lshift(ImGuiButtonFlags_MouseButtonLeft, button)) ~= 0 then -- Handle ImGuiButtonFlags_MouseButtonRight and ImGuiButtonFlags_MouseButtonMiddle here.
-                if (ImGui.IsMouseClicked(button, nil, ImGuiInputFlags_None, test_owner_id) and mouse_button_clicked == -1) then mouse_button_clicked = button end
+                if (ImGui.IsMouseClickedEx(button, ImGuiInputFlags_None, test_owner_id) and mouse_button_clicked == -1) then mouse_button_clicked = button end
                 if (ImGui.IsMouseReleased(button, test_owner_id) and mouse_button_released == -1) then mouse_button_released = button end
             end
         end
@@ -321,7 +321,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
             end
 
             if g.ActiveId == id and (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) then
-                if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClicked(g.ActiveIdMouseButton, nil, ImGuiInputFlags_Repeat, test_owner_id) then
+                if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClickedEx(g.ActiveIdMouseButton, ImGuiInputFlags_Repeat, test_owner_id) then
                     pressed = true
                 end
             end
@@ -739,7 +739,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
             scroll_v_norm = ImSaturate((clicked_v_norm - g.ScrollbarClickDeltaToGrabCenter - grab_h_norm * 0.5) / (1.0 - grab_h_norm))
             p_scroll_v = scroll_v_norm * scroll_max
         else
-            if ImGui.IsMouseClicked(ImGuiMouseButton.Left, nil, ImGuiInputFlags_Repeat) and held_dir == g.ScrollbarSeekMode then
+            if ImGui.IsMouseClickedEx(ImGuiMouseButton.Left, ImGuiInputFlags_Repeat) and held_dir == g.ScrollbarSeekMode then
                 local page_dir
                 if g.ScrollbarSeekMode > 0.0 then
                     page_dir = 1.0
@@ -2055,7 +2055,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     local hovered = ImGui.ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags)
     local temp_input_is_active = temp_input_allowed and ImGui.TempInputIsActive(id)
     if not temp_input_is_active then
-        local clicked = hovered and ImGui.IsMouseClicked(0, nil, ImGuiInputFlags_None, id)
+        local clicked = hovered and ImGui.IsMouseClickedEx(0, ImGuiInputFlags_None, id)
         local double_clicked = (hovered and g.IO.MouseClickedCount[0] == 2 and ImGui.TestKeyOwner(ImGuiKey.MouseLeft, id))
         local make_active = (clicked or double_clicked or g.NavActivateId == id)
         if make_active and (clicked or double_clicked) then

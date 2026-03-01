@@ -2258,10 +2258,16 @@ end
 
 --- @param button     ImGuiMouseButton
 --- @param is_repeat? bool
---- @param flags?     ImGuiInputFlags
+function ImGui.IsMouseClicked(button, is_repeat)
+    if is_repeat == nil then is_repeat = false end
+
+    return ImGui.IsMouseClickedEx(button, is_repeat and ImGuiInputFlags_Repeat or ImGuiInputFlags_None, ImGuiKeyOwner_Any)
+end
+
+--- @param button     ImGuiMouseButton
+--- @param flags      ImGuiInputFlags
 --- @param owner_id?  ImGuiID
-function ImGui.IsMouseClicked(button, is_repeat, flags, owner_id)
-    if is_repeat == true then flags = ImGuiInputFlags_Repeat else flags = ImGuiInputFlags_None end
+function ImGui.IsMouseClickedEx(button, flags, owner_id)
     if owner_id  == nil  then owner_id = ImGuiKeyOwner_Any end
 
     local g = GImGui
