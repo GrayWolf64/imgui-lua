@@ -14,6 +14,8 @@ local col0 = ImVec4(0, 0, 0, 1)
 local col1 = ImVec4(0, 0, 0, 1)
 local col2 = ImVec4(0, 0, 0, 1)
 
+local counter = 0
+
 function DemoWindowWidgetsBasic()
     ImGui.SeparatorText("General")
 
@@ -53,6 +55,26 @@ function DemoWindowWidgetsBasic()
         ImGui.PopStyleColor(3)
         ImGui.PopID()
     end
+
+    -- Use AlignTextToFramePadding() to align text baseline to the baseline of framed widgets elements
+    -- (otherwise a Text+SameLine+Button sequence will have the text a little too high by default!)
+    -- See 'Demo->Layout->Text Baseline Alignment' for details.
+    ImGui.AlignTextToFramePadding()
+    ImGui.Text("Hold to repeat:")
+    ImGui.SameLine()
+
+    -- Arrow buttons with Repeater
+    local spacing = ImGui.GetStyle().ItemInnerSpacing.x
+    ImGui.PushItemFlag(ImGuiItemFlags_ButtonRepeat, true)
+    if ImGui.ArrowButton("##left", ImGuiDir.Left) then counter = counter - 1 end
+    ImGui.SameLine(0.0, spacing)
+    if ImGui.ArrowButton("##right", ImGuiDir.Right) then counter = counter + 1 end
+    ImGui.PopItemFlag()
+    ImGui.SameLine()
+    ImGui.Text("%d", counter)
+
+    ImGui.Button("Tooltip")
+    ImGui.SetItemTooltip("I am a tooltip")
 end
 
 end

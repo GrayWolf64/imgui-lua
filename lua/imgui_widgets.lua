@@ -496,6 +496,47 @@ function ImGui.InvisibleButton(str_id, size_arg, flags)
     return pressed
 end
 
+--- @param str_id string
+--- @param dir    ImGuiDir
+--- @param size   ImVec2
+--- @param flags? ImGuiButtonFlags
+function ImGui.ArrowButtonEx(str_id, dir, size, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local id = window:GetID(str_id)
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
+    local default_size = ImGui.GetFrameHeight()
+    ImGui.ItemSize(size, (size.y >= default_size) and g.Style.FramePadding.y or -1.0)
+    if not ImGui.ItemAdd(bb, id) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, flags)
+
+    -- Render
+    local bg_col = ImGui.GetColorU32((held and hovered) and ImGuiCol.ButtonActive or hovered and ImGuiCol.ButtonHovered or ImGuiCol.Button)
+    local text_col = ImGui.GetColorU32(ImGuiCol.Text)
+    ImGui.RenderNavCursor(bb, id)
+    ImGui.RenderFrame(bb.Min, bb.Max, bg_col, true, g.Style.FrameRounding)
+    ImGui.RenderArrow(window.DrawList, bb.Min + ImVec2(ImMax(0.0, (size.x - g.FontSize) * 0.5), ImMax(0.0, (size.y - g.FontSize) * 0.5)), text_col, dir)
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, str_id, g.LastItemData.StatusFlags)
+    return pressed
+end
+
+--- @param str_id string
+--- @param dir    ImGuiDir
+function ImGui.ArrowButton(str_id, dir)
+    local sz = ImGui.GetFrameHeight()
+    return ImGui.ArrowButtonEx(str_id, dir, ImVec2(sz, sz), ImGuiButtonFlags_None)
+end
+
 --- @param id  ImGuiID
 --- @param pos ImVec2
 --- @return bool

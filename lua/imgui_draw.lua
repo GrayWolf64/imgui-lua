@@ -4316,11 +4316,13 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
 end
 
 --- @param draw_list ImDrawList
---- @param pos ImVec2
---- @param color ImU32
---- @param dir ImGuiDir
---- @param scale float
+--- @param pos       ImVec2
+--- @param color     ImU32
+--- @param dir       ImGuiDir
+--- @param scale?    float
 function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
+    if scale == nil then scale = 1.0 end
+
     local h = draw_list._Data.FontSize * 1.00
     local r = h * 0.40 * scale
 
