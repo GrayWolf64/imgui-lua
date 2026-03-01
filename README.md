@@ -4,6 +4,8 @@
 
 ## Current State
 
+<img src="misc/images/current.png" alt="Example" width="400" height="640">
+
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
 | Fonts(ttf) | Completed, syncing with `main`   |
@@ -49,6 +51,7 @@ Thanks to [Dear ImGui](https://github.com/ocornut/imgui)!
 
 References:
 
+- [GitSparTV's LuaJIT Benchmarks](https://gitspartv.github.io/LuaJIT-Benchmarks/)
 - [Garry's Mod Wiki](https://wiki.facepunch.com/gmod/)
 - [Jaffies's paint lib](https://github.com/Jaffies/paint)
 - [Valve Developer Wiki](https://developer.valvesoftware.com/wiki/Main_Page)

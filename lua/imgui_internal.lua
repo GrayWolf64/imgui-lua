@@ -29,7 +29,7 @@ ImPow   = math.pow
 ImLog   = math.log
 ImAbs   = math.abs
 ImFabs  = math.abs
-ImFmod  = math.fmod
+ImFmod  = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
 ImMin = math.min
 
@@ -864,6 +864,8 @@ ImGuiSeparatorFlags = {
 }
 
 --- @class ImGuiStyle
+MT.ImGuiStyle = {}
+MT.ImGuiStyle.__index = MT.ImGuiStyle
 
 --- @return ImGuiStyle
 --- @nodiscard
@@ -898,6 +900,7 @@ function ImGuiStyle()
         ColorMarkerSize = 3.0,
         ColorButtonPosition = ImGuiDir.Right,
 
+        SeparatorSize           = 1.0,
         SeparatorTextBorderSize = 3.0,
         SeparatorTextAlign      = ImVec2(0.0, 0.5),
         SeparatorTextPadding    = ImVec2(20.0, 3.0),
@@ -935,10 +938,14 @@ function ImGuiStyle()
         HoverFlagsForTooltipMouse = bit.bor(ImGuiHoveredFlags_Stationary, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_AllowWhenDisabled),
         HoverFlagsForTooltipNav = bit.bor(ImGuiHoveredFlags_NoSharedDelay, ImGuiHoveredFlags_DelayNormal, ImGuiHoveredFlags_AllowWhenDisabled),
 
+        -- [Internal]
+        _MainScale = 1.0,
         _NextFrameFontSizeBase = 0.0
     }
 
     ImGui.StyleColorsDark(this)
+
+    setmetatable(this, MT.ImGuiStyle)
 
     return this
 end

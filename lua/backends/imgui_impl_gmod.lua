@@ -8,6 +8,18 @@ local render  = render
 local surface = surface
 local mesh    = mesh
 
+-- One backend instance only needs one engine material, make it `error` initially
+local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", SysTime()), "UnlitGeneric", {
+    ["$basetexture"] = "error",
+    ["$translucent"] = 1,
+    ["$vertexcolor"] = 1,
+    ["$vertexalpha"] = 1,
+    ["$ignorez"] = 1,
+    ["$nofog"  ] = 1,
+    ["$linearwrite"   ] = 1, -- Disables SRGB conversion of shader results
+    ["$gammacolorread"] = 1  -- Disables SRGB conversion of color texture read
+})
+
 --- @type function
 local ImGui_ImplGMOD_DestroyTexture
 
@@ -23,6 +35,9 @@ local ImGui_ImplGMOD_ProcessEvent
 --- @type function
 local ImGui_ImplGMOD_Shutdown
 
+--- @type function
+local ImGui_ImplGMOD_InvalidateEngineObjects
+
 local function ImGui_ImplGMOD_GetBackendData()
     return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
 end
@@ -37,47 +52,30 @@ local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, derma_wi
     return nil
 end
 
---- @param panel Panel
+--- @param panel     Panel
+--- @param func_name string
+--- @param hook_func function
+local function VGUI_Hook(panel, func_name, hook_func)
+    local old_func = panel[func_name]
+    if old_func then
+        panel[func_name] = function(self, a1, a2, a3, a4) local ret = old_func(self, a1, a2, a3, a4); hook_func(self, a1, a2, a3, a4); return ret; end
+    else
+        panel[func_name] = function(self, a1, a2, a3, a4) hook_func(self, a1, a2, a3, a4); end
+    end
+end
+
+--- @param panel             Panel
+--- @param is_main_viewport? bool
 local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
-    local old_OnCursorMoved = panel.OnCursorMoved
-    panel.OnCursorMoved = function(self, x, y)
-        if old_OnCursorMoved then old_OnCursorMoved(self, x, y) end
-        x, y = input.GetCursorPos()
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y)
-    end
+    VGUI_Hook(panel, "OnCursorMoved", function(a0, a1, a2) a1, a2 = input.GetCursorPos(); ImGui_ImplGMOD_ProcessEvent(nil, nil, a1, a2); end)
+    VGUI_Hook(panel, "OnMousePressed", function(a0, a1) a0:MouseCapture(true); ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil); end)
+    VGUI_Hook(panel, "OnMouseReleased", function(a0, a1) a0:MouseCapture(false); ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil); end)
+    VGUI_Hook(panel, "OnMouseWheeled", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, a1); end)
 
-    local old_OnMousePressed = panel.OnMousePressed
-    panel.OnMousePressed = function(self, key_code)
-        if old_OnMousePressed then old_OnMousePressed(self, key_code) end
-        self:MouseCapture(true)
-        ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil)
-    end
-
-    local old_OnMouseReleased = panel.OnMouseReleased
-    panel.OnMouseReleased = function(self, key_code)
-        if old_OnMouseReleased then old_OnMouseReleased(self, key_code) end
-        self:MouseCapture(false)
-        ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil)
-    end
-
-    local old_OnMouseWheeled = panel.OnMouseWheeled
-    panel.OnMouseWheeled = function(self, scroll_delta)
-        if old_OnMouseWheeled then old_OnMouseWheeled(self, scroll_delta) end
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, nil, scroll_delta)
-    end
-
-    local old_OnScreenSizeChanged = panel.OnScreenSizeChanged
-    panel.OnScreenSizeChanged = function(self, old_w, old_h, new_w, new_h)
-        if old_OnScreenSizeChanged then old_OnScreenSizeChanged(self, old_w, old_h, new_w, new_h) end
-        ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, true)
-    end
+    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
 
     if is_main_viewport then
-        local old_OnRemove = panel.OnRemove
-        panel.OnRemove = function()
-            if old_OnRemove then old_OnRemove() end
-            ImGui_ImplGMOD_Shutdown()
-        end
+        VGUI_Hook(panel, "OnRemove", function() ImGui_ImplGMOD_Shutdown(); end)
     end
 end
 
@@ -91,7 +89,7 @@ end
 
 --- - Single-viewport mode: mouse position in GMod Derma window coordinates
 --- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
-function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed, scroll_delta)
+function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
     local bd = ImGui_ImplGMOD_GetBackendData()
     local io = ImGui.GetIO()
 
@@ -115,8 +113,6 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, is_display_changed
     elseif x and y then -- cursor position update
         io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
         io:AddMousePosEvent(x, y)
-    elseif is_display_changed then
-        bd.WantUpdateMonitors = true
     elseif scroll_delta then
         io:AddMouseWheelEvent(0.0, scroll_delta)
     end
@@ -128,27 +124,25 @@ end
 --- @nodiscard
 local function ImGui_ImplGMOD_Texture()
     return {
-        RenderTarget     = nil,
-        RenderTargetName = nil,
-        Handle           = nil,
-        Material         = nil,
-
+        RenderTarget = nil,
+        Handle = nil,
         Width  = nil,
         Height = nil
     }
 end
 
 --- @class ImGui_ImplGMOD_Data
+--- @field RT_List         table<ITexture> # All the `ITexture` we created
+--- @field RT_LockedStatus table<bool>     # Keep the in-use status of RTs
 --- @field Window Panel
 
 --- @return ImGui_ImplGMOD_Data
 --- @nodiscard
 local function ImGui_ImplGMOD_Data()
     return {
-        TextureRegistry      = {},
-        CurrentTextureHandle = 1,
-        NumFramesInFlight    = 2,
-
+        RT_List = {},
+        RT_LockedStatus = {},
+        NumFramesInFlight = 2,
         Time = 0,
         Window = nil
     }
@@ -248,6 +242,12 @@ local function ImGui_ImplGMOD_SetWindowSize(viewport, size)
     vd.DermaWindow:SetSize(size.x, size.y)
 end
 
+local function ImGui_ImplGMOD_GetWindowSize(viewport)
+    local vd = viewport.PlatformUserData
+    IM_ASSERT(IsValid(vd.DermaWindow))
+    return ImVec2(vd.DermaWindow:GetSize())
+end
+
 local function ImGui_ImplGMOD_SetWindowFocus(viewport)
     local vd = viewport.PlatformUserData
     IM_ASSERT(IsValid(vd.DermaWindow))
@@ -285,6 +285,7 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     platform_io.Platform_SetWindowTitle = ImGui_ImplGMOD_SetWindowTitle
 
     platform_io.Platform_GetWindowPos = ImGui_ImplGMOD_GetWindowPos
+    platform_io.Platform_GetWindowSize = ImGui_ImplGMOD_GetWindowSize
 
     platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
     platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
@@ -309,8 +310,8 @@ local function ImGui_ImplGMOD_UpdateMonitors()
     io.Monitors:resize(0)
 
     local imgui_monitor = ImGuiPlatformMonitor()
-    imgui_monitor.MainSize = ImVec2(ScrW(), ScrH())
-    imgui_monitor.WorkSize = ImVec2(ScrW(), ScrH())
+    ImVec2_Copy(imgui_monitor.MainSize, ImVec2(ScrW(), ScrH()))
+    ImVec2_Copy(imgui_monitor.WorkSize, ImVec2(ScrW(), ScrH()))
 
     io.Monitors:push_back(imgui_monitor)
 
@@ -319,9 +320,6 @@ end
 
 --- @param window Panel
 local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
-    --- If lower, the window title cross or arrow will look bad
-    RunConsoleCommand("mat_antialias", "8")
-
     local io = ImGui.GetIO()
 
     local bd = ImGui_ImplGMOD_Data()
@@ -397,6 +395,21 @@ local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
     return true
 end
 
+function ImGui_ImplGMOD_InvalidateEngineObjects()
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    if not bd then
+        return
+    end
+
+    -- Destroy all textures
+    for _, tex in ImGui.GetPlatformIO().Textures:iter() do
+        if tex.RefCount == 1 then
+            tex:SetStatus(ImTextureStatus.WantDestroy)
+            ImGui_ImplGMOD_UpdateTexture(tex)
+        end
+    end
+end
+
 function ImGui_ImplGMOD_Shutdown()
     local bd = ImGui_ImplGMOD_GetBackendData()
     IM_ASSERT(bd ~= nil, "No platform backend to shutdown, or already shutdown?")
@@ -405,6 +418,7 @@ function ImGui_ImplGMOD_Shutdown()
     local platform_io = ImGui.GetPlatformIO()
 
     ImGui_ImplGMOD_ShutdownMultiViewportSupport()
+    ImGui_ImplGMOD_InvalidateEngineObjects()
 
     io.BackendPlatformName = nil
     io.BackendPlatformUserData = nil
@@ -482,7 +496,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 render.SetScissorRect(pcmd.ClipRect.x, pcmd.ClipRect.y, pcmd.ClipRect.z, pcmd.ClipRect.w, true)
 
                 local tex_id = pcmd:GetTexID()
-                render.SetMaterial(bd.TextureRegistry[tex_id].Material)
+                render.SetMaterial(g_EngineMaterial)
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
@@ -522,14 +536,9 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
     end
 
     ImGui_ImplGMOD_RestoreRenderState()
-
-    -- Display the atlas on my screen
-    -- local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
-    -- if atlas_tex then
-    --     render.DrawTextureToScreenRect(atlas_tex.Material:GetTexture("$basetexture"), 20, 20, atlas_tex.Width, atlas_tex.Height)
-    -- end
 end
 
+-- Currently there's no way to destroy a `ITexture` unless you disconnect
 --- @param tex ImTextureData
 function ImGui_ImplGMOD_DestroyTexture(tex)
     local backend_tex = tex.BackendUserData
@@ -538,19 +547,44 @@ function ImGui_ImplGMOD_DestroyTexture(tex)
         IM_ASSERT(backend_tex.Handle == tex.TexID)
 
         local bd = ImGui_ImplGMOD_GetBackendData()
-        bd.TextureRegistry[tex.TexID] = nil
+        bd.RT_LockedStatus[tex.TexID] = false -- Mark the `ITexture` as not in-use
 
         tex:SetTexID(ImTextureID_Invalid)
         tex.BackendUserData = nil
-        backend_tex = nil
     end
 
     tex:SetStatus(ImTextureStatus.Destroyed)
 end
 
+--- @param bd          ImGui_ImplGMOD_Data
+--- @param backend_tex ImGui_ImplGMOD_Texture
+--- @param tex         ImTextureData
+local function CreateEngineResource(bd, backend_tex, tex)
+    backend_tex.Width = tex.Width
+    backend_tex.Height = tex.Height
+
+    local rt
+    for idx = #bd.RT_LockedStatus, 1, -1 do
+        rt = bd.RT_List[idx]
+        if bd.RT_LockedStatus[idx] == false and rt:Width() == backend_tex.Width and rt:Height() == backend_tex.Height then
+            bd.RT_LockedStatus[idx] = true
+            backend_tex.Handle = idx
+            return rt
+        end
+    end
+
+    local i = #bd.RT_List + 1
+    rt = GetRenderTargetEx(string.format("imgui_implgmod_rt#%d", i), backend_tex.Width, backend_tex.Height, RT_SIZE_LITERAL, MATERIAL_RT_DEPTH_NONE, 0, 0, IMAGE_FORMAT_RGBA8888)
+    bd.RT_List[i] = rt
+    bd.RT_LockedStatus[i] = true
+    backend_tex.Handle = i
+
+    return rt
+end
+
 --- @param tex ImTextureData
 function ImGui_ImplGMOD_UpdateTexture(tex)
-    local bd = ImGui_ImplGMOD_GetBackendData()
+    local bd = ImGui_ImplGMOD_GetBackendData() --[[@as ImGui_ImplGMOD_Data]]
 
     if tex.Status == ImTextureStatus.WantCreate then
         IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil)
@@ -558,39 +592,12 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         local backend_tex = ImGui_ImplGMOD_Texture()
 
-        backend_tex.Width  = tex.Width
-        backend_tex.Height = tex.Height
-
-        backend_tex.Handle      = bd.CurrentTextureHandle
-        bd.CurrentTextureHandle = bd.CurrentTextureHandle + 1
-
-        backend_tex.RenderTargetName = "imgui_ImplGMOD_RT#" .. tostring(backend_tex.Handle)
-
-        local render_target = GetRenderTargetEx(
-            backend_tex.RenderTargetName,
-            backend_tex.Width, backend_tex.Height,
-            RT_SIZE_OFFSCREEN,
-            MATERIAL_RT_DEPTH_NONE,
-            0, 0,
-            IMAGE_FORMAT_RGBA8888
-        )
-
-        local render_target_material = CreateMaterial(backend_tex.RenderTargetName .. "MAT", "UnlitGeneric", {
-            ["$basetexture"] = render_target:GetName(),
-            ["$translucent"] = 1,
-            ["$vertexcolor"] = 1,
-            ["$vertexalpha"] = 1,
-            ["$ignorez"] = 1,
-            ["$linearwrite"] = 1,         -- Disable broken engine gamma correction for colors
-            ["$linearread_texture1"] = 1, -- Disable broken engine gamma correction for textures
-            ["$linearread_texture2"] = 1,
-            ["$linearread_texture3"] = 1
-        })
+        local render_target = CreateEngineResource(bd, backend_tex, tex)
+        g_EngineMaterial:SetTexture("$basetexture", render_target)
 
         backend_tex.RenderTarget = render_target
-        backend_tex.Material = render_target_material
 
-        render.PushRenderTarget(backend_tex.RenderTarget)
+        render.PushRenderTarget(render_target)
 
         -- https://wiki.facepunch.com/gmod/render.PushRenderTarget
         -- This is probably a hack to use proper alpha channel with RTs
@@ -622,7 +629,6 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         tex:SetTexID(backend_tex.Handle)
         tex.BackendUserData = backend_tex
-        bd.TextureRegistry[backend_tex.Handle] = backend_tex
 
         tex:SetStatus(ImTextureStatus.OK)
     elseif tex.Status == ImTextureStatus.WantUpdates then

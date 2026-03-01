@@ -7,7 +7,7 @@ local ImGui_ImplGMOD = include("backends/imgui_impl_gmod.lua")
 
 include("imgui_demo.lua")
 
-local function CreateMainViewport()
+local function CreateHostWindow()
     local derma_window = vgui.Create("DFrame")
 
     derma_window:SetSizable(true)
@@ -19,19 +19,20 @@ local function CreateMainViewport()
     derma_window:SetIcon("icon16/application.png")
     derma_window:SetDeleteOnClose(true)
 
-    local clear_color = ImVec4(0.45, 0.55, 0.60, 1.00) * 255
+    local clear_color = Color(0.45 * 255, 0.55 * 255, 0.60 * 255, 1.00 * 255)
+    local titlebar_h = 24
+    local padding = 1
     local old_Paint = derma_window.Paint
     derma_window.Paint = function(self, w, h)
         old_Paint(self, w, h)
-        surface.SetDrawColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w)
-        surface.DrawRect(0, 0, w, h)
+        draw.RoundedBoxEx(6, padding, padding + titlebar_h, w - 2 * padding, h - titlebar_h - 2 * padding, clear_color, false, false, true, true)
     end
 
     return derma_window
 end
 
 concommand.Add("imgui_test", function()
-    local viewport = CreateMainViewport()
+    local viewport = CreateHostWindow()
     ImGui_ImplGMOD.SetupPanelHooks(viewport, true)
 
     ImGui.CreateContext()

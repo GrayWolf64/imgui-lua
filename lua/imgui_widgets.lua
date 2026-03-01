@@ -1215,9 +1215,8 @@ function ImGui.SeparatorEx(flags, thickness)
 
         -- We don't provide our width to the layout so that it doesn't get feed back into AutoFit
         -- FIXME: This prevents ->CursorMaxPos based bounding box evaluation from working (e.g. TableEndCell)
-        local thickness_for_layout = (thickness == 1.0) and 0.0 or thickness  -- FIXME: See 1.70/1.71 Separator() change: makes legacy 1-px separator not affect layout yet. Should change.
         local bb = ImRect(ImVec2(x1, window.DC.CursorPos.y), ImVec2(x2, window.DC.CursorPos.y + thickness))
-        ImGui.ItemSize(ImVec2(0.0, thickness_for_layout))
+        ImGui.ItemSize(ImVec2(0.0, thickness))
 
         if ImGui.ItemAdd(bb, 0) then
             -- Draw
@@ -1242,7 +1241,6 @@ function ImGui.Separator()
     end
 
     -- Those flags should eventually be configurable by the user
-    -- FIXME: We cannot g.Style.SeparatorTextBorderSize for thickness as it relates to SeparatorText() which is a decorated separator, not defaulting to 1.0f.
     local flags
     if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
         flags = ImGuiSeparatorFlags.Vertical
@@ -1255,7 +1253,7 @@ function ImGui.Separator()
         flags = bit.bor(flags, ImGuiSeparatorFlags.SpanAllColumns)
     end
 
-    ImGui.SeparatorEx(flags, 1.0)
+    ImGui.SeparatorEx(flags, g.Style.SeparatorSize)
 end
 
 --- @param id         ImGuiID
@@ -1885,9 +1883,9 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
         logarithmic_zero_epsilon = ImPow(0.1, decimal_precision)
 
         -- Convert to parametric space, apply delta, convert back
-        local v_old_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        local v_old_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
         local v_new_parametric = v_old_parametric + g.DragCurrentAccum
-        v_cur = ImGui.ScaleValueFromRatioT(data_type, v_new_parametric, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        v_cur = ImGui.ScaleValueFromRatioT(data_type, v_new_parametric, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
         v_old_ref_for_accum_remainder = v_old_parametric
     else
         v_cur = v_cur + g.DragCurrentAccum
@@ -1902,7 +1900,7 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
     g.DragCurrentAccumDirty = false
     if is_logarithmic then
         -- Convert to parametric space, apply delta, convert back
-        local v_new_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        local v_new_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
         g.DragCurrentAccum = v_new_parametric - v_old_ref_for_accum_remainder
     else
         g.DragCurrentAccum = v_cur - v
@@ -2099,10 +2097,9 @@ end
 --- @param v                        number
 --- @param v_min                    number
 --- @param v_max                    number
---- @param is_logarithmic           bool
 --- @param logarithmic_zero_epsilon float
 --- @param zero_deadzone_halfsize   float
-function ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+function ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
     if v_min == v_max then
         return 0.0
     end
@@ -2114,7 +2111,7 @@ function ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, is_logarithmic, 
     else
         v_clamped = ImClamp(v, v_max, v_min)
     end
-    if is_logarithmic then
+    if logarithmic_zero_epsilon > 0.0 then -- == is_logarithmic from caller
         local flipped = v_max < v_min
         if flipped then -- Handle the case where the range is backwards
             v_min, v_max = v_max, v_min
@@ -2175,10 +2172,9 @@ end
 --- @param t                        float
 --- @param v_min                    number
 --- @param v_max                    number
---- @param is_logarithmic           bool
 --- @param logarithmic_zero_epsilon float
 --- @param zero_deadzone_halfsize   float
-function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, is_logarithmic, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
     -- We special-case the extents because otherwise our logarithmic fudging can lead to "mathematically correct"
     -- but non-intuitive behaviors like a fully-left slider not actually reaching the minimum value. Also generally simpler.
     if t <= 0.0 or v_min == v_max then
@@ -2189,7 +2185,7 @@ function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, is_logarithmic, 
     end
 
     local result = 0
-    if is_logarithmic then
+    if logarithmic_zero_epsilon > 0.0 then -- == is_logarithmic from caller
         -- Fudge min/max to avoid getting silly results close to zero
         local v_min_fudged
         if ImAbs(v_min) < logarithmic_zero_epsilon then
