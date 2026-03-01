@@ -228,6 +228,41 @@ function ImGui.TextAligned(align_x, size_x, fmt, ...)
     end
 end
 
+-- Add a label+text combo aligned to other label+value widgets
+--- @param label string
+--- @param fmt   string
+--- @param ...   any
+function ImGui.LabelText(label, fmt, ...)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local w = ImGui.CalcItemWidth()
+
+    local value_text = ImFormatString(fmt, ...)
+    local value_text_end = #value_text + 1
+    local value_size = ImGui.CalcTextSize(value_text, value_text_end, false)
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    local value_bb = ImRect(pos, pos + ImVec2(w, value_size.y + style.FramePadding.y * 2))
+    local total_bb = ImRect(pos, pos + ImVec2(w + ((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0), ImMax(value_size.y, label_size.y) + style.FramePadding.y * 2))
+    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    if not ImGui.ItemAdd(total_bb, 0) then
+        return
+    end
+
+    -- Render
+    ImGui.RenderTextClipped(value_bb.Min + style.FramePadding, value_bb.Max, value_text, value_text_end, value_size, ImVec2(0.0, 0.0))
+    if label_size.x > 0.0 then
+        ImGui.RenderText(ImVec2(value_bb.Max.x + style.ItemInnerSpacing.x, value_bb.Min.y + style.FramePadding.y), label)
+    end
+end
+
 ----------------------------------------------------------------
 -- [SECTION] MAIN: BUTTONS, SCROLLBARS, ...
 ----------------------------------------------------------------

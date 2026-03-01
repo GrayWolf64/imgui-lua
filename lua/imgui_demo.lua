@@ -75,6 +75,8 @@ function DemoWindowWidgetsBasic()
 
     ImGui.Button("Tooltip")
     ImGui.SetItemTooltip("I am a tooltip")
+
+    ImGui.LabelText("label", "Value")
 end
 
 end
