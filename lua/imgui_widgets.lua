@@ -189,6 +189,45 @@ function ImGui.TextWrapped(fmt, ...)
     end
 end
 
+-- align_x: 0.0f = left, 0.5f = center, 1.0f = right.
+-- size_x : 0.0f = shortcut for GetContentRegionAvail().x
+-- FIXME-WIP: Works but API is likely to be reworked. This is designed for 1 item on the line. (#7024)
+--- @param align_x float
+--- @param size_x  float
+--- @param fmt     string
+--- @param ...     any
+function ImGui.TextAligned(align_x, size_x, fmt, ...)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local text = ImFormatString(fmt, ...)
+    local text_end = #text + 1
+    local text_size = ImGui.CalcTextSize(text, text_end)
+    size_x = ImGui.CalcItemSize(ImVec2(size_x, 0.0), 0.0, text_size.y).x
+
+    local pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
+    local pos_max = ImVec2(pos.x + size_x, window.ClipRect.Max.y)
+    local size = ImVec2(ImMin(size_x, text_size.x), text_size.y)
+    window.DC.CursorMaxPos.x = ImMax(window.DC.CursorMaxPos.x, pos.x + text_size.x)
+    window.DC.IdealMaxPos.x = ImMax(window.DC.IdealMaxPos.x, pos.x + text_size.x)
+    if align_x > 0.0 and text_size.x < size_x then
+        pos.x = pos.x + ImTrunc((size_x - text_size.x) * align_x)
+    end
+    ImGui.RenderTextEllipsis(window.DrawList, pos, pos_max, pos_max.x, text, text_end, text_size)
+
+    local backup_max_pos = ImVec2()
+    ImVec2_Copy(backup_max_pos, window.DC.CursorMaxPos)
+    ImGui.ItemSize(size)
+    ImGui.ItemAdd(ImRect(pos, pos + size), 0)
+    window.DC.CursorMaxPos.x = backup_max_pos.x -- Cancel out extending content size because right-aligned text would otherwise mess it up
+
+    if size_x < text_size.x and ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags_NoNavOverride, ImGuiHoveredFlags_AllowWhenDisabled, ImGuiHoveredFlags_ForTooltip)) then
+        ImGui.SetTooltip("%.*s", text_end - 1, text)
+    end
+end
+
 ----------------------------------------------------------------
 -- [SECTION] MAIN: BUTTONS, SCROLLBARS, ...
 ----------------------------------------------------------------
