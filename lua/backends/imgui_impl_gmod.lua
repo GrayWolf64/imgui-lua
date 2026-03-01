@@ -124,27 +124,25 @@ end
 --- @nodiscard
 local function ImGui_ImplGMOD_Texture()
     return {
-        RenderTarget     = nil,
-        RenderTargetName = nil,
-        Handle           = nil,
-        Material         = nil,
-
+        RenderTarget = nil,
+        Handle = nil,
         Width  = nil,
         Height = nil
     }
 end
 
 --- @class ImGui_ImplGMOD_Data
+--- @field RT_List         table<ITexture> # All the `ITexture` we created
+--- @field RT_LockedStatus table<bool>     # Keep the in-use status of RTs
 --- @field Window Panel
 
 --- @return ImGui_ImplGMOD_Data
 --- @nodiscard
 local function ImGui_ImplGMOD_Data()
     return {
-        TextureRegistry      = {},
-        CurrentTextureHandle = 1,
-        NumFramesInFlight    = 2,
-
+        RT_List = {},
+        RT_LockedStatus = {},
+        NumFramesInFlight = 2,
         Time = 0,
         Window = nil
     }
@@ -538,14 +536,9 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
     end
 
     ImGui_ImplGMOD_RestoreRenderState()
-
-    -- Display the atlas on my screen
-    -- local atlas_tex = bd.TextureRegistry[draw_data.Textures.Data[draw_data.Textures.Size].TexID]
-    -- if atlas_tex then
-    --     render.DrawTextureToScreenRect(g_EngineMaterial:GetTexture("$basetexture"), 20, 20, atlas_tex.Width, atlas_tex.Height)
-    -- end
 end
 
+-- Currently there's no way to destroy a `ITexture` unless you disconnect
 --- @param tex ImTextureData
 function ImGui_ImplGMOD_DestroyTexture(tex)
     local backend_tex = tex.BackendUserData
@@ -554,25 +547,44 @@ function ImGui_ImplGMOD_DestroyTexture(tex)
         IM_ASSERT(backend_tex.Handle == tex.TexID)
 
         local bd = ImGui_ImplGMOD_GetBackendData()
-        bd.TextureRegistry[tex.TexID] = nil
+        bd.RT_LockedStatus[tex.TexID] = false -- Mark the `ITexture` as not in-use
 
         tex:SetTexID(ImTextureID_Invalid)
         tex.BackendUserData = nil
-        backend_tex = nil
     end
 
     tex:SetStatus(ImTextureStatus.Destroyed)
 end
 
---- @param i int
-function RT_Name(i) return string.format("imgui_implgmod_rt#%d", i) end
+--- @param bd          ImGui_ImplGMOD_Data
+--- @param backend_tex ImGui_ImplGMOD_Texture
+--- @param tex         ImTextureData
+local function CreateEngineResource(bd, backend_tex, tex)
+    backend_tex.Width = tex.Width
+    backend_tex.Height = tex.Height
 
---- @param rt_name string
-local function MAT_Name(rt_name) return string.format("%s_%s", rt_name, "mat") end
+    local rt
+    for idx = #bd.RT_LockedStatus, 1, -1 do
+        rt = bd.RT_List[idx]
+        if bd.RT_LockedStatus[idx] == false and rt:Width() == backend_tex.Width and rt:Height() == backend_tex.Height then
+            bd.RT_LockedStatus[idx] = true
+            backend_tex.Handle = idx
+            return rt
+        end
+    end
+
+    local i = #bd.RT_List + 1
+    rt = GetRenderTargetEx(string.format("imgui_implgmod_rt#%d", i), backend_tex.Width, backend_tex.Height, RT_SIZE_LITERAL, MATERIAL_RT_DEPTH_NONE, 0, 0, IMAGE_FORMAT_RGBA8888)
+    bd.RT_List[i] = rt
+    bd.RT_LockedStatus[i] = true
+    backend_tex.Handle = i
+
+    return rt
+end
 
 --- @param tex ImTextureData
 function ImGui_ImplGMOD_UpdateTexture(tex)
-    local bd = ImGui_ImplGMOD_GetBackendData()
+    local bd = ImGui_ImplGMOD_GetBackendData() --[[@as ImGui_ImplGMOD_Data]]
 
     if tex.Status == ImTextureStatus.WantCreate then
         IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil)
@@ -580,27 +592,12 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         local backend_tex = ImGui_ImplGMOD_Texture()
 
-        backend_tex.Width  = tex.Width
-        backend_tex.Height = tex.Height
-
-        backend_tex.Handle      = bd.CurrentTextureHandle
-        bd.CurrentTextureHandle = bd.CurrentTextureHandle + 1
-
-        backend_tex.RenderTargetName = RT_Name(backend_tex.Handle)
-
-        local render_target = GetRenderTargetEx(
-            backend_tex.RenderTargetName,
-            backend_tex.Width, backend_tex.Height,
-            RT_SIZE_OFFSCREEN,
-            MATERIAL_RT_DEPTH_NONE,
-            0, 0,
-            IMAGE_FORMAT_RGBA8888
-        )
-
-        backend_tex.RenderTarget = render_target
+        local render_target = CreateEngineResource(bd, backend_tex, tex)
         g_EngineMaterial:SetTexture("$basetexture", render_target)
 
-        render.PushRenderTarget(backend_tex.RenderTarget)
+        backend_tex.RenderTarget = render_target
+
+        render.PushRenderTarget(render_target)
 
         -- https://wiki.facepunch.com/gmod/render.PushRenderTarget
         -- This is probably a hack to use proper alpha channel with RTs
@@ -632,7 +629,6 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         tex:SetTexID(backend_tex.Handle)
         tex.BackendUserData = backend_tex
-        bd.TextureRegistry[backend_tex.Handle] = backend_tex
 
         tex:SetStatus(ImTextureStatus.OK)
     elseif tex.Status == ImTextureStatus.WantUpdates then
