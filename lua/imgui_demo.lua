@@ -81,6 +81,13 @@ end
 
 end
 
+local function DemoWindowWidgetsBullets()
+    ImGui.BulletText("Bullet point 1")
+    ImGui.BulletText("Bullet point 2\nOn multiple lines")
+    ImGui.Bullet() ImGui.Text("Bullet point 3 (two calls)")
+    ImGui.Bullet() ImGui.SmallButton("Button")
+end
+
 local DemoWindowWidgetsColorAndPickers
 do
 
@@ -244,6 +251,7 @@ function ImGui.ShowDemoWindow(open)
     end
 
     DemoWindowWidgetsBasic()
+    DemoWindowWidgetsBullets()
     DemoWindowWidgetsColorAndPickers()
     DemoWindowWidgetsPlotting()
     DemoWindowWidgetsProgressBars()

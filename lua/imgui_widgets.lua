@@ -263,6 +263,36 @@ function ImGui.LabelText(label, fmt, ...)
     end
 end
 
+--- @param fmt string
+--- @param ... any
+function ImGui.BulletText(fmt, ...)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+
+    local text = ImFormatString(fmt, ...)
+    local text_end = #text + 1
+    local label_size = ImGui.CalcTextSize(text, text_end, false)
+    local total_size = ImVec2(g.FontSize + ((label_size.x > 0.0) and (label_size.x + style.FramePadding.x * 2) or 0.0), label_size.y) -- Empty text doesn't add padding
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    pos.y = pos.y + window.DC.CurrLineTextBaseOffset
+    ImGui.ItemSize(total_size, 0.0)
+    local bb = ImRect(pos, pos + total_size)
+    if not ImGui.ItemAdd(bb, 0) then
+        return
+    end
+
+    -- Render
+    local text_col = ImGui.GetColorU32(ImGuiCol.Text)
+    ImGui.RenderBullet(window.DrawList, bb.Min + ImVec2(style.FramePadding.x + g.FontSize * 0.5, g.FontSize * 0.5), text_col)
+    ImGui.RenderText(bb.Min + ImVec2(g.FontSize + style.FramePadding.x * 2, 0.0), text, text_end, false)
+end
+
 ----------------------------------------------------------------
 -- [SECTION] MAIN: BUTTONS, SCROLLBARS, ...
 ----------------------------------------------------------------
@@ -1147,6 +1177,28 @@ function ImGui.ProgressBar(fraction, size_arg, overlay)
             ImGui.RenderTextClipped(ImVec2(ImClamp(text_x, bb.Min.x, bb.Max.x - overlay_size.x - style.ItemInnerSpacing.x), bb.Min.y), bb.Max, overlay, nil, overlay_size, ImVec2(0.0, 0.5), bb)
         end
     end
+end
+
+function ImGui.Bullet()
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local style = g.Style
+    local line_height = ImMax(ImMin(window.DC.CurrLineSize.y, g.FontSize + style.FramePadding.y * 2), g.FontSize)
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(g.FontSize, line_height))
+    ImGui.ItemSizeR(bb)
+    if not ImGui.ItemAdd(bb, 0) then
+        ImGui.SameLine(0, style.FramePadding.x * 2)
+        return
+    end
+
+    -- Render and stay on same line
+    local text_col = ImGui.GetColorU32(ImGuiCol.Text)
+    ImGui.RenderBullet(window.DrawList, bb.Min + ImVec2(style.FramePadding.x + g.FontSize * 0.5, line_height * 0.5), text_col)
+    ImGui.SameLine(0, style.FramePadding.x * 2.0)
 end
 
 --- @param label string

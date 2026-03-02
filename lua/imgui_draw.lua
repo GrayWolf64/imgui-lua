@@ -4350,6 +4350,15 @@ end
 --- @param draw_list ImDrawList
 --- @param pos       ImVec2
 --- @param col       ImU32
+function ImGui.RenderBullet(draw_list, pos, col)
+    -- FIXME-OPT: This should be baked in font now that it's easier
+    local font_size = draw_list._Data.FontSize
+    draw_list:AddCircleFilled(pos, font_size * 0.20, col, (font_size < 22) and 8 or ((font_size < 40) and 12 or 0)) -- Hardcode optimal/nice tessellation threshold
+end
+
+--- @param draw_list ImDrawList
+--- @param pos       ImVec2
+--- @param col       ImU32
 --- @param sz        float
 function ImGui.RenderCheckMark(draw_list, pos, col, sz)
     local thickness = ImMax(sz / 5.0, 1.0)

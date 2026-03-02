@@ -961,8 +961,8 @@ function ImGui.ItemSize(size, text_baseline_y)
     end
 end
 
---- @param bb              ImRect
---- @param text_baseline_y float
+--- @param bb               ImRect
+--- @param text_baseline_y? float
 function ImGui.ItemSizeR(bb, text_baseline_y)
     ImGui.ItemSize(bb:GetSize(), text_baseline_y)
 end
