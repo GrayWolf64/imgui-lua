@@ -311,6 +311,9 @@ function ImGui.WindowRectAbsToRel(window, r) local off = window.DC.CursorStartPo
 --- @return bool # True if this character is a ' ' or '\t'
 function ImCharIsBlankA(c) return c == 32 or c == 9 end
 
+--- @param c char
+function ImCharIsBlankW(c) return c == 32 or c == 9 or c == 0x3000 end
+
 --- @enum ImGuiNavLayer
 ImGuiNavLayer = {
     Main  = 0,

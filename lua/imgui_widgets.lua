@@ -2510,6 +2510,73 @@ function ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
     return p
 end
 
+local ImCharIsSeparatorW do
+
+local separator_list = {
+    44, 0x3001, 46, 0x3002, 59, 0xFF1B, 40, 0xFF08, 41, 0xFF09, 123, 0xFF5B, 125, 0xFF5D,
+    91, 0x300C, 93, 0x300D, 124, 0xFF5C, 33, 0xFF01, 92, 0xFFE5, 47, 0x30FB, 0xFF0F,
+    10, 13
+}
+
+--- @param c unsigned_int
+function ImCharIsSeparatorW(c)
+    for i = 1, #separator_list do
+        if c == separator_list[i] then
+            return true
+        end
+    end
+    return false
+end
+
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+function ImStb.is_word_boundary_from_right(obj, idx)
+    -- When ImGuiInputTextFlags_Password is set, we don't want actions such as Ctrl+Arrow to leak the fact that underlying data are blanks or separators
+    if bit.band(obj.Flags, ImGuiInputTextFlags.Password) ~= 0 or idx <= 1 then
+        return false
+    end
+
+    local prev = ImText.FindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
+    local _, curr_c = ImText.CharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
+    local _, prev_c = ImText.CharFromUtf8(obj.TextSrc, prev, obj.TextLen + 1)
+
+    local prev_white = ImCharIsBlankW(prev_c)
+    local prev_separ = ImCharIsSeparatorW(prev_c)
+    local curr_white = ImCharIsBlankW(curr_c)
+    local curr_separ = ImCharIsSeparatorW(curr_c)
+    return ((prev_white or prev_separ) and not (curr_separ or curr_white)) or (curr_separ and not prev_separ)
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+function ImStb.is_word_boundary_from_left(obj, idx)
+    if bit.band(obj.Flags, ImGuiInputTextFlags.Password) ~= 0 or idx <= 1 then
+        return false
+    end
+
+    local prev = ImText.FindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
+    local _, prev_c = ImText.CharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
+    local _, curr_c = ImText.CharFromUtf8(obj.TextSrc, prev, obj.TextLen + 1)
+
+    local prev_white = ImCharIsBlankW(prev_c)
+    local prev_separ = ImCharIsSeparatorW(prev_c)
+    local curr_white = ImCharIsBlankW(curr_c)
+    local curr_separ = ImCharIsSeparatorW(curr_c)
+    return (prev_white and not (curr_separ or curr_white)) or (curr_separ and not prev_separ)
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+function ImStb.TEXTEDIT_MOVEWORDLEFT_IMPL(obj, idx)
+    idx = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+    while idx >= 1 and not ImStb.is_word_boundary_from_right(obj, idx) do
+        idx = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+    end
+    return (idx < 1) and 1 or idx
+end
+
 -- Edit a string of text
 --- @param label              string
 --- @param hint               string
