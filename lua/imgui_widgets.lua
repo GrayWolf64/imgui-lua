@@ -545,7 +545,7 @@ function ImGui.ButtonEx(label, size_arg, flags)
     ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, nil, label_size, style.ButtonTextAlign, bb)
 
     -- Automatically close popups
-    --if (pressed && !(flags & ImGuiButtonFlags_DontClosePopups) && (window->Flags & ImGuiWindowFlags_Popup))
+    --if (pressed && !(flags & ImGuiButtonFlags_DontClosePopups) && (window->Flags & ImGuiWindowFlags.Popup))
     --    CloseCurrentPopup();
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags);
@@ -738,7 +738,7 @@ function ImGui.GetWindowScrollbarRect(window, axis)
     IM_ASSERT(scrollbar_size >= 0.0)
 
     local border_size = IM_ROUND(window.WindowBorderSize * 0.5)
-    local border_top = (bit.band(window.Flags, ImGuiWindowFlags_MenuBar) ~= 0) and IM_ROUND(g.Style.FrameBorderSize * 0.5) or 0.0
+    local border_top = (bit.band(window.Flags, ImGuiWindowFlags.MenuBar) ~= 0) and IM_ROUND(g.Style.FrameBorderSize * 0.5) or 0.0
 
     if axis == ImGuiAxis.X then
         return ImRect(inner_rect.Min.x + border_size, ImMax(outer_rect.Min.y + border_size, outer_rect.Max.y - border_size - scrollbar_size), inner_rect.Max.x - border_size, outer_rect.Max.y - border_size)
@@ -1528,13 +1528,13 @@ function ImGui.BeginCombo(label, preview_value, flags)
 
     local style = g.Style
     local id = window:GetID(label)
-    IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags_NoArrowButton, ImGuiComboFlags_NoPreview)) ~= bit.bor(ImGuiComboFlags_NoArrowButton, ImGuiComboFlags_NoPreview)) -- Can't use both flags together
-    if bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0 then
-        IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags_NoPreview, ImGuiComboFlags_CustomPreview)) == 0)
+    IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags.NoArrowButton, ImGuiComboFlags.NoPreview)) ~= bit.bor(ImGuiComboFlags.NoArrowButton, ImGuiComboFlags.NoPreview)) -- Can't use both flags together
+    if bit.band(flags, ImGuiComboFlags.WidthFitPreview) ~= 0 then
+        IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags.NoPreview, ImGuiComboFlags.CustomPreview)) == 0)
     end
 
     local arrow_size
-    if (bit.band(flags, ImGuiComboFlags_NoArrowButton) ~= 0) then
+    if (bit.band(flags, ImGuiComboFlags.NoArrowButton) ~= 0) then
         arrow_size = 0.0
     else
         arrow_size = ImGui.GetFrameHeight()
@@ -1543,16 +1543,16 @@ function ImGui.BeginCombo(label, preview_value, flags)
     local label_size = ImGui.CalcTextSize(label, nil, true)
 
     local preview_width
-    if ((bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0) and (preview_value ~= nil)) then
+    if ((bit.band(flags, ImGuiComboFlags.WidthFitPreview) ~= 0) and (preview_value ~= nil)) then
         preview_width = ImGui.CalcTextSize(preview_value, nil, true).x
     else
         preview_width = 0.0
     end
 
     local w
-    if bit.band(flags, ImGuiComboFlags_NoPreview) ~= 0 then
+    if bit.band(flags, ImGuiComboFlags.NoPreview) ~= 0 then
         w = arrow_size
-    elseif bit.band(flags, ImGuiComboFlags_WidthFitPreview) ~= 0 then
+    elseif bit.band(flags, ImGuiComboFlags.WidthFitPreview) ~= 0 then
         w = arrow_size + preview_width + style.FramePadding.x * 2.0
     else
         w = ImGui.CalcItemWidth()
@@ -1581,15 +1581,15 @@ function ImGui.BeginCombo(label, preview_value, flags)
 
     ImGui.RenderNavCursor(bb, id)
 
-    if bit.band(flags, ImGuiComboFlags_NoPreview) == 0 then
-        window.DrawList:AddRectFilled(bb.Min, ImVec2(value_x2, bb.Max.y), frame_col, style.FrameRounding, (bit.band(flags, ImGuiComboFlags_NoArrowButton) ~= 0) and ImDrawFlags_RoundCornersAll or ImDrawFlags_RoundCornersLeft)
+    if bit.band(flags, ImGuiComboFlags.NoPreview) == 0 then
+        window.DrawList:AddRectFilled(bb.Min, ImVec2(value_x2, bb.Max.y), frame_col, style.FrameRounding, (bit.band(flags, ImGuiComboFlags.NoArrowButton) ~= 0) and ImDrawFlags.RoundCornersAll or ImDrawFlags.RoundCornersLeft)
     end
 
-    if bit.band(flags, ImGuiComboFlags_NoArrowButton) == 0 then
+    if bit.band(flags, ImGuiComboFlags.NoArrowButton) == 0 then
         local bg_col = ImGui.GetColorU32((popup_open or hovered) and ImGuiCol.ButtonHovered or ImGuiCol.Button)
         local text_col = ImGui.GetColorU32(ImGuiCol.Text)
 
-        window.DrawList:AddRectFilled(ImVec2(value_x2, bb.Min.y), bb.Max, bg_col, style.FrameRounding, (w <= arrow_size) and ImDrawFlags_RoundCornersAll or ImDrawFlags_RoundCornersRight)
+        window.DrawList:AddRectFilled(ImVec2(value_x2, bb.Min.y), bb.Max, bg_col, style.FrameRounding, (w <= arrow_size) and ImDrawFlags.RoundCornersAll or ImDrawFlags.RoundCornersRight)
 
         if value_x2 + arrow_size - style.FramePadding.x <= bb.Max.x then
             ImGui.RenderArrow(window.DrawList, ImVec2(value_x2 + style.FramePadding.y, bb.Min.y + style.FramePadding.y), text_col, ImGuiDir.Down, 1.0)
@@ -1599,14 +1599,14 @@ function ImGui.BeginCombo(label, preview_value, flags)
     ImGui.RenderFrameBorder(bb.Min, bb.Max, style.FrameRounding)
 
     -- Custom preview
-    if bit.band(flags, ImGuiComboFlags_CustomPreview) ~= 0 then
+    if bit.band(flags, ImGuiComboFlags.CustomPreview) ~= 0 then
         g.ComboPreviewData.PreviewRect = ImRect(bb.Min.x, bb.Min.y, value_x2, bb.Max.y)
         IM_ASSERT(preview_value == nil or preview_value == "")
         preview_value = nil
     end
 
     -- Render preview and label
-    if preview_value ~= nil and bit.band(flags, ImGuiComboFlags_NoPreview) == 0 then
+    if preview_value ~= nil and bit.band(flags, ImGuiComboFlags.NoPreview) == 0 then
         if g.LogEnabled then
             ImGui.LogSetNextTextDecoration("{", "}")
         end
@@ -1636,27 +1636,27 @@ function ImGui.BeginComboPopup(popup_id, bb, flags)
     end
 
     local w = bb:GetWidth()
-    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSizeConstraint) ~= 0 then
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasSizeConstraint) ~= 0 then
         g.NextWindowData.SizeConstraintRect.Min.x = ImMax(g.NextWindowData.SizeConstraintRect.Min.x, w)
     else
-        if bit.band(flags, ImGuiComboFlags_HeightMask_) == 0 then
-            flags = bit.bor(flags, ImGuiComboFlags_HeightRegular)
+        if bit.band(flags, ImGuiComboFlags.HeightMask_) == 0 then
+            flags = bit.bor(flags, ImGuiComboFlags.HeightRegular)
         end
-        IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiComboFlags_HeightMask_)))
+        IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiComboFlags.HeightMask_)))
         local popup_max_height_in_items = -1
-        if bit.band(flags, ImGuiComboFlags_HeightRegular) ~= 0 then
+        if bit.band(flags, ImGuiComboFlags.HeightRegular) ~= 0 then
             popup_max_height_in_items = 8
-        elseif bit.band(flags, ImGuiComboFlags_HeightSmall) ~= 0 then
+        elseif bit.band(flags, ImGuiComboFlags.HeightSmall) ~= 0 then
             popup_max_height_in_items = 4
-        elseif bit.band(flags, ImGuiComboFlags_HeightLarge) ~= 0 then
+        elseif bit.band(flags, ImGuiComboFlags.HeightLarge) ~= 0 then
             popup_max_height_in_items = 20
         end
         local constraint_min = ImVec2(0.0, 0.0)
         local constraint_max = ImVec2(FLT_MAX, FLT_MAX)
-        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize) == 0 or g.NextWindowData.SizeVal.x <= 0.0 then
+        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasSize) == 0 or g.NextWindowData.SizeVal.x <= 0.0 then
             constraint_min.x = w
         end
-        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags_HasSize) == 0 or g.NextWindowData.SizeVal.y <= 0.0 then
+        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasSize) == 0 or g.NextWindowData.SizeVal.y <= 0.0 then
             constraint_max.y = CalcMaxPopupHeightFromItemCount(popup_max_height_in_items)
         end
         ImGui.SetNextWindowSizeConstraints(constraint_min, constraint_max)
@@ -1673,7 +1673,7 @@ function ImGui.BeginComboPopup(popup_id, bb, flags)
         if popup_window.WasActive then
             -- Always override 'AutoPosLastDirection' to not leave a chance for a past value to affect us.
             local size_expected = ImGui.CalcWindowNextAutoFitSize(popup_window)
-            popup_window.AutoPosLastDirection = (bit.band(flags, ImGuiComboFlags_PopupAlignLeft) ~= 0) and ImGuiDir.Left or ImGuiDir.Down
+            popup_window.AutoPosLastDirection = (bit.band(flags, ImGuiComboFlags.PopupAlignLeft) ~= 0) and ImGuiDir.Left or ImGuiDir.Down
             local r_outer = ImGui.GetPopupAllowedExtentRect(popup_window)
             local pos
             pos, popup_window.AutoPosLastDirection = ImGui.FindBestWindowPosForPopupEx(bb:GetBL(), size_expected, popup_window.AutoPosLastDirection, r_outer, bb, ImGuiPopupPositionPolicy.ComboBox)
@@ -1682,7 +1682,7 @@ function ImGui.BeginComboPopup(popup_id, bb, flags)
     end
 
     -- We don't use BeginPopupEx() solely because we have a custom name string, which we could make an argument to BeginPopupEx()
-    local window_flags = bit.bor(ImGuiWindowFlags_AlwaysAutoResize, ImGuiWindowFlags_Popup, ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoSavedSettings, ImGuiWindowFlags_NoMove)
+    local window_flags = bit.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.Popup, ImGuiWindowFlags.NoTitleBar, ImGuiWindowFlags.NoResize, ImGuiWindowFlags.NoSavedSettings, ImGuiWindowFlags.NoMove)
     ImGui.PushStyleVarX(ImGuiStyleVar.WindowPadding, g.Style.FramePadding.x) -- Horizontally align ourselves with the framed text
     local _, ret = ImGui.Begin(name, nil, window_flags)
     ImGui.PopStyleVar()
@@ -1724,7 +1724,7 @@ function ImGui.BeginComboPreview()
         return false
     end
 
-    IM_ASSERT(g.LastItemData.Rect.Min.x == preview_data.PreviewRect.Min.x and g.LastItemData.Rect.Min.y == preview_data.PreviewRect.Min.y) -- Didn't call after BeginCombo/EndCombo block or forgot to pass ImGuiComboFlags_CustomPreview flag?
+    IM_ASSERT(g.LastItemData.Rect.Min.x == preview_data.PreviewRect.Min.x and g.LastItemData.Rect.Min.y == preview_data.PreviewRect.Min.y) -- Didn't call after BeginCombo/EndCombo block or forgot to pass ImGuiComboFlags.CustomPreview flag?
 
     if not window.ClipRect:Overlaps(preview_data.PreviewRect) then -- Narrower test (optional)
         return false
@@ -3070,14 +3070,14 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
 
             local cos_hue_angle = ImCos(-H * 2.0 * IM_PI)
             local sin_hue_angle = ImSin(-H * 2.0 * IM_PI)
-            if ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, ImRotate(initial_off, cos_hue_angle, sin_hue_angle)) then
+            if ImStd.ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, ImRotate(initial_off, cos_hue_angle, sin_hue_angle)) then
                 -- Interacting with SV triangle
                 local current_off_unrotated = ImRotate(current_off, cos_hue_angle, sin_hue_angle)
-                if not ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated) then
+                if not ImStd.ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated) then
                     current_off_unrotated = ImTriangleClosestPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
                 end
                 local uu, vv, ww
-                uu, vv, ww = ImTriangleBarycentricCoords(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
+                uu, vv, ww = ImStd.ImTriangleBarycentricCoords(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
                 V = ImClamp(1.0 - vv, 0.0001, 1.0)
                 S = ImClamp(uu / V, 0.0001, 1.0)
                 value_changed = true
@@ -3415,11 +3415,11 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
     if bit.band(flags, ImGuiColorEditFlags.AlphaPreviewHalf) ~= 0 and col_rgb.w < 1.0 then
         local mid_x = IM_ROUND((bb_inner.Min.x + bb_inner.Max.x) * 0.5)
         if bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
-            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32(col_rgb), grid_step, ImVec2(-grid_step + off, off), rounding, ImDrawFlags_RoundCornersRight)
+            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32(col_rgb), grid_step, ImVec2(-grid_step + off, off), rounding, ImDrawFlags.RoundCornersRight)
         else
-            window.DrawList:AddRectFilled(ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32(col_rgb), rounding, ImDrawFlags_RoundCornersRight)
+            window.DrawList:AddRectFilled(ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32(col_rgb), rounding, ImDrawFlags.RoundCornersRight)
         end
-        window.DrawList:AddRectFilled(bb_inner.Min, ImVec2(mid_x, bb_inner.Max.y), ImGui.GetColorU32(col_rgb_without_alpha), rounding, ImDrawFlags_RoundCornersLeft)
+        window.DrawList:AddRectFilled(bb_inner.Min, ImVec2(mid_x, bb_inner.Max.y), ImGui.GetColorU32(col_rgb_without_alpha), rounding, ImDrawFlags.RoundCornersLeft)
     else
         local col_source = (bit.band(flags, ImGuiColorEditFlags.AlphaOpaque) ~= 0) and col_rgb_without_alpha or col_rgb
         if col_source.w < 1.0 and bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
@@ -3463,7 +3463,7 @@ end
 function ImGui.ColorTooltip(text, col, flags)
     local g = ImGui.GetCurrentContext()
 
-    if not ImGui.BeginTooltipEx(ImGuiTooltipFlags.OverridePrevious, ImGuiWindowFlags_None) then
+    if not ImGui.BeginTooltipEx(ImGuiTooltipFlags.OverridePrevious, ImGuiWindowFlags.None) then
         return
     end
 
@@ -3838,7 +3838,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     end
 
     -- Automatically close popups
-    if pressed and not auto_selected and bit.band(window.Flags, ImGuiWindowFlags_Popup) ~= 0 and bit.band(flags, ImGuiSelectableFlags.NoAutoClosePopups) == 0 and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AutoClosePopups) ~= 0 then
+    if pressed and not auto_selected and bit.band(window.Flags, ImGuiWindowFlags.Popup) ~= 0 and bit.band(flags, ImGuiSelectableFlags.NoAutoClosePopups) == 0 and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AutoClosePopups) ~= 0 then
         ImGui.CloseCurrentPopup()
     end
 
@@ -4060,14 +4060,14 @@ end
 
 -- FIXME: Provided a rectangle perhaps e.g. a BeginMenuBarEx() could be used anywhere..
 -- Currently the main responsibility of this function being to setup clip-rect + horizontal layout + menu navigation layer.
--- Ideally we also want this to be responsible for claiming space out of the main window scrolling rectangle, in which case ImGuiWindowFlags_MenuBar will become unnecessary.
+-- Ideally we also want this to be responsible for claiming space out of the main window scrolling rectangle, in which case ImGuiWindowFlags.MenuBar will become unnecessary.
 -- Then later the same system could be used for multiple menu-bars, scrollbars, side-bars.
 function ImGui.BeginMenuBar()
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return false
     end
-    if bit.band(window.Flags, ImGuiWindowFlags_MenuBar) == 0 then
+    if bit.band(window.Flags, ImGuiWindowFlags.MenuBar) == 0 then
         return false
     end
 
@@ -4103,11 +4103,11 @@ function ImGui.EndMenuBar()
     end
     local g = ImGui.GetCurrentContext()
 
-    IM_ASSERT(bit.band(window.Flags, ImGuiWindowFlags_MenuBar) ~= 0)
+    IM_ASSERT(bit.band(window.Flags, ImGuiWindowFlags.MenuBar) ~= 0)
     IM_ASSERT(window.DC.MenuBarAppending)
 
     -- Nav: When a move request within one of our child menu failed, capture the request to navigate among our siblings
-    if ImGui.NavMoveRequestButNoResultYet() and (g.NavMoveDir == ImGuiDir.Left or g.NavMoveDir == ImGuiDir.Right) and bit.band(g.NavWindow.Flags, ImGuiWindowFlags_ChildMenu) ~= 0 then
+    if ImGui.NavMoveRequestButNoResultYet() and (g.NavMoveDir == ImGuiDir.Left or g.NavMoveDir == ImGuiDir.Right) and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.ChildMenu) ~= 0 then
         -- TODO:
     else
 

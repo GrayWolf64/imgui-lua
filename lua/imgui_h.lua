@@ -1149,37 +1149,41 @@ ImGuiMouseButton = {
     COUNT  = 5
 }
 
---- @alias ImGuiWindowFlags integer
-ImGuiWindowFlags_None                      = 0
-ImGuiWindowFlags_NoTitleBar                = bit.lshift(1, 0)
-ImGuiWindowFlags_NoResize                  = bit.lshift(1, 1)
-ImGuiWindowFlags_NoMove                    = bit.lshift(1, 2)
-ImGuiWindowFlags_NoScrollbar               = bit.lshift(1, 3)
-ImGuiWindowFlags_NoScrollWithMouse         = bit.lshift(1, 4)
-ImGuiWindowFlags_NoCollapse                = bit.lshift(1, 5)
-ImGuiWindowFlags_AlwaysAutoResize          = bit.lshift(1, 6)
-ImGuiWindowFlags_NoBackground              = bit.lshift(1, 7)
-ImGuiWindowFlags_NoSavedSettings           = bit.lshift(1, 8)
-ImGuiWindowFlags_NoMouseInputs             = bit.lshift(1, 9)
-ImGuiWindowFlags_MenuBar                   = bit.lshift(1, 10)
-ImGuiWindowFlags_HorizontalScrollbar       = bit.lshift(1, 11)
-ImGuiWindowFlags_NoFocusOnAppearing        = bit.lshift(1, 12)
-ImGuiWindowFlags_NoBringToFrontOnFocus     = bit.lshift(1, 13)
-ImGuiWindowFlags_AlwaysVerticalScrollbar   = bit.lshift(1, 14)
-ImGuiWindowFlags_AlwaysHorizontalScrollbar = bit.lshift(1, 15)
-ImGuiWindowFlags_NoNavInputs               = bit.lshift(1, 16)
-ImGuiWindowFlags_NoNavFocus                = bit.lshift(1, 17)
-ImGuiWindowFlags_UnsavedDocument           = bit.lshift(1, 18)
-ImGuiWindowFlags_NoDocking                 = bit.lshift(1, 19)
-ImGuiWindowFlags_DockNodeHost              = bit.lshift(1, 23)
-ImGuiWindowFlags_ChildWindow               = bit.lshift(1, 24)
-ImGuiWindowFlags_Tooltip                   = bit.lshift(1, 25)
-ImGuiWindowFlags_Popup                     = bit.lshift(1, 26)
-ImGuiWindowFlags_Modal                     = bit.lshift(1, 27)
-ImGuiWindowFlags_ChildMenu                 = bit.lshift(1, 28)
-ImGuiWindowFlags_NoNav                     = bit.bor(ImGuiWindowFlags_NoNavInputs, ImGuiWindowFlags_NoNavFocus)
-ImGuiWindowFlags_NoDecoration              = bit.bor(ImGuiWindowFlags_NoTitleBar, ImGuiWindowFlags_NoResize, ImGuiWindowFlags_NoScrollbar, ImGuiWindowFlags_NoCollapse)
-ImGuiWindowFlags_NoInputs                  = bit.bor(ImGuiWindowFlags_NoMouseInputs, ImGuiWindowFlags_NoNavInputs, ImGuiWindowFlags_NoNavFocus)
+--- @enum ImGuiWindowFlags
+ImGuiWindowFlags = {
+    None                      = 0,
+    NoTitleBar                = bit.lshift(1, 0),
+    NoResize                  = bit.lshift(1, 1),
+    NoMove                    = bit.lshift(1, 2),
+    NoScrollbar               = bit.lshift(1, 3),
+    NoScrollWithMouse         = bit.lshift(1, 4),
+    NoCollapse                = bit.lshift(1, 5),
+    AlwaysAutoResize          = bit.lshift(1, 6),
+    NoBackground              = bit.lshift(1, 7),
+    NoSavedSettings           = bit.lshift(1, 8),
+    NoMouseInputs             = bit.lshift(1, 9),
+    MenuBar                   = bit.lshift(1, 10),
+    HorizontalScrollbar       = bit.lshift(1, 11),
+    NoFocusOnAppearing        = bit.lshift(1, 12),
+    NoBringToFrontOnFocus     = bit.lshift(1, 13),
+    AlwaysVerticalScrollbar   = bit.lshift(1, 14),
+    AlwaysHorizontalScrollbar = bit.lshift(1, 15),
+    NoNavInputs               = bit.lshift(1, 16),
+    NoNavFocus                = bit.lshift(1, 17),
+    UnsavedDocument           = bit.lshift(1, 18),
+    NoDocking                 = bit.lshift(1, 19),
+    DockNodeHost              = bit.lshift(1, 23),
+    ChildWindow               = bit.lshift(1, 24),
+    Tooltip                   = bit.lshift(1, 25),
+    Popup                     = bit.lshift(1, 26),
+    Modal                     = bit.lshift(1, 27),
+    ChildMenu                 = bit.lshift(1, 28)
+}
+
+-- [Internal]
+ImGuiWindowFlags.NoNav        = bit.bor(ImGuiWindowFlags.NoNavInputs, ImGuiWindowFlags.NoNavFocus)
+ImGuiWindowFlags.NoDecoration = bit.bor(ImGuiWindowFlags.NoTitleBar, ImGuiWindowFlags.NoResize, ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoCollapse)
+ImGuiWindowFlags.NoInputs     = bit.bor(ImGuiWindowFlags.NoMouseInputs, ImGuiWindowFlags.NoNavInputs, ImGuiWindowFlags.NoNavFocus)
 
 --- @alias ImGuiItemFlags integer
 ImGuiItemFlags_None              = 0
@@ -1207,15 +1211,18 @@ ImGuiItemStatusFlags = {
     HasShortcut      = bit.lshift(1, 10) -- g.LastItemData.Shortcut valid. Set by SetNextItemShortcut() -> ItemAdd()
 }
 
---- @alias ImGuiChildFlags integer
-ImGuiChildFlags_None                   = 0
-ImGuiChildFlags_ResizeX                = bit.lshift(1, 0)
-ImGuiChildFlags_ResizeY                = bit.lshift(1, 1)
-ImGuiChildFlags_ResizeBoth             = bit.bor(ImGuiChildFlags_ResizeX, ImGuiChildFlags_ResizeY)
-ImGuiChildFlags_Border                 = bit.lshift(1, 5)
-ImGuiChildFlags_AlwaysUseWindowPadding = bit.lshift(1, 6)
-ImGuiChildFlags_ResizeXAndY            = ImGuiChildFlags_ResizeBoth
-ImGuiChildFlags_NavFlattened           = bit.lshift(1, 7)
+--- @enum ImGuiChildFlags
+ImGuiChildFlags = {
+    None                   = 0,
+    ResizeX                = bit.lshift(1, 0),
+    ResizeY                = bit.lshift(1, 1),
+    Border                 = bit.lshift(1, 5),
+    AlwaysUseWindowPadding = bit.lshift(1, 6),
+    NavFlattened           = bit.lshift(1, 7)
+}
+
+ImGuiChildFlags.ResizeBoth = bit.bor(ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY)
+ImGuiChildFlags.ResizeXAndY = ImGuiChildFlags.ResizeBoth
 
 --- @enum ImGuiNextItemDataFlags
 ImGuiNextItemDataFlags = {
@@ -1228,21 +1235,24 @@ ImGuiNextItemDataFlags = {
     HasColorMarker = bit.lshift(1, 5)
 }
 
---- @alias ImDrawFlags integer
-ImDrawFlags_None                    = 0
-ImDrawFlags_Closed                  = bit.lshift(1, 0)
-ImDrawFlags_RoundCornersTopLeft     = bit.lshift(1, 4)
-ImDrawFlags_RoundCornersTopRight    = bit.lshift(1, 5)
-ImDrawFlags_RoundCornersBottomLeft  = bit.lshift(1, 6)
-ImDrawFlags_RoundCornersBottomRight = bit.lshift(1, 7)
-ImDrawFlags_RoundCornersNone        = bit.lshift(1, 8)
-ImDrawFlags_RoundCornersTop         = bit.bor(ImDrawFlags_RoundCornersTopLeft, ImDrawFlags_RoundCornersTopRight)
-ImDrawFlags_RoundCornersBottom      = bit.bor(ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersBottomRight)
-ImDrawFlags_RoundCornersLeft        = bit.bor(ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersTopLeft)
-ImDrawFlags_RoundCornersRight       = bit.bor(ImDrawFlags_RoundCornersBottomRight, ImDrawFlags_RoundCornersTopRight)
-ImDrawFlags_RoundCornersAll         = bit.bor(ImDrawFlags_RoundCornersTopLeft, ImDrawFlags_RoundCornersTopRight, ImDrawFlags_RoundCornersBottomLeft, ImDrawFlags_RoundCornersBottomRight)
-ImDrawFlags_RoundCornersMask_       = bit.bor(ImDrawFlags_RoundCornersAll, ImDrawFlags_RoundCornersNone)
-ImDrawFlags_RoundCornersDefault_    = ImDrawFlags_RoundCornersAll
+--- @enum ImDrawFlags
+ImDrawFlags = {
+    None                    = 0,
+    Closed                  = bit.lshift(1, 0),
+    RoundCornersTopLeft     = bit.lshift(1, 4),
+    RoundCornersTopRight    = bit.lshift(1, 5),
+    RoundCornersBottomLeft  = bit.lshift(1, 6),
+    RoundCornersBottomRight = bit.lshift(1, 7),
+    RoundCornersNone        = bit.lshift(1, 8)
+}
+
+ImDrawFlags.RoundCornersTop         = bit.bor(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight)
+ImDrawFlags.RoundCornersBottom      = bit.bor(ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersBottomRight)
+ImDrawFlags.RoundCornersLeft        = bit.bor(ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersTopLeft)
+ImDrawFlags.RoundCornersRight       = bit.bor(ImDrawFlags.RoundCornersBottomRight, ImDrawFlags.RoundCornersTopRight)
+ImDrawFlags.RoundCornersAll         = bit.bor(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight, ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersBottomRight)
+ImDrawFlags.RoundCornersMask_       = bit.bor(ImDrawFlags.RoundCornersAll, ImDrawFlags.RoundCornersNone)
+ImDrawFlags.RoundCornersDefault_    = ImDrawFlags.RoundCornersAll
 
 --- @enum ImDrawListFlags
 ImDrawListFlags = {
@@ -1687,20 +1697,21 @@ ImGuiPopupFlags_MouseButtonShift_ = 2
 ImGuiPopupFlags_MouseButtonMask_  = 0x0C
 ImGuiPopupFlags_InvalidMask_      = 0x03
 
---- @alias ImGuiComboFlags int
-ImGuiComboFlags_None            = 0
-ImGuiComboFlags_PopupAlignLeft  = bit.lshift(1, 0)
-ImGuiComboFlags_HeightSmall     = bit.lshift(1, 1)
-ImGuiComboFlags_HeightRegular   = bit.lshift(1, 2)
-ImGuiComboFlags_HeightLarge     = bit.lshift(1, 3)
-ImGuiComboFlags_HeightLargest   = bit.lshift(1, 4)
-ImGuiComboFlags_NoArrowButton   = bit.lshift(1, 5)
-ImGuiComboFlags_NoPreview       = bit.lshift(1, 6)
-ImGuiComboFlags_WidthFitPreview = bit.lshift(1, 7)
+--- @enum ImGuiComboFlags
+ImGuiComboFlags = {
+    None            = 0,
+    PopupAlignLeft  = bit.lshift(1, 0), -- Align the popup toward the left by default
+    HeightSmall     = bit.lshift(1, 1), -- Max ~4 items visible. Tip: If you want your combo popup to be a specific size you can use SetNextWindowSizeConstraints() prior to calling BeginCombo()
+    HeightRegular   = bit.lshift(1, 2), -- Max ~8 items visible (default)
+    HeightLarge     = bit.lshift(1, 3), -- Max ~20 items visible
+    HeightLargest   = bit.lshift(1, 4), -- As many fitting items as possible
+    NoArrowButton   = bit.lshift(1, 5), -- Display on the preview box without the square arrow button
+    NoPreview       = bit.lshift(1, 6), -- Display only a square arrow button
+    WidthFitPreview = bit.lshift(1, 7), -- Width dynamically calculated from preview contents
+}
 
-ImGuiComboFlags_HeightMask_ = bit.bor(ImGuiComboFlags_HeightSmall, ImGuiComboFlags_HeightRegular, ImGuiComboFlags_HeightLarge, ImGuiComboFlags_HeightLargest)
-
-ImGuiComboFlags_CustomPreview = bit.lshift(1, 20)
+ImGuiComboFlags.HeightMask_ = bit.bor(ImGuiComboFlags.HeightSmall, ImGuiComboFlags.HeightRegular, ImGuiComboFlags.HeightLarge, ImGuiComboFlags.HeightLargest)
+ImGuiComboFlags.CustomPreview = bit.lshift(1, 20)
 
 --- @enum ImGuiSelectableFlags
 ImGuiSelectableFlags = {

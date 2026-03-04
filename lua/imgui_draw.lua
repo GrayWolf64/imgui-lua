@@ -3388,7 +3388,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         return
     end
 
-    local closed = bit.band(flags, ImDrawFlags_Closed) ~= 0
+    local closed = bit.band(flags, ImDrawFlags.Closed) ~= 0
     local opaque_uv = self._Data.TexUvWhitePixel
     local count = closed and points_count or points_count - 1  -- Number of line segments
     local thick_line = thickness > self._FringeScale
@@ -3700,8 +3700,8 @@ end
 local function FixRectCornerFlags(flags)
     IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
 
-    if (bit.band(flags, ImDrawFlags_RoundCornersMask_) == 0) then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersAll)
+    if (bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0) then
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersAll)
     end
 
     return flags
@@ -3713,19 +3713,19 @@ function MT.ImDrawList:PathRect(a, b, rounding, flags)
 
     if rounding >= 0.5 then
         flags = FixRectCornerFlags(flags)
-        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags_RoundCornersTop) == ImDrawFlags_RoundCornersTop) or (bit.band(flags, ImDrawFlags_RoundCornersBottom) == ImDrawFlags_RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
-        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags_RoundCornersLeft) == ImDrawFlags_RoundCornersLeft) or (bit.band(flags, ImDrawFlags_RoundCornersRight) == ImDrawFlags_RoundCornersRight)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags.RoundCornersTop) == ImDrawFlags.RoundCornersTop) or (bit.band(flags, ImDrawFlags.RoundCornersBottom) == ImDrawFlags.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags.RoundCornersLeft) == ImDrawFlags.RoundCornersLeft) or (bit.band(flags, ImDrawFlags.RoundCornersRight) == ImDrawFlags.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
     end
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask_) == ImDrawFlags_RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone) then
         self:PathLineTo(a)
         self:PathLineTo(ImVec2(b.x, a.y))
         self:PathLineTo(b)
         self:PathLineTo(ImVec2(a.x, b.y))
     else
-        local rounding_tl = (bit.band(flags, ImDrawFlags_RoundCornersTopLeft) ~= 0) and rounding or 0.0
-        local rounding_tr = (bit.band(flags, ImDrawFlags_RoundCornersTopRight) ~= 0) and rounding or 0.0
-        local rounding_br = (bit.band(flags, ImDrawFlags_RoundCornersBottomRight) ~= 0) and rounding or 0.0
-        local rounding_bl = (bit.band(flags, ImDrawFlags_RoundCornersBottomLeft) ~= 0) and rounding or 0.0
+        local rounding_tl = (bit.band(flags, ImDrawFlags.RoundCornersTopLeft) ~= 0) and rounding or 0.0
+        local rounding_tr = (bit.band(flags, ImDrawFlags.RoundCornersTopRight) ~= 0) and rounding or 0.0
+        local rounding_br = (bit.band(flags, ImDrawFlags.RoundCornersBottomRight) ~= 0) and rounding or 0.0
+        local rounding_bl = (bit.band(flags, ImDrawFlags.RoundCornersBottomLeft) ~= 0) and rounding or 0.0
         self:PathArcToFast(ImVec2(a.x + rounding_tl, a.y + rounding_tl), rounding_tl, 6, 9)
         self:PathArcToFast(ImVec2(b.x - rounding_tr, a.y + rounding_tr), rounding_tr, 9, 12)
         self:PathArcToFast(ImVec2(b.x - rounding_br, b.y - rounding_br), rounding_br, 0, 3)
@@ -3739,7 +3739,7 @@ function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
 
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask_) == ImDrawFlags_RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone) then
         self:PrimReserve(6, 4)
         self:PrimRect(p_min, p_max, col)
     else
@@ -3777,7 +3777,7 @@ function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
     end
 
-    self:PathStroke(col, ImDrawFlags_Closed, thickness)
+    self:PathStroke(col, ImDrawFlags.Closed, thickness)
 end
 
 function MT.ImDrawList:AddLine(p1, p2, col, thickness)
@@ -3796,7 +3796,7 @@ function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness)
     self:PathLineTo(p1)
     self:PathLineTo(p2)
     self:PathLineTo(p3)
-    self:PathStroke(col, ImDrawFlags_Closed, thickness)
+    self:PathStroke(col, ImDrawFlags.Closed, thickness)
 end
 
 function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
@@ -3834,7 +3834,7 @@ function MT.ImDrawList:AddCircle(center, radius, col, num_segments, thickness)
         self:PathArcTo(center, radius - 0.5, 0.0, a_max, num_segments - 1)
     end
 
-    self:PathStroke(col, ImDrawFlags_Closed, thickness)
+    self:PathStroke(col, ImDrawFlags.Closed, thickness)
 end
 
 --- @param center       ImVec2
@@ -4468,19 +4468,19 @@ function ImGui.CalcRoundingFlagsForRectInRect(r_in, r_outer, threshold)
     local round_t = r_in.Min.y <= r_outer.Min.y + threshold
     local round_b = r_in.Max.y >= r_outer.Max.y - threshold
 
-    local flags = ImDrawFlags_RoundCornersNone
+    local flags = ImDrawFlags.RoundCornersNone
 
     if round_t and round_l then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersTopLeft)
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersTopLeft)
     end
     if round_t and round_r then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersTopRight)
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersTopRight)
     end
     if round_b and round_l then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersBottomLeft)
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersBottomLeft)
     end
     if round_b and round_r then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersBottomRight)
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersBottomRight)
     end
 
     return flags
@@ -4502,8 +4502,8 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
     if rounding == nil then rounding = 0.0 end
     if flags    == nil then flags    = 0   end
 
-    if bit.band(flags, ImDrawFlags_RoundCornersMask_) == 0 then
-        flags = ImDrawFlags_RoundCornersDefault_
+    if bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0 then
+        flags = ImDrawFlags.RoundCornersDefault_
     end
 
     if bit.rshift(bit.band(col, IM_COL32_A_MASK), IM_COL32_A_SHIFT) < 0xFF then
@@ -4527,19 +4527,19 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
 
                     if x2 > x1 then
 
-                        local cell_flags = ImDrawFlags_RoundCornersNone
+                        local cell_flags = ImDrawFlags.RoundCornersNone
                         if y1 <= p_min.y then
-                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersTopLeft) end
-                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersTopRight) end
+                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopLeft) end
+                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopRight) end
                         end
                         if y2 >= p_max.y then
-                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersBottomLeft) end
-                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersBottomRight) end
+                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomLeft) end
+                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomRight) end
                         end
 
                         -- Combine flags
-                        if flags == ImDrawFlags_RoundCornersNone or cell_flags == ImDrawFlags_RoundCornersNone then
-                            cell_flags = ImDrawFlags_RoundCornersNone
+                        if flags == ImDrawFlags.RoundCornersNone or cell_flags == ImDrawFlags.RoundCornersNone then
+                            cell_flags = ImDrawFlags.RoundCornersNone
                         else
                             cell_flags = bit.band(cell_flags, flags)
                         end

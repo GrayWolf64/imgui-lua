@@ -130,7 +130,7 @@ function DemoWindowWidgetsColorAndPickers()
         end
     end
 
-    if ImGui.BeginCombo("Picker Mode", picker_mode_names[picker_mode + 1], ImGuiComboFlags_None) then
+    if ImGui.BeginCombo("Picker Mode", picker_mode_names[picker_mode + 1], ImGuiComboFlags.None) then
         for mode_idx, mode_name in ipairs(picker_mode_names) do
             local pressed = ImGui.Selectable(mode_name, mode_idx == picker_mode + 1)
             if pressed then
@@ -140,7 +140,7 @@ function DemoWindowWidgetsColorAndPickers()
         ImGui.EndCombo()
     end
 
-    if ImGui.BeginCombo("Display Mode", display_mode_names[display_mode + 1], ImGuiComboFlags_None) then
+    if ImGui.BeginCombo("Display Mode", display_mode_names[display_mode + 1], ImGuiComboFlags.None) then
         for mode_idx, mode_name in ipairs(display_mode_names) do
             local pressed = ImGui.Selectable(mode_name, mode_idx == display_mode + 1)
             if pressed then

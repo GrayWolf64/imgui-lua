@@ -800,7 +800,7 @@ MT.ImGuiNextWindowData = {}
 MT.ImGuiNextWindowData.__index = MT.ImGuiNextWindowData
 
 function MT.ImGuiNextWindowData:ClearFlags()
-    self.HasFlags = ImGuiNextWindowDataFlags_None
+    self.HasFlags = ImGuiNextWindowDataFlags.None
 end
 
 --- @return ImGuiNextWindowData
@@ -835,22 +835,24 @@ ImGuiWindowBgClickFlags = {
     Move = bit.lshift(1, 0),
 }
 
---- @alias ImGuiNextWindowDataFlags int
-ImGuiNextWindowDataFlags_None               = 0
-ImGuiNextWindowDataFlags_HasPos             = bit.lshift(1, 0)
-ImGuiNextWindowDataFlags_HasSize            = bit.lshift(1, 1)
-ImGuiNextWindowDataFlags_HasContentSize     = bit.lshift(1, 2)
-ImGuiNextWindowDataFlags_HasCollapsed       = bit.lshift(1, 3)
-ImGuiNextWindowDataFlags_HasSizeConstraint  = bit.lshift(1, 4)
-ImGuiNextWindowDataFlags_HasFocus           = bit.lshift(1, 5)
-ImGuiNextWindowDataFlags_HasBgAlpha         = bit.lshift(1, 6)
-ImGuiNextWindowDataFlags_HasScroll          = bit.lshift(1, 7)
-ImGuiNextWindowDataFlags_HasWindowFlags     = bit.lshift(1, 8)
-ImGuiNextWindowDataFlags_HasChildFlags      = bit.lshift(1, 9)
-ImGuiNextWindowDataFlags_HasRefreshPolicy   = bit.lshift(1, 10)
-ImGuiNextWindowDataFlags_HasViewport        = bit.lshift(1, 11)
-ImGuiNextWindowDataFlags_HasDock            = bit.lshift(1, 12)
-ImGuiNextWindowDataFlags_HasWindowClass     = bit.lshift(1, 13)
+--- @enum ImGuiNextWindowDataFlags
+ImGuiNextWindowDataFlags = {
+    None              = 0,
+    HasPos            = bit.lshift(1, 0),
+    HasSize           = bit.lshift(1, 1),
+    HasContentSize    = bit.lshift(1, 2),
+    HasCollapsed      = bit.lshift(1, 3),
+    HasSizeConstraint = bit.lshift(1, 4),
+    HasFocus          = bit.lshift(1, 5),
+    HasBgAlpha        = bit.lshift(1, 6),
+    HasScroll         = bit.lshift(1, 7),
+    HasWindowFlags    = bit.lshift(1, 8),
+    HasChildFlags     = bit.lshift(1, 9),
+    HasRefreshPolicy  = bit.lshift(1, 10),
+    HasViewport       = bit.lshift(1, 11),
+    HasDock           = bit.lshift(1, 12),
+    HasWindowClass    = bit.lshift(1, 13)
+}
 
 --- @enum ImGuiLayoutType
 ImGuiLayoutType = {
