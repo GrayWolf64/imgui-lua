@@ -2475,7 +2475,7 @@ function ImStb.TEXTEDIT_GETCHAR(obj, idx) IM_ASSERT(idx >= 1 and idx <= obj.Text
 --- @param line_start_idx int                 # 1-based
 --- @param char_idx       int                 # 1-based
 --- @return float
-function ImStb.TEXTEDIT_GETWIDTH(obj, line_start_idx, char_idx) local _, c = ImText.CharFromUtf8(obj.TextSrc, line_start_idx + char_idx - 1, obj.TextLen + 1); if c == 10 then return IMSTB_TEXTEDIT_GETWIDTH_NEWLINE end; local g = obj.Ctx; return g.FontBaked:GetCharAdvance(c) * g.FontBakedScale end
+function ImStb.TEXTEDIT_GETWIDTH(obj, line_start_idx, char_idx) local _, c = ImStd.ImTextCharFromUtf8(obj.TextSrc, line_start_idx + char_idx - 1, obj.TextLen + 1); if c == 10 then return IMSTB_TEXTEDIT_GETWIDTH_NEWLINE end; local g = obj.Ctx; return g.FontBaked:GetCharAdvance(c) * g.FontBakedScale end
 
 --- @param r              StbTexteditRow
 --- @param obj            ImGuiInputTextState
@@ -2497,7 +2497,7 @@ function ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
     if idx >= obj.TextLen then
         return obj.TextLen + 1
     end
-    return idx + ImText.CharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
+    return idx + ImStd.ImTextCharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
 end
 
 --- @param obj ImGuiInputTextState
@@ -2506,7 +2506,7 @@ function ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
     if idx <= 1 then
         return -1
     end
-    local p = ImText.FindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
+    local p = ImStd.ImTextFindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
     return p
 end
 
@@ -2538,9 +2538,9 @@ function ImStb.is_word_boundary_from_right(obj, idx)
         return false
     end
 
-    local prev = ImText.FindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
-    local _, curr_c = ImText.CharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
-    local _, prev_c = ImText.CharFromUtf8(obj.TextSrc, prev, obj.TextLen + 1)
+    local prev = ImStd.ImTextFindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
+    local _, curr_c = ImStd.ImTextCharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
+    local _, prev_c = ImStd.ImTextCharFromUtf8(obj.TextSrc, prev, obj.TextLen + 1)
 
     local prev_white = ImCharIsBlankW(prev_c)
     local prev_separ = ImCharIsSeparatorW(prev_c)
@@ -2556,9 +2556,9 @@ function ImStb.is_word_boundary_from_left(obj, idx)
         return false
     end
 
-    local prev = ImText.FindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
-    local _, prev_c = ImText.CharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
-    local _, curr_c = ImText.CharFromUtf8(obj.TextSrc, prev, obj.TextLen + 1)
+    local prev = ImStd.ImTextFindPreviousUtf8Codepoint(obj.TextSrc, 1, idx)
+    local _, prev_c = ImStd.ImTextCharFromUtf8(obj.TextSrc, idx, obj.TextLen + 1)
+    local _, curr_c = ImStd.ImTextCharFromUtf8(obj.TextSrc, prev, obj.TextLen + 1)
 
     local prev_white = ImCharIsBlankW(prev_c)
     local prev_separ = ImCharIsSeparatorW(prev_c)
@@ -2575,6 +2575,54 @@ function ImStb.TEXTEDIT_MOVEWORDLEFT_IMPL(obj, idx)
         idx = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
     end
     return (idx < 1) and 1 or idx
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+local function STB_TEXTEDIT_MOVEWORDRIGHT_MAC(obj, idx)
+    local len = obj.TextLen
+    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    while idx <= len and not ImStb.is_word_boundary_from_left(obj, idx) do
+        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    end
+    return (idx > len + 1) and len + 1 or idx
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+local function STB_TEXTEDIT_MOVEWORDRIGHT_WIN(obj, idx)
+    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    local len = obj.TextLen
+    while idx <= len and not ImStb.is_word_boundary_from_right(obj, idx) do
+        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    end
+    return (idx > len + 1) and len + 1 or idx
+end
+
+--- @param obj ImGuiInputTextState
+--- @param idx int
+function ImStb.TEXTEDIT_MOVEWORDRIGHT_IMPL(obj, idx)
+    local g = obj.Ctx
+    if g.IO.ConfigMacOSXBehaviors then
+        return STB_TEXTEDIT_MOVEWORDRIGHT_MAC(obj, idx)
+    else
+        return STB_TEXTEDIT_MOVEWORDRIGHT_WIN(obj, idx)
+    end
+end
+
+-- Reimplementation of stb_textedit_move_line_start()/stb_textedit_move_line_end() which supports word-wrapping
+--- @param obj    ImGuiInputTextState
+--- @param state  STB_TexteditState
+--- @param cursor int
+function ImStb.TEXTEDIT_MOVELINESTART_IMPL(obj, state, cursor)
+    if state.single_line then
+        return 1
+    end
+
+    if obj.WrapWidth > 0.0 then
+        local g = obj.Ctx
+        -- TODO:
+    end
 end
 
 -- Edit a string of text

@@ -2,23 +2,20 @@
 --
 
 --- Set to disable some functions, then you need to write your own
--- IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS = true // Don't implement ImFileOpen/ImFileClose/ImFileRead/ImFileWrite so you can implement them yourself
--- NOTE: you must implement ImFileOpen if you are not in GMod
+-- IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS = true // Don't implement ImStd.ImFileOpen/ImStd.ImFileClose/ImStd.ImFileRead/ImFileWrite so you can implement them yourself
+-- NOTE: you must implement ImStd.ImFileOpen if you are not in GMod
 
 --- @type ImGuiContext?
 local GImGui = nil
 
 ImGui = {}
-ImText = {}
-ImFile = {} -- Store methods for File object
 
---[[
-    --- This executes Lua script at _filename and returns the result of the script.
-    --- @param _filename string
-    --- @return any
-    function IM_INCLUDE(_filename)
-    end
-]]
+ImStd = {} -- Contains functions that originally don't exist in cpp namespaces
+
+--- This executes Lua script at _filename and returns the result of the script.
+--- @param _filename string
+--- @return any
+function IM_INCLUDE(_filename) end
 
 --- [GMod] Platform specific include function
 if gmod then
@@ -54,68 +51,59 @@ local bit  = bit
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
 ---------------------------------------------------------------------------------------
 
---[[
-    --- This closes the _file.
-    --- @param _file any # File object
-    function ImFile.close(_file)
-    end
+--- This closes the _file.
+--- @param _file any # File object
+function IM_FILE_CLOSE(_file) end
 
-    --- This returns the size of _file in bytes.
-    --- @param _file any # File object
-    --- @return int
-    function ImFile.size(_file)
-        return -1
-    end
+--- This returns the size of _file in bytes.
+--- @param _file any # File object
+--- @return int
+function IM_FILE_SIZE(_file) return -1 end
 
-    --- This writes _str into _file.
-    --- @param _file any    # File object
-    --- @param _str  string
-    function ImFile.write(_file, _str)
-    end
+--- This writes _str into _file.
+--- @param _file any    # File object
+--- @param _str  string
+function IM_FILE_WRITE(_file, _str) end
 
-    --- This reads the specified _count of chars and returns them as a binary string.
-    --- @param _file any  # File object
-    --- @param _count int
-    --- @return string
-    function ImFile.read(_file, _count)
-        return ""
-    end
+--- This reads the specified _count of chars and returns them as a binary string.
+--- @param _file any  # File object
+--- @param _count int
+--- @return string
+function IM_FILE_READ(_file, _count) return "" end
 
-    --- This opens the file at _filename in _mode and returns the File object.
-    --- @param _filename string
-    --- @param _mode     string # e.g. "rb"
-    --- @return any
-    function ImFileOpen(_filename, _mode)
-    end
-]]
+--- This opens the file at _filename in _mode and returns the File object.
+--- @param _filename string
+--- @param _mode     string # e.g. "rb"
+--- @return any
+function ImStd.ImFileOpen(_filename, _mode) end
 
 --- [GMod] Platform specific
 if gmod then
-    ImFile.close = FindMetaTable("File").Close --- @type function
-    ImFile.size  = FindMetaTable("File").Size  --- @type function
-    ImFile.write = FindMetaTable("File").Write --- @type function
-    ImFile.read  = FindMetaTable("File").Read  --- @type function
+    IM_FILE_CLOSE = FindMetaTable("File").Close --- @type function
+    IM_FILE_SIZE  = FindMetaTable("File").Size  --- @type function
+    IM_FILE_WRITE = FindMetaTable("File").Write --- @type function
+    IM_FILE_READ  = FindMetaTable("File").Read  --- @type function
 end
 
 if not IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS then
     --- [GMod] Another Platform specific
     if gmod then
-        function ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
+        function ImStd.ImFileOpen(filename, mode) return file.Open(filename, mode, "GAME") end
     end
 
-    function ImFileClose(f) ImFile.close(f) end
-    function ImFileGetSize(f) return ImFile.size(f) end
+    function ImStd.ImFileClose(f) IM_FILE_CLOSE(f) end
+    function ImStd.ImFileGetSize(f) return IM_FILE_SIZE(f) end
 
     --- @param f     any   # File object
     --- @param data  table # 1-based table to store result data
     --- @param count int   # Amount of bytes to read from `f`
-    function ImFileRead(f, data, count)
+    function ImStd.ImFileRead(f, data, count)
         local CHUNK_SIZE = 8000 -- We don't read byte by byte
         local offset = 0
 
         while offset < count do
             local read_size = math.min(CHUNK_SIZE, count - offset)
-            local str = ImFile.read(f, read_size)
+            local str = IM_FILE_READ(f, read_size)
 
             local bytes = {string.byte(str, 1, read_size)}
             for i = 1, read_size do
@@ -129,24 +117,24 @@ if not IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS then
     --- @param filename string
     --- @param mode     string
     --- @return ImSlice?, integer?
-    function ImFileLoadToMemory(filename, mode)
-        local f = ImFileOpen(filename, mode)
+    function ImStd.ImFileLoadToMemory(filename, mode)
+        local f = ImStd.ImFileOpen(filename, mode)
         if not f then return end
 
-        local file_size = ImFileGetSize(f)
+        local file_size = ImStd.ImFileGetSize(f)
         if file_size <= 0 then
-            ImFileClose(f)
+            ImStd.ImFileClose(f)
             return
         end
 
         local file_data = IM_SLICE()
-        ImFileRead(f, file_data.data, file_size)
+        ImStd.ImFileRead(f, file_data.data, file_size)
         if #file_data.data == 0 then
-            ImFileClose(f)
+            ImStd.ImFileClose(f)
             return
         end
 
-        ImFileClose(f)
+        ImStd.ImFileClose(f)
 
         return file_data, file_size
     end
@@ -265,7 +253,7 @@ function ImHashStr(str, seed, size)
     return hash
 end
 
-do --[[ImText.CharFromUtf8]]
+do --[[CharFromUtf8]]
 
 local lengths = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 4, 0}
 local masks   = {0x00, 0x7f, 0x1f, 0x0f, 0x07}
@@ -280,7 +268,7 @@ local s = {0, 0, 0, 0}
 --- @param in_text_end int
 --- @return int          wanted
 --- @return unsigned_int out_char
-function ImText.CharFromUtf8(in_text, pos, in_text_end)
+function ImStd.ImTextCharFromUtf8(in_text, pos, in_text_end)
     local len = lengths[bit.rshift(ImStrByte(in_text, pos), 3) + 1]
     local wanted = len > 0 and len or 1
 
@@ -324,15 +312,15 @@ end
 --- @param pos         int
 --- @param in_text_end int
 --- @return int
-function ImText.CountUtf8BytesFromChar(in_text, pos, in_text_end)
-    local bytes, unused = ImText.CharFromUtf8(in_text, pos, in_text_end)
+function ImStd.ImTextCountUtf8BytesFromChar(in_text, pos, in_text_end)
+    local bytes, unused = ImStd.ImTextCharFromUtf8(in_text, pos, in_text_end)
     return bytes
 end
 
 --- @param text          ImString
 --- @param in_text_start int
 --- @param in_p          int
-function ImText.FindPreviousUtf8Codepoint(text, in_text_start, in_p)
+function ImStd.ImTextFindPreviousUtf8Codepoint(text, in_text_start, in_p)
     while in_p > in_text_start do
         in_p = in_p - 1
         if bit.band(ImStrByte(text, in_p), 0xC0) ~= 0x80 then

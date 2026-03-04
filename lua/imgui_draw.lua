@@ -2268,7 +2268,7 @@ end
 --- @param text_end   int
 --- @param flags      ImDrawTextFlags
 --- @return int
-function ImText.CalcWordWrapNextLineStart(text, text_begin, text_end, flags)
+function ImStd.ImTextCalcWordWrapNextLineStart(text, text_begin, text_end, flags)
     local pos = text_begin
 
     if bit.band(flags, ImDrawTextFlags.WrapKeepBlanks) == 0 then
@@ -2311,7 +2311,7 @@ function ImTextClassifierSetCharClassFromStr(bits, codepoint_min, codepoint_end,
     local s_end = #s + 1
     local pos = 1
     while (pos < s_end) do
-        local wanted, c = ImText.CharFromUtf8(s, pos, s_end)
+        local wanted, c = ImStd.ImTextCharFromUtf8(s, pos, s_end)
         pos = pos + wanted
         ImTextClassifierSetCharClass(bits, codepoint_min, codepoint_end, char_class, c)
     end
@@ -2371,7 +2371,7 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
         if c < 0x80 then
             next_s = s + 1
         else
-            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImStd.ImTextCharFromUtf8(text, s, text_end)
             c = out_char
             next_s = s + wanted
         end
@@ -2440,7 +2440,7 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
     end
 
     if s == pos and s < text_end then
-        local bytes = ImText.CountUtf8BytesFromChar(text, s, text_end)
+        local bytes = ImStd.ImTextCountUtf8BytesFromChar(text, s, text_end)
 
         return s + bytes
     end
@@ -2491,7 +2491,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
                 end
                 text_size.y = text_size.y + line_height
                 line_width = 0.0
-                s = ImText.CalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
                 if bit.band(flags, ImDrawTextFlags.StopOnNewLine) ~= 0 then
                     break
                 end
@@ -2506,7 +2506,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
         if c < 0x80 then
             s = s + 1
         else
-            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImStd.ImTextCharFromUtf8(text, s, text_end)
             c = out_char
             s = s + wanted
         end
@@ -2731,7 +2731,7 @@ end
 function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
 
-    local data, data_size = ImFileLoadToMemory(filename, "rb")
+    local data, data_size = ImStd.ImFileLoadToMemory(filename, "rb")
     if not data then
         if (font_cfg_template == nil or (bit.band(font_cfg_template.Flags, ImFontFlags.NoLoadError) == 0)) then
             -- IMGUI_DEBUG_LOG("While loading '%s'\n", filename)
@@ -2756,7 +2756,7 @@ function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_templ
 end
 
 function GetDefaultFontDataProggyClean()
-    return ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
+    return ImStd.ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
 end
 
 --- @param font_cfg_template ImFontConfig
@@ -4165,7 +4165,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
             local line_end = ImMemchr(text, '\n', s)
             if word_wrap_enabled then
                 s = ImFontCalcWordWrapPositionEx(self, size, text, s, (line_end ~= nil) and line_end or text_end, wrap_width, flags)
-                s = ImText.CalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
             else
                 s = (line_end ~= nil) and (line_end + 1) or text_end
             end
@@ -4217,7 +4217,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                     break
                 end
                 word_wrap_eol = nil
-                s = ImText.CalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
 
                 goto CONTINUE
             end
@@ -4227,7 +4227,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         if c < 0x80 then
             s = s + 1
         else
-            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImStd.ImTextCharFromUtf8(text, s, text_end)
             c = out_char
             s = s + wanted
         end

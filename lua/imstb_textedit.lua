@@ -80,10 +80,10 @@ end
 --- @field select_end            int
 --- @field insert_mode           unsigned_char
 --- @field row_count_per_page    int
---- @field cursor_at_end_of_line unsigned_char
---- @field initialized           unsigned_char
---- @field has_preferred_x       unsigned_char
---- @field single_line           unsigned_char
+--- @field cursor_at_end_of_line bool          # not implemented yet
+--- @field initialized           bool
+--- @field has_preferred_x       bool
+--- @field single_line           bool
 --- @field padding1              unsigned_char
 --- @field padding2              unsigned_char
 --- @field padding3              unsigned_char
@@ -103,13 +103,13 @@ local function STB_TexteditState()
 
         row_count_per_page = 0,
 
-        cursor_at_end_of_line = 0,
-        initialized           = 0,
-        has_preferred_x       = 0,
-        single_line           = 0,
-        padding1              = 0,
-        padding2              = 0,
-        padding3              = 0,
+        cursor_at_end_of_line = false,
+        initialized           = false,
+        has_preferred_x       = false,
+        single_line           = false,
+        padding1 = 0,
+        padding2 = 0,
+        padding3 = 0,
 
         preferred_x = 0.0,
 

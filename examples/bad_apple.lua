@@ -1,7 +1,7 @@
 --- A crappy Bad Apple player using windows
 -- https://github.com/mon/bad_apple_virus
 
-local raw_frames, size = ImFileLoadToMemory("data/boxes_badapple.dat", "rb") --- @cast raw_frames ImSlice
+local raw_frames, size = ImStd.ImFileLoadToMemory("data/boxes_badapple.dat", "rb") --- @cast raw_frames ImSlice
 
 local curr_frame = 0
 
