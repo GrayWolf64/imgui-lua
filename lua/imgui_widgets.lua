@@ -223,7 +223,7 @@ function ImGui.TextAligned(align_x, size_x, fmt, ...)
     ImGui.ItemAdd(ImRect(pos, pos + size), 0)
     window.DC.CursorMaxPos.x = backup_max_pos.x -- Cancel out extending content size because right-aligned text would otherwise mess it up
 
-    if size_x < text_size.x and ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags_NoNavOverride, ImGuiHoveredFlags_AllowWhenDisabled, ImGuiHoveredFlags_ForTooltip)) then
+    if size_x < text_size.x and ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags.NoNavOverride, ImGuiHoveredFlags.AllowWhenDisabled, ImGuiHoveredFlags.ForTooltip)) then
         ImGui.SetTooltip("%.*s", text_end - 1, text)
     end
 end
@@ -308,25 +308,25 @@ function ImGui.ButtonBehavior(bb, id, flags)
     local window = g.CurrentWindow
 
     local item_flags = (g.LastItemData.ID == id) and g.LastItemData.ItemFlags or g.CurrentItemFlags
-    if bit.band(flags, ImGuiButtonFlags_AllowOverlap) ~= 0 then
+    if bit.band(flags, ImGuiButtonFlags.AllowOverlap) ~= 0 then
         item_flags = bit.bor(item_flags, ImGuiItemFlags_AllowOverlap)
     end
     if bit.band(item_flags, ImGuiItemFlags_NoFocus) ~= 0 then
-        flags = bit.bor(flags, ImGuiButtonFlags_NoFocus, ImGuiButtonFlags_NoNavFocus)
+        flags = bit.bor(flags, ImGuiButtonFlags.NoFocus, ImGuiButtonFlags.NoNavFocus)
     end
 
     -- Default only reacts to left mouse button
-    if bit.band(flags, ImGuiButtonFlags_MouseButtonMask_) == 0 then
-        flags = bit.bor(flags, ImGuiButtonFlags_MouseButtonLeft)
+    if bit.band(flags, ImGuiButtonFlags.MouseButtonMask_) == 0 then
+        flags = bit.bor(flags, ImGuiButtonFlags.MouseButtonLeft)
     end
 
     -- Default behavior requires click + release inside bounding box
-    if bit.band(flags, ImGuiButtonFlags_PressedOnMask_) == 0 then
-        flags = bit.bor(flags, (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and ImGuiButtonFlags_PressedOnClick or ImGuiButtonFlags_PressedOnDefault_)
+    if bit.band(flags, ImGuiButtonFlags.PressedOnMask_) == 0 then
+        flags = bit.bor(flags, (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and ImGuiButtonFlags.PressedOnClick or ImGuiButtonFlags.PressedOnDefault_)
     end
 
     local backup_hovered_window = g.HoveredWindow
-    local flatten_hovered_children = (bit.band(flags, ImGuiButtonFlags_FlattenChildren) ~= 0) and g.HoveredWindow and g.HoveredWindow.RootWindow == window.RootWindow
+    local flatten_hovered_children = (bit.band(flags, ImGuiButtonFlags.FlattenChildren) ~= 0) and g.HoveredWindow and g.HoveredWindow.RootWindow == window.RootWindow
     if flatten_hovered_children then
         g.HoveredWindow = window
     end
@@ -334,7 +334,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
     local pressed = false
     local hovered = ImGui.ItemHoverable(bb, id, item_flags)
     if g.DragDropActive then
-        if (bit.band(flags, ImGuiButtonFlags_PressedOnDragDropHold) ~= 0) and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags_SourceNoHoldToOpenOthers) == 0) and ImGui.IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) then
+        if (bit.band(flags, ImGuiButtonFlags.PressedOnDragDropHold) ~= 0) and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags.SourceNoHoldToOpenOthers) == 0) and ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem) then
             hovered = true
             ImGui.SetHoveredID(id)
 
@@ -345,7 +345,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
             end
         end
 
-        if (g.DragDropAcceptIdPrev == id) and (bit.band(g.DragDropAcceptFlagsPrev, ImGuiDragDropFlags_AcceptDrawAsHovered) ~= 0) then
+        if (g.DragDropAcceptIdPrev == id) and (bit.band(g.DragDropAcceptFlagsPrev, ImGuiDragDropFlags.AcceptDrawAsHovered) ~= 0) then
             hovered = true
         end
     end
@@ -354,44 +354,44 @@ function ImGui.ButtonBehavior(bb, id, flags)
         g.HoveredWindow = backup_hovered_window
     end
 
-    local test_owner_id = (bit.band(flags, ImGuiButtonFlags_NoTestKeyOwner) ~= 0) and ImGuiKeyOwner_Any or id
+    local test_owner_id = (bit.band(flags, ImGuiButtonFlags.NoTestKeyOwner) ~= 0) and ImGuiKeyOwner_Any or id
     if hovered then
         IM_ASSERT(id ~= 0)
 
         local mouse_button_clicked = -1
         local mouse_button_released = -1
         for button = 0, 2 do
-            if bit.band(flags, bit.lshift(ImGuiButtonFlags_MouseButtonLeft, button)) ~= 0 then -- Handle ImGuiButtonFlags_MouseButtonRight and ImGuiButtonFlags_MouseButtonMiddle here.
-                if (ImGui.IsMouseClickedEx(button, ImGuiInputFlags_None, test_owner_id) and mouse_button_clicked == -1) then mouse_button_clicked = button end
+            if bit.band(flags, bit.lshift(ImGuiButtonFlags.MouseButtonLeft, button)) ~= 0 then -- Handle ImGuiButtonFlags.MouseButtonRight and ImGuiButtonFlags.MouseButtonMiddle here.
+                if (ImGui.IsMouseClickedEx(button, ImGuiInputFlags.None, test_owner_id) and mouse_button_clicked == -1) then mouse_button_clicked = button end
                 if (ImGui.IsMouseReleased(button, test_owner_id) and mouse_button_released == -1) then mouse_button_released = button end
             end
         end
 
-        local mods_ok = (bit.band(flags, ImGuiButtonFlags_NoKeyModsAllowed) == 0) or (not g.IO.KeyCtrl and not g.IO.KeyShift and not g.IO.KeyAlt)
+        local mods_ok = (bit.band(flags, ImGuiButtonFlags.NoKeyModsAllowed) == 0) or (not g.IO.KeyCtrl and not g.IO.KeyShift and not g.IO.KeyAlt)
         if mods_ok then
             if mouse_button_clicked ~= -1 and g.ActiveId ~= id then
                 --- @cast mouse_button_clicked ImGuiMouseButton
 
-                if bit.band(flags, ImGuiButtonFlags_NoSetKeyOwner) == 0 then
+                if bit.band(flags, ImGuiButtonFlags.NoSetKeyOwner) == 0 then
                     ImGui.SetKeyOwner(ImGui.MouseButtonToKey(mouse_button_clicked), id)
                 end
 
-                if bit.band(flags, bit.bor(ImGuiButtonFlags_PressedOnClickRelease, ImGuiButtonFlags_PressedOnClickReleaseAnywhere)) ~= 0 then
+                if bit.band(flags, bit.bor(ImGuiButtonFlags.PressedOnClickRelease, ImGuiButtonFlags.PressedOnClickReleaseAnywhere)) ~= 0 then
                     ImGui.SetActiveID(id, window)
                     g.ActiveIdMouseButton = mouse_button_clicked
 
-                    if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 then
+                    if bit.band(flags, ImGuiButtonFlags.NoNavFocus) == 0 then
                         ImGui.SetFocusID(id, window)
                         ImGui.FocusWindow(window)
-                    elseif bit.band(flags, ImGuiButtonFlags_NoFocus) == 0 then
+                    elseif bit.band(flags, ImGuiButtonFlags.NoFocus) == 0 then
                         ImGui.FocusWindow(window, ImGuiFocusRequestFlags.RestoreFocusedChild)
                     end
                 end
 
-                if (bit.band(flags, ImGuiButtonFlags_PressedOnClick) ~= 0) or ((bit.band(flags, ImGuiButtonFlags_PressedOnDoubleClick) ~= 0) and g.IO.MouseClickedCount[mouse_button_clicked] == 2) then
+                if (bit.band(flags, ImGuiButtonFlags.PressedOnClick) ~= 0) or ((bit.band(flags, ImGuiButtonFlags.PressedOnDoubleClick) ~= 0) and g.IO.MouseClickedCount[mouse_button_clicked] == 2) then
                     pressed = true
 
-                    if bit.band(flags, ImGuiButtonFlags_NoHoldingActiveId) ~= 0 then
+                    if bit.band(flags, ImGuiButtonFlags.NoHoldingActiveId) ~= 0 then
                         ImGui.ClearActiveID()
                     else
                         ImGui.SetActiveID(id, window)
@@ -399,16 +399,16 @@ function ImGui.ButtonBehavior(bb, id, flags)
 
                     g.ActiveIdMouseButton = mouse_button_clicked
 
-                    if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 then
+                    if bit.band(flags, ImGuiButtonFlags.NoNavFocus) == 0 then
                         ImGui.SetFocusID(id, window)
                         ImGui.FocusWindow(window)
-                    elseif bit.band(flags, ImGuiButtonFlags_NoFocus) == 0 then
+                    elseif bit.band(flags, ImGuiButtonFlags.NoFocus) == 0 then
                         ImGui.FocusWindow(window, ImGuiFocusRequestFlags.RestoreFocusedChild)
                     end
                 end
             end
 
-            if bit.band(flags, ImGuiButtonFlags_PressedOnRelease) ~= 0 then
+            if bit.band(flags, ImGuiButtonFlags.PressedOnRelease) ~= 0 then
                 if mouse_button_released ~= -1 then
                     local has_repeated_at_least_once = (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and g.IO.MouseDownDurationPrev[mouse_button_released] >= g.IO.KeyRepeatDelay
 
@@ -416,7 +416,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
                         pressed = true
                     end
 
-                    if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 then
+                    if bit.band(flags, ImGuiButtonFlags.NoNavFocus) == 0 then
                         ImGui.SetFocusID(id, window)  -- FIXME: Lack of FocusWindow() call here is inconsistent with other paths. Research why.
                     end
 
@@ -425,7 +425,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
             end
 
             if g.ActiveId == id and (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) then
-                if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClickedEx(g.ActiveIdMouseButton, ImGuiInputFlags_Repeat, test_owner_id) then
+                if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClickedEx(g.ActiveIdMouseButton, ImGuiInputFlags.Repeat, test_owner_id) then
                     pressed = true
                 end
             end
@@ -452,12 +452,12 @@ function ImGui.ButtonBehavior(bb, id, flags)
             elseif ImGui.IsMouseDown(mouse_button, test_owner_id) then
                 held = true
             else
-                local release_in = hovered and (bit.band(flags, ImGuiButtonFlags_PressedOnClickRelease) ~= 0)
-                local release_anywhere = (bit.band(flags, ImGuiButtonFlags_PressedOnClickReleaseAnywhere) ~= 0)
+                local release_in = hovered and (bit.band(flags, ImGuiButtonFlags.PressedOnClickRelease) ~= 0)
+                local release_anywhere = (bit.band(flags, ImGuiButtonFlags.PressedOnClickReleaseAnywhere) ~= 0)
 
                 if (release_in or release_anywhere) and not g.DragDropActive then
                     -- Report as pressed when releasing the mouse (this is the most common path)
-                    local is_double_click_release = (bit.band(flags, ImGuiButtonFlags_PressedOnDoubleClick) ~= 0) and g.IO.MouseReleased[mouse_button] and g.IO.MouseClickedLastCount[mouse_button] == 2
+                    local is_double_click_release = (bit.band(flags, ImGuiButtonFlags.PressedOnDoubleClick) ~= 0) and g.IO.MouseReleased[mouse_button] and g.IO.MouseClickedLastCount[mouse_button] == 2
 
                     local is_repeating_already = (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and g.IO.MouseDownDurationPrev[mouse_button] >= g.IO.KeyRepeatDelay
 
@@ -471,7 +471,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
                 ImGui.ClearActiveID()
             end
 
-            if bit.band(flags, ImGuiButtonFlags_NoNavFocus) == 0 and g.IO.ConfigNavCursorVisibleAuto then
+            if bit.band(flags, ImGuiButtonFlags.NoNavFocus) == 0 and g.IO.ConfigNavCursorVisibleAuto then
                 g.NavCursorVisible = false
             end
         elseif g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
@@ -515,7 +515,7 @@ function ImGui.ButtonEx(label, size_arg, flags)
 
     local pos = ImVec2() -- Don't modify the cursor!
     ImVec2_Copy(pos, window.DC.CursorPos)
-    if bit.band(flags, ImGuiButtonFlags_AlignTextBaseLine) ~= 0 and style.FramePadding.y < window.DC.CurrLineTextBaseOffset then
+    if bit.band(flags, ImGuiButtonFlags.AlignTextBaseLine) ~= 0 and style.FramePadding.y < window.DC.CurrLineTextBaseOffset then
         pos.y = pos.y + window.DC.CurrLineTextBaseOffset - style.FramePadding.y
     end
     local size = ImGui.CalcItemSize(size_arg, label_size.x + style.FramePadding.x * 2.0, label_size.y + style.FramePadding.y * 2.0)
@@ -545,7 +545,7 @@ function ImGui.ButtonEx(label, size_arg, flags)
     ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, nil, label_size, style.ButtonTextAlign, bb)
 
     -- Automatically close popups
-    --if (pressed && !(flags & ImGuiButtonFlags_DontClosePopups) && (window->Flags & ImGuiWindowFlags.Popup))
+    --if (pressed && !(flags & ImGuiButtonFlags.DontClosePopups) && (window->Flags & ImGuiWindowFlags.Popup))
     --    CloseCurrentPopup();
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags);
@@ -556,7 +556,7 @@ end
 --- @param size_arg? ImVec2
 --- @return bool
 function ImGui.Button(label, size_arg)
-    return ImGui.ButtonEx(label, size_arg, ImGuiButtonFlags_None)
+    return ImGui.ButtonEx(label, size_arg, ImGuiButtonFlags.None)
 end
 
 --- @param label string
@@ -565,7 +565,7 @@ function ImGui.SmallButton(label)
     local g = ImGui.GetCurrentContext()
     local backup_padding_y = g.Style.FramePadding.y
     g.Style.FramePadding.y = 0.0
-    local pressed = ImGui.ButtonEx(label, ImVec2(0, 0), ImGuiButtonFlags_AlignTextBaseLine)
+    local pressed = ImGui.ButtonEx(label, ImVec2(0, 0), ImGuiButtonFlags.AlignTextBaseLine)
     g.Style.FramePadding.y = backup_padding_y
     return pressed
 end
@@ -588,7 +588,7 @@ function ImGui.InvisibleButton(str_id, size_arg, flags)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
     ImGui.ItemSize(size)
 
-    local item_flags = (bit.band(flags, ImGuiButtonFlags_EnableNav) ~= 0) and ImGuiItemFlags_None or ImGuiItemFlags_NoNav
+    local item_flags = (bit.band(flags, ImGuiButtonFlags.EnableNav) ~= 0) and ImGuiItemFlags_None or ImGuiItemFlags_NoNav
     if not ImGui.ItemAdd(bb, id, nil, item_flags) then
         return false
     end
@@ -638,7 +638,7 @@ end
 --- @param dir    ImGuiDir
 function ImGui.ArrowButton(str_id, dir)
     local sz = ImGui.GetFrameHeight()
-    return ImGui.ArrowButtonEx(str_id, dir, ImVec2(sz, sz), ImGuiButtonFlags_None)
+    return ImGui.ArrowButtonEx(str_id, dir, ImVec2(sz, sz), ImGuiButtonFlags.None)
 end
 
 --- @param id  ImGuiID
@@ -805,7 +805,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     local grab_h_norm = grab_h_pixels / scrollbar_size_v
 
     ImGui.ItemAdd(bb_frame, id, nil, ImGuiItemFlags_NoNav)
-    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, ImGuiButtonFlags_NoNavFocus)
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, ImGuiButtonFlags.NoNavFocus)
 
     local scroll_max = ImMax(1, size_contents_v - size_visible_v)
     local scroll_ratio = ImSaturate(p_scroll_v / scroll_max)
@@ -843,7 +843,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
             scroll_v_norm = ImSaturate((clicked_v_norm - g.ScrollbarClickDeltaToGrabCenter - grab_h_norm * 0.5) / (1.0 - grab_h_norm))
             p_scroll_v = scroll_v_norm * scroll_max
         else
-            if ImGui.IsMouseClickedEx(ImGuiMouseButton.Left, ImGuiInputFlags_Repeat) and held_dir == g.ScrollbarSeekMode then
+            if ImGui.IsMouseClickedEx(ImGuiMouseButton.Left, ImGuiInputFlags.Repeat) and held_dir == g.ScrollbarSeekMode then
                 local page_dir
                 if g.ScrollbarSeekMode > 0.0 then
                     page_dir = 1.0
@@ -1569,9 +1569,9 @@ function ImGui.BeginCombo(label, preview_value, flags)
 
     local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
     local popup_id = ImHashStr("##ComboPopup", id)
-    local popup_open = ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags_None)
+    local popup_open = ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags.None)
     if pressed and not popup_open then
-        ImGui.OpenPopupEx(popup_id, ImGuiPopupFlags_None)
+        ImGui.OpenPopupEx(popup_id, ImGuiPopupFlags.None)
         popup_open = true
     end
 
@@ -1630,7 +1630,7 @@ end
 --- @param flags    ImGuiComboFlags
 function ImGui.BeginComboPopup(popup_id, bb, flags)
     local g = ImGui.GetCurrentContext()
-    if not ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags_None) then
+    if not ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags.None) then
         g.NextWindowData:ClearFlags()
         return false
     end
@@ -2181,7 +2181,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     local hovered = ImGui.ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags)
     local temp_input_is_active = temp_input_allowed and ImGui.TempInputIsActive(id)
     if not temp_input_is_active then
-        local clicked = hovered and ImGui.IsMouseClickedEx(0, ImGuiInputFlags_None, id)
+        local clicked = hovered and ImGui.IsMouseClickedEx(0, ImGuiInputFlags.None, id)
         local double_clicked = (hovered and g.IO.MouseClickedCount[0] == 2 and ImGui.TestKeyOwner(ImGuiKey.MouseLeft, id))
         local make_active = (clicked or double_clicked or g.NavActivateId == id)
         if make_active and (clicked or double_clicked) then
@@ -2832,7 +2832,7 @@ function ImGui.ColorEdit4(label, col, flags)
             end
 
             if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
-                ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+                ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags.MouseButtonRight)
             end
         end
     elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
@@ -2842,7 +2842,7 @@ function ImGui.ColorEdit4(label, col, flags)
         ImGui.SetNextItemWidth(w_inputs)
 
         if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
-            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags.MouseButtonRight)
         end
     end
 
@@ -2861,7 +2861,7 @@ function ImGui.ColorEdit4(label, col, flags)
             end
         end
         if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
-            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags.MouseButtonRight)
         end
 
         if ImGui.BeginPopup("picker") then
@@ -3086,7 +3086,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
         end
 
         if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
-            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags.MouseButtonRight)
         end
     elseif bit.band(flags, ImGuiColorEditFlags.PickerHueBar) ~= 0 then
         -- SV rectangle logic
@@ -3100,7 +3100,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
         end
 
         if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
-            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags_MouseButtonRight)
+            ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags.MouseButtonRight)
         end
 
         -- Hue bar logic
@@ -3452,7 +3452,7 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
     -- end
 
     -- Tooltip
-    if bit.band(flags, ImGuiColorEditFlags.NoTooltip) == 0 and hovered and ImGui.IsItemHovered(ImGuiHoveredFlags_ForTooltip) then
+    if bit.band(flags, ImGuiColorEditFlags.NoTooltip) == 0 and hovered and ImGui.IsItemHovered(ImGuiHoveredFlags.ForTooltip) then
         ImGui.ColorTooltip(desc_id, col, bit.band(flags, bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.AlphaMask_)))
     end
 end
@@ -3744,12 +3744,12 @@ function ImGui.Selectable(label, selected, flags, size_arg)
 
     -- We use NoHoldingActiveID on menus so user can click and _hold_ on a menu then drag to browse child entries
     local button_flags = 0
-    if bit.band(flags, ImGuiSelectableFlags.NoHoldingActiveID) ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_NoHoldingActiveId) end
-    if bit.band(flags, ImGuiSelectableFlags.NoSetKeyOwner)     ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_NoSetKeyOwner) end
-    if bit.band(flags, ImGuiSelectableFlags.SelectOnClick)     ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_PressedOnClick) end
-    if bit.band(flags, ImGuiSelectableFlags.SelectOnRelease)   ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_PressedOnRelease) end
-    if bit.band(flags, ImGuiSelectableFlags.AllowDoubleClick)  ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_PressedOnClickRelease, ImGuiButtonFlags_PressedOnDoubleClick) end
-    if bit.band(flags, ImGuiSelectableFlags.AllowOverlap) ~= 0 or bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AllowOverlap) ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags_AllowOverlap) end
+    if bit.band(flags, ImGuiSelectableFlags.NoHoldingActiveID) ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.NoHoldingActiveId) end
+    if bit.band(flags, ImGuiSelectableFlags.NoSetKeyOwner)     ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.NoSetKeyOwner) end
+    if bit.band(flags, ImGuiSelectableFlags.SelectOnClick)     ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClick) end
+    if bit.band(flags, ImGuiSelectableFlags.SelectOnRelease)   ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnRelease) end
+    if bit.band(flags, ImGuiSelectableFlags.AllowDoubleClick)  ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClickRelease, ImGuiButtonFlags.PressedOnDoubleClick) end
+    if bit.band(flags, ImGuiSelectableFlags.AllowOverlap) ~= 0 or bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AllowOverlap) ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.AllowOverlap) end
 
     -- Multi-selection support (header)
     local was_selected = selected

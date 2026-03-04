@@ -1525,10 +1525,10 @@ end
 --- @return float
 local function CalcDelayFromHoveredFlags(flags)
     local g = GImGui
-    if bit.band(flags, ImGuiHoveredFlags_DelayNormal) ~= 0 then
+    if bit.band(flags, ImGuiHoveredFlags.DelayNormal) ~= 0 then
         return g.Style.HoverDelayNormal
     end
-    if bit.band(flags, ImGuiHoveredFlags_DelayShort) ~= 0 then
+    if bit.band(flags, ImGuiHoveredFlags.DelayShort) ~= 0 then
         return g.Style.HoverDelayShort
     end
     return 0.0
@@ -1537,8 +1537,8 @@ end
 --- @param user_flags   ImGuiHoveredFlags
 --- @param shared_flags ImGuiHoveredFlags
 local function ApplyHoverFlagsForTooltip(user_flags, shared_flags)
-    if bit.band(user_flags, bit.bor(ImGuiHoveredFlags_DelayNone, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_DelayNormal)) ~= 0 then
-        shared_flags = bit.band(shared_flags, bit.bnot(bit.bor(ImGuiHoveredFlags_DelayNone, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_DelayNormal)))
+    if bit.band(user_flags, bit.bor(ImGuiHoveredFlags.DelayNone, ImGuiHoveredFlags.DelayShort, ImGuiHoveredFlags.DelayNormal)) ~= 0 then
+        shared_flags = bit.band(shared_flags, bit.bnot(bit.bor(ImGuiHoveredFlags.DelayNone, ImGuiHoveredFlags.DelayShort, ImGuiHoveredFlags.DelayNormal)))
     end
     return bit.bor(user_flags, shared_flags)
 end
@@ -1584,7 +1584,7 @@ function ImGui.IsWindowContentHoverable(window, flags)
             local want_inhibit = false
             if bit.band(focused_root_window.Flags, ImGuiWindowFlags.Modal) ~= 0 then
                 want_inhibit = true
-            elseif (bit.band(focused_root_window.Flags, ImGuiWindowFlags.Popup) ~= 0) and (bit.band(flags, ImGuiHoveredFlags_AllowWhenBlockedByPopup) == 0) then
+            elseif (bit.band(focused_root_window.Flags, ImGuiWindowFlags.Popup) ~= 0) and (bit.band(flags, ImGuiHoveredFlags.AllowWhenBlockedByPopup) == 0) then
                 want_inhibit = true
             end
 
@@ -1613,17 +1613,17 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
 
     local g = GImGui
     local window = g.CurrentWindow
-    IM_ASSERT_USER_ERROR(bit.band(flags, bit.bnot(ImGuiHoveredFlags_AllowedMaskForIsItemHovered)) == 0, "Invalid flags for IsItemHovered()!")
+    IM_ASSERT_USER_ERROR(bit.band(flags, bit.bnot(ImGuiHoveredFlags.AllowedMaskForIsItemHovered)) == 0, "Invalid flags for IsItemHovered()!")
 
-    if g.NavHighlightItemUnderNav and g.NavCursorVisible and bit.band(flags, ImGuiHoveredFlags_NoNavOverride) == 0 then
+    if g.NavHighlightItemUnderNav and g.NavCursorVisible and bit.band(flags, ImGuiHoveredFlags.NoNavOverride) == 0 then
         if not ImGui.IsItemFocused() then
             return false
         end
-        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags_AllowWhenDisabled) == 0 then
+        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags.AllowWhenDisabled) == 0 then
             return false
         end
 
-        if bit.band(flags, ImGuiHoveredFlags_ForTooltip) ~= 0 then
+        if bit.band(flags, ImGuiHoveredFlags.ForTooltip) ~= 0 then
             flags = ApplyHoverFlagsForTooltip(flags, g.Style.HoverFlagsForTooltipNav)
         end
     else
@@ -1632,18 +1632,18 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
             return false
         end
 
-        if bit.band(flags, ImGuiHoveredFlags_ForTooltip) ~= 0 then
+        if bit.band(flags, ImGuiHoveredFlags.ForTooltip) ~= 0 then
             flags = ApplyHoverFlagsForTooltip(flags, g.Style.HoverFlagsForTooltipMouse)
         end
 
         if g.HoveredWindow ~= window and bit.band(status_flags, ImGuiItemStatusFlags.HoveredWindow) == 0 then
-            if bit.band(flags, ImGuiHoveredFlags_AllowWhenOverlappedByWindow) == 0 then
+            if bit.band(flags, ImGuiHoveredFlags.AllowWhenOverlappedByWindow) == 0 then
                 return false
             end
         end
 
         local id = g.LastItemData.ID
-        if bit.band(flags, ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) == 0 then
+        if bit.band(flags, ImGuiHoveredFlags.AllowWhenBlockedByActiveItem) == 0 then
             if g.ActiveId ~= 0 and g.ActiveId ~= id and not g.ActiveIdAllowOverlap and not g.ActiveIdFromShortcut then
                 local cancel_is_hovered = true
                 if g.ActiveId == window.MoveId and (id == 0 or g.ActiveIdDisabledId == id) then
@@ -1659,7 +1659,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
             return false
         end
 
-        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags_AllowWhenDisabled) == 0 then
+        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags.AllowWhenDisabled) == 0 then
             return false
         end
 
@@ -1668,7 +1668,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
         end
 
         if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AllowOverlap) ~= 0 and id ~= 0 then
-            if bit.band(flags, ImGuiHoveredFlags_AllowWhenOverlappedByItem) == 0 then
+            if bit.band(flags, ImGuiHoveredFlags.AllowWhenOverlappedByItem) == 0 then
                 if g.HoveredIdPreviousFrame ~= g.LastItemData.ID then
                     return false
                 end
@@ -1677,19 +1677,19 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
     end
 
     local delay = CalcDelayFromHoveredFlags(flags)
-    if delay > 0.0 or bit.band(flags, ImGuiHoveredFlags_Stationary) ~= 0 then
+    if delay > 0.0 or bit.band(flags, ImGuiHoveredFlags.Stationary) ~= 0 then
         local hover_delay_id
         if g.LastItemData.ID ~= 0 then
             hover_delay_id = g.LastItemData.ID
         else
             hover_delay_id = window:GetIDFromPos(g.LastItemData.Rect.Min)
         end
-        if bit.band(flags, ImGuiHoveredFlags_NoSharedDelay) ~= 0 and g.HoverItemDelayIdPreviousFrame ~= hover_delay_id then
+        if bit.band(flags, ImGuiHoveredFlags.NoSharedDelay) ~= 0 and g.HoverItemDelayIdPreviousFrame ~= hover_delay_id then
             g.HoverItemDelayTimer = 0.0
         end
         g.HoverItemDelayId = hover_delay_id
 
-        if bit.band(flags, ImGuiHoveredFlags_Stationary) ~= 0 and g.HoverItemUnlockedStationaryId ~= hover_delay_id then
+        if bit.band(flags, ImGuiHoveredFlags.Stationary) ~= 0 and g.HoverItemUnlockedStationaryId ~= hover_delay_id then
             return false
         end
 
@@ -1727,13 +1727,13 @@ function ImGui.ItemHoverable(bb, id, item_flags)
         end
     end
 
-    if (bit.band(item_flags, ImGuiItemFlags_NoWindowHoverableCheck) == 0) and not ImGui.IsWindowContentHoverable(window, ImGuiHoveredFlags_None) then
+    if (bit.band(item_flags, ImGuiItemFlags_NoWindowHoverableCheck) == 0) and not ImGui.IsWindowContentHoverable(window, ImGuiHoveredFlags.None) then
         g.HoveredIdIsDisabled = true
         return false
     end
 
     if id ~= 0 then
-        if g.DragDropActive and g.DragDropPayload.SourceId == id and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags_SourceNoDisableHover) == 0) then
+        if g.DragDropActive and g.DragDropPayload.SourceId == id and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags.SourceNoDisableHover) == 0) then
             return false
         end
 
@@ -1747,7 +1747,7 @@ function ImGui.ItemHoverable(bb, id, item_flags)
         end
 
         if id == g.LastItemData.ID and (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasShortcut) ~= 0) and g.ActiveId ~= id then
-            if ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags_ForTooltip, ImGuiHoveredFlags_DelayNormal)) then
+            if ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags.ForTooltip, ImGuiHoveredFlags.DelayNormal)) then
                 ImGui.SetTooltip("%s", ImGui.GetKeyChordName(g.LastItemData.Shortcut))
             end
         end
@@ -2111,15 +2111,15 @@ function ImGui.SetKeyOwner(key, owner_id, flags)
     if flags == nil then flags = 0 end
 
     local g = GImGui --- @cast g ImGuiContext
-    IM_ASSERT(ImGui.IsNamedKeyOrMod(key) and (owner_id ~= ImGuiKeyOwner_Any or (bit.band(flags, bit.bor(ImGuiInputFlags_LockThisFrame, ImGuiInputFlags_LockUntilRelease)) ~= 0)), "Can only use _Any with _LockXXX flags (to eat a key away without an ID to retrieve it)")
-    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags_SupportedBySetKeyOwner)) == 0, "Passing flags not supported by this function!")
+    IM_ASSERT(ImGui.IsNamedKeyOrMod(key) and (owner_id ~= ImGuiKeyOwner_Any or (bit.band(flags, bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)) ~= 0)), "Can only use _Any with _LockXXX flags (to eat a key away without an ID to retrieve it)")
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedBySetKeyOwner)) == 0, "Passing flags not supported by this function!")
 
     local owner_data = ImGui.GetKeyOwnerData(g, key)
     owner_data.OwnerCurr = owner_id
     owner_data.OwnerNext = owner_id
 
-    owner_data.LockUntilRelease = (bit.band(flags, ImGuiInputFlags_LockUntilRelease) ~= 0)
-    owner_data.LockThisFrame = (bit.band(flags, ImGuiInputFlags_LockThisFrame) ~= 0) or owner_data.LockUntilRelease
+    owner_data.LockUntilRelease = (bit.band(flags, ImGuiInputFlags.LockUntilRelease) ~= 0)
+    owner_data.LockThisFrame = (bit.band(flags, ImGuiInputFlags.LockThisFrame) ~= 0) or owner_data.LockUntilRelease
 end
 
 --- @param key      ImGuiKey
@@ -2210,9 +2210,9 @@ end
 --- @return float repeat_rate
 function ImGui.GetTypematicRepeatRate(flags)
     local g = GImGui
-    flags = bit.band(flags, ImGuiInputFlags_RepeatRateMask_)
-    if     flags == ImGuiInputFlags_RepeatRateNavMove  then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.80; return repeat_delay, repeat_rate
-    elseif flags == ImGuiInputFlags_RepeatRateNavTweak then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.30; return repeat_delay, repeat_rate
+    flags = bit.band(flags, ImGuiInputFlags.RepeatRateMask_)
+    if     flags == ImGuiInputFlags.RepeatRateNavMove  then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.80; return repeat_delay, repeat_rate
+    elseif flags == ImGuiInputFlags.RepeatRateNavTweak then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.30; return repeat_delay, repeat_rate
     else                                                    repeat_delay = g.IO.KeyRepeatDelay * 1.00; repeat_rate = g.IO.KeyRepeatRate * 1.00; return repeat_delay, repeat_rate end
 end
 
@@ -2249,7 +2249,7 @@ end
 function ImGui.IsMouseClicked(button, is_repeat)
     if is_repeat == nil then is_repeat = false end
 
-    return ImGui.IsMouseClickedEx(button, is_repeat and ImGuiInputFlags_Repeat or ImGuiInputFlags_None, ImGuiKeyOwner_Any)
+    return ImGui.IsMouseClickedEx(button, is_repeat and ImGuiInputFlags.Repeat or ImGuiInputFlags.None, ImGuiKeyOwner_Any)
 end
 
 --- @param button     ImGuiMouseButton
@@ -2268,9 +2268,9 @@ function ImGui.IsMouseClickedEx(button, flags, owner_id)
     if t < 0.0 then
         return false
     end
-    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags_SupportedByIsMouseClicked)) == 0)
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedByIsMouseClicked)) == 0)
 
-    local repeat_flag = (bit.band(flags, ImGuiInputFlags_Repeat) ~= 0)
+    local repeat_flag = (bit.band(flags, ImGuiInputFlags.Repeat) ~= 0)
     local pressed = (t == 0.0) or (repeat_flag and t > g.IO.KeyRepeatDelay and ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0)
 
     if not pressed then
@@ -2667,7 +2667,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         local resize_grip_id = window:GetID(resize_grip_n)
 
         ImGui.ItemAdd(resize_rect, resize_grip_id, nil, ImGuiItemFlags_NoNav)
-        local _, hovered, held = ImGui.ButtonBehavior(resize_rect, resize_grip_id, bit.bor(ImGuiButtonFlags_FlattenChildren, ImGuiButtonFlags_NoNavFocus))
+        local _, hovered, held = ImGui.ButtonBehavior(resize_rect, resize_grip_id, bit.bor(ImGuiButtonFlags.FlattenChildren, ImGuiButtonFlags.NoNavFocus))
 
         if hovered or held then
             ImGui.SetMouseCursor((bit.band(resize_grip_n, 1) ~= 0) and ImGuiMouseCursor.ResizeNESW or ImGuiMouseCursor.ResizeNWSE)
@@ -2727,7 +2727,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         local border_rect = GetResizeBorderRect(window, border_n, grip_hover_inner_size, g.WindowsBorderHoverPadding)
         local border_id = window:GetID(border_n + 4)
         ImGui.ItemAdd(border_rect, border_id, nil, ImGuiItemFlags_NoNav)
-        local _, hovered, held = ImGui.ButtonBehavior(border_rect, border_id, bit.bor(ImGuiButtonFlags_FlattenChildren, ImGuiButtonFlags_NoNavFocus))
+        local _, hovered, held = ImGui.ButtonBehavior(border_rect, border_id, bit.bor(ImGuiButtonFlags.FlattenChildren, ImGuiButtonFlags.NoNavFocus))
 
         if hovered and g.HoveredIdTimer <= WINDOWS_RESIZE_FROM_EDGES_FEEDBACK_TIMER then
             hovered = false
@@ -3644,17 +3644,17 @@ end
 function ImGui.IsPopupOpen(id, popup_flags)
     local g = GImGui
 
-    if bit.band(popup_flags, ImGuiPopupFlags_AnyPopupId) ~= 0 then
+    if bit.band(popup_flags, ImGuiPopupFlags.AnyPopupId) ~= 0 then
         -- Return true if any popup is open at the current BeginPopup() level of the popup stack
         -- This may be used to e.g. test for another popups already opened to handle popups priorities at the same level.
         IM_ASSERT(id == 0)
-        if bit.band(popup_flags, ImGuiPopupFlags_AnyPopupLevel) ~= 0 then
+        if bit.band(popup_flags, ImGuiPopupFlags.AnyPopupLevel) ~= 0 then
             return g.OpenPopupStack.Size > 0
         else
             return g.OpenPopupStack.Size > g.BeginPopupStack.Size
         end
     else
-        if bit.band(popup_flags, ImGuiPopupFlags_AnyPopupLevel) ~= 0 then
+        if bit.band(popup_flags, ImGuiPopupFlags.AnyPopupLevel) ~= 0 then
             -- Return true if the popup is open anywhere in the popup stack
             for n = 1, g.OpenPopupStack.Size do
                 if g.OpenPopupStack.Data[n].PopupId == id then
@@ -3701,7 +3701,7 @@ function ImGui.UpdateMouseMovingWindowEndFrame()
         else
             hovered_root = nil
         end
-        local is_closed_popup = hovered_root and (bit.band(hovered_root.Flags, ImGuiWindowFlags.Popup) ~= 0) and not ImGui.IsPopupOpen(hovered_root.PopupId, ImGuiPopupFlags_AnyPopupLevel)
+        local is_closed_popup = hovered_root and (bit.band(hovered_root.Flags, ImGuiWindowFlags.Popup) ~= 0) and not ImGui.IsPopupOpen(hovered_root.PopupId, ImGuiPopupFlags.AnyPopupLevel)
 
         if hovered_window ~= nil and not is_closed_popup then
             StartMouseMovingWindow(hovered_window)
@@ -5429,7 +5429,7 @@ function ImGui.EndFrame()
     -- in the BeginDragDropSource() block of the dragged item, you can submit them from a safe single spot
     -- (e.g. end of your item loop, or before EndFrame) by reading payload data.
     -- In the typical case, the contents of drag tooltip should be possible to infer solely from payload data.
-    if g.DragDropActive and g.DragDropSourceFrameCount + 1 < g.FrameCount and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags_SourceNoPreviewTooltip) == 0) then
+    if g.DragDropActive and g.DragDropSourceFrameCount + 1 < g.FrameCount and (bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags.SourceNoPreviewTooltip) == 0) then
         g.DragDropWithinSource = true
         ImGui.SetTooltip("...")
         g.DragDropWithinSource = false
@@ -6108,7 +6108,7 @@ function ImGui.BeginTooltip()
 end
 
 function ImGui.BeginItemTooltip()
-    if not ImGui.IsItemHovered(ImGuiHoveredFlags_ForTooltip) then
+    if not ImGui.IsItemHovered(ImGuiHoveredFlags.ForTooltip) then
         return false
     end
     return ImGui.BeginTooltipEx(ImGuiTooltipFlags.None, ImGuiWindowFlags.None)
@@ -6132,7 +6132,7 @@ end
 --- @param fmt string
 --- @param ... any
 function ImGui.SetItemTooltip(fmt, ...)
-    if ImGui.IsItemHovered(ImGuiHoveredFlags_ForTooltip) then
+    if ImGui.IsItemHovered(ImGuiHoveredFlags.ForTooltip) then
         ImGui.SetTooltip(fmt, ...)
     end
 end
@@ -6163,8 +6163,8 @@ function ImGui.OpenPopupEx(id, popup_flags)
     local parent_window = g.CurrentWindow
     local current_stack_size = g.BeginPopupStack.Size
 
-    if bit.band(popup_flags, ImGuiPopupFlags_NoOpenOverExistingPopup) ~= 0 then
-        if ImGui.IsPopupOpen(0, ImGuiPopupFlags_AnyPopupId) then
+    if bit.band(popup_flags, ImGuiPopupFlags.NoOpenOverExistingPopup) ~= 0 then
+        if ImGui.IsPopupOpen(0, ImGuiPopupFlags.AnyPopupId) then
             return
         end
     end
@@ -6189,11 +6189,11 @@ function ImGui.OpenPopupEx(id, popup_flags)
         -- Gently handle the user mistakenly calling OpenPopup() every frames: it is likely a programming mistake!
         -- However, if we were to run the regular code path, the ui would become completely unusable because the popup will always be
         -- in hidden-while-calculating-size state _while_ claiming focus. Which is extremely confusing situation for the programmer.
-        -- Instead, for successive frames calls to OpenPopup(), we silently avoid reopening even if ImGuiPopupFlags_NoReopen is not specified.
+        -- Instead, for successive frames calls to OpenPopup(), we silently avoid reopening even if ImGuiPopupFlags.NoReopen is not specified.
 
         local keep_existing = false
         if g.OpenPopupStack.Data[current_stack_size + 1].PopupId == id then
-            if (g.OpenPopupStack.Data[current_stack_size + 1].OpenFrameCount == g.FrameCount - 1) or (bit.band(popup_flags, ImGuiPopupFlags_NoReopen) ~= 0) then
+            if (g.OpenPopupStack.Data[current_stack_size + 1].OpenFrameCount == g.FrameCount - 1) or (bit.band(popup_flags, ImGuiPopupFlags.NoReopen) ~= 0) then
                 keep_existing = true
             end
         end
@@ -6344,7 +6344,7 @@ end
 --- @param extra_window_flags ImGuiWindowFlags
 function ImGui.BeginPopupEx(id, extra_window_flags)
     local g = GImGui
-    if not ImGui.IsPopupOpen(id, ImGuiPopupFlags_None) then
+    if not ImGui.IsPopupOpen(id, ImGuiPopupFlags.None) then
         g.NextWindowData:ClearFlags()
         return false
     end
@@ -6628,15 +6628,15 @@ end
 --- @return ImGuiMouseButton
 function ImGui.GetMouseButtonFromPopupFlags(flags)
 if not IMGUI_DISABLE_OBSOLETE_FUNCTIONS then
-    if bit.band(flags, ImGuiPopupFlags_InvalidMask_) ~= 0 then
-        return bit.band(flags, ImGuiPopupFlags_InvalidMask_)
+    if bit.band(flags, ImGuiPopupFlags.InvalidMask_) ~= 0 then
+        return bit.band(flags, ImGuiPopupFlags.InvalidMask_)
     end
 else
-    IM_ASSERT(bit.band(flags, ImGuiPopupFlags_InvalidMask_) == 0)
+    IM_ASSERT(bit.band(flags, ImGuiPopupFlags.InvalidMask_) == 0)
 end
 
-    if bit.band(flags, ImGuiPopupFlags_MouseButtonMask_) ~= 0 then
-        return bit.rshift(bit.band(flags, ImGuiPopupFlags_MouseButtonMask_), ImGuiPopupFlags_MouseButtonShift_) - 1
+    if bit.band(flags, ImGuiPopupFlags.MouseButtonMask_) ~= 0 then
+        return bit.rshift(bit.band(flags, ImGuiPopupFlags.MouseButtonMask_), ImGuiPopupFlags.MouseButtonShift_) - 1
     end
 
     return ImGuiMouseButton.Right -- Default == 1
@@ -6650,7 +6650,7 @@ function ImGui.OpenPopupOnItemClick(str_id, popup_flags)
     local g = GImGui
     local window = g.CurrentWindow
     local mouse_button = ImGui.GetMouseButtonFromPopupFlags(popup_flags)
-    if ImGui.IsMouseReleased(mouse_button) and ImGui.IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup) then
+    if ImGui.IsMouseReleased(mouse_button) and ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup) then
         local id
         if str_id then id = window:GetID(str_id) else id = g.LastItemData.ID end
         IM_ASSERT(id ~= 0)
@@ -6739,7 +6739,7 @@ end
 --- @return float
 function ImGui.GetNavTweakPressedAmount(axis)
     local g = GImGui
-    local repeat_delay, repeat_rate = ImGui.GetTypematicRepeatRate(ImGuiInputFlags_RepeatRateNavTweak)
+    local repeat_delay, repeat_rate = ImGui.GetTypematicRepeatRate(ImGuiInputFlags.RepeatRateNavTweak)
 
     local key_less, key_more
     if g.NavInputSource == ImGuiInputSource.Gamepad then

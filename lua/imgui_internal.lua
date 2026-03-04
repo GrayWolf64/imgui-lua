@@ -940,8 +940,8 @@ function ImGuiStyle()
         ItemSpacing = ImVec2(8, 4),
         ItemInnerSpacing = ImVec2(4, 4),
 
-        HoverFlagsForTooltipMouse = bit.bor(ImGuiHoveredFlags_Stationary, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_AllowWhenDisabled),
-        HoverFlagsForTooltipNav = bit.bor(ImGuiHoveredFlags_NoSharedDelay, ImGuiHoveredFlags_DelayNormal, ImGuiHoveredFlags_AllowWhenDisabled),
+        HoverFlagsForTooltipMouse = bit.bor(ImGuiHoveredFlags.Stationary, ImGuiHoveredFlags.DelayShort, ImGuiHoveredFlags.AllowWhenDisabled),
+        HoverFlagsForTooltipNav = bit.bor(ImGuiHoveredFlags.NoSharedDelay, ImGuiHoveredFlags.DelayNormal, ImGuiHoveredFlags.AllowWhenDisabled),
 
         -- [Internal]
         _MainScale = 1.0,
@@ -1858,31 +1858,31 @@ ImGuiInputEventType = {
     COUNT         = 8
 }
 
-ImGuiInputFlags_RepeatRateDefault                = bit.lshift(1, 1)
-ImGuiInputFlags_RepeatRateNavMove                = bit.lshift(1, 2)
-ImGuiInputFlags_RepeatRateNavTweak               = bit.lshift(1, 3)
-ImGuiInputFlags_RepeatUntilRelease               = bit.lshift(1, 4)
-ImGuiInputFlags_RepeatUntilKeyModsChange         = bit.lshift(1, 5)
-ImGuiInputFlags_RepeatUntilKeyModsChangeFromNone = bit.lshift(1, 6)
-ImGuiInputFlags_RepeatUntilOtherKeyPress         = bit.lshift(1, 7)
-ImGuiInputFlags_LockThisFrame                    = bit.lshift(1, 20)
-ImGuiInputFlags_LockUntilRelease                 = bit.lshift(1, 21)
-ImGuiInputFlags_CondHovered                      = bit.lshift(1, 22)
-ImGuiInputFlags_CondActive                       = bit.lshift(1, 23)
+ImGuiInputFlags.RepeatRateDefault                = bit.lshift(1, 1)
+ImGuiInputFlags.RepeatRateNavMove                = bit.lshift(1, 2)
+ImGuiInputFlags.RepeatRateNavTweak               = bit.lshift(1, 3)
+ImGuiInputFlags.RepeatUntilRelease               = bit.lshift(1, 4)
+ImGuiInputFlags.RepeatUntilKeyModsChange         = bit.lshift(1, 5)
+ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone = bit.lshift(1, 6)
+ImGuiInputFlags.RepeatUntilOtherKeyPress         = bit.lshift(1, 7)
+ImGuiInputFlags.LockThisFrame                    = bit.lshift(1, 20)
+ImGuiInputFlags.LockUntilRelease                 = bit.lshift(1, 21)
+ImGuiInputFlags.CondHovered                      = bit.lshift(1, 22)
+ImGuiInputFlags.CondActive                       = bit.lshift(1, 23)
 
-ImGuiInputFlags_CondDefault_                   = bit.bor(ImGuiInputFlags_CondHovered, ImGuiInputFlags_CondActive)
-ImGuiInputFlags_RepeatRateMask_                = bit.bor(ImGuiInputFlags_RepeatRateDefault, ImGuiInputFlags_RepeatRateNavMove, ImGuiInputFlags_RepeatRateNavTweak)
-ImGuiInputFlags_RepeatUntilMask_               = bit.bor(ImGuiInputFlags_RepeatUntilRelease, ImGuiInputFlags_RepeatUntilKeyModsChange, ImGuiInputFlags_RepeatUntilKeyModsChangeFromNone, ImGuiInputFlags_RepeatUntilOtherKeyPress)
-ImGuiInputFlags_RepeatMask_                    = bit.bor(ImGuiInputFlags_Repeat, ImGuiInputFlags_RepeatRateMask_, ImGuiInputFlags_RepeatUntilMask_)
-ImGuiInputFlags_CondMask_                      = bit.bor(ImGuiInputFlags_CondHovered, ImGuiInputFlags_CondActive)
-ImGuiInputFlags_RouteTypeMask_                 = bit.bor(ImGuiInputFlags_RouteActive, ImGuiInputFlags_RouteFocused, ImGuiInputFlags_RouteGlobal, ImGuiInputFlags_RouteAlways)
-ImGuiInputFlags_RouteOptionsMask_              = bit.bor(ImGuiInputFlags_RouteOverFocused, ImGuiInputFlags_RouteOverActive, ImGuiInputFlags_RouteUnlessBgFocused, ImGuiInputFlags_RouteFromRootWindow)
-ImGuiInputFlags_SupportedByIsKeyPressed        = ImGuiInputFlags_RepeatMask_
-ImGuiInputFlags_SupportedByIsMouseClicked      = ImGuiInputFlags_Repeat
-ImGuiInputFlags_SupportedByShortcut            = bit.bor(ImGuiInputFlags_RepeatMask_, ImGuiInputFlags_RouteTypeMask_, ImGuiInputFlags_RouteOptionsMask_)
-ImGuiInputFlags_SupportedBySetNextItemShortcut = bit.bor(ImGuiInputFlags_RepeatMask_, ImGuiInputFlags_RouteTypeMask_, ImGuiInputFlags_RouteOptionsMask_, ImGuiInputFlags_Tooltip)
-ImGuiInputFlags_SupportedBySetKeyOwner         = bit.bor(ImGuiInputFlags_LockThisFrame, ImGuiInputFlags_LockUntilRelease)
-ImGuiInputFlags_SupportedBySetItemKeyOwner     = bit.bor(ImGuiInputFlags_SupportedBySetKeyOwner, ImGuiInputFlags_CondMask_)
+ImGuiInputFlags.CondDefault_                   = bit.bor(ImGuiInputFlags.CondHovered, ImGuiInputFlags.CondActive)
+ImGuiInputFlags.RepeatRateMask_                = bit.bor(ImGuiInputFlags.RepeatRateDefault, ImGuiInputFlags.RepeatRateNavMove, ImGuiInputFlags.RepeatRateNavTweak)
+ImGuiInputFlags.RepeatUntilMask_               = bit.bor(ImGuiInputFlags.RepeatUntilRelease, ImGuiInputFlags.RepeatUntilKeyModsChange, ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone, ImGuiInputFlags.RepeatUntilOtherKeyPress)
+ImGuiInputFlags.RepeatMask_                    = bit.bor(ImGuiInputFlags.Repeat, ImGuiInputFlags.RepeatRateMask_, ImGuiInputFlags.RepeatUntilMask_)
+ImGuiInputFlags.CondMask_                      = bit.bor(ImGuiInputFlags.CondHovered, ImGuiInputFlags.CondActive)
+ImGuiInputFlags.RouteTypeMask_                 = bit.bor(ImGuiInputFlags.RouteActive, ImGuiInputFlags.RouteFocused, ImGuiInputFlags.RouteGlobal, ImGuiInputFlags.RouteAlways)
+ImGuiInputFlags.RouteOptionsMask_              = bit.bor(ImGuiInputFlags.RouteOverFocused, ImGuiInputFlags.RouteOverActive, ImGuiInputFlags.RouteUnlessBgFocused, ImGuiInputFlags.RouteFromRootWindow)
+ImGuiInputFlags.SupportedByIsKeyPressed        = ImGuiInputFlags.RepeatMask_
+ImGuiInputFlags.SupportedByIsMouseClicked      = ImGuiInputFlags.Repeat
+ImGuiInputFlags.SupportedByShortcut            = bit.bor(ImGuiInputFlags.RepeatMask_, ImGuiInputFlags.RouteTypeMask_, ImGuiInputFlags.RouteOptionsMask_)
+ImGuiInputFlags.SupportedBySetNextItemShortcut = bit.bor(ImGuiInputFlags.RepeatMask_, ImGuiInputFlags.RouteTypeMask_, ImGuiInputFlags.RouteOptionsMask_, ImGuiInputFlags.Tooltip)
+ImGuiInputFlags.SupportedBySetKeyOwner         = bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)
+ImGuiInputFlags.SupportedBySetItemKeyOwner     = bit.bor(ImGuiInputFlags.SupportedBySetKeyOwner, ImGuiInputFlags.CondMask_)
 
 --- @enum ImGuiAxis
 ImGuiAxis = {

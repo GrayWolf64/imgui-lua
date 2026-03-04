@@ -1288,55 +1288,50 @@ ImGuiCond = {
     Appearing     = bit.lshift(1, 3)  -- Set the variable if the object/window is appearing after being hidden/inactive (or the first time)
 }
 
---- @alias ImGuiInputFlags int
-ImGuiInputFlags_None                 = 0
-ImGuiInputFlags_Repeat               = bit.lshift(1, 0)
-ImGuiInputFlags_RouteActive          = bit.lshift(1, 10)
-ImGuiInputFlags_RouteFocused         = bit.lshift(1, 11)
-ImGuiInputFlags_RouteGlobal          = bit.lshift(1, 12)
-ImGuiInputFlags_RouteAlways          = bit.lshift(1, 13)
-ImGuiInputFlags_RouteOverFocused     = bit.lshift(1, 14)
-ImGuiInputFlags_RouteOverActive      = bit.lshift(1, 15)
-ImGuiInputFlags_RouteUnlessBgFocused = bit.lshift(1, 16)
-ImGuiInputFlags_RouteFromRootWindow  = bit.lshift(1, 17)
-ImGuiInputFlags_Tooltip              = bit.lshift(1, 18)
+--- @enum ImGuiInputFlags
+ImGuiInputFlags = {
+    None                 = 0,
+    Repeat               = bit.lshift(1, 0),
+    RouteActive          = bit.lshift(1, 10),
+    RouteFocused         = bit.lshift(1, 11),
+    RouteGlobal          = bit.lshift(1, 12),
+    RouteAlways          = bit.lshift(1, 13),
+    RouteOverFocused     = bit.lshift(1, 14),
+    RouteOverActive      = bit.lshift(1, 15),
+    RouteUnlessBgFocused = bit.lshift(1, 16),
+    RouteFromRootWindow  = bit.lshift(1, 17),
+    Tooltip              = bit.lshift(1, 18)
+}
 
---- @alias ImGuiButtonFlags int
-ImGuiButtonFlags_None                   = 0
-ImGuiButtonFlags_MouseButtonLeft        = bit.lshift(1, 0)
-ImGuiButtonFlags_MouseButtonRight       = bit.lshift(1, 1)
-ImGuiButtonFlags_MouseButtonMiddle      = bit.lshift(1, 2)
-ImGuiButtonFlags_MouseButtonMask_       = bit.bor(ImGuiButtonFlags_MouseButtonLeft, ImGuiButtonFlags_MouseButtonRight, ImGuiButtonFlags_MouseButtonMiddle)
-ImGuiButtonFlags_EnableNav              = bit.lshift(1, 3)
+--- @enum ImGuiButtonFlags
+ImGuiButtonFlags = {
+    None                          = 0,
+    MouseButtonLeft               = bit.lshift(1, 0),
+    MouseButtonRight              = bit.lshift(1, 1),
+    MouseButtonMiddle             = bit.lshift(1, 2),
+    EnableNav                     = bit.lshift(1, 3),
+    PressedOnClick                = bit.lshift(1, 4),
+    PressedOnClickRelease         = bit.lshift(1, 5),
+    PressedOnClickReleaseAnywhere = bit.lshift(1, 6),
+    PressedOnRelease              = bit.lshift(1, 7),
+    PressedOnDoubleClick          = bit.lshift(1, 8),
+    PressedOnDragDropHold         = bit.lshift(1, 9),
+    FlattenChildren               = bit.lshift(1, 11),
+    AllowOverlap                  = bit.lshift(1, 12),
+    AlignTextBaseLine             = bit.lshift(1, 15),
+    NoKeyModsAllowed              = bit.lshift(1, 16),
+    NoHoldingActiveId             = bit.lshift(1, 17),
+    NoNavFocus                    = bit.lshift(1, 18),
+    NoHoveredOnFocus              = bit.lshift(1, 19),
+    NoSetKeyOwner                 = bit.lshift(1, 20),
+    NoTestKeyOwner                = bit.lshift(1, 21),
+    NoFocus                       = bit.lshift(1, 22)
+}
 
-ImGuiButtonFlags_PressedOnClick                = bit.lshift(1, 4)
-ImGuiButtonFlags_PressedOnClickRelease         = bit.lshift(1, 5)
-ImGuiButtonFlags_PressedOnClickReleaseAnywhere = bit.lshift(1, 6)
-ImGuiButtonFlags_PressedOnRelease              = bit.lshift(1, 7)
-ImGuiButtonFlags_PressedOnDoubleClick          = bit.lshift(1, 8)
-ImGuiButtonFlags_PressedOnDragDropHold         = bit.lshift(1, 9)
-ImGuiButtonFlags_FlattenChildren               = bit.lshift(1, 11)
-ImGuiButtonFlags_AllowOverlap                  = bit.lshift(1, 12)
-ImGuiButtonFlags_AlignTextBaseLine             = bit.lshift(1, 15)
-ImGuiButtonFlags_NoKeyModsAllowed              = bit.lshift(1, 16)
-ImGuiButtonFlags_NoHoldingActiveId             = bit.lshift(1, 17)
-ImGuiButtonFlags_NoNavFocus                    = bit.lshift(1, 18)
-ImGuiButtonFlags_NoHoveredOnFocus              = bit.lshift(1, 19)
-ImGuiButtonFlags_NoSetKeyOwner                 = bit.lshift(1, 20)
-ImGuiButtonFlags_NoTestKeyOwner                = bit.lshift(1, 21)
-ImGuiButtonFlags_NoFocus                       = bit.lshift(1, 22)
-
-ImGuiButtonFlags_PressedOnMask_ = bit.bor(
-    ImGuiButtonFlags_PressedOnClick,
-    ImGuiButtonFlags_PressedOnClickRelease,
-    ImGuiButtonFlags_PressedOnClickReleaseAnywhere,
-    ImGuiButtonFlags_PressedOnRelease,
-    ImGuiButtonFlags_PressedOnDoubleClick,
-    ImGuiButtonFlags_PressedOnDragDropHold
-)
-
-ImGuiButtonFlags_PressedOnDefault_ = ImGuiButtonFlags_PressedOnClickRelease
-ImGuiButtonFlags_NoKeyModifiers    = ImGuiButtonFlags_NoKeyModsAllowed
+ImGuiButtonFlags.MouseButtonMask_  = bit.bor(ImGuiButtonFlags.MouseButtonLeft, ImGuiButtonFlags.MouseButtonRight, ImGuiButtonFlags.MouseButtonMiddle)
+ImGuiButtonFlags.PressedOnMask_    = bit.bor(ImGuiButtonFlags.PressedOnClick, ImGuiButtonFlags.PressedOnClickRelease, ImGuiButtonFlags.PressedOnClickReleaseAnywhere, ImGuiButtonFlags.PressedOnRelease, ImGuiButtonFlags.PressedOnDoubleClick, ImGuiButtonFlags.PressedOnDragDropHold)
+ImGuiButtonFlags.PressedOnDefault_ = ImGuiButtonFlags.PressedOnClickRelease
+ImGuiButtonFlags.NoKeyModifiers    = ImGuiButtonFlags.NoKeyModsAllowed
 
 --- @enum ImGuiStyleVar
 ImGuiStyleVar = {
@@ -1383,57 +1378,33 @@ ImGuiStyleVar = {
     COUNT                       = 40
 }
 
---- @alias ImGuiHoveredFlags int
-ImGuiHoveredFlags_None                         = 0
-ImGuiHoveredFlags_ChildWindows                 = bit.lshift(1, 0)
-ImGuiHoveredFlags_RootWindow                   = bit.lshift(1, 1)
-ImGuiHoveredFlags_AnyWindow                    = bit.lshift(1, 2)
-ImGuiHoveredFlags_NoPopupHierarchy             = bit.lshift(1, 3)
-ImGuiHoveredFlags_AllowWhenBlockedByPopup      = bit.lshift(1, 5)
-ImGuiHoveredFlags_AllowWhenBlockedByActiveItem = bit.lshift(1, 7)
-ImGuiHoveredFlags_AllowWhenOverlappedByItem    = bit.lshift(1, 8)
-ImGuiHoveredFlags_AllowWhenOverlappedByWindow  = bit.lshift(1, 9)
-ImGuiHoveredFlags_AllowWhenDisabled            = bit.lshift(1, 10)
-ImGuiHoveredFlags_NoNavOverride                = bit.lshift(1, 11)
-ImGuiHoveredFlags_ForTooltip                   = bit.lshift(1, 12)
-ImGuiHoveredFlags_Stationary                   = bit.lshift(1, 13)
-ImGuiHoveredFlags_DelayNone                    = bit.lshift(1, 14)
-ImGuiHoveredFlags_DelayShort                   = bit.lshift(1, 15)
-ImGuiHoveredFlags_DelayNormal                  = bit.lshift(1, 16)
-ImGuiHoveredFlags_NoSharedDelay                = bit.lshift(1, 17)
+--- @enum ImGuiHoveredFlags
+ImGuiHoveredFlags = {
+    None                         = 0,
+    ChildWindows                 = bit.lshift(1, 0),
+    RootWindow                   = bit.lshift(1, 1),
+    AnyWindow                    = bit.lshift(1, 2),
+    NoPopupHierarchy             = bit.lshift(1, 3),
+    AllowWhenBlockedByPopup      = bit.lshift(1, 5),
+    AllowWhenBlockedByActiveItem = bit.lshift(1, 7),
+    AllowWhenOverlappedByItem    = bit.lshift(1, 8),
+    AllowWhenOverlappedByWindow  = bit.lshift(1, 9),
+    AllowWhenDisabled            = bit.lshift(1, 10),
+    NoNavOverride                = bit.lshift(1, 11),
+    ForTooltip                   = bit.lshift(1, 12),
+    Stationary                   = bit.lshift(1, 13),
+    DelayNone                    = bit.lshift(1, 14),
+    DelayShort                   = bit.lshift(1, 15),
+    DelayNormal                  = bit.lshift(1, 16),
+    NoSharedDelay                = bit.lshift(1, 17)
+}
 
-ImGuiHoveredFlags_AllowWhenOverlapped = bit.bor(ImGuiHoveredFlags_AllowWhenOverlappedByItem, ImGuiHoveredFlags_AllowWhenOverlappedByWindow)
-ImGuiHoveredFlags_RectOnly            = bit.bor(ImGuiHoveredFlags_AllowWhenBlockedByPopup, ImGuiHoveredFlags_AllowWhenBlockedByActiveItem, ImGuiHoveredFlags_AllowWhenOverlapped)
-ImGuiHoveredFlags_RootAndChildWindows = bit.bor(ImGuiHoveredFlags_RootWindow, ImGuiHoveredFlags_ChildWindows)
-
-ImGuiHoveredFlags_DelayMask_ = bit.bor(
-    ImGuiHoveredFlags_DelayNone,
-    ImGuiHoveredFlags_DelayShort,
-    ImGuiHoveredFlags_DelayNormal,
-    ImGuiHoveredFlags_NoSharedDelay
-)
-
-ImGuiHoveredFlags_AllowedMaskForIsWindowHovered = bit.bor(
-    ImGuiHoveredFlags_ChildWindows,
-    ImGuiHoveredFlags_RootWindow,
-    ImGuiHoveredFlags_AnyWindow,
-    ImGuiHoveredFlags_NoPopupHierarchy,
-    ImGuiHoveredFlags_AllowWhenBlockedByPopup,
-    ImGuiHoveredFlags_AllowWhenBlockedByActiveItem,
-    ImGuiHoveredFlags_ForTooltip,
-    ImGuiHoveredFlags_Stationary
-)
-
-ImGuiHoveredFlags_AllowedMaskForIsItemHovered = bit.bor(
-    ImGuiHoveredFlags_AllowWhenBlockedByPopup,
-    ImGuiHoveredFlags_AllowWhenBlockedByActiveItem,
-    ImGuiHoveredFlags_AllowWhenOverlapped,
-    ImGuiHoveredFlags_AllowWhenDisabled,
-    ImGuiHoveredFlags_NoNavOverride,
-    ImGuiHoveredFlags_ForTooltip,
-    ImGuiHoveredFlags_Stationary,
-    ImGuiHoveredFlags_DelayMask_
-)
+ImGuiHoveredFlags.AllowWhenOverlapped = bit.bor(ImGuiHoveredFlags.AllowWhenOverlappedByItem, ImGuiHoveredFlags.AllowWhenOverlappedByWindow)
+ImGuiHoveredFlags.RectOnly            = bit.bor(ImGuiHoveredFlags.AllowWhenBlockedByPopup, ImGuiHoveredFlags.AllowWhenBlockedByActiveItem, ImGuiHoveredFlags.AllowWhenOverlapped)
+ImGuiHoveredFlags.RootAndChildWindows = bit.bor(ImGuiHoveredFlags.RootWindow, ImGuiHoveredFlags.ChildWindows)
+ImGuiHoveredFlags.DelayMask_ = bit.bor(ImGuiHoveredFlags.DelayNone, ImGuiHoveredFlags.DelayShort, ImGuiHoveredFlags.DelayNormal, ImGuiHoveredFlags.NoSharedDelay)
+ImGuiHoveredFlags.AllowedMaskForIsWindowHovered = bit.bor(ImGuiHoveredFlags.ChildWindows, ImGuiHoveredFlags.RootWindow, ImGuiHoveredFlags.AnyWindow, ImGuiHoveredFlags.NoPopupHierarchy, ImGuiHoveredFlags.AllowWhenBlockedByPopup, ImGuiHoveredFlags.AllowWhenBlockedByActiveItem, ImGuiHoveredFlags.ForTooltip, ImGuiHoveredFlags.Stationary)
+ImGuiHoveredFlags.AllowedMaskForIsItemHovered = bit.bor(ImGuiHoveredFlags.AllowWhenBlockedByPopup, ImGuiHoveredFlags.AllowWhenBlockedByActiveItem, ImGuiHoveredFlags.AllowWhenOverlapped, ImGuiHoveredFlags.AllowWhenDisabled, ImGuiHoveredFlags.NoNavOverride, ImGuiHoveredFlags.ForTooltip, ImGuiHoveredFlags.Stationary, ImGuiHoveredFlags.DelayMask_)
 
 --- @enum ImGuiKey
 ImGuiKey = {
@@ -1631,23 +1602,24 @@ ImGuiBackendFlags = {
     HasParentViewport       = bit.lshift(1, 13)
 }
 
---- @alias ImGuiDragDropFlags int
-ImGuiDragDropFlags_None                     = 0
-ImGuiDragDropFlags_SourceNoPreviewTooltip   = bit.lshift(1, 0)
-ImGuiDragDropFlags_SourceNoDisableHover     = bit.lshift(1, 1)
-ImGuiDragDropFlags_SourceNoHoldToOpenOthers = bit.lshift(1, 2)
-ImGuiDragDropFlags_SourceAllowNullID        = bit.lshift(1, 3)
-ImGuiDragDropFlags_SourceExtern             = bit.lshift(1, 4)
-ImGuiDragDropFlags_PayloadAutoExpire        = bit.lshift(1, 5)
-ImGuiDragDropFlags_PayloadNoCrossContext    = bit.lshift(1, 6)
-ImGuiDragDropFlags_PayloadNoCrossProcess    = bit.lshift(1, 7)
+--- @enum ImGuiDragDropFlags
+ImGuiDragDropFlags = {
+    None                     = 0,
+    SourceNoPreviewTooltip   = bit.lshift(1, 0),
+    SourceNoDisableHover     = bit.lshift(1, 1),
+    SourceNoHoldToOpenOthers = bit.lshift(1, 2),
+    SourceAllowNullID        = bit.lshift(1, 3),
+    SourceExtern             = bit.lshift(1, 4),
+    PayloadAutoExpire        = bit.lshift(1, 5),
+    PayloadNoCrossContext    = bit.lshift(1, 6),
+    PayloadNoCrossProcess    = bit.lshift(1, 7),
+    AcceptBeforeDelivery     = bit.lshift(1, 10),
+    AcceptNoDrawDefaultRect  = bit.lshift(1, 11),
+    AcceptNoPreviewTooltip   = bit.lshift(1, 12),
+    AcceptDrawAsHovered      = bit.lshift(1, 13)
+}
 
-ImGuiDragDropFlags_AcceptBeforeDelivery    = bit.lshift(1, 10)
-ImGuiDragDropFlags_AcceptNoDrawDefaultRect = bit.lshift(1, 11)
-ImGuiDragDropFlags_AcceptNoPreviewTooltip  = bit.lshift(1, 12)
-ImGuiDragDropFlags_AcceptDrawAsHovered     = bit.lshift(1, 13)
-
-ImGuiDragDropFlags_AcceptPeekOnly = bit.bor(ImGuiDragDropFlags_AcceptBeforeDelivery, ImGuiDragDropFlags_AcceptNoDrawDefaultRect)
+ImGuiDragDropFlags.AcceptPeekOnly = bit.bor(ImGuiDragDropFlags.AcceptBeforeDelivery, ImGuiDragDropFlags.AcceptNoDrawDefaultRect)
 
 --- Note that `U64` isn't supported
 --- @enum ImGuiDataType
@@ -1681,21 +1653,23 @@ IM_COL32_WHITE       = IM_COL32(255, 255, 255, 255)
 IM_COL32_BLACK       = IM_COL32(0, 0, 0, 255)
 IM_COL32_BLACK_TRANS = IM_COL32(0, 0, 0, 0)
 
---- @alias ImGuiPopupFlags int
-ImGuiPopupFlags_None                    = 0
-ImGuiPopupFlags_MouseButtonLeft         = bit.lshift(1, 2)
-ImGuiPopupFlags_MouseButtonRight        = bit.lshift(2, 2)
-ImGuiPopupFlags_MouseButtonMiddle       = bit.lshift(3, 2)
-ImGuiPopupFlags_NoReopen                = bit.lshift(1, 5)
-ImGuiPopupFlags_NoOpenOverExistingPopup = bit.lshift(1, 7)
-ImGuiPopupFlags_NoOpenOverItems         = bit.lshift(1, 8)
-ImGuiPopupFlags_AnyPopupId              = bit.lshift(1, 10)
-ImGuiPopupFlags_AnyPopupLevel           = bit.lshift(1, 11)
+--- @enum ImGuiPopupFlags
+ImGuiPopupFlags = {
+    None                    = 0,
+    MouseButtonLeft         = bit.lshift(1, 2),
+    MouseButtonRight        = bit.lshift(2, 2),
+    MouseButtonMiddle       = bit.lshift(3, 2),
+    NoReopen                = bit.lshift(1, 5),
+    NoOpenOverExistingPopup = bit.lshift(1, 7),
+    NoOpenOverItems         = bit.lshift(1, 8),
+    AnyPopupId              = bit.lshift(1, 10),
+    AnyPopupLevel           = bit.lshift(1, 11)
+}
 
-ImGuiPopupFlags_AnyPopup          = bit.bor(ImGuiPopupFlags_AnyPopupId, ImGuiPopupFlags_AnyPopupLevel)
-ImGuiPopupFlags_MouseButtonShift_ = 2
-ImGuiPopupFlags_MouseButtonMask_  = 0x0C
-ImGuiPopupFlags_InvalidMask_      = 0x03
+ImGuiPopupFlags.AnyPopup          = bit.bor(ImGuiPopupFlags.AnyPopupId, ImGuiPopupFlags.AnyPopupLevel)
+ImGuiPopupFlags.MouseButtonShift_ = 2
+ImGuiPopupFlags.MouseButtonMask_  = 0x0C
+ImGuiPopupFlags.InvalidMask_      = 0x03
 
 --- @enum ImGuiComboFlags
 ImGuiComboFlags = {
@@ -1707,7 +1681,7 @@ ImGuiComboFlags = {
     HeightLargest   = bit.lshift(1, 4), -- As many fitting items as possible
     NoArrowButton   = bit.lshift(1, 5), -- Display on the preview box without the square arrow button
     NoPreview       = bit.lshift(1, 6), -- Display only a square arrow button
-    WidthFitPreview = bit.lshift(1, 7), -- Width dynamically calculated from preview contents
+    WidthFitPreview = bit.lshift(1, 7)  -- Width dynamically calculated from preview contents
 }
 
 ImGuiComboFlags.HeightMask_ = bit.bor(ImGuiComboFlags.HeightSmall, ImGuiComboFlags.HeightRegular, ImGuiComboFlags.HeightLarge, ImGuiComboFlags.HeightLargest)
