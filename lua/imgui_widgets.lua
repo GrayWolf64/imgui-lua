@@ -309,9 +309,9 @@ function ImGui.ButtonBehavior(bb, id, flags)
 
     local item_flags = (g.LastItemData.ID == id) and g.LastItemData.ItemFlags or g.CurrentItemFlags
     if bit.band(flags, ImGuiButtonFlags.AllowOverlap) ~= 0 then
-        item_flags = bit.bor(item_flags, ImGuiItemFlags_AllowOverlap)
+        item_flags = bit.bor(item_flags, ImGuiItemFlags.AllowOverlap)
     end
-    if bit.band(item_flags, ImGuiItemFlags_NoFocus) ~= 0 then
+    if bit.band(item_flags, ImGuiItemFlags.NoFocus) ~= 0 then
         flags = bit.bor(flags, ImGuiButtonFlags.NoFocus, ImGuiButtonFlags.NoNavFocus)
     end
 
@@ -322,7 +322,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
 
     -- Default behavior requires click + release inside bounding box
     if bit.band(flags, ImGuiButtonFlags.PressedOnMask_) == 0 then
-        flags = bit.bor(flags, (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and ImGuiButtonFlags.PressedOnClick or ImGuiButtonFlags.PressedOnDefault_)
+        flags = bit.bor(flags, (bit.band(item_flags, ImGuiItemFlags.ButtonRepeat) ~= 0) and ImGuiButtonFlags.PressedOnClick or ImGuiButtonFlags.PressedOnDefault_)
     end
 
     local backup_hovered_window = g.HoveredWindow
@@ -410,7 +410,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
 
             if bit.band(flags, ImGuiButtonFlags.PressedOnRelease) ~= 0 then
                 if mouse_button_released ~= -1 then
-                    local has_repeated_at_least_once = (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and g.IO.MouseDownDurationPrev[mouse_button_released] >= g.IO.KeyRepeatDelay
+                    local has_repeated_at_least_once = (bit.band(item_flags, ImGuiItemFlags.ButtonRepeat) ~= 0) and g.IO.MouseDownDurationPrev[mouse_button_released] >= g.IO.KeyRepeatDelay
 
                     if not has_repeated_at_least_once then
                         pressed = true
@@ -424,7 +424,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
                 end
             end
 
-            if g.ActiveId == id and (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) then
+            if g.ActiveId == id and (bit.band(item_flags, ImGuiItemFlags.ButtonRepeat) ~= 0) then
                 if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClickedEx(g.ActiveIdMouseButton, ImGuiInputFlags.Repeat, test_owner_id) then
                     pressed = true
                 end
@@ -459,7 +459,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
                     -- Report as pressed when releasing the mouse (this is the most common path)
                     local is_double_click_release = (bit.band(flags, ImGuiButtonFlags.PressedOnDoubleClick) ~= 0) and g.IO.MouseReleased[mouse_button] and g.IO.MouseClickedLastCount[mouse_button] == 2
 
-                    local is_repeating_already = (bit.band(item_flags, ImGuiItemFlags_ButtonRepeat) ~= 0) and g.IO.MouseDownDurationPrev[mouse_button] >= g.IO.KeyRepeatDelay
+                    local is_repeating_already = (bit.band(item_flags, ImGuiItemFlags.ButtonRepeat) ~= 0) and g.IO.MouseDownDurationPrev[mouse_button] >= g.IO.KeyRepeatDelay
 
                     local is_button_avail_or_owned = ImGui.TestKeyOwner(ImGui.MouseButtonToKey(mouse_button), test_owner_id)
 
@@ -488,7 +488,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
         end
     end
 
-    if g.NavHighlightActivatedId == id and (bit.band(item_flags, ImGuiItemFlags_Disabled) == 0) then
+    if g.NavHighlightActivatedId == id and (bit.band(item_flags, ImGuiItemFlags.Disabled) == 0) then
         hovered = true
     end
 
@@ -588,7 +588,7 @@ function ImGui.InvisibleButton(str_id, size_arg, flags)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
     ImGui.ItemSize(size)
 
-    local item_flags = (bit.band(flags, ImGuiButtonFlags.EnableNav) ~= 0) and ImGuiItemFlags_None or ImGuiItemFlags_NoNav
+    local item_flags = (bit.band(flags, ImGuiButtonFlags.EnableNav) ~= 0) and ImGuiItemFlags.None or ImGuiItemFlags.NoNav
     if not ImGui.ItemAdd(bb, id, nil, item_flags) then
         return false
     end
@@ -804,7 +804,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     local grab_h_pixels = ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v)
     local grab_h_norm = grab_h_pixels / scrollbar_size_v
 
-    ImGui.ItemAdd(bb_frame, id, nil, ImGuiItemFlags_NoNav)
+    ImGui.ItemAdd(bb_frame, id, nil, ImGuiItemFlags.NoNav)
     local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, ImGuiButtonFlags.NoNavFocus)
 
     local scroll_max = ImMax(1, size_contents_v - size_visible_v)
@@ -927,7 +927,7 @@ function ImGui.Checkbox(label, v)
     local total_bb = ImRect(pos, pos + ImVec2(total_width, label_size.y + style.FramePadding.y * 2.0))
     ImGui.ItemSizeR(total_bb, style.FramePadding.y)
     local is_visible = ImGui.ItemAdd(total_bb, id)
-    local is_multi_select = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_IsMultiSelect) ~= 0)
+    local is_multi_select = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.IsMultiSelect) ~= 0)
     if not is_visible then
         if not is_multi_select or not g.BoxSelectState.UnclipMode or not g.BoxSelectState.UnclipRect:Overlaps(total_bb) then  -- Extra layer of "no logic clip" for box-select support
             -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Checkable | (*v ? ImGuiItemStatusFlags_Checked : 0))
@@ -955,7 +955,7 @@ function ImGui.Checkbox(label, v)
     end
 
     local check_bb = ImRect(pos, pos + ImVec2(square_sz, square_sz))
-    local mixed_value = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_MixedValue) ~= 0)
+    local mixed_value = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0)
     if is_visible then
         -- ImGui.RenderNavCursor(total_bb, id)
 
@@ -974,7 +974,7 @@ function ImGui.Checkbox(label, v)
 
         if mixed_value then
             -- Undocumented tristate/mixed/indeterminate checkbox (#2644)
-            -- This may seem awkwardly designed because the aim is to make ImGuiItemFlags_MixedValue supported by all widgets (not just checkbox)
+            -- This may seem awkwardly designed because the aim is to make ImGuiItemFlags.MixedValue supported by all widgets (not just checkbox)
             local pad_val = ImMax(1.0, IM_TRUNC(square_sz / 3.6))
             local pad = ImVec2(pad_val, pad_val)
             window.DrawList:AddRectFilled(check_bb.Min + pad, check_bb.Max - pad, check_col, style.FrameRounding)
@@ -1016,7 +1016,7 @@ function ImGui.CheckboxFlags(label, flags, flags_value)
     local pressed
     if not all_on and any_on then
         local g = ImGui.GetCurrentContext()
-        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags_MixedValue)
+        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.MixedValue)
         pressed, all_on = ImGui.Checkbox(label, all_on)
     else
         pressed, all_on = ImGui.Checkbox(label, all_on)
@@ -2123,7 +2123,7 @@ function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
     if g.ActiveId ~= id then
         return v, false
     end
-    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_ReadOnly) ~= 0 or bit.band(flags, ImGuiSliderFlags.ReadOnly) ~= 0 then
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.ReadOnly) ~= 0 or bit.band(flags, ImGuiSliderFlags.ReadOnly) ~= 0 then
         return v, false
     end
 
@@ -2169,7 +2169,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
 
     local temp_input_allowed = (bit.band(flags, ImGuiSliderFlags.NoInput) == 0)
     ImGui.ItemSizeR(total_bb, style.FramePadding.y)
-    if not ImGui.ItemAdd(total_bb, id, frame_bb, temp_input_allowed and ImGuiItemFlags_Inputable or 0) then
+    if not ImGui.ItemAdd(total_bb, id, frame_bb, temp_input_allowed and ImGuiItemFlags.Inputable or 0) then
         return data, false
     end
 
@@ -2970,7 +2970,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     local io = g.IO
 
     local width = ImGui.CalcItemWidth()
-    local is_readonly = bit.band(bit.bor(g.NextItemData.ItemFlags, g.CurrentItemFlags), ImGuiItemFlags_ReadOnly) ~= 0
+    local is_readonly = bit.band(bit.bor(g.NextItemData.ItemFlags, g.CurrentItemFlags), ImGuiItemFlags.ReadOnly) ~= 0
     g.NextItemData:ClearFlags()
 
     ImGui.PushID(label)
@@ -3049,7 +3049,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
 
     local value_changed = false; local value_changed_h = false; local value_changed_sv = false
 
-    ImGui.PushItemFlag(ImGuiItemFlags_NoNav, true)
+    ImGui.PushItemFlag(ImGuiItemFlags.NoNav, true)
     if bit.band(flags, ImGuiColorEditFlags.PickerHueWheel) ~= 0 then
         -- Hue wheel + SV triangle logic
         ImGui.InvisibleButton("hsv", ImVec2(sv_picker_size + style.ItemInnerSpacing.x + bars_width, sv_picker_size))
@@ -3140,7 +3140,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     end
 
     if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) == 0 then
-        ImGui.PushItemFlag(ImGuiItemFlags_NoNavDefaultFocus, true)
+        ImGui.PushItemFlag(ImGuiItemFlags.NoNavDefaultFocus, true)
         local col_v4 = ImVec4(col[1], col[2], col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col[4])
 
         if bit.band(flags, ImGuiColorEditFlags.NoLabel) ~= 0 then
@@ -3513,7 +3513,7 @@ function ImGui.ColorEditOptionsPopup(col, flags)
     end
 
     local g = ImGui.GetCurrentContext()
-    ImGui.PushItemFlag(ImGuiItemFlags_NoMarkEdited, true)
+    ImGui.PushItemFlag(ImGuiItemFlags.NoMarkEdited, true)
     local opts = g.ColorEditOptions
     if allow_opt_inputs then
         if ImGui.RadioButton("RGB", bit.band(opts, ImGuiColorEditFlags.DisplayRGB) ~= 0) then
@@ -3589,7 +3589,7 @@ function ImGui.ColorPickerOptionsPopup(ref_col, flags)
     end
 
     local g = ImGui.GetCurrentContext()
-    ImGui.PushItemFlag(ImGuiItemFlags_NoMarkEdited, true)
+    ImGui.PushItemFlag(ImGuiItemFlags.NoMarkEdited, true)
     if allow_opt_picker then
         local picker_size = ImVec2(g.FontSize * 8, ImMax(g.FontSize * 8 - (ImGui.GetFrameHeight() + g.Style.ItemInnerSpacing.x), 1.0)) -- FIXME: Picker size copied from main picker function
         ImGui.PushItemWidth(picker_size.x)
@@ -3694,7 +3694,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     end
 
     local disabled_item = bit.band(flags, ImGuiSelectableFlags.Disabled) ~= 0
-    local extra_item_flags = disabled_item and ImGuiItemFlags_Disabled or ImGuiItemFlags_None
+    local extra_item_flags = disabled_item and ImGuiItemFlags.Disabled or ImGuiItemFlags.None
 
     local is_visible
     if span_all_columns then
@@ -3713,7 +3713,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         is_visible = ImGui.ItemAdd(bb, id, nil, extra_item_flags)
     end
 
-    local is_multi_select = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_IsMultiSelect) ~= 0
+    local is_multi_select = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.IsMultiSelect) ~= 0
 
     if not is_visible then
         if not is_multi_select or not g.BoxSelectState.UnclipMode or not g.BoxSelectState.UnclipRect:Overlaps(bb) then
@@ -3722,7 +3722,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         end
     end
 
-    local disabled_global = bit.band(g.CurrentItemFlags, ImGuiItemFlags_Disabled) ~= 0
+    local disabled_global = bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0
 
     if disabled_item and not disabled_global then
         -- Only testing this as an optimization
@@ -3749,7 +3749,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     if bit.band(flags, ImGuiSelectableFlags.SelectOnClick)     ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClick) end
     if bit.band(flags, ImGuiSelectableFlags.SelectOnRelease)   ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnRelease) end
     if bit.band(flags, ImGuiSelectableFlags.AllowDoubleClick)  ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClickRelease, ImGuiButtonFlags.PressedOnDoubleClick) end
-    if bit.band(flags, ImGuiSelectableFlags.AllowOverlap) ~= 0 or bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AllowOverlap) ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.AllowOverlap) end
+    if bit.band(flags, ImGuiSelectableFlags.AllowOverlap) ~= 0 or bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.AllowOverlap) ~= 0 then button_flags = bit.bor(button_flags, ImGuiButtonFlags.AllowOverlap) end
 
     -- Multi-selection support (header)
     local was_selected = selected
@@ -3838,7 +3838,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     end
 
     -- Automatically close popups
-    if pressed and not auto_selected and bit.band(window.Flags, ImGuiWindowFlags.Popup) ~= 0 and bit.band(flags, ImGuiSelectableFlags.NoAutoClosePopups) == 0 and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AutoClosePopups) ~= 0 then
+    if pressed and not auto_selected and bit.band(window.Flags, ImGuiWindowFlags.Popup) ~= 0 and bit.band(flags, ImGuiSelectableFlags.NoAutoClosePopups) == 0 and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.AutoClosePopups) ~= 0 then
         ImGui.CloseCurrentPopup()
     end
 
@@ -3883,7 +3883,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
     local inner_bb = ImRect(frame_bb.Min + style.FramePadding, frame_bb.Max - style.FramePadding)
     local total_bb = ImRect(frame_bb.Min, frame_bb.Max + ImVec2(label_size.x > 0.0 and style.ItemInnerSpacing.x + label_size.x or 0.0, 0))
     ImGui.ItemSizeR(total_bb, style.FramePadding.y)
-    if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags_NoNav) then
+    if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.NoNav) then
         return -1
     end
 

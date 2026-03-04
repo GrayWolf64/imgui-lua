@@ -65,7 +65,7 @@ function DemoWindowWidgetsBasic()
 
     -- Arrow buttons with Repeater
     local spacing = ImGui.GetStyle().ItemInnerSpacing.x
-    ImGui.PushItemFlag(ImGuiItemFlags_ButtonRepeat, true)
+    ImGui.PushItemFlag(ImGuiItemFlags.ButtonRepeat, true)
     if ImGui.ArrowButton("##left", ImGuiDir.Left) then counter = counter - 1 end
     ImGui.SameLine(0.0, spacing)
     if ImGui.ArrowButton("##right", ImGuiDir.Right) then counter = counter + 1 end

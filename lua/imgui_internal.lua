@@ -321,19 +321,19 @@ ImGuiNavLayer = {
     COUNT = 2
 }
 
-ImGuiItemFlags_ReadOnly               = bit.lshift(1, 11)
-ImGuiItemFlags_MixedValue             = bit.lshift(1, 12)
-ImGuiItemFlags_NoWindowHoverableCheck = bit.lshift(1, 13)
-ImGuiItemFlags_AllowOverlap           = bit.lshift(1, 14)
-ImGuiItemFlags_NoNavDisableMouseHover = bit.lshift(1, 15)
-ImGuiItemFlags_NoMarkEdited           = bit.lshift(1, 16)
-ImGuiItemFlags_NoFocus                = bit.lshift(1, 17)
+ImGuiItemFlags.ReadOnly               = bit.lshift(1, 11)
+ImGuiItemFlags.MixedValue             = bit.lshift(1, 12)
+ImGuiItemFlags.NoWindowHoverableCheck = bit.lshift(1, 13)
+ImGuiItemFlags.AllowOverlap           = bit.lshift(1, 14)
+ImGuiItemFlags.NoNavDisableMouseHover = bit.lshift(1, 15)
+ImGuiItemFlags.NoMarkEdited           = bit.lshift(1, 16)
+ImGuiItemFlags.NoFocus                = bit.lshift(1, 17)
 
-ImGuiItemFlags_Inputable            = bit.lshift(1, 20)
-ImGuiItemFlags_HasSelectionUserData = bit.lshift(1, 21)
-ImGuiItemFlags_IsMultiSelect        = bit.lshift(1, 22)
+ImGuiItemFlags.Inputable            = bit.lshift(1, 20)
+ImGuiItemFlags.HasSelectionUserData = bit.lshift(1, 21)
+ImGuiItemFlags.IsMultiSelect        = bit.lshift(1, 22)
 
-ImGuiItemFlags_Default_ = ImGuiItemFlags_AutoClosePopups
+ImGuiItemFlags.Default_ = ImGuiItemFlags.AutoClosePopups
 
 --- @enum ImDrawTextFlags
 ImDrawTextFlags = {
@@ -754,7 +754,7 @@ MT.ImGuiNextItemData.__index = MT.ImGuiNextItemData
 
 function MT.ImGuiNextItemData:ClearFlags()
     self.HasFlags = ImGuiNextItemDataFlags.None
-    self.ItemFlags = ImGuiItemFlags_None
+    self.ItemFlags = ImGuiItemFlags.None
 end
 
 --- @return ImGuiNextItemData
@@ -1186,7 +1186,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         TooltipOverrideCount = 0,
         TooltipPreviousWindow = nil,
 
-        CurrentItemFlags = ImGuiItemFlags_None,
+        CurrentItemFlags = ImGuiItemFlags.None,
 
         DisabledStackSize = 0,
 

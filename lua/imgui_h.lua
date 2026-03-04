@@ -1185,15 +1185,17 @@ ImGuiWindowFlags.NoNav        = bit.bor(ImGuiWindowFlags.NoNavInputs, ImGuiWindo
 ImGuiWindowFlags.NoDecoration = bit.bor(ImGuiWindowFlags.NoTitleBar, ImGuiWindowFlags.NoResize, ImGuiWindowFlags.NoScrollbar, ImGuiWindowFlags.NoCollapse)
 ImGuiWindowFlags.NoInputs     = bit.bor(ImGuiWindowFlags.NoMouseInputs, ImGuiWindowFlags.NoNavInputs, ImGuiWindowFlags.NoNavFocus)
 
---- @alias ImGuiItemFlags integer
-ImGuiItemFlags_None              = 0
-ImGuiItemFlags_NoTabStop         = bit.lshift(1, 0)
-ImGuiItemFlags_NoNav             = bit.lshift(1, 1)
-ImGuiItemFlags_NoNavDefaultFocus = bit.lshift(1, 2)
-ImGuiItemFlags_ButtonRepeat      = bit.lshift(1, 3)
-ImGuiItemFlags_AutoClosePopups   = bit.lshift(1, 4)
-ImGuiItemFlags_AllowDuplicateId  = bit.lshift(1, 5)
-ImGuiItemFlags_Disabled          = bit.lshift(1, 6)
+--- @enum ImGuiItemFlags
+ImGuiItemFlags = {
+    None              = 0,
+    NoTabStop         = bit.lshift(1, 0),
+    NoNav             = bit.lshift(1, 1),
+    NoNavDefaultFocus = bit.lshift(1, 2),
+    ButtonRepeat      = bit.lshift(1, 3),
+    AutoClosePopups   = bit.lshift(1, 4),
+    AllowDuplicateId  = bit.lshift(1, 5),
+    Disabled          = bit.lshift(1, 6)
+}
 
 --- @enum ImGuiItemStatusFlags
 ImGuiItemStatusFlags = {
@@ -1690,7 +1692,7 @@ ImGuiComboFlags.CustomPreview = bit.lshift(1, 20)
 --- @enum ImGuiSelectableFlags
 ImGuiSelectableFlags = {
     None              = 0,
-    NoAutoClosePopups = bit.lshift(1, 0), -- Clicking this doesn't close parent popup window (overrides ImGuiItemFlags_AutoClosePopups)
+    NoAutoClosePopups = bit.lshift(1, 0), -- Clicking this doesn't close parent popup window (overrides ImGuiItemFlags.AutoClosePopups)
     SpanAllColumns    = bit.lshift(1, 1), -- Frame will span all columns of its container table (text will still fit in current column)
     AllowDoubleClick  = bit.lshift(1, 2), -- Generate press events on double clicks too
     Disabled          = bit.lshift(1, 3), -- Cannot be selected, display grayed out text
@@ -1794,7 +1796,7 @@ ImGuiSliderFlags = {
 ImGuiSliderFlags.AlwaysClamp        = bit.bor(ImGuiSliderFlags.ClampOnInput, ImGuiSliderFlags.ClampZeroRange)
 
 ImGuiSliderFlags.Vertical = bit.lshift(1, 20) -- Should this slider be orientated vertically?
-ImGuiSliderFlags.ReadOnly = bit.lshift(1, 21) -- Consider using g.NextItemData.ItemFlags |= ImGuiItemFlags_ReadOnly instead
+ImGuiSliderFlags.ReadOnly = bit.lshift(1, 21) -- Consider using g.NextItemData.ItemFlags |= ImGuiItemFlags.ReadOnly instead
 
 --- @class ImGuiWindowClass
 --- @field ClassId                    ImGuiID

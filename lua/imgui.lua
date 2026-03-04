@@ -859,7 +859,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     if id ~= 0 then
         ImGui.KeepAliveID(id)
 
-        -- if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_NoNav) == 0 then
+        -- if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.NoNav) == 0 then
         --     window.DC.NavLayersActiveMaskNext = bit.bor(window.DC.NavLayersActiveMaskNext, bit.lshift(1, window.DC.NavLayerCurrent))
 
         --     if g.NavId == id or g.NavAnyRequest then
@@ -877,7 +877,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     end
 
     g.NextItemData.HasFlags = ImGuiNextItemDataFlags.None
-    g.NextItemData.ItemFlags = ImGuiItemFlags_None
+    g.NextItemData.ItemFlags = ImGuiItemFlags.None
 
     local is_rect_visible = bb:Overlaps(window.ClipRect)
     if not is_rect_visible then
@@ -1142,7 +1142,7 @@ function ImGui.EndGroup()
 
     window.DC.CurrLineTextBaseOffset = ImMax(window.DC.PrevLineTextBaseOffset, group_data.BackupCurrLineTextBaseOffset) -- FIXME: Incorrect, we should grab the base offset from the *first line* of the group but it is hard to obtain now
     ImGui.ItemSize(group_bb:GetSize())
-    ImGui.ItemAdd(group_bb, 0, nil, ImGuiItemFlags_NoTabStop)
+    ImGui.ItemAdd(group_bb, 0, nil, ImGuiItemFlags.NoTabStop)
 
     -- If the current ActiveId was declared within the boundary of our group, we copy it to LastItemId so IsItemActive(), IsItemDeactivated() etc. will be functional on the entire group.
     -- It would be neater if we replaced window.DC.LastItemId by e.g. 'bool LastItemIsActive', but would put a little more burden on individual widgets.
@@ -1548,7 +1548,7 @@ function ImGui.MarkItemEdited(id)
     -- This marking is to be able to provide info for IsItemDeactivatedAfterEdit().
     -- ActiveId might have been released by the time we call this (as in the typical press/release button behavior) but still need to fill the data.
     local g = GImGui
-    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_NoMarkEdited) ~= 0 then
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited) ~= 0 then
         return
     end
 
@@ -1619,7 +1619,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
         if not ImGui.IsItemFocused() then
             return false
         end
-        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags.AllowWhenDisabled) == 0 then
+        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags.AllowWhenDisabled) == 0 then
             return false
         end
 
@@ -1655,11 +1655,11 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
             end
         end
 
-        if not ImGui.IsWindowContentHoverable(window, flags) and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_NoWindowHoverableCheck) == 0 then
+        if not ImGui.IsWindowContentHoverable(window, flags) and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.NoWindowHoverableCheck) == 0 then
             return false
         end
 
-        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags.AllowWhenDisabled) == 0 then
+        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.Disabled) ~= 0 and bit.band(flags, ImGuiHoveredFlags.AllowWhenDisabled) == 0 then
             return false
         end
 
@@ -1667,7 +1667,7 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
             return false
         end
 
-        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags_AllowOverlap) ~= 0 and id ~= 0 then
+        if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.AllowOverlap) ~= 0 and id ~= 0 then
             if bit.band(flags, ImGuiHoveredFlags.AllowWhenOverlappedByItem) == 0 then
                 if g.HoveredIdPreviousFrame ~= g.LastItemData.ID then
                     return false
@@ -1727,7 +1727,7 @@ function ImGui.ItemHoverable(bb, id, item_flags)
         end
     end
 
-    if (bit.band(item_flags, ImGuiItemFlags_NoWindowHoverableCheck) == 0) and not ImGui.IsWindowContentHoverable(window, ImGuiHoveredFlags.None) then
+    if (bit.band(item_flags, ImGuiItemFlags.NoWindowHoverableCheck) == 0) and not ImGui.IsWindowContentHoverable(window, ImGuiHoveredFlags.None) then
         g.HoveredIdIsDisabled = true
         return false
     end
@@ -1739,7 +1739,7 @@ function ImGui.ItemHoverable(bb, id, item_flags)
 
         ImGui.SetHoveredID(id)
 
-        if bit.band(item_flags, ImGuiItemFlags_AllowOverlap) ~= 0 then
+        if bit.band(item_flags, ImGuiItemFlags.AllowOverlap) ~= 0 then
             g.HoveredIdAllowOverlap = true
             if g.HoveredIdPreviousFrame ~= id then
                 return false
@@ -1753,7 +1753,7 @@ function ImGui.ItemHoverable(bb, id, item_flags)
         end
     end
 
-    if bit.band(item_flags, ImGuiItemFlags_Disabled) ~= 0 then
+    if bit.band(item_flags, ImGuiItemFlags.Disabled) ~= 0 then
         -- Release active id if turning disabled
         if g.ActiveId == id and id ~= 0 then
             ImGui.ClearActiveID()
@@ -1762,7 +1762,7 @@ function ImGui.ItemHoverable(bb, id, item_flags)
         return false
     end
 
-    if g.NavHighlightItemUnderNav and (bit.band(item_flags, ImGuiItemFlags_NoNavDisableMouseHover) == 0) then
+    if g.NavHighlightItemUnderNav and (bit.band(item_flags, ImGuiItemFlags.NoNavDisableMouseHover) == 0) then
         return false
     end
 
@@ -2666,7 +2666,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
 
         local resize_grip_id = window:GetID(resize_grip_n)
 
-        ImGui.ItemAdd(resize_rect, resize_grip_id, nil, ImGuiItemFlags_NoNav)
+        ImGui.ItemAdd(resize_rect, resize_grip_id, nil, ImGuiItemFlags.NoNav)
         local _, hovered, held = ImGui.ButtonBehavior(resize_rect, resize_grip_id, bit.bor(ImGuiButtonFlags.FlattenChildren, ImGuiButtonFlags.NoNavFocus))
 
         if hovered or held then
@@ -2726,7 +2726,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
 
         local border_rect = GetResizeBorderRect(window, border_n, grip_hover_inner_size, g.WindowsBorderHoverPadding)
         local border_id = window:GetID(border_n + 4)
-        ImGui.ItemAdd(border_rect, border_id, nil, ImGuiItemFlags_NoNav)
+        ImGui.ItemAdd(border_rect, border_id, nil, ImGuiItemFlags.NoNav)
         local _, hovered, held = ImGui.ButtonBehavior(border_rect, border_id, bit.bor(ImGuiButtonFlags.FlattenChildren, ImGuiButtonFlags.NoNavFocus))
 
         if hovered and g.HoveredIdTimer <= WINDOWS_RESIZE_FROM_EDGES_FEEDBACK_TIMER then
@@ -3286,7 +3286,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, open)
     local has_collapse_button = bit.band(flags, ImGuiWindowFlags.NoCollapse) == 0 and (style.WindowMenuButtonPosition ~= ImGuiDir.None)
 
     local item_flags_backup = g.CurrentItemFlags
-    g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags_NoNavDefaultFocus)
+    g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags.NoNavDefaultFocus)
     window.DC.NavLayerCurrent = ImGuiNavLayer.Menu
 
     local pad_l = g.Style.FramePadding.x
@@ -3315,7 +3315,7 @@ local function RenderWindowTitleBarContents(window, title_bar_rect, name, open)
 
     if has_close_button then
         local backup_item_flags = g.CurrentItemFlags
-        g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags_NoFocus)
+        g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags.NoFocus)
         if ImGui.CloseButton(window:GetID("#CLOSE"), close_button_pos) then
             open = false
         end
@@ -3855,7 +3855,7 @@ function ImGui.Begin(name, open, flags)
     local window_stack_data = g.CurrentWindowStack.Data[g.CurrentWindowStack.Size]
     window_stack_data.Window = window
     ImGuiLastItemData_Copy(window_stack_data.ParentLastItemDataBackup, g.LastItemData)
-    window_stack_data.DisabledOverrideReenable = (bit.band(flags, ImGuiWindowFlags.Tooltip) ~= 0) and (bit.band(g.CurrentItemFlags, ImGuiItemFlags_Disabled) ~= 0)
+    window_stack_data.DisabledOverrideReenable = (bit.band(flags, ImGuiWindowFlags.Tooltip) ~= 0) and (bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0)
     window_stack_data.DisabledOverrideReenableAlphaBackup = 0.0
 
     if first_begin_of_the_frame then
@@ -4589,11 +4589,11 @@ end
 
 function ImGui.BeginDisabledOverrideReenable()
     local g = GImGui
-    IM_ASSERT(bit.band(g.CurrentItemFlags, ImGuiItemFlags_Disabled) ~= 0)
+    IM_ASSERT(bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0)
 
     g.CurrentWindowStack.Data[g.CurrentWindowStack.Size].DisabledOverrideReenableAlphaBackup = g.Style.Alpha
     g.Style.Alpha = g.DisabledAlphaBackup
-    g.CurrentItemFlags = bit.band(g.CurrentItemFlags, bit.bnot(ImGuiItemFlags_Disabled))
+    g.CurrentItemFlags = bit.band(g.CurrentItemFlags, bit.bnot(ImGuiItemFlags.Disabled))
     g.ItemFlagsStack:push_back(g.CurrentItemFlags)
     g.DisabledStackSize = g.DisabledStackSize + 1
 end
@@ -5394,7 +5394,7 @@ function ImGui.NewFrame()
     g.CurrentWindowStack:resize(0)
     g.BeginPopupStack:resize(0)
     g.ItemFlagsStack:resize(0)
-    g.ItemFlagsStack:push_back(ImGuiItemFlags_AutoClosePopups)
+    g.ItemFlagsStack:push_back(ImGuiItemFlags.AutoClosePopups)
     g.CurrentItemFlags = g.ItemFlagsStack:back()
 
     g.WithinFrameScopeWithImplicitWindow = true
