@@ -870,16 +870,18 @@ function ImGuiKeyData()
     }
 end
 
---- @alias ImGuiConfigFlags int
-ImGuiConfigFlags_None                   = 0
-ImGuiConfigFlags_NavEnableKeyboard      = bit.lshift(1, 0)  -- Master keyboard navigation enable flag. Enable full Tabbing + directional arrows + space/enter to activate.
-ImGuiConfigFlags_NavEnableGamepad       = bit.lshift(1, 1)  -- Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags.HasGamepad.
-ImGuiConfigFlags_NoMouse                = bit.lshift(1, 4)  -- Instruct dear imgui to disable mouse inputs and interactions.
-ImGuiConfigFlags_NoMouseCursorChange    = bit.lshift(1, 5)  -- Instruct backend to not alter mouse cursor shape and visibility. Use if the backend cursor changes are interfering with yours and you don't want to use SetMouseCursor() to change mouse cursor. You may want to honor requests from imgui by reading GetMouseCursor() yourself instead.
-ImGuiConfigFlags_NoKeyboard             = bit.lshift(1, 6)  -- Instruct dear imgui to disable keyboard inputs and interactions. This is done by ignoring keyboard events and clearing existing states.
-ImGuiConfigFlags_ViewportsEnable        = bit.lshift(1, 10)
-ImGuiConfigFlags_IsSRGB                 = bit.lshift(1, 20) -- Application is SRGB-aware.
-ImGuiConfigFlags_IsTouchScreen          = bit.lshift(1, 21) -- Application is using a touch screen instead of a mouse.
+--- @enum ImGuiConfigFlags
+ImGuiConfigFlags = {
+    None                = 0,
+    NavEnableKeyboard   = bit.lshift(1, 0),  -- Master keyboard navigation enable flag. Enable full Tabbing + directional arrows + space/enter to activate
+    NavEnableGamepad    = bit.lshift(1, 1),  -- Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags.HasGamepad
+    NoMouse             = bit.lshift(1, 4),  -- Instruct dear imgui to disable mouse inputs and interactions
+    NoMouseCursorChange = bit.lshift(1, 5),  -- Instruct backend to not alter mouse cursor shape and visibility. Use if the backend cursor changes are interfering with yours and you don't want to use SetMouseCursor() to change mouse cursor. You may want to honor requests from imgui by reading GetMouseCursor() yourself instead
+    NoKeyboard          = bit.lshift(1, 6),  -- Instruct dear imgui to disable keyboard inputs and interactions. This is done by ignoring keyboard events and clearing existing states
+    ViewportsEnable     = bit.lshift(1, 10),
+    IsSRGB              = bit.lshift(1, 20), -- Application is SRGB-aware
+    IsTouchScreen       = bit.lshift(1, 21)  -- Application is using a touch screen instead of a mouse
+}
 
 --- @class ImGuiIO
 MT.ImGuiIO = {}
@@ -898,7 +900,7 @@ function ImGuiIO()
         KeyMods  = nil,
 
         BackendFlags = ImGuiBackendFlags.None,
-        ConfigFlags  = ImGuiConfigFlags_None,
+        ConfigFlags  = ImGuiConfigFlags.None,
         DisplaySize = ImVec2(-1.0, -1.0),
 
         DeltaTime = 1.0 / 60.0,

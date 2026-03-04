@@ -1407,7 +1407,7 @@ function ImGui.StopMouseMovingWindow()
     local window = g.MovingWindow
 
     if window and window.Viewport then
-        if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) ~= 0 then
+        if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags.ViewportsEnable) ~= 0 then
             ImGui.UpdateTryMergeWindowIntoHostViewport(window.RootWindowDockTree, g.MouseViewport)
         end
 
@@ -4736,7 +4736,7 @@ function ImGui.UpdateKeyboardInputs()
     local g = GImGui
     local io = g.IO
 
-    if bit.band(io.ConfigFlags, ImGuiConfigFlags_NoKeyboard) ~= 0 then
+    if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) ~= 0 then
         io:ClearInputKeys()
     end
 
@@ -6880,7 +6880,7 @@ function ImGui.GetWindowAlwaysWantOwnViewport(window)
     -- Tooltips and menus are not automatically forced into their own viewport when the NoMerge flag is set, however the multiplication of viewports makes them more likely to protrude and create their own.
     local g = GImGui
     if g.IO.ConfigViewportsNoAutoMerge or (bit.band(window.WindowClass.ViewportFlagsOverrideSet, ImGuiViewportFlags.NoAutoMerge) ~= 0) then
-        if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) ~= 0 then
+        if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags.ViewportsEnable) ~= 0 then
             if not window.DockIsActive then
                 if bit.band(window.Flags, bit.bor(ImGuiWindowFlags.ChildWindow, ImGuiWindowFlags.ChildMenu, ImGuiWindowFlags.Tooltip)) == 0 then
                     if bit.band(window.Flags, ImGuiWindowFlags.Popup) == 0 or bit.band(window.Flags, ImGuiWindowFlags.Modal) ~= 0 then
@@ -6988,7 +6988,7 @@ function ImGui.UpdateTryMergeWindowIntoHostViewports(window)
 end
 
 --- Translate Dear ImGui windows when a Host Viewport has been moved
---- (This additionally keeps windows at the same place when ImGuiConfigFlags_ViewportsEnable is toggled!)
+--- (This additionally keeps windows at the same place when ImGuiConfigFlags.ViewportsEnable is toggled!)
 --- @param viewport ImGuiViewportP
 --- @param old_pos  ImVec2
 --- @param new_pos  ImVec2
@@ -6999,12 +6999,12 @@ function ImGui.TranslateWindowsInViewport(viewport, old_pos, new_pos, old_size, 
     -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] TranslateWindowsInViewport 0x%08X", viewport.ID)
     IM_ASSERT(viewport.Window == nil and (bit.band(viewport.Flags, ImGuiViewportFlags.CanHostOtherWindows) ~= 0))
 
-    -- 1) We test if ImGuiConfigFlags_ViewportsEnable was just toggled, which allows us to conveniently
+    -- 1) We test if ImGuiConfigFlags.ViewportsEnable was just toggled, which allows us to conveniently
     -- translate imgui windows from OS-window-local to absolute coordinates or vice-versa.
     -- 2) If it's not going to fit into the new size, keep it at same absolute position.
     -- One problem with this is that most Win32 applications doesn't update their render while dragging,
     -- and so the window will appear to teleport when releasing the mouse.
-    local translate_all_windows = (bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) ~= bit.band(g.ConfigFlagsLastFrame, ImGuiConfigFlags_ViewportsEnable))
+    local translate_all_windows = (bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags.ViewportsEnable) ~= bit.band(g.ConfigFlagsLastFrame, ImGuiConfigFlags.ViewportsEnable))
     local test_still_fit_rect = ImRect(old_pos, old_pos + old_size)
     local delta_pos = new_pos - old_pos
 
@@ -7041,7 +7041,7 @@ function ImGui.UpdateViewportsNewFrame()
 
     -- Update Minimized status (we need it first in order to decide if we'll apply Pos/Size of the main viewport)
     -- Update Focused status
-    local viewports_enabled = (bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) ~= 0)
+    local viewports_enabled = (bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags.ViewportsEnable) ~= 0)
     if viewports_enabled then
         local focused_viewport = nil
 
@@ -7193,7 +7193,7 @@ function ImGui.UpdateViewportsNewFrame()
             viewport.Alpha = 1.0
 
             -- Translate Dear ImGui windows when a Host Viewport has been moved
-            -- (This additionally keeps windows at the same place when ImGuiConfigFlags_ViewportsEnable is toggled!)
+            -- (This additionally keeps windows at the same place when ImGuiConfigFlags.ViewportsEnable is toggled!)
             local viewport_delta_pos = viewport.Pos - viewport.LastPos
             if (bit.band(viewport.Flags, ImGuiViewportFlags.CanHostOtherWindows) ~= 0) and (viewport_delta_pos.x ~= 0.0 or viewport_delta_pos.y ~= 0.0) then
                 ImGui.TranslateWindowsInViewport(viewport, viewport.LastPos, viewport.Pos, viewport.LastSize, viewport.Size)
@@ -7461,7 +7461,7 @@ function ImGui.WindowSelectViewport(window)
 
     -- Restore main viewport if multi-viewport is not supported by the backend
     local main_viewport = ImGui.GetMainViewport() --[[@as ImGuiViewportP]]
-    if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) == 0 then
+    if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags.ViewportsEnable) == 0 then
         ImGui.SetWindowViewport(window, main_viewport)
         return
     end
@@ -7687,7 +7687,7 @@ function ImGui.UpdatePlatformWindows()
     IM_ASSERT(g.FrameCountEnded == g.FrameCount, "Forgot to call Render() or EndFrame() before UpdatePlatformWindows()?")
     IM_ASSERT(g.FrameCountPlatformEnded < g.FrameCount)
     g.FrameCountPlatformEnded = g.FrameCount
-    if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags_ViewportsEnable) == 0 then
+    if bit.band(g.ConfigFlagsCurrFrame, ImGuiConfigFlags.ViewportsEnable) == 0 then
         return
     end
 

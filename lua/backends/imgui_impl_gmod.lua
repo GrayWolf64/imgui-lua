@@ -354,7 +354,7 @@ end
 --- @param io           ImGuiIO
 --- @param imgui_cursor ImGuiMouseCursor
 local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
-    if bit.band(io.ConfigFlags, ImGuiConfigFlags_NoMouseCursorChange) ~= 0 then
+    if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoMouseCursorChange) ~= 0 then
         return false
     end
 

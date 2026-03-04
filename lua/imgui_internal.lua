@@ -1028,8 +1028,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         IO = ImGuiIO(),
         PlatformIO = ImGuiPlatformIO(),
 
-        ConfigFlagsCurrFrame = ImGuiConfigFlags_None,
-        ConfigFlagsLastFrame = ImGuiConfigFlags_None,
+        ConfigFlagsCurrFrame = ImGuiConfigFlags.None,
+        ConfigFlagsLastFrame = ImGuiConfigFlags.None,
 
         MouseLastValidPos = ImVec2(),
 
