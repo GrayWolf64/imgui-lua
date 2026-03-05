@@ -163,6 +163,10 @@ end
 
 end
 
+local function DemoWindowWidgetsImages()
+    -- TODO:
+end
+
 local DemoWindowWidgetsPlotting
 do
     local animate = true

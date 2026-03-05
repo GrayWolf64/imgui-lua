@@ -10,7 +10,7 @@ local GImGui = nil
 
 ImGui = {}
 
-ImStd = {} -- Contains functions that originally don't exist in cpp namespaces
+ImStd = {} -- Contains functions that originally don't belong to cpp namespaces
 
 --- This executes Lua script at _filename and returns the result of the script.
 --- @param _filename string
@@ -384,7 +384,7 @@ end
 --- @param p ImVec2
 --- @return ImVec2
 --- @nodiscard
-function ImTriangleClosestPoint(a, b, c, p)
+function ImStd.ImTriangleClosestPoint(a, b, c, p)
     local proj_ab = ImStd.ImLineClosestPoint(a, b, p)
     local proj_bc = ImStd.ImLineClosestPoint(b, c, p)
     local proj_ca = ImStd.ImLineClosestPoint(c, a, p)
@@ -5006,8 +5006,8 @@ function ImGui.UpdateMouseWheel()
 
     -- Maintain a rough average of moving magnitude on both axes
     -- FIXME: should by based on wall clock time rather than frame-counter
-    g.WheelingAxisAvg.x = ImExponentialMovingAverage(g.WheelingAxisAvg.x, ImAbs(wheel.x), 30)
-    g.WheelingAxisAvg.y = ImExponentialMovingAverage(g.WheelingAxisAvg.y, ImAbs(wheel.y), 30)
+    g.WheelingAxisAvg.x = ImStd.ImExponentialMovingAverage(g.WheelingAxisAvg.x, ImAbs(wheel.x), 30)
+    g.WheelingAxisAvg.y = ImStd.ImExponentialMovingAverage(g.WheelingAxisAvg.y, ImAbs(wheel.y), 30)
 
     -- In the rare situation where FindBestWheelingWindow() had to defer first frame of wheeling due to ambiguous main axis, reinject it now
     wheel = wheel + g.WheelingWindowWheelRemainder

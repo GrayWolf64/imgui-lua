@@ -313,6 +313,40 @@ function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx,
     end
 end
 
+-- Distribute UV over (a, b) rectangle
+--- @param draw_list      ImDrawList
+--- @param vert_start_idx int
+--- @param vert_end_idx   int
+--- @param a              ImVec2
+--- @param b              ImVec2
+--- @param uv_a           ImVec2
+--- @param uv_b           ImVec2
+--- @param clamp          bool
+function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b, uv_a, uv_b, clamp)
+    local size = b - a
+    local uv_size = uv_b - uv_a
+    local scale = ImVec2(
+        (size.x ~= 0.0) and (uv_size.x / size.x) or 0.0,
+        (size.y ~= 0.0) and (uv_size.y / size.y) or 0.0
+    )
+
+    local vertex
+    local verts = draw_list.VtxBuffer.Data
+    if clamp then
+        local min = ImMinVec2(uv_a, uv_b)
+        local max = ImMaxVec2(uv_a, uv_b)
+        for vert_idx = vert_start_idx, vert_end_idx - 1 do
+            vertex = verts[vert_idx]
+            ImVec2_Copy(vertex.uv, ImClampV2(uv_a + ImMul(ImVec2(vertex.pos.x, vertex.pos.y) - a, scale), min, max))
+        end
+    else
+        for vert_idx = vert_start_idx, vert_end_idx - 1 do
+            vertex = verts[vert_idx]
+            ImVec2_Copy(vertex.uv, uv_a + ImMul(ImVec2(vertex.pos.x, vertex.pos.y) - a, scale))
+        end
+    end
+end
+
 local ImFontAtlasTextureAdd
 local ImFontAtlasTextureGrow
 local ImFontAtlasPackInit
@@ -3919,6 +3953,41 @@ function MT.ImDrawList:AddImage(tex_ref, p_min, p_max, uv_min, uv_max, col)
 
     self:PrimReserve(6, 4)
     self:PrimRectUV(p_min, p_max, uv_min, uv_max, col)
+
+    if push_texture_id then
+        self:PopTexture()
+    end
+end
+
+--- @param tex_ref  ImTextureRef
+--- @param p_min    ImVec2
+--- @param p_max    ImVec2
+--- @param uv_min   ImVec2
+--- @param uv_max   ImVec2
+--- @param col      ImU32
+--- @param rounding float
+--- @param flags    ImDrawFlags
+function MT.ImDrawList:AddImageRounded(tex_ref, p_min, p_max, uv_min, uv_max, col, rounding, flags)
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    flags = FixRectCornerFlags(flags)
+    if rounding < 0.5 or bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone then
+        self:AddImage(tex_ref, p_min, p_max, uv_min, uv_max, col)
+        return
+    end
+
+    local push_texture_id = (tex_ref ~= self._CmdHeader.TexRef)
+    if push_texture_id then
+        self:PushTexture(tex_ref)
+    end
+
+    local vert_start_idx = self.VtxBuffer.Size + 1
+    self:PathRect(p_min, p_max, rounding, flags)
+    self:PathFillConvex(col)
+    local vert_end_idx = self.VtxBuffer.Size + 1
+    ImGui.ShadeVertsLinearUV(self, vert_start_idx, vert_end_idx, p_min, p_max, uv_min, uv_max, true)
 
     if push_texture_id then
         self:PopTexture()

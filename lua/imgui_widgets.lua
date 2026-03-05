@@ -899,6 +899,42 @@ function ImGui.Scrollbar(axis)
     window.Scroll[axis] = scroll
 end
 
+-- - `uv0` and `uv1` are texture coordinates
+--- @param tex_ref    ImTextureRef
+--- @param image_size ImVec2
+--- @param uv0        ImVec2
+--- @param uv1        ImVec2
+--- @param bg_col     ImVec4
+--- @param tint_col   ImVec4
+function ImGui.ImageWithBg(tex_ref, image_size, uv0, uv1, bg_col, tint_col)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local padding = ImVec2(g.Style.ImageBorderSize, g.Style.ImageBorderSize)
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + image_size + padding * 2.0)
+    ImGui.ItemSizeR(bb)
+    if not ImGui.ItemAdd(bb, 0) then
+        return
+    end
+
+    -- Render
+    local rounding = g.Style.ImageRounding
+    if bg_col.w > 0.0 then
+        window.DrawList:AddRectFilled(bb.Min + padding, bb.Max - padding, ImGui.GetColorU32(bg_col), rounding)
+    end
+    if rounding > 0.0 then
+        window.DrawList:AddImageRounded(tex_ref, bb.Min + padding, bb.Max - padding, uv0, uv1, ImGui.GetColorU32(tint_col), rounding)
+    else
+        window.DrawList:AddImage(tex_ref, bb.Min + padding, bb.Max - padding, uv0, uv1, ImGui.GetColorU32(tint_col))
+    end
+    if g.Style.ImageBorderSize > 0.0 then
+        window.DrawList:AddRect(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Border), rounding, ImDrawFlags.None, g.Style.ImageBorderSize)
+    end
+end
+
 --- @param label string
 --- @param v     bool
 --- @return bool is_pressed
@@ -3074,7 +3110,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
                 -- Interacting with SV triangle
                 local current_off_unrotated = ImRotate(current_off, cos_hue_angle, sin_hue_angle)
                 if not ImStd.ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated) then
-                    current_off_unrotated = ImTriangleClosestPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
+                    current_off_unrotated = ImStd.ImTriangleClosestPoint(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)
                 end
                 local uu, vv, ww
                 uu, vv, ww = ImStd.ImTriangleBarycentricCoords(triangle_pa, triangle_pb, triangle_pc, current_off_unrotated)

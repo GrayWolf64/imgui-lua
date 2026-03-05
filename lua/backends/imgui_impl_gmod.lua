@@ -79,7 +79,7 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
     end
 end
 
-function ImGui_ImplGMOD_UpdateMouseData(io)
+local function ImGui_ImplGMOD_UpdateMouseData(io)
     local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
     local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), hovered_panel)
     if vp then

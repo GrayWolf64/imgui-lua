@@ -132,7 +132,7 @@ end
 --- @param sample float
 --- @param n      int
 --- @return float
-function ImExponentialMovingAverage(avg, sample, n)
+function ImStd.ImExponentialMovingAverage(avg, sample, n)
     avg = avg - avg / n
     avg = avg + sample / n
     return avg
@@ -189,6 +189,13 @@ end
 --- @param b ImVec2
 function ImDot(a, b)
     return a.x * b.x + a.y * b.y
+end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+--- @nodiscard
+function ImMul(lhs, rhs)
+    return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
 end
 
 --- @return int?
@@ -899,6 +906,8 @@ function ImGuiStyle()
         ScrollbarPadding  = 2.0,
         GrabMinSize = 12.0,
         GrabRounding = 0.0,
+        ImageRounding = 0.0,
+        ImageBorderSize = 0.0,
 
         WindowBorderHoverPadding = 4.0,
 
