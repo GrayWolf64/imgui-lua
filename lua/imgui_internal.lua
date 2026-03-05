@@ -314,6 +314,12 @@ function ImGui.GetRoundedFontSize(size) return IM_ROUND(size) end
 --- @nodiscard
 function ImGui.WindowRectAbsToRel(window, r) local off = window.DC.CursorStartPos return ImRect(r.Min.x - off.x, r.Min.y - off.y, r.Max.x - off.x, r.Max.y - off.y) end
 
+--- @param window ImGuiWindow
+--- @param p      ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImGui.WindowPosAbsToRel(window, p) local off = window.DC.CursorStartPos return ImVec2(p.x - off.x, p.y - off.y) end
+
 --- @param c char
 --- @return bool # True if this character is a ' ' or '\t'
 function ImCharIsBlankA(c) return c == 32 or c == 9 end

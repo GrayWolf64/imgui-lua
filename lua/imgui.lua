@@ -1501,13 +1501,22 @@ end
 --- @return ImGuiID
 function MT.ImGuiWindow:GetID(id)
     local seed = self.IDStack:back()
-    local t = type(id)
 
-    if t == "string" then
+    if type(id) == "string" then
         return ImHashStr(id, seed)
     else --- @cast id int
         return ImHashData(id, -1, seed)
     end
+end
+
+-- This is only used in rare/specific situations to manufacture an ID out of nowhere
+-- FIXME: Consider instead storing last non-zero ID + count of successive zero-ID, and combine those?
+--- @param p_abs ImVec2
+--- @return ImGuiID
+function MT.ImGuiWindow:GetIDFromPos(p_abs)
+    local seed = self.IDStack:back()
+    local p_rel = ImGui.WindowPosAbsToRel(self, p_abs)
+    return ImHashData({p_rel.x, p_rel.y}, 2, seed) -- TODO: maybe make ImVec2 1-based indexable instead of 0-based(ImGuiAxis)?
 end
 
 --- @param id ImGuiID

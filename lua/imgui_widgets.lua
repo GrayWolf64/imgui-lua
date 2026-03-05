@@ -902,11 +902,16 @@ end
 -- - `uv0` and `uv1` are texture coordinates
 --- @param tex_ref    ImTextureRef
 --- @param image_size ImVec2
---- @param uv0        ImVec2
---- @param uv1        ImVec2
---- @param bg_col     ImVec4
---- @param tint_col   ImVec4
+--- @param uv0?       ImVec2
+--- @param uv1?       ImVec2
+--- @param bg_col?    ImVec4
+--- @param tint_col?  ImVec4
 function ImGui.ImageWithBg(tex_ref, image_size, uv0, uv1, bg_col, tint_col)
+    if uv0      == nil then uv0      = ImVec2(0, 0)       end
+    if uv1      == nil then uv1      = ImVec2(1, 1)       end
+    if bg_col   == nil then bg_col   = ImVec4(0, 0, 0, 0) end
+    if tint_col == nil then tint_col = ImVec4(1, 1, 1, 1) end
+
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return
@@ -933,6 +938,76 @@ function ImGui.ImageWithBg(tex_ref, image_size, uv0, uv1, bg_col, tint_col)
     if g.Style.ImageBorderSize > 0.0 then
         window.DrawList:AddRect(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Border), rounding, ImDrawFlags.None, g.Style.ImageBorderSize)
     end
+end
+
+--- @param tex_ref    ImTextureRef
+--- @param image_size ImVec2
+--- @param uv0?       ImVec2
+--- @param uv1?       ImVec2
+function ImGui.Image(tex_ref, image_size, uv0, uv1)
+    ImGui.ImageWithBg(tex_ref, image_size, uv0, uv1)
+end
+
+--- @param id         ImGuiID
+--- @param tex_ref    ImTextureRef
+--- @param image_size ImVec2
+--- @param uv0        ImVec2
+--- @param uv1        ImVec2
+--- @param bg_col     ImVec4
+--- @param tint_col   ImVec4
+--- @param flags?     ImGuiButtonFlags
+function ImGui.ImageButtonEx(id, tex_ref, image_size, uv0, uv1, bg_col, tint_col, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = ImGui.GetCurrentContext()
+    local padding = g.Style.FramePadding
+    local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + image_size + padding * 2.0)
+    ImGui.ItemSizeR(bb)
+    if not ImGui.ItemAdd(bb, id) then
+        return false
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, flags)
+
+    -- Render
+    local col = ImGui.GetColorU32((held and hovered) and ImGuiCol.ButtonActive or hovered and ImGuiCol.ButtonHovered or ImGuiCol.Button)
+    ImGui.RenderNavCursor(bb, id)
+    ImGui.RenderFrame(bb.Min, bb.Max, col, true, g.Style.FrameRounding)
+    if bg_col.w > 0.0 then
+        window.DrawList:AddRectFilled(bb.Min + padding, bb.Max - padding, ImGui.GetColorU32(bg_col))
+    end
+    local image_rounding = ImMax(g.Style.FrameRounding - ImMax(padding.x, padding.y), g.Style.ImageRounding)
+    if image_rounding > 0.0 then
+        window.DrawList:AddImageRounded(tex_ref, bb.Min + padding, bb.Max - padding, uv0, uv1, ImGui.GetColorU32(tint_col), image_rounding)
+    else
+        window.DrawList:AddImage(tex_ref, bb.Min + padding, bb.Max - padding, uv0, uv1, ImGui.GetColorU32(tint_col))
+    end
+
+    return pressed
+end
+
+-- - ImageButton() adds style.FramePadding*2.0 to provided size. This is in order to facilitate fitting an image in a button.
+-- - ImageButton() draws a background based on regular Button() color + optionally an inner background if specified. (#8165) -- FIXME: Maybe that's not the best design?
+--- @param str_id     string
+--- @param tex_ref    ImTextureRef
+--- @param image_size ImVec2
+--- @param uv0        ImVec2
+--- @param uv1        ImVec2
+--- @param bg_col     ImVec4
+--- @param tint_col   ImVec4
+function ImGui.ImageButton(str_id, tex_ref, image_size, uv0, uv1, bg_col, tint_col)
+    local g = ImGui.GetCurrentContext()
+    local window = g.CurrentWindow
+    if window.SkipItems then
+        return false
+    end
+
+    return ImGui.ImageButtonEx(window:GetID(str_id), tex_ref, image_size, uv0, uv1, bg_col, tint_col)
 end
 
 --- @param label string
