@@ -352,6 +352,7 @@ local ImFontAtlasTextureAdd
 local ImFontAtlasTextureGrow
 local ImFontAtlasTextureGetSizeEstimate
 local ImFontAtlasTextureBlockCopy
+local ImFontAtlasTextureBlockConvert
 local ImFontAtlasTextureBlockPostProcess
 local ImFontAtlasTextureBlockPostProcessMultiply
 local ImFontAtlasTextureBlockQueueUpload
@@ -382,6 +383,16 @@ local ImFontAtlasFontSourceInit
 local ImFontAtlasFontSourceAddToFont
 local ImFontAtlasFontDestroySourceData
 local ImFontAtlasFontDestroyOutput
+
+local ImFontBaked_BuildGrowIndex
+local ImFontBaked_BuildLoadGlyph
+local ImFontBaked_BuildLoadGlyphAdvanceX
+
+local ImTextInitClassifiers
+local ImTextClassifierGet
+local ImTextClassifierClear
+local ImTextClassifierSetCharClass
+local ImTextClassifierSetCharClassFromStr
 
 function MT.ImFontAtlas:Clear()
     local backup_renderer_has_textures = self.RendererHasTextures
