@@ -350,6 +350,11 @@ end
 --- Forward Declarations
 local ImFontAtlasTextureAdd
 local ImFontAtlasTextureGrow
+local ImFontAtlasTextureGetSizeEstimate
+local ImFontAtlasTextureBlockCopy
+local ImFontAtlasTextureBlockPostProcess
+local ImFontAtlasTextureBlockPostProcessMultiply
+local ImFontAtlasTextureBlockQueueUpload
 local ImFontAtlasPackInit
 local ImFontAtlasPackAddRect
 local ImFontAtlasPackGetRect
@@ -2180,7 +2185,7 @@ end
 --- @param c     ImWchar
 --- @return ImWchar
 --- @nodiscard
-function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
+local function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
     -- IM_UNUSED(atlas)
     if #font.RemapPairs > 0 then
         local ret = font.RemapPairs[c]
