@@ -140,7 +140,7 @@ if not IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS then
     end
 end
 
---- Forward Declaration
+--- Forward Declarations
 local CalcNextScrollFromScrollTargetAndClamp
 
 local MT = ImGui.GetMetatables()

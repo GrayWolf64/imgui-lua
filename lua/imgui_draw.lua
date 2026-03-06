@@ -347,24 +347,36 @@ function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b,
     end
 end
 
+--- Forward Declarations
 local ImFontAtlasTextureAdd
 local ImFontAtlasTextureGrow
 local ImFontAtlasPackInit
 local ImFontAtlasPackAddRect
 local ImFontAtlasPackGetRect
 local ImFontAtlasPackGetRectSafe
+local ImFontAtlasBakedAdd
+local ImFontAtlasBakedAddFontGlyph
+local ImFontAtlasBakedAddFontGlyphAdvancedX
 local ImFontAtlasBakedDiscard
+local ImFontAtlasBakedGetOrAdd
+local ImFontAtlasBakedGetId
+local ImFontAtlasBakedGetClosestMatch
 local ImFontAtlasBuildSetTexture
 local ImFontAtlasBuildUpdateLinesTexData
 local ImFontAtlasBuildUpdateBasicTexData
 local ImFontAtlasBuildSetupFontLoader
+local ImFontAtlasBuildSetupFontSpecialGlyphs
+local ImFontAtlasBuildSetupFontBakedBlanks
+local ImFontAtlasBuildSetupFontBakedEllipsis
+local ImFontAtlasBuildSetupFontBakedFallback
 local ImFontAtlasBuildDestroy
+local ImFontAtlasBuildAcceptCodepointForSource
+local ImFontAtlasBuildNotifySetFont
+local ImFontAtlasBuildRenderBitmapFromString
 local ImFontAtlasFontSourceInit
 local ImFontAtlasFontSourceAddToFont
 local ImFontAtlasFontDestroySourceData
 local ImFontAtlasFontDestroyOutput
-local ImFontAtlasBuildSetupFontSpecialGlyphs
-local ImFontAtlasBuildSetupFontBakedFallback
 
 function MT.ImFontAtlas:Clear()
     local backup_renderer_has_textures = self.RendererHasTextures
