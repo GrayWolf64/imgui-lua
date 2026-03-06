@@ -347,24 +347,52 @@ function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b,
     end
 end
 
+--- Forward Declarations
 local ImFontAtlasTextureAdd
 local ImFontAtlasTextureGrow
+local ImFontAtlasTextureGetSizeEstimate
+local ImFontAtlasTextureBlockCopy
+local ImFontAtlasTextureBlockConvert
+local ImFontAtlasTextureBlockPostProcess
+local ImFontAtlasTextureBlockPostProcessMultiply
+local ImFontAtlasTextureBlockQueueUpload
 local ImFontAtlasPackInit
 local ImFontAtlasPackAddRect
 local ImFontAtlasPackGetRect
 local ImFontAtlasPackGetRectSafe
+local ImFontAtlasBakedAdd
+local ImFontAtlasBakedAddFontGlyph
+local ImFontAtlasBakedAddFontGlyphAdvancedX
 local ImFontAtlasBakedDiscard
+local ImFontAtlasBakedGetOrAdd
+local ImFontAtlasBakedGetId
+local ImFontAtlasBakedGetClosestMatch
 local ImFontAtlasBuildSetTexture
 local ImFontAtlasBuildUpdateLinesTexData
 local ImFontAtlasBuildUpdateBasicTexData
 local ImFontAtlasBuildSetupFontLoader
+local ImFontAtlasBuildSetupFontSpecialGlyphs
+local ImFontAtlasBuildSetupFontBakedBlanks
+local ImFontAtlasBuildSetupFontBakedEllipsis
+local ImFontAtlasBuildSetupFontBakedFallback
 local ImFontAtlasBuildDestroy
+local ImFontAtlasBuildAcceptCodepointForSource
+local ImFontAtlasBuildNotifySetFont
+local ImFontAtlasBuildRenderBitmapFromString
 local ImFontAtlasFontSourceInit
 local ImFontAtlasFontSourceAddToFont
 local ImFontAtlasFontDestroySourceData
 local ImFontAtlasFontDestroyOutput
-local ImFontAtlasBuildSetupFontSpecialGlyphs
-local ImFontAtlasBuildSetupFontBakedFallback
+
+local ImFontBaked_BuildGrowIndex
+local ImFontBaked_BuildLoadGlyph
+local ImFontBaked_BuildLoadGlyphAdvanceX
+
+local ImTextInitClassifiers
+local ImTextClassifierGet
+local ImTextClassifierClear
+local ImTextClassifierSetCharClass
+local ImTextClassifierSetCharClassFromStr
 
 function MT.ImFontAtlas:Clear()
     local backup_renderer_has_textures = self.RendererHasTextures
@@ -2168,7 +2196,7 @@ end
 --- @param c     ImWchar
 --- @return ImWchar
 --- @nodiscard
-function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
+local function ImFontAtlas_FontHookRemapCodepoint(atlas, font, c)
     -- IM_UNUSED(atlas)
     if #font.RemapPairs > 0 then
         local ret = font.RemapPairs[c]
