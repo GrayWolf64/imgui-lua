@@ -132,7 +132,7 @@ end
 --- @param sample float
 --- @param n      int
 --- @return float
-function ImExponentialMovingAverage(avg, sample, n)
+function ImStd.ImExponentialMovingAverage(avg, sample, n)
     avg = avg - avg / n
     avg = avg + sample / n
     return avg
@@ -189,6 +189,13 @@ end
 --- @param b ImVec2
 function ImDot(a, b)
     return a.x * b.x + a.y * b.y
+end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+--- @nodiscard
+function ImMul(lhs, rhs)
+    return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
 end
 
 --- @return int?
@@ -307,9 +314,18 @@ function ImGui.GetRoundedFontSize(size) return IM_ROUND(size) end
 --- @nodiscard
 function ImGui.WindowRectAbsToRel(window, r) local off = window.DC.CursorStartPos return ImRect(r.Min.x - off.x, r.Min.y - off.y, r.Max.x - off.x, r.Max.y - off.y) end
 
+--- @param window ImGuiWindow
+--- @param p      ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImGui.WindowPosAbsToRel(window, p) local off = window.DC.CursorStartPos return ImVec2(p.x - off.x, p.y - off.y) end
+
 --- @param c char
 --- @return bool # True if this character is a ' ' or '\t'
 function ImCharIsBlankA(c) return c == 32 or c == 9 end
+
+--- @param c char
+function ImCharIsBlankW(c) return c == 32 or c == 9 or c == 0x3000 end
 
 --- @enum ImGuiNavLayer
 ImGuiNavLayer = {
@@ -318,19 +334,19 @@ ImGuiNavLayer = {
     COUNT = 2
 }
 
-ImGuiItemFlags_ReadOnly               = bit.lshift(1, 11)
-ImGuiItemFlags_MixedValue             = bit.lshift(1, 12)
-ImGuiItemFlags_NoWindowHoverableCheck = bit.lshift(1, 13)
-ImGuiItemFlags_AllowOverlap           = bit.lshift(1, 14)
-ImGuiItemFlags_NoNavDisableMouseHover = bit.lshift(1, 15)
-ImGuiItemFlags_NoMarkEdited           = bit.lshift(1, 16)
-ImGuiItemFlags_NoFocus                = bit.lshift(1, 17)
+ImGuiItemFlags.ReadOnly               = bit.lshift(1, 11)
+ImGuiItemFlags.MixedValue             = bit.lshift(1, 12)
+ImGuiItemFlags.NoWindowHoverableCheck = bit.lshift(1, 13)
+ImGuiItemFlags.AllowOverlap           = bit.lshift(1, 14)
+ImGuiItemFlags.NoNavDisableMouseHover = bit.lshift(1, 15)
+ImGuiItemFlags.NoMarkEdited           = bit.lshift(1, 16)
+ImGuiItemFlags.NoFocus                = bit.lshift(1, 17)
 
-ImGuiItemFlags_Inputable            = bit.lshift(1, 20)
-ImGuiItemFlags_HasSelectionUserData = bit.lshift(1, 21)
-ImGuiItemFlags_IsMultiSelect        = bit.lshift(1, 22)
+ImGuiItemFlags.Inputable            = bit.lshift(1, 20)
+ImGuiItemFlags.HasSelectionUserData = bit.lshift(1, 21)
+ImGuiItemFlags.IsMultiSelect        = bit.lshift(1, 22)
 
-ImGuiItemFlags_Default_ = ImGuiItemFlags_AutoClosePopups
+ImGuiItemFlags.Default_ = ImGuiItemFlags.AutoClosePopups
 
 --- @enum ImDrawTextFlags
 ImDrawTextFlags = {
@@ -751,7 +767,7 @@ MT.ImGuiNextItemData.__index = MT.ImGuiNextItemData
 
 function MT.ImGuiNextItemData:ClearFlags()
     self.HasFlags = ImGuiNextItemDataFlags.None
-    self.ItemFlags = ImGuiItemFlags_None
+    self.ItemFlags = ImGuiItemFlags.None
 end
 
 --- @return ImGuiNextItemData
@@ -797,7 +813,7 @@ MT.ImGuiNextWindowData = {}
 MT.ImGuiNextWindowData.__index = MT.ImGuiNextWindowData
 
 function MT.ImGuiNextWindowData:ClearFlags()
-    self.HasFlags = ImGuiNextWindowDataFlags_None
+    self.HasFlags = ImGuiNextWindowDataFlags.None
 end
 
 --- @return ImGuiNextWindowData
@@ -832,22 +848,24 @@ ImGuiWindowBgClickFlags = {
     Move = bit.lshift(1, 0),
 }
 
---- @alias ImGuiNextWindowDataFlags int
-ImGuiNextWindowDataFlags_None               = 0
-ImGuiNextWindowDataFlags_HasPos             = bit.lshift(1, 0)
-ImGuiNextWindowDataFlags_HasSize            = bit.lshift(1, 1)
-ImGuiNextWindowDataFlags_HasContentSize     = bit.lshift(1, 2)
-ImGuiNextWindowDataFlags_HasCollapsed       = bit.lshift(1, 3)
-ImGuiNextWindowDataFlags_HasSizeConstraint  = bit.lshift(1, 4)
-ImGuiNextWindowDataFlags_HasFocus           = bit.lshift(1, 5)
-ImGuiNextWindowDataFlags_HasBgAlpha         = bit.lshift(1, 6)
-ImGuiNextWindowDataFlags_HasScroll          = bit.lshift(1, 7)
-ImGuiNextWindowDataFlags_HasWindowFlags     = bit.lshift(1, 8)
-ImGuiNextWindowDataFlags_HasChildFlags      = bit.lshift(1, 9)
-ImGuiNextWindowDataFlags_HasRefreshPolicy   = bit.lshift(1, 10)
-ImGuiNextWindowDataFlags_HasViewport        = bit.lshift(1, 11)
-ImGuiNextWindowDataFlags_HasDock            = bit.lshift(1, 12)
-ImGuiNextWindowDataFlags_HasWindowClass     = bit.lshift(1, 13)
+--- @enum ImGuiNextWindowDataFlags
+ImGuiNextWindowDataFlags = {
+    None              = 0,
+    HasPos            = bit.lshift(1, 0),
+    HasSize           = bit.lshift(1, 1),
+    HasContentSize    = bit.lshift(1, 2),
+    HasCollapsed      = bit.lshift(1, 3),
+    HasSizeConstraint = bit.lshift(1, 4),
+    HasFocus          = bit.lshift(1, 5),
+    HasBgAlpha        = bit.lshift(1, 6),
+    HasScroll         = bit.lshift(1, 7),
+    HasWindowFlags    = bit.lshift(1, 8),
+    HasChildFlags     = bit.lshift(1, 9),
+    HasRefreshPolicy  = bit.lshift(1, 10),
+    HasViewport       = bit.lshift(1, 11),
+    HasDock           = bit.lshift(1, 12),
+    HasWindowClass    = bit.lshift(1, 13)
+}
 
 --- @enum ImGuiLayoutType
 ImGuiLayoutType = {
@@ -894,6 +912,8 @@ function ImGuiStyle()
         ScrollbarPadding  = 2.0,
         GrabMinSize = 12.0,
         GrabRounding = 0.0,
+        ImageRounding = 0.0,
+        ImageBorderSize = 0.0,
 
         WindowBorderHoverPadding = 4.0,
 
@@ -935,8 +955,8 @@ function ImGuiStyle()
         ItemSpacing = ImVec2(8, 4),
         ItemInnerSpacing = ImVec2(4, 4),
 
-        HoverFlagsForTooltipMouse = bit.bor(ImGuiHoveredFlags_Stationary, ImGuiHoveredFlags_DelayShort, ImGuiHoveredFlags_AllowWhenDisabled),
-        HoverFlagsForTooltipNav = bit.bor(ImGuiHoveredFlags_NoSharedDelay, ImGuiHoveredFlags_DelayNormal, ImGuiHoveredFlags_AllowWhenDisabled),
+        HoverFlagsForTooltipMouse = bit.bor(ImGuiHoveredFlags.Stationary, ImGuiHoveredFlags.DelayShort, ImGuiHoveredFlags.AllowWhenDisabled),
+        HoverFlagsForTooltipNav = bit.bor(ImGuiHoveredFlags.NoSharedDelay, ImGuiHoveredFlags.DelayNormal, ImGuiHoveredFlags.AllowWhenDisabled),
 
         -- [Internal]
         _MainScale = 1.0,
@@ -1023,8 +1043,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         IO = ImGuiIO(),
         PlatformIO = ImGuiPlatformIO(),
 
-        ConfigFlagsCurrFrame = ImGuiConfigFlags_None,
-        ConfigFlagsLastFrame = ImGuiConfigFlags_None,
+        ConfigFlagsCurrFrame = ImGuiConfigFlags.None,
+        ConfigFlagsLastFrame = ImGuiConfigFlags.None,
 
         MouseLastValidPos = ImVec2(),
 
@@ -1181,7 +1201,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         TooltipOverrideCount = 0,
         TooltipPreviousWindow = nil,
 
-        CurrentItemFlags = ImGuiItemFlags_None,
+        CurrentItemFlags = ImGuiItemFlags.None,
 
         DisabledStackSize = 0,
 
@@ -1853,31 +1873,31 @@ ImGuiInputEventType = {
     COUNT         = 8
 }
 
-ImGuiInputFlags_RepeatRateDefault                = bit.lshift(1, 1)
-ImGuiInputFlags_RepeatRateNavMove                = bit.lshift(1, 2)
-ImGuiInputFlags_RepeatRateNavTweak               = bit.lshift(1, 3)
-ImGuiInputFlags_RepeatUntilRelease               = bit.lshift(1, 4)
-ImGuiInputFlags_RepeatUntilKeyModsChange         = bit.lshift(1, 5)
-ImGuiInputFlags_RepeatUntilKeyModsChangeFromNone = bit.lshift(1, 6)
-ImGuiInputFlags_RepeatUntilOtherKeyPress         = bit.lshift(1, 7)
-ImGuiInputFlags_LockThisFrame                    = bit.lshift(1, 20)
-ImGuiInputFlags_LockUntilRelease                 = bit.lshift(1, 21)
-ImGuiInputFlags_CondHovered                      = bit.lshift(1, 22)
-ImGuiInputFlags_CondActive                       = bit.lshift(1, 23)
+ImGuiInputFlags.RepeatRateDefault                = bit.lshift(1, 1)
+ImGuiInputFlags.RepeatRateNavMove                = bit.lshift(1, 2)
+ImGuiInputFlags.RepeatRateNavTweak               = bit.lshift(1, 3)
+ImGuiInputFlags.RepeatUntilRelease               = bit.lshift(1, 4)
+ImGuiInputFlags.RepeatUntilKeyModsChange         = bit.lshift(1, 5)
+ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone = bit.lshift(1, 6)
+ImGuiInputFlags.RepeatUntilOtherKeyPress         = bit.lshift(1, 7)
+ImGuiInputFlags.LockThisFrame                    = bit.lshift(1, 20)
+ImGuiInputFlags.LockUntilRelease                 = bit.lshift(1, 21)
+ImGuiInputFlags.CondHovered                      = bit.lshift(1, 22)
+ImGuiInputFlags.CondActive                       = bit.lshift(1, 23)
 
-ImGuiInputFlags_CondDefault_                   = bit.bor(ImGuiInputFlags_CondHovered, ImGuiInputFlags_CondActive)
-ImGuiInputFlags_RepeatRateMask_                = bit.bor(ImGuiInputFlags_RepeatRateDefault, ImGuiInputFlags_RepeatRateNavMove, ImGuiInputFlags_RepeatRateNavTweak)
-ImGuiInputFlags_RepeatUntilMask_               = bit.bor(ImGuiInputFlags_RepeatUntilRelease, ImGuiInputFlags_RepeatUntilKeyModsChange, ImGuiInputFlags_RepeatUntilKeyModsChangeFromNone, ImGuiInputFlags_RepeatUntilOtherKeyPress)
-ImGuiInputFlags_RepeatMask_                    = bit.bor(ImGuiInputFlags_Repeat, ImGuiInputFlags_RepeatRateMask_, ImGuiInputFlags_RepeatUntilMask_)
-ImGuiInputFlags_CondMask_                      = bit.bor(ImGuiInputFlags_CondHovered, ImGuiInputFlags_CondActive)
-ImGuiInputFlags_RouteTypeMask_                 = bit.bor(ImGuiInputFlags_RouteActive, ImGuiInputFlags_RouteFocused, ImGuiInputFlags_RouteGlobal, ImGuiInputFlags_RouteAlways)
-ImGuiInputFlags_RouteOptionsMask_              = bit.bor(ImGuiInputFlags_RouteOverFocused, ImGuiInputFlags_RouteOverActive, ImGuiInputFlags_RouteUnlessBgFocused, ImGuiInputFlags_RouteFromRootWindow)
-ImGuiInputFlags_SupportedByIsKeyPressed        = ImGuiInputFlags_RepeatMask_
-ImGuiInputFlags_SupportedByIsMouseClicked      = ImGuiInputFlags_Repeat
-ImGuiInputFlags_SupportedByShortcut            = bit.bor(ImGuiInputFlags_RepeatMask_, ImGuiInputFlags_RouteTypeMask_, ImGuiInputFlags_RouteOptionsMask_)
-ImGuiInputFlags_SupportedBySetNextItemShortcut = bit.bor(ImGuiInputFlags_RepeatMask_, ImGuiInputFlags_RouteTypeMask_, ImGuiInputFlags_RouteOptionsMask_, ImGuiInputFlags_Tooltip)
-ImGuiInputFlags_SupportedBySetKeyOwner         = bit.bor(ImGuiInputFlags_LockThisFrame, ImGuiInputFlags_LockUntilRelease)
-ImGuiInputFlags_SupportedBySetItemKeyOwner     = bit.bor(ImGuiInputFlags_SupportedBySetKeyOwner, ImGuiInputFlags_CondMask_)
+ImGuiInputFlags.CondDefault_                   = bit.bor(ImGuiInputFlags.CondHovered, ImGuiInputFlags.CondActive)
+ImGuiInputFlags.RepeatRateMask_                = bit.bor(ImGuiInputFlags.RepeatRateDefault, ImGuiInputFlags.RepeatRateNavMove, ImGuiInputFlags.RepeatRateNavTweak)
+ImGuiInputFlags.RepeatUntilMask_               = bit.bor(ImGuiInputFlags.RepeatUntilRelease, ImGuiInputFlags.RepeatUntilKeyModsChange, ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone, ImGuiInputFlags.RepeatUntilOtherKeyPress)
+ImGuiInputFlags.RepeatMask_                    = bit.bor(ImGuiInputFlags.Repeat, ImGuiInputFlags.RepeatRateMask_, ImGuiInputFlags.RepeatUntilMask_)
+ImGuiInputFlags.CondMask_                      = bit.bor(ImGuiInputFlags.CondHovered, ImGuiInputFlags.CondActive)
+ImGuiInputFlags.RouteTypeMask_                 = bit.bor(ImGuiInputFlags.RouteActive, ImGuiInputFlags.RouteFocused, ImGuiInputFlags.RouteGlobal, ImGuiInputFlags.RouteAlways)
+ImGuiInputFlags.RouteOptionsMask_              = bit.bor(ImGuiInputFlags.RouteOverFocused, ImGuiInputFlags.RouteOverActive, ImGuiInputFlags.RouteUnlessBgFocused, ImGuiInputFlags.RouteFromRootWindow)
+ImGuiInputFlags.SupportedByIsKeyPressed        = ImGuiInputFlags.RepeatMask_
+ImGuiInputFlags.SupportedByIsMouseClicked      = ImGuiInputFlags.Repeat
+ImGuiInputFlags.SupportedByShortcut            = bit.bor(ImGuiInputFlags.RepeatMask_, ImGuiInputFlags.RouteTypeMask_, ImGuiInputFlags.RouteOptionsMask_)
+ImGuiInputFlags.SupportedBySetNextItemShortcut = bit.bor(ImGuiInputFlags.RepeatMask_, ImGuiInputFlags.RouteTypeMask_, ImGuiInputFlags.RouteOptionsMask_, ImGuiInputFlags.Tooltip)
+ImGuiInputFlags.SupportedBySetKeyOwner         = bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)
+ImGuiInputFlags.SupportedBySetItemKeyOwner     = bit.bor(ImGuiInputFlags.SupportedBySetKeyOwner, ImGuiInputFlags.CondMask_)
 
 --- @enum ImGuiAxis
 ImGuiAxis = {

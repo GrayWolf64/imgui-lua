@@ -79,7 +79,7 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
     end
 end
 
-function ImGui_ImplGMOD_UpdateMouseData(io)
+local function ImGui_ImplGMOD_UpdateMouseData(io)
     local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
     local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), hovered_panel)
     if vp then
@@ -354,7 +354,7 @@ end
 --- @param io           ImGuiIO
 --- @param imgui_cursor ImGuiMouseCursor
 local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
-    if bit.band(io.ConfigFlags, ImGuiConfigFlags_NoMouseCursorChange) ~= 0 then
+    if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoMouseCursorChange) ~= 0 then
         return false
     end
 
@@ -469,7 +469,7 @@ local col1 = ImVec4()
 local col2 = ImVec4()
 
 function ImGui_ImplGMOD_RenderDrawData(draw_data)
-    local bd = ImGui_ImplGMOD_GetBackendData()
+    local bd = ImGui_ImplGMOD_GetBackendData() --[[@as ImGui_ImplGMOD_Data]]
 
     if (draw_data.DisplaySize.x <= 0.0 or draw_data.DisplaySize.y <= 0.0) then
         return
@@ -485,6 +485,8 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
     ImGui_ImplGMOD_SetupRenderState()
 
+    render.SetMaterial(g_EngineMaterial)
+
     for _, draw_list in draw_data.CmdLists:iter() do
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.ElemCount > 0 then
@@ -496,7 +498,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 render.SetScissorRect(pcmd.ClipRect.x, pcmd.ClipRect.y, pcmd.ClipRect.z, pcmd.ClipRect.w, true)
 
                 local tex_id = pcmd:GetTexID()
-                render.SetMaterial(g_EngineMaterial)
+                g_EngineMaterial:SetTexture("$basetexture", bd.RT_List[tex_id])
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
@@ -593,8 +595,6 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         local backend_tex = ImGui_ImplGMOD_Texture()
 
         local render_target = CreateEngineResource(bd, backend_tex, tex)
-        g_EngineMaterial:SetTexture("$basetexture", render_target)
-
         backend_tex.RenderTarget = render_target
 
         render.PushRenderTarget(render_target)

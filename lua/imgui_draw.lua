@@ -313,6 +313,40 @@ function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx,
     end
 end
 
+-- Distribute UV over (a, b) rectangle
+--- @param draw_list      ImDrawList
+--- @param vert_start_idx int
+--- @param vert_end_idx   int
+--- @param a              ImVec2
+--- @param b              ImVec2
+--- @param uv_a           ImVec2
+--- @param uv_b           ImVec2
+--- @param clamp          bool
+function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b, uv_a, uv_b, clamp)
+    local size = b - a
+    local uv_size = uv_b - uv_a
+    local scale = ImVec2(
+        (size.x ~= 0.0) and (uv_size.x / size.x) or 0.0,
+        (size.y ~= 0.0) and (uv_size.y / size.y) or 0.0
+    )
+
+    local vertex
+    local verts = draw_list.VtxBuffer.Data
+    if clamp then
+        local min = ImMinVec2(uv_a, uv_b)
+        local max = ImMaxVec2(uv_a, uv_b)
+        for vert_idx = vert_start_idx, vert_end_idx - 1 do
+            vertex = verts[vert_idx]
+            ImVec2_Copy(vertex.uv, ImClampV2(uv_a + ImMul(ImVec2(vertex.pos.x, vertex.pos.y) - a, scale), min, max))
+        end
+    else
+        for vert_idx = vert_start_idx, vert_end_idx - 1 do
+            vertex = verts[vert_idx]
+            ImVec2_Copy(vertex.uv, uv_a + ImMul(ImVec2(vertex.pos.x, vertex.pos.y) - a, scale))
+        end
+    end
+end
+
 local ImFontAtlasTextureAdd
 local ImFontAtlasTextureGrow
 local ImFontAtlasPackInit
@@ -2268,7 +2302,7 @@ end
 --- @param text_end   int
 --- @param flags      ImDrawTextFlags
 --- @return int
-function ImTextCalcWordWrapNextLineStart(text, text_begin, text_end, flags)
+function ImStd.ImTextCalcWordWrapNextLineStart(text, text_begin, text_end, flags)
     local pos = text_begin
 
     if bit.band(flags, ImDrawTextFlags.WrapKeepBlanks) == 0 then
@@ -2277,7 +2311,7 @@ function ImTextCalcWordWrapNextLineStart(text, text_begin, text_end, flags)
         end
     end
 
-    if pos < text_end and ImStrByte(text, pos) == chr'\n' then
+    if pos < text_end and ImStrByte(text, pos) == 10 then -- '\n'
         pos = pos + 1
     end
 
@@ -2311,7 +2345,7 @@ function ImTextClassifierSetCharClassFromStr(bits, codepoint_min, codepoint_end,
     local s_end = #s + 1
     local pos = 1
     while (pos < s_end) do
-        local wanted, c = ImText.CharFromUtf8(s, pos, s_end)
+        local wanted, c = ImStd.ImTextCharFromUtf8(s, pos, s_end)
         pos = pos + wanted
         ImTextClassifierSetCharClass(bits, codepoint_min, codepoint_end, char_class, c)
     end
@@ -2371,7 +2405,7 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
         if c < 0x80 then
             next_s = s + 1
         else
-            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImStd.ImTextCharFromUtf8(text, s, text_end)
             c = out_char
             next_s = s + wanted
         end
@@ -2440,7 +2474,7 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
     end
 
     if s == pos and s < text_end then
-        local bytes = ImText.CountUtf8BytesFromChar(text, s, text_end)
+        local bytes = ImStd.ImTextCountUtf8BytesFromChar(text, s, text_end)
 
         return s + bytes
     end
@@ -2491,7 +2525,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
                 end
                 text_size.y = text_size.y + line_height
                 line_width = 0.0
-                s = ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
                 if bit.band(flags, ImDrawTextFlags.StopOnNewLine) ~= 0 then
                     break
                 end
@@ -2506,7 +2540,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
         if c < 0x80 then
             s = s + 1
         else
-            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImStd.ImTextCharFromUtf8(text, s, text_end)
             c = out_char
             s = s + wanted
         end
@@ -2731,7 +2765,7 @@ end
 function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_template, glyph_ranges)
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
 
-    local data, data_size = ImFileLoadToMemory(filename, "rb")
+    local data, data_size = ImStd.ImFileLoadToMemory(filename, "rb")
     if not data then
         if (font_cfg_template == nil or (bit.band(font_cfg_template.Flags, ImFontFlags.NoLoadError) == 0)) then
             -- IMGUI_DEBUG_LOG("While loading '%s'\n", filename)
@@ -2756,7 +2790,7 @@ function MT.ImFontAtlas:AddFontFromFileTTF(filename, size_pixels, font_cfg_templ
 end
 
 function GetDefaultFontDataProggyClean()
-    return ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
+    return ImStd.ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
 end
 
 --- @param font_cfg_template ImFontConfig
@@ -3388,7 +3422,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         return
     end
 
-    local closed = bit.band(flags, ImDrawFlags_Closed) ~= 0
+    local closed = bit.band(flags, ImDrawFlags.Closed) ~= 0
     local opaque_uv = self._Data.TexUvWhitePixel
     local count = closed and points_count or points_count - 1  -- Number of line segments
     local thick_line = thickness > self._FringeScale
@@ -3700,8 +3734,8 @@ end
 local function FixRectCornerFlags(flags)
     IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
 
-    if (bit.band(flags, ImDrawFlags_RoundCornersMask_) == 0) then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersAll)
+    if (bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0) then
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersAll)
     end
 
     return flags
@@ -3713,19 +3747,19 @@ function MT.ImDrawList:PathRect(a, b, rounding, flags)
 
     if rounding >= 0.5 then
         flags = FixRectCornerFlags(flags)
-        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags_RoundCornersTop) == ImDrawFlags_RoundCornersTop) or (bit.band(flags, ImDrawFlags_RoundCornersBottom) == ImDrawFlags_RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
-        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags_RoundCornersLeft) == ImDrawFlags_RoundCornersLeft) or (bit.band(flags, ImDrawFlags_RoundCornersRight) == ImDrawFlags_RoundCornersRight)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags.RoundCornersTop) == ImDrawFlags.RoundCornersTop) or (bit.band(flags, ImDrawFlags.RoundCornersBottom) == ImDrawFlags.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags.RoundCornersLeft) == ImDrawFlags.RoundCornersLeft) or (bit.band(flags, ImDrawFlags.RoundCornersRight) == ImDrawFlags.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
     end
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask_) == ImDrawFlags_RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone) then
         self:PathLineTo(a)
         self:PathLineTo(ImVec2(b.x, a.y))
         self:PathLineTo(b)
         self:PathLineTo(ImVec2(a.x, b.y))
     else
-        local rounding_tl = (bit.band(flags, ImDrawFlags_RoundCornersTopLeft) ~= 0) and rounding or 0.0
-        local rounding_tr = (bit.band(flags, ImDrawFlags_RoundCornersTopRight) ~= 0) and rounding or 0.0
-        local rounding_br = (bit.band(flags, ImDrawFlags_RoundCornersBottomRight) ~= 0) and rounding or 0.0
-        local rounding_bl = (bit.band(flags, ImDrawFlags_RoundCornersBottomLeft) ~= 0) and rounding or 0.0
+        local rounding_tl = (bit.band(flags, ImDrawFlags.RoundCornersTopLeft) ~= 0) and rounding or 0.0
+        local rounding_tr = (bit.band(flags, ImDrawFlags.RoundCornersTopRight) ~= 0) and rounding or 0.0
+        local rounding_br = (bit.band(flags, ImDrawFlags.RoundCornersBottomRight) ~= 0) and rounding or 0.0
+        local rounding_bl = (bit.band(flags, ImDrawFlags.RoundCornersBottomLeft) ~= 0) and rounding or 0.0
         self:PathArcToFast(ImVec2(a.x + rounding_tl, a.y + rounding_tl), rounding_tl, 6, 9)
         self:PathArcToFast(ImVec2(b.x - rounding_tr, a.y + rounding_tr), rounding_tr, 9, 12)
         self:PathArcToFast(ImVec2(b.x - rounding_br, b.y - rounding_br), rounding_br, 0, 3)
@@ -3739,7 +3773,7 @@ function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
 
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags_RoundCornersMask_) == ImDrawFlags_RoundCornersNone) then
+    if rounding < 0.5 or (bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone) then
         self:PrimReserve(6, 4)
         self:PrimRect(p_min, p_max, col)
     else
@@ -3777,7 +3811,7 @@ function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
     end
 
-    self:PathStroke(col, ImDrawFlags_Closed, thickness)
+    self:PathStroke(col, ImDrawFlags.Closed, thickness)
 end
 
 function MT.ImDrawList:AddLine(p1, p2, col, thickness)
@@ -3796,7 +3830,7 @@ function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness)
     self:PathLineTo(p1)
     self:PathLineTo(p2)
     self:PathLineTo(p3)
-    self:PathStroke(col, ImDrawFlags_Closed, thickness)
+    self:PathStroke(col, ImDrawFlags.Closed, thickness)
 end
 
 function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
@@ -3834,7 +3868,7 @@ function MT.ImDrawList:AddCircle(center, radius, col, num_segments, thickness)
         self:PathArcTo(center, radius - 0.5, 0.0, a_max, num_segments - 1)
     end
 
-    self:PathStroke(col, ImDrawFlags_Closed, thickness)
+    self:PathStroke(col, ImDrawFlags.Closed, thickness)
 end
 
 --- @param center       ImVec2
@@ -3919,6 +3953,41 @@ function MT.ImDrawList:AddImage(tex_ref, p_min, p_max, uv_min, uv_max, col)
 
     self:PrimReserve(6, 4)
     self:PrimRectUV(p_min, p_max, uv_min, uv_max, col)
+
+    if push_texture_id then
+        self:PopTexture()
+    end
+end
+
+--- @param tex_ref  ImTextureRef
+--- @param p_min    ImVec2
+--- @param p_max    ImVec2
+--- @param uv_min   ImVec2
+--- @param uv_max   ImVec2
+--- @param col      ImU32
+--- @param rounding float
+--- @param flags    ImDrawFlags
+function MT.ImDrawList:AddImageRounded(tex_ref, p_min, p_max, uv_min, uv_max, col, rounding, flags)
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    flags = FixRectCornerFlags(flags)
+    if rounding < 0.5 or bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone then
+        self:AddImage(tex_ref, p_min, p_max, uv_min, uv_max, col)
+        return
+    end
+
+    local push_texture_id = (tex_ref ~= self._CmdHeader.TexRef)
+    if push_texture_id then
+        self:PushTexture(tex_ref)
+    end
+
+    local vert_start_idx = self.VtxBuffer.Size + 1
+    self:PathRect(p_min, p_max, rounding, flags)
+    self:PathFillConvex(col)
+    local vert_end_idx = self.VtxBuffer.Size + 1
+    ImGui.ShadeVertsLinearUV(self, vert_start_idx, vert_end_idx, p_min, p_max, uv_min, uv_max, true)
 
     if push_texture_id then
         self:PopTexture()
@@ -4165,7 +4234,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
             local line_end = ImMemchr(text, '\n', s)
             if word_wrap_enabled then
                 s = ImFontCalcWordWrapPositionEx(self, size, text, s, (line_end ~= nil) and line_end or text_end, wrap_width, flags)
-                s = ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
             else
                 s = (line_end ~= nil) and (line_end + 1) or text_end
             end
@@ -4217,7 +4286,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                     break
                 end
                 word_wrap_eol = nil
-                s = ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
 
                 goto CONTINUE
             end
@@ -4227,7 +4296,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         if c < 0x80 then
             s = s + 1
         else
-            local wanted, out_char = ImText.CharFromUtf8(text, s, text_end)
+            local wanted, out_char = ImStd.ImTextCharFromUtf8(text, s, text_end)
             c = out_char
             s = s + wanted
         end
@@ -4316,11 +4385,13 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
 end
 
 --- @param draw_list ImDrawList
---- @param pos ImVec2
---- @param color ImU32
---- @param dir ImGuiDir
---- @param scale float
+--- @param pos       ImVec2
+--- @param color     ImU32
+--- @param dir       ImGuiDir
+--- @param scale?    float
 function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
+    if scale == nil then scale = 1.0 end
+
     local h = draw_list._Data.FontSize * 1.00
     local r = h * 0.40 * scale
 
@@ -4343,6 +4414,15 @@ function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
     end
 
     draw_list:AddTriangleFilled(center + a, center + b, center + c, color)
+end
+
+--- @param draw_list ImDrawList
+--- @param pos       ImVec2
+--- @param col       ImU32
+function ImGui.RenderBullet(draw_list, pos, col)
+    -- FIXME-OPT: This should be baked in font now that it's easier
+    local font_size = draw_list._Data.FontSize
+    draw_list:AddCircleFilled(pos, font_size * 0.20, col, (font_size < 22) and 8 or ((font_size < 40) and 12 or 0)) -- Hardcode optimal/nice tessellation threshold
 end
 
 --- @param draw_list ImDrawList
@@ -4457,19 +4537,19 @@ function ImGui.CalcRoundingFlagsForRectInRect(r_in, r_outer, threshold)
     local round_t = r_in.Min.y <= r_outer.Min.y + threshold
     local round_b = r_in.Max.y >= r_outer.Max.y - threshold
 
-    local flags = ImDrawFlags_RoundCornersNone
+    local flags = ImDrawFlags.RoundCornersNone
 
     if round_t and round_l then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersTopLeft)
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersTopLeft)
     end
     if round_t and round_r then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersTopRight)
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersTopRight)
     end
     if round_b and round_l then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersBottomLeft)
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersBottomLeft)
     end
     if round_b and round_r then
-        flags = bit.bor(flags, ImDrawFlags_RoundCornersBottomRight)
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersBottomRight)
     end
 
     return flags
@@ -4491,8 +4571,8 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
     if rounding == nil then rounding = 0.0 end
     if flags    == nil then flags    = 0   end
 
-    if bit.band(flags, ImDrawFlags_RoundCornersMask_) == 0 then
-        flags = ImDrawFlags_RoundCornersDefault_
+    if bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0 then
+        flags = ImDrawFlags.RoundCornersDefault_
     end
 
     if bit.rshift(bit.band(col, IM_COL32_A_MASK), IM_COL32_A_SHIFT) < 0xFF then
@@ -4516,19 +4596,19 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
 
                     if x2 > x1 then
 
-                        local cell_flags = ImDrawFlags_RoundCornersNone
+                        local cell_flags = ImDrawFlags.RoundCornersNone
                         if y1 <= p_min.y then
-                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersTopLeft) end
-                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersTopRight) end
+                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopLeft) end
+                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopRight) end
                         end
                         if y2 >= p_max.y then
-                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersBottomLeft) end
-                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags_RoundCornersBottomRight) end
+                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomLeft) end
+                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomRight) end
                         end
 
                         -- Combine flags
-                        if flags == ImDrawFlags_RoundCornersNone or cell_flags == ImDrawFlags_RoundCornersNone then
-                            cell_flags = ImDrawFlags_RoundCornersNone
+                        if flags == ImDrawFlags.RoundCornersNone or cell_flags == ImDrawFlags.RoundCornersNone then
+                            cell_flags = ImDrawFlags.RoundCornersNone
                         else
                             cell_flags = bit.band(cell_flags, flags)
                         end

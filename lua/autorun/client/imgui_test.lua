@@ -39,7 +39,7 @@ concommand.Add("imgui_test", function()
     local g = ImGui.GetCurrentContext()
 
     local io = ImGui.GetIO()
-    io.ConfigFlags = bit.bor(io.ConfigFlags, ImGuiConfigFlags_ViewportsEnable)
+    io.ConfigFlags = bit.bor(io.ConfigFlags, ImGuiConfigFlags.ViewportsEnable)
 
     ImGui_ImplGMOD.Init(viewport, true)
 
@@ -60,7 +60,7 @@ concommand.Add("imgui_test", function()
 
         ImGui_ImplGMOD.RenderDrawData(ImGui.GetDrawData())
 
-        if bit.band(io.ConfigFlags, ImGuiConfigFlags_ViewportsEnable) ~= 0 then
+        if bit.band(io.ConfigFlags, ImGuiConfigFlags.ViewportsEnable) ~= 0 then
             ImGui.UpdatePlatformWindows()
             ImGui.RenderPlatformWindowsDefault()
         end

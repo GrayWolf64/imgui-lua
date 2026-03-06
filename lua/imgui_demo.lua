@@ -1,6 +1,7 @@
 --- ImGui Sincerely WIP
 -- (Demo Code)
 
+local IM_MAX = math.max
 local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
 
 local DemoWindowWidgetsBasic
@@ -13,6 +14,8 @@ local radio_v = 0
 local col0 = ImVec4(0, 0, 0, 1)
 local col1 = ImVec4(0, 0, 0, 1)
 local col2 = ImVec4(0, 0, 0, 1)
+
+local counter = 0
 
 function DemoWindowWidgetsBasic()
     ImGui.SeparatorText("General")
@@ -53,8 +56,37 @@ function DemoWindowWidgetsBasic()
         ImGui.PopStyleColor(3)
         ImGui.PopID()
     end
+
+    -- Use AlignTextToFramePadding() to align text baseline to the baseline of framed widgets elements
+    -- (otherwise a Text+SameLine+Button sequence will have the text a little too high by default!)
+    -- See 'Demo->Layout->Text Baseline Alignment' for details.
+    ImGui.AlignTextToFramePadding()
+    ImGui.Text("Hold to repeat:")
+    ImGui.SameLine()
+
+    -- Arrow buttons with Repeater
+    local spacing = ImGui.GetStyle().ItemInnerSpacing.x
+    ImGui.PushItemFlag(ImGuiItemFlags.ButtonRepeat, true)
+    if ImGui.ArrowButton("##left", ImGuiDir.Left) then counter = counter - 1 end
+    ImGui.SameLine(0.0, spacing)
+    if ImGui.ArrowButton("##right", ImGuiDir.Right) then counter = counter + 1 end
+    ImGui.PopItemFlag()
+    ImGui.SameLine()
+    ImGui.Text("%d", counter)
+
+    ImGui.Button("Tooltip")
+    ImGui.SetItemTooltip("I am a tooltip")
+
+    ImGui.LabelText("label", "Value")
 end
 
+end
+
+local function DemoWindowWidgetsBullets()
+    ImGui.BulletText("Bullet point 1")
+    ImGui.BulletText("Bullet point 2\nOn multiple lines")
+    ImGui.Bullet() ImGui.Text("Bullet point 3 (two calls)")
+    ImGui.Bullet() ImGui.SmallButton("Button")
 end
 
 local DemoWindowWidgetsColorAndPickers
@@ -99,7 +131,7 @@ function DemoWindowWidgetsColorAndPickers()
         end
     end
 
-    if ImGui.BeginCombo("Picker Mode", picker_mode_names[picker_mode + 1], ImGuiComboFlags_None) then
+    if ImGui.BeginCombo("Picker Mode", picker_mode_names[picker_mode + 1], ImGuiComboFlags.None) then
         for mode_idx, mode_name in ipairs(picker_mode_names) do
             local pressed = ImGui.Selectable(mode_name, mode_idx == picker_mode + 1)
             if pressed then
@@ -109,7 +141,7 @@ function DemoWindowWidgetsColorAndPickers()
         ImGui.EndCombo()
     end
 
-    if ImGui.BeginCombo("Display Mode", display_mode_names[display_mode + 1], ImGuiComboFlags_None) then
+    if ImGui.BeginCombo("Display Mode", display_mode_names[display_mode + 1], ImGuiComboFlags.None) then
         for mode_idx, mode_name in ipairs(display_mode_names) do
             local pressed = ImGui.Selectable(mode_name, mode_idx == display_mode + 1)
             if pressed then
@@ -128,6 +160,98 @@ function DemoWindowWidgetsColorAndPickers()
     if display_mode == 4 then flags = bit.bor(flags, ImGuiColorEditFlags.DisplayHex) end
 
     ImGui.ColorPicker4("MyColor##4", color, flags, ref_color and ref_color_v or nil)
+end
+
+end
+
+local DemoWindowWidgetsImages do
+
+local pressed_count = 0
+
+function DemoWindowWidgetsImages()
+    ImGui.TextWrapped(
+        "Below we are displaying the font texture (which is the only texture we have access to in this demo). " ..
+        "Use the 'ImTextureID' type as storage to pass pointers or identifier to your own texture data. " ..
+        "Hover the texture for a zoomed view!"
+    )
+
+    -- Grab the current texture identifier used by the font atlas
+    local io = ImGui.GetIO()
+    local my_tex_id = io.Fonts.TexRef
+
+    -- Regular user code should never have to care about TexData-> fields, but since we want to display the entire texture here, we pull Width/Height from it
+    local my_tex_w = io.Fonts.TexData.Width
+    local my_tex_h = io.Fonts.TexData.Height
+
+    do
+        ImGui.Text("%.0fx%.0f", my_tex_w, my_tex_h)
+        local pos = ImGui.GetCursorScreenPos()
+        local uv_min = ImVec2(0.0, 0.0) -- Top-left
+        local uv_max = ImVec2(1.0, 1.0) -- Lower-right
+
+        ImGui.PushStyleVar(ImGuiStyleVar.ImageBorderSize, IM_MAX(1.0, ImGui.GetStyle().ImageBorderSize))
+        ImGui.ImageWithBg(my_tex_id, ImVec2(my_tex_w, my_tex_h), uv_min, uv_max, ImVec4(0.0, 0.0, 0.0, 1.0))
+
+        if ImGui.BeginItemTooltip() then
+            local region_sz = 32.0
+            local region_x = io.MousePos.x - pos.x - region_sz * 0.5
+            local region_y = io.MousePos.y - pos.y - region_sz * 0.5
+            local zoom = 4.0
+
+            if region_x < 0.0 then
+                region_x = 0.0
+            elseif region_x > my_tex_w - region_sz then
+                region_x = my_tex_w - region_sz
+            end
+
+            if region_y < 0.0 then
+                region_y = 0.0
+            elseif region_y > my_tex_h - region_sz then
+                region_y = my_tex_h - region_sz
+            end
+
+            ImGui.Text("Min: (%.2f, %.2f)", region_x, region_y)
+            ImGui.Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz)
+
+            local uv0 = ImVec2(region_x / my_tex_w, region_y / my_tex_h)
+            local uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h)
+
+            ImGui.ImageWithBg(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImVec4(0.0, 0.0, 0.0, 1.0))
+            ImGui.EndTooltip()
+        end
+
+        ImGui.PopStyleVar()
+    end
+
+    ImGui.TextWrapped("And now some textured buttons..")
+    for i = 1, 8 do
+        -- UV coordinates are often (0.0f, 0.0f) and (1.0f, 1.0f) to display an entire textures.
+        -- Here are trying to display only a 32x32 pixels area of the texture, hence the UV computation.
+        ImGui.PushID(i)
+        if i > 1 then
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, ImVec2(i, i))
+        end
+
+        local size = ImVec2(32.0, 32.0) -- Size of the image we want to make visible
+        local uv0 = ImVec2(0.0, 0.0) -- UV coordinates for lower-left
+        local uv1 = ImVec2(32.0 / my_tex_w, 32.0 / my_tex_h) -- UV coordinates for (32,32) in our texture
+        local bg_col = ImVec4(0.0, 0.0, 0.0, 1.0) -- Black background
+        local tint_col = ImVec4(1.0, 1.0, 1.0, 1.0) -- No tint
+
+        if ImGui.ImageButton("", my_tex_id, size, uv0, uv1, bg_col, tint_col) then
+            pressed_count = pressed_count + 1
+        end
+
+        if i > 1 then
+            ImGui.PopStyleVar()
+        end
+
+        ImGui.PopID()
+        ImGui.SameLine()
+    end
+
+    ImGui.NewLine()
+    ImGui.Text("Pressed %d times.", pressed_count)
 end
 
 end
@@ -220,7 +344,9 @@ function ImGui.ShowDemoWindow(open)
     end
 
     DemoWindowWidgetsBasic()
+    DemoWindowWidgetsBullets()
     DemoWindowWidgetsColorAndPickers()
+    DemoWindowWidgetsImages()
     DemoWindowWidgetsPlotting()
     DemoWindowWidgetsProgressBars()
 
