@@ -9,7 +9,7 @@
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
 | Fonts(ttf) | Completed, syncing with `main`   |
-| Fonts(otf) | Hasn't started yet, not planned  |
+| Fonts(otf) | Not planned                      |
 | Viewports  | Completed, syncing with `docking`|
 | Windows    | WIP                              |
 | Docking    | Not planned                      |
@@ -27,9 +27,9 @@ Things to pay attention to: [PORT](misc/PORT.md)
 ### How to Try it in GMOD?
 
 1. Clone this project into your GMod `addons` folder
-2. Create a *singleplayer* game
+2. Create a singleplayer or multiplayer game
 3. Run `imgui_test` command in engine console
-4. You can also write your own test scripts and run locally
+4. You can also write your own test scripts and run them!
 
 ### My Development Platform
 
