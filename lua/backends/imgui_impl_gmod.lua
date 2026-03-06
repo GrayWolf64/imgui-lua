@@ -485,6 +485,8 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
     ImGui_ImplGMOD_SetupRenderState()
 
+    render.SetMaterial(g_EngineMaterial)
+
     for _, draw_list in draw_data.CmdLists:iter() do
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.ElemCount > 0 then
@@ -497,7 +499,6 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
                 local tex_id = pcmd:GetTexID()
                 g_EngineMaterial:SetTexture("$basetexture", bd.RT_List[tex_id])
-                render.SetMaterial(g_EngineMaterial)
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
