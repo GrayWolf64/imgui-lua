@@ -2754,8 +2754,33 @@ function ImStb.TEXTEDIT_MOVELINESTART_IMPL(obj, state, cursor)
 
     if obj.WrapWidth > 0.0 then
         local g = obj.Ctx
-        -- TODO:
+        local bol = ImStd.ImStrbol(obj.TextSrc, cursor, 1)
+        local p = bol
+        local text_end = obj.TextLen + 1 -- End of line would be enough
+        while p >= bol do
+            local eol = ImFontCalcWordWrapPositionEx(g.Font, g.FontSize, obj.TextSrc, p, text_end, obj.WrapWidth, ImDrawTextFlags.WrapKeepBlanks)
+            if p == cursor then -- If we are already on a visible beginning-of-line, return real beginning-of-line (would be same as regular handler below)
+                return bol
+            end
+            if eol == cursor and obj.TextA.Data[cursor] ~= 10 and obj.LastMoveDirectionLR == ImGuiDir.Left then -- TODO: number indexing support on ImVector?
+                return bol
+            end
+            if eol >= cursor then
+                return p
+            end
+            p = (obj.TextSrc[eol] == 10) and eol + 1 or eol
+        end
     end
+
+    -- Regular handler, same as stb_textedit_move_line_start()
+    while cursor > 1 do
+        local prev_cursor = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, cursor)
+        if (ImStb.TEXTEDIT_GETCHAR(obj, prev_cursor) == ImStb.TEXTEDIT_NEWLINE) then
+            break
+        end
+        cursor = prev_cursor
+    end
+    return cursor
 end
 
 -- Edit a string of text

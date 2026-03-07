@@ -404,6 +404,17 @@ function ImStd.ImTriangleClosestPoint(a, b, c, p)
     end
 end
 
+--- @param str      char[]
+--- @param mid_line int
+--- @param begin    int
+function ImStd.ImStrbol(str, mid_line, begin)
+    IM_ASSERT_PARANOID(mid_line >= begin and mid_line <= #str)
+    while mid_line > begin and str[mid_line - 1] ~= 10 do
+        mid_line = mid_line - 1
+    end
+    return mid_line
+end
+
 --- void ImGui::UpdateCurrentFontSize
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     local g = GImGui
