@@ -747,6 +747,23 @@ function ImGui.GetWindowScrollbarRect(window, axis)
     end
 end
 
+--- @param window    ImGuiWindow
+--- @param bb        ImRect
+--- @param threshold float
+--- @param axis      ImGuiAxis
+function ImGui.ExtendHitBoxWhenNearViewportEdge(window, bb, threshold, axis)
+    local window_rect = window.RootWindow:Rect()
+    local viewport_rect = window.Viewport:GetMainRect()
+
+    if window_rect.Min[axis] == viewport_rect.Min[axis] and bb.Min[axis] > window_rect.Min[axis] and bb.Min[axis] - threshold <= window_rect.Min[axis] then
+        bb.Min[axis] = window_rect.Min[axis]
+    end
+
+    if window_rect.Max[axis] == viewport_rect.Max[axis] and bb.Max[axis] < window_rect.Max[axis] and bb.Max[axis] + threshold >= window_rect.Max[axis] then
+        bb.Max[axis] = window_rect.Max[axis]
+    end
+end
+
 --- @param bb_frame            ImRect
 --- @param id                  ImGuiID
 --- @param axis                ImGuiAxis
@@ -804,8 +821,13 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     local grab_h_pixels = ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v)
     local grab_h_norm = grab_h_pixels / scrollbar_size_v
 
+    -- As a special thing, we allow scrollbar near the edge of a screen/viewport to be reachable with mouse at the extreme edge (#9276)
+    local bb_hit = ImRect()
+    ImRect_Copy(bb_hit, bb_frame)
+    ImGui.ExtendHitBoxWhenNearViewportEdge(window, bb_hit, g.Style.WindowBorderSize, bit.bxor(axis, 1))
+
     ImGui.ItemAdd(bb_frame, id, nil, ImGuiItemFlags.NoNav)
-    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, ImGuiButtonFlags.NoNavFocus)
+    local pressed, hovered, held = ImGui.ButtonBehavior(bb_hit, id, ImGuiButtonFlags.NoNavFocus)
 
     local scroll_max = ImMax(1, size_contents_v - size_visible_v)
     local scroll_ratio = ImSaturate(p_scroll_v / scroll_max)
