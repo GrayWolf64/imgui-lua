@@ -3029,7 +3029,7 @@ end
 end
 
 --- Another overly complex function until we reorganize everything into a nice all-in-one helper.
---- This is made more complex because we have dissociated the layout rectangle (pos_min.[1]_max) from 'ellipsis_max_x' which may be beyond it.
+--- This is made more complex because we have dissociated the layout rectangle (pos_min .. pos_max) from 'ellipsis_max_x' which may be beyond it.
 --- This is because in the context of tabs we selectively hide part of the text when the Close Button appears, but we don't want the ellipsis to move.
 --- @param draw_list           ImDrawList
 --- @param pos_min             ImVec2
