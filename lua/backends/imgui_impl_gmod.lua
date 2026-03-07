@@ -511,21 +511,21 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     local vtx1 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx1]
                     local vtx2 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx2]
 
-                    mesh.Position(vtx0.pos.x, vtx0.pos.y, 0)
-                    mesh.TexCoord(0, vtx0.uv.x, vtx0.uv.y)
-                    ImGui.ColorConvertU32ToFloat4(vtx0.col, col0)
+                    mesh.Position(vtx0[1].x, vtx0[1].y, 0)
+                    mesh.TexCoord(0, vtx0[2].x, vtx0[2].y)
+                    ImGui.ColorConvertU32ToFloat4(vtx0[3], col0)
                     mesh.Color(col0.x * 255, col0.y * 255, col0.z * 255, col0.w * 255)
                     mesh.AdvanceVertex()
 
-                    mesh.Position(vtx1.pos.x, vtx1.pos.y, 0)
-                    mesh.TexCoord(0, vtx1.uv.x, vtx1.uv.y)
-                    ImGui.ColorConvertU32ToFloat4(vtx1.col, col1)
+                    mesh.Position(vtx1[1].x, vtx1[1].y, 0)
+                    mesh.TexCoord(0, vtx1[2].x, vtx1[2].y)
+                    ImGui.ColorConvertU32ToFloat4(vtx1[3], col1)
                     mesh.Color(col1.x * 255, col1.y * 255, col1.z * 255, col1.w * 255)
                     mesh.AdvanceVertex()
 
-                    mesh.Position(vtx2.pos.x, vtx2.pos.y, 0)
-                    mesh.TexCoord(0, vtx2.uv.x, vtx2.uv.y)
-                    ImGui.ColorConvertU32ToFloat4(vtx2.col, col2)
+                    mesh.Position(vtx2[1].x, vtx2[1].y, 0)
+                    mesh.TexCoord(0, vtx2[2].x, vtx2[2].y)
+                    ImGui.ColorConvertU32ToFloat4(vtx2[3], col2)
                     mesh.Color(col2.x * 255, col2.y * 255, col2.z * 255, col2.w * 255)
                     mesh.AdvanceVertex()
                 end

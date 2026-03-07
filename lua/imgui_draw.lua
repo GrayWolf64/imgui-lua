@@ -302,14 +302,14 @@ function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx,
     for vert_idx = vert_start_idx, vert_end_idx - 1 do
         local vert = draw_list.VtxBuffer.Data[vert_idx]
 
-        local d = ImDot(vert.pos - gradient_p0, gradient_extent)
+        local d = ImDot(vert[1] - gradient_p0, gradient_extent)
         local t = ImClamp(d * gradient_inv_length2, 0.0, 1.0)
 
         local r = math.floor(col0_r + col_delta_r * t)
         local g = math.floor(col0_g + col_delta_g * t)
         local b = math.floor(col0_b + col_delta_b * t)
 
-        vert.col = bit.bor(bit.lshift(r, IM_COL32_R_SHIFT), bit.lshift(g, IM_COL32_G_SHIFT), bit.lshift(b, IM_COL32_B_SHIFT), bit.band(vert.col, IM_COL32_A_MASK))
+        vert[3] = bit.bor(bit.lshift(r, IM_COL32_R_SHIFT), bit.lshift(g, IM_COL32_G_SHIFT), bit.lshift(b, IM_COL32_B_SHIFT), bit.band(vert[3], IM_COL32_A_MASK))
     end
 end
 
@@ -337,12 +337,12 @@ function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b,
         local max = ImMaxVec2(uv_a, uv_b)
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
-            ImVec2_Copy(vertex.uv, ImClampV2(uv_a + ImMul(ImVec2(vertex.pos.x, vertex.pos.y) - a, scale), min, max))
+            ImVec2_Copy(vertex[2], ImClampV2(uv_a + ImMul(ImVec2(vertex[1].x, vertex[1].y) - a, scale), min, max))
         end
     else
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
-            ImVec2_Copy(vertex.uv, uv_a + ImMul(ImVec2(vertex.pos.x, vertex.pos.y) - a, scale))
+            ImVec2_Copy(vertex[2], uv_a + ImMul(ImVec2(vertex[1].x, vertex[1].y) - a, scale))
         end
     end
 end
@@ -542,7 +542,6 @@ function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
         if remove_from_list then
             IM_ASSERT(atlas.TexData ~= tex)
             tex:DestroyPixels()
-            tex = nil
             atlas.TexList:erase(tex_n)
             tex_n = tex_n - 1
         end
@@ -3247,15 +3246,15 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
             local p1 = points[i1]
             local vtx_write_ptr = self._VtxWritePtr
 
-            self.VtxBuffer.Data[vtx_write_ptr].pos.x = p1.x - dm_x
-            self.VtxBuffer.Data[vtx_write_ptr].pos.y = p1.y - dm_y
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, uv)
-            self.VtxBuffer.Data[vtx_write_ptr].col = col
+            self.VtxBuffer.Data[vtx_write_ptr][1].x = p1.x - dm_x
+            self.VtxBuffer.Data[vtx_write_ptr][1].y = p1.y - dm_y
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], uv)
+            self.VtxBuffer.Data[vtx_write_ptr][3] = col
 
-            self.VtxBuffer.Data[vtx_write_ptr + 1].pos.x = p1.x + dm_x
-            self.VtxBuffer.Data[vtx_write_ptr + 1].pos.y = p1.y + dm_y
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, uv)
-            self.VtxBuffer.Data[vtx_write_ptr + 1].col = col_trans
+            self.VtxBuffer.Data[vtx_write_ptr + 1][1].x = p1.x + dm_x
+            self.VtxBuffer.Data[vtx_write_ptr + 1][1].y = p1.y + dm_y
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv)
+            self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col_trans
 
             self._VtxWritePtr = vtx_write_ptr + 2
 
@@ -3279,9 +3278,9 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
 
         for i = 1, points_count do
             local vtx_write_ptr = self._VtxWritePtr
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].pos, points[i])
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, uv)
-            self.VtxBuffer.Data[vtx_write_ptr].col = col
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][1], points[i])
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], uv)
+            self.VtxBuffer.Data[vtx_write_ptr][3] = col
             self._VtxWritePtr = vtx_write_ptr + 1
         end
 
@@ -3370,21 +3369,21 @@ function MT.ImDrawList:PrimRect(a, c, col)
     self.IdxBuffer.Data[idx_write_ptr + 5] = idx + 3
 
     local vtx_write_ptr = self._VtxWritePtr
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0].pos, a)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0].uv, uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 0].col = col
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], a)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], uv)
+    self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, b)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], b)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv)
+    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].pos, c)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], c)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], uv)
+    self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].pos, d)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].uv, uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], d)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], uv)
+    self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
 
     self._VtxWritePtr = vtx_write_ptr + 4
     self._VtxCurrentIdx = idx + 4
@@ -3412,21 +3411,21 @@ function MT.ImDrawList:PrimRectUV(a, c, uv_a, uv_c, col)
     self.IdxBuffer.Data[idx_write_ptr + 5] = idx + 3
 
     local vtx_write_ptr = self._VtxWritePtr
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0].pos, a)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0].uv, uv_a)
-    self.VtxBuffer.Data[vtx_write_ptr + 0].col = col
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], a)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], uv_a)
+    self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, b)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, uv_b)
-    self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], b)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv_b)
+    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].pos, c)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, uv_c)
-    self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], c)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], uv_c)
+    self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].pos, d)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].uv, uv_d)
-    self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], d)
+    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], uv_d)
+    self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
 
     self._VtxWritePtr   = vtx_write_ptr + 4
     self._VtxCurrentIdx = idx + 4
@@ -3558,13 +3557,13 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local tex_uv1 = ImVec2(tex_uvs.z, tex_uvs.w)
                 for i = 1, points_count do
                     local vtx_write_ptr = self._VtxWritePtr
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].pos, temp_points[i * 2 - 1])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, tex_uv0)
-                    self.VtxBuffer.Data[vtx_write_ptr].col = col
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][1], temp_points[i * 2 - 1])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], tex_uv0)
+                    self.VtxBuffer.Data[vtx_write_ptr][3] = col
 
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, temp_points[i * 2])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, tex_uv1)
-                    self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[i * 2])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], tex_uv1)
+                    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
 
                     self._VtxWritePtr = vtx_write_ptr + 2
                 end
@@ -3574,19 +3573,19 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                     local vtx_write_ptr = self._VtxWritePtr
 
                     -- Center of line
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].pos, points[i])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, opaque_uv)
-                    self.VtxBuffer.Data[vtx_write_ptr].col = col
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][1], points[i])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], opaque_uv)
+                    self.VtxBuffer.Data[vtx_write_ptr][3] = col
 
                     -- Left outer edge
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, temp_points[i * 2 - 1])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, opaque_uv)
-                    self.VtxBuffer.Data[vtx_write_ptr + 1].col = col_trans
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[i * 2 - 1])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv)
+                    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col_trans
 
                     -- Right outer edge
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].pos, temp_points[i * 2])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, opaque_uv)
-                    self.VtxBuffer.Data[vtx_write_ptr + 2].col = col_trans
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], temp_points[i * 2])
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv)
+                    self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col_trans
 
                     self._VtxWritePtr = vtx_write_ptr + 3
                 end
@@ -3656,21 +3655,21 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local vtx_write_ptr = self._VtxWritePtr
                 local base = i * 4 - 3
 
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].pos, temp_points[base])
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, opaque_uv)
-                self.VtxBuffer.Data[vtx_write_ptr].col = col_trans
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][1], temp_points[base])
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], opaque_uv)
+                self.VtxBuffer.Data[vtx_write_ptr][3] = col_trans
 
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].pos, temp_points[base + 1])
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, opaque_uv)
-                self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[base + 1])
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv)
+                self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
 
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].pos, temp_points[base + 2])
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, opaque_uv)
-                self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], temp_points[base + 2])
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv)
+                self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
 
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].pos, temp_points[base + 3])
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].uv, opaque_uv)
-                self.VtxBuffer.Data[vtx_write_ptr + 3].col = col_trans
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], temp_points[base + 3])
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], opaque_uv)
+                self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col_trans
 
                 self._VtxWritePtr = vtx_write_ptr + 4
             end
@@ -3696,25 +3695,25 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 
             -- Add vertices for this segment
             local vtx_write_ptr = self._VtxWritePtr
-            self.VtxBuffer.Data[vtx_write_ptr].pos.x = p1.x + dy
-            self.VtxBuffer.Data[vtx_write_ptr].pos.y = p1.y - dx
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr].uv, opaque_uv)
-            self.VtxBuffer.Data[vtx_write_ptr].col = col
+            self.VtxBuffer.Data[vtx_write_ptr][1].x = p1.x + dy
+            self.VtxBuffer.Data[vtx_write_ptr][1].y = p1.y - dx
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], opaque_uv)
+            self.VtxBuffer.Data[vtx_write_ptr][3] = col
 
-            self.VtxBuffer.Data[vtx_write_ptr + 1].pos.x = p2.x + dy
-            self.VtxBuffer.Data[vtx_write_ptr + 1].pos.y = p2.y - dx
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1].uv, opaque_uv)
-            self.VtxBuffer.Data[vtx_write_ptr + 1].col = col
+            self.VtxBuffer.Data[vtx_write_ptr + 1][1].x = p2.x + dy
+            self.VtxBuffer.Data[vtx_write_ptr + 1][1].y = p2.y - dx
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv)
+            self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
 
-            self.VtxBuffer.Data[vtx_write_ptr + 2].pos.x = p2.x - dy
-            self.VtxBuffer.Data[vtx_write_ptr + 2].pos.y = p2.y + dx
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2].uv, opaque_uv)
-            self.VtxBuffer.Data[vtx_write_ptr + 2].col = col
+            self.VtxBuffer.Data[vtx_write_ptr + 2][1].x = p2.x - dy
+            self.VtxBuffer.Data[vtx_write_ptr + 2][1].y = p2.y + dx
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv)
+            self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
 
-            self.VtxBuffer.Data[vtx_write_ptr + 3].pos.x = p1.x - dy
-            self.VtxBuffer.Data[vtx_write_ptr + 3].pos.y = p1.y + dx
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3].uv, opaque_uv)
-            self.VtxBuffer.Data[vtx_write_ptr + 3].col = col
+            self.VtxBuffer.Data[vtx_write_ptr + 3][1].x = p1.x - dy
+            self.VtxBuffer.Data[vtx_write_ptr + 3][1].y = p1.y + dx
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], opaque_uv)
+            self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
 
             self._VtxWritePtr = vtx_write_ptr + 4
 
@@ -4362,10 +4361,10 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                 local glyph_col = glyph.Colored and color_untinted or col
 
                 do
-                    draw_list.VtxBuffer.Data[vtx_write + 0].pos.x = x1; draw_list.VtxBuffer.Data[vtx_write + 0].pos.y = y1; draw_list.VtxBuffer.Data[vtx_write + 0].col = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 0].uv.x = u1; draw_list.VtxBuffer.Data[vtx_write + 0].uv.y = v1;
-                    draw_list.VtxBuffer.Data[vtx_write + 1].pos.x = x2; draw_list.VtxBuffer.Data[vtx_write + 1].pos.y = y1; draw_list.VtxBuffer.Data[vtx_write + 1].col = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 1].uv.x = u2; draw_list.VtxBuffer.Data[vtx_write + 1].uv.y = v1;
-                    draw_list.VtxBuffer.Data[vtx_write + 2].pos.x = x2; draw_list.VtxBuffer.Data[vtx_write + 2].pos.y = y2; draw_list.VtxBuffer.Data[vtx_write + 2].col = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 2].uv.x = u2; draw_list.VtxBuffer.Data[vtx_write + 2].uv.y = v2;
-                    draw_list.VtxBuffer.Data[vtx_write + 3].pos.x = x1; draw_list.VtxBuffer.Data[vtx_write + 3].pos.y = y2; draw_list.VtxBuffer.Data[vtx_write + 3].col = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 3].uv.x = u1; draw_list.VtxBuffer.Data[vtx_write + 3].uv.y = v2;
+                    draw_list.VtxBuffer.Data[vtx_write + 0][1].x = x1; draw_list.VtxBuffer.Data[vtx_write + 0][1].y = y1; draw_list.VtxBuffer.Data[vtx_write + 0][3] = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 0][2].x = u1; draw_list.VtxBuffer.Data[vtx_write + 0][2].y = v1;
+                    draw_list.VtxBuffer.Data[vtx_write + 1][1].x = x2; draw_list.VtxBuffer.Data[vtx_write + 1][1].y = y1; draw_list.VtxBuffer.Data[vtx_write + 1][3] = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 1][2].x = u2; draw_list.VtxBuffer.Data[vtx_write + 1][2].y = v1;
+                    draw_list.VtxBuffer.Data[vtx_write + 2][1].x = x2; draw_list.VtxBuffer.Data[vtx_write + 2][1].y = y2; draw_list.VtxBuffer.Data[vtx_write + 2][3] = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 2][2].x = u2; draw_list.VtxBuffer.Data[vtx_write + 2][2].y = v2;
+                    draw_list.VtxBuffer.Data[vtx_write + 3][1].x = x1; draw_list.VtxBuffer.Data[vtx_write + 3][1].y = y2; draw_list.VtxBuffer.Data[vtx_write + 3][3] = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 3][2].x = u1; draw_list.VtxBuffer.Data[vtx_write + 3][2].y = v2;
                     draw_list.IdxBuffer.Data[idx_write + 0] = vtx_index; draw_list.IdxBuffer.Data[idx_write + 1] = vtx_index + 1; draw_list.IdxBuffer.Data[idx_write + 2] = vtx_index + 2;
                     draw_list.IdxBuffer.Data[idx_write + 3] = vtx_index; draw_list.IdxBuffer.Data[idx_write + 4] = vtx_index + 2; draw_list.IdxBuffer.Data[idx_write + 5] = vtx_index + 3;
                     vtx_write = vtx_write + 4

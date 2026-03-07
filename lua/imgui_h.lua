@@ -47,8 +47,8 @@ local MT = {}
 
 function ImGui.GetMetatables() return MT end
 
---- @param _EXPR boolean|nil
---- @param _MSG string?
+--- @param _EXPR any
+--- @param _MSG  string?
 function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
 
 IM_ASSERT_PARANOID = IM_ASSERT
@@ -233,9 +233,9 @@ function ImVec4_Copy(dest, src)
 end
 
 --- A compact ImVector clone
---- @class ImVector
---- @field Data          table # 1-based table
---- @field Size          int   # >= 0
+--- @class ImVector<T>
+--- @field Data          T[] # 1-based table
+--- @field Size          int # >= 0
 --- @field _Constructor? function
 MT.ImVector = {}
 MT.ImVector.__index = MT.ImVector
@@ -284,26 +284,18 @@ function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size 
 --- @nodiscard
 function MT.ImVector:copy() local other = ImVector() other.Size = self.Size for i = 1, self.Size do other.Data[i] = self.Data[i] end return other end
 
+-- Not keeping value-key records inside `ImVector`, instead just find it
 --- @return int # 0-based index
 function MT.ImVector:index_from_ptr(p)
     local data = self.Data
     local size = self.Size
     local mid = bit.rshift(size, 1)
 
-    for i = size, mid + 1, -1 do
-        if data[i] == p then
-            return i - 1
-        end
-    end
-
-    for i = mid, 1, -1 do
-        if data[i] == p then
-            return i - 1
-        end
-    end
+    for i = size, mid + 1, -1 do if data[i] == p then return i - 1 end end
+    for i =    1,     mid,  1 do if data[i] == p then return i - 1 end end
 
     --- @diagnostic disable-next-line
-    assert(false, "index_from_ptr failed!")
+    IM_ASSERT(false, "index_from_ptr failed!")
 end
 
 function MT.ImVector:ptr_from_offset(offset)
@@ -343,19 +335,13 @@ function MT.ImDrawCmd:GetTexID()
 end
 
 --- @class ImDrawVert
---- @field pos ImVec2
---- @field uv  ImVec2
---- @field col ImU32
+--- @field [1] ImVec2 # pos
+--- @field [2] ImVec2 # uv
+--- @field [3] ImU32  # col
 
 --- @return ImDrawVert
 --- @nodiscard
-function ImDrawVert()
-    return {
-        pos = ImVec2(),
-        uv  = ImVec2(),
-        col = nil
-    }
-end
+function ImDrawVert() return { ImVec2(), ImVec2(), nil } end
 
 --- @class ImDrawCmdHeader
 --- @field ClipRect  ImVec4
@@ -427,9 +413,9 @@ MT.ImDrawList.__index = MT.ImDrawList
 --- @param col ImU32
 function MT.ImDrawList:PrimWriteVtx(pos, uv, col)
     local vtx = self.VtxBuffer.Data[self._VtxWritePtr]
-    ImVec2_Copy(vtx.pos, pos)
-    ImVec2_Copy(vtx.uv, uv)
-    vtx.col = col
+    ImVec2_Copy(vtx[1], pos)
+    ImVec2_Copy(vtx[2], uv)
+    vtx[3] = col
     self._VtxWritePtr = self._VtxWritePtr + 1
     self._VtxCurrentIdx = self._VtxCurrentIdx + 1
 end
