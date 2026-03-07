@@ -150,6 +150,9 @@ end
 --- @field x number
 --- @field y number
 MT.ImVec2 = {}
+
+--- @param t ImVec2
+--- @param k int
 MT.ImVec2.__index = function(t, k)
     if k == ImGuiAxis.X then
         return rawget(t, "x")
@@ -158,6 +161,9 @@ MT.ImVec2.__index = function(t, k)
     end
 end
 
+--- @param t ImVec2
+--- @param k int
+--- @param v number
 MT.ImVec2.__newindex = function(t, k, v)
     if k == ImGuiAxis.X then
         rawset(t, "x", v)
@@ -192,6 +198,9 @@ end
 --- @field z number
 --- @field w number
 MT.ImVec4 = {}
+
+--- @param t ImVec4
+--- @param k int
 MT.ImVec4.__index = function(t, k)
     if k == 1 then
         return rawget(t, "x")
@@ -204,6 +213,9 @@ MT.ImVec4.__index = function(t, k)
     end
 end
 
+--- @param t ImVec4
+--- @param k int
+--- @param v number
 MT.ImVec4.__newindex = function(t, k, v)
     if k == 1 then
         rawset(t, "x", v)
@@ -238,7 +250,14 @@ end
 --- @field Size          int # >= 0
 --- @field _Constructor? function
 MT.ImVector = {}
-MT.ImVector.__index = MT.ImVector
+
+-- Support 1-based number key indexing while keep method accessing speed
+--- @param t ImVector
+--- @param k string|int
+--- @return any
+MT.ImVector.__index = function(t, k)
+    return MT.ImVector[k] or t.Data[k]
+end
 
 --- @param T? function
 --- @return ImVector
