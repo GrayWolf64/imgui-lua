@@ -284,26 +284,18 @@ function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size 
 --- @nodiscard
 function MT.ImVector:copy() local other = ImVector() other.Size = self.Size for i = 1, self.Size do other.Data[i] = self.Data[i] end return other end
 
+-- Not keeping value-key records inside `ImVector`, instead just find it
 --- @return int # 0-based index
 function MT.ImVector:index_from_ptr(p)
     local data = self.Data
     local size = self.Size
     local mid = bit.rshift(size, 1)
 
-    for i = size, mid + 1, -1 do
-        if data[i] == p then
-            return i - 1
-        end
-    end
-
-    for i = mid, 1, -1 do
-        if data[i] == p then
-            return i - 1
-        end
-    end
+    for i = size, mid + 1, -1 do if data[i] == p then return i - 1 end end
+    for i =    1,     mid,  1 do if data[i] == p then return i - 1 end end
 
     --- @diagnostic disable-next-line
-    assert(false, "index_from_ptr failed!")
+    IM_ASSERT(false, "index_from_ptr failed!")
 end
 
 function MT.ImVector:ptr_from_offset(offset)
