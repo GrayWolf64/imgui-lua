@@ -234,14 +234,16 @@ end
 
 --- A compact ImVector clone
 --- @class ImVector
---- @field Data table # 1-based table
---- @field Size int   # >= 0
+--- @field Data          table # 1-based table
+--- @field Size          int   # >= 0
+--- @field _Constructor? function
 MT.ImVector = {}
 MT.ImVector.__index = MT.ImVector
 
+--- @param T? function
 --- @return ImVector
 --- @nodiscard
-function ImVector() return setmetatable({Data = {}, Size = 0}, MT.ImVector) end
+function ImVector(T) return setmetatable({Data = {}, Size = 0, _Constructor = T}, MT.ImVector) end
 
 function MT.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value return value end
 function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0) local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
@@ -259,9 +261,24 @@ function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(valu
 function MT.ImVector:reserve(new_capacity) return end
 function MT.ImVector:reserve_discard(new_capacity) return end
 function MT.ImVector:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
-function MT.ImVector:resize(new_size, v) local old_size = self.Size if new_size > old_size and v ~= nil then for i = old_size + 1, new_size do self.Data[i] = v end end self.Size = new_size end
+
+function MT.ImVector:resize(new_size, v)
+    local old_size = self.Size
+    if new_size > old_size then
+        if v ~= nil then
+            for i = old_size + 1, new_size do self.Data[i] = v end
+        else
+            local new = self._Constructor
+            if new then
+                for i = old_size + 1, new_size do self.Data[i] = new() end
+            end
+        end
+    end
+    self.Size = new_size
+end
+
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
-function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end return false end end
+function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end end return false end
 function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1) for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
 
 --- @nodiscard
@@ -409,11 +426,10 @@ MT.ImDrawList.__index = MT.ImDrawList
 --- @param uv  ImVec2
 --- @param col ImU32
 function MT.ImDrawList:PrimWriteVtx(pos, uv, col)
-    local vtx = ImDrawVert()
+    local vtx = self.VtxBuffer.Data[self._VtxWritePtr]
     ImVec2_Copy(vtx.pos, pos)
     ImVec2_Copy(vtx.uv, uv)
     vtx.col = col
-    self.VtxBuffer.Data[self._VtxWritePtr] = vtx
     self._VtxWritePtr = self._VtxWritePtr + 1
     self._VtxCurrentIdx = self._VtxCurrentIdx + 1
 end
@@ -440,7 +456,7 @@ function ImDrawList(data)
     local this = setmetatable({
         CmdBuffer = ImVector(),
         IdxBuffer = ImVector(),
-        VtxBuffer = ImVector(),
+        VtxBuffer = ImVector(ImDrawVert),
         Flags     = 0,
 
         _VtxCurrentIdx = 1,
