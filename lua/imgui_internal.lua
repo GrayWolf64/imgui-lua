@@ -2116,6 +2116,16 @@ function ImGui.TempInputIsActive(id)
     return g.ActiveId == id and g.TempInputId == id
 end
 
+--- @param id ImGuiID
+--- @return ImGuiInputTextState?
+function ImGui.GetInputTextState(id)
+    local g = ImGui.GetCurrentContext()
+    if id ~= 0 and g.InputTextState.ID == id then
+        return g.InputTextState
+    end
+    return nil
+end
+
 --- @alias ImStbTexteditState STB_TexteditState
 
 --- @class ImGuiInputTextState

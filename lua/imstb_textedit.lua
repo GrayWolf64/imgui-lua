@@ -21,6 +21,10 @@ local STB_TEXTEDIT_MOVEWORDRIGHT = ImStb.TEXTEDIT_MOVEWORDRIGHT
 local STB_TEXTEDIT_MOVELINESTART = ImStb.TEXTEDIT_MOVELINESTART
 local STB_TEXTEDIT_MOVELINEEND   = ImStb.TEXTEDIT_MOVELINEEND
 
+local IMSTB_TEXTEDIT_UNDOSTATECOUNT = ImStb.TEXTEDIT_UNDOSTATECOUNT
+local IMSTB_TEXTEDIT_UNDOCHARCOUNT = ImStb.TEXTEDIT_UNDOCHARCOUNT
+local IMSTB_TEXTEDIT_memmove = ImStb.TEXTEDIT_memmove
+
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 ---
@@ -51,23 +55,23 @@ local function StbUndoRecord()
 end
 
 --- @class StbUndoState
---- @field undo_rec        StbUndoRecord[]           # size = ImStb.TEXTEDIT_UNDOSTATECOUNT
---- @field undo_char       IMSTB_TEXTEDIT_CHARTYPE[] # size = ImStb.TEXTEDIT_UNDOCHARCOUNT
---- @field undo_point      short
---- @field redo_point      short
---- @field undo_char_point int
---- @field redo_char_point int
+--- @field undo_rec        StbUndoRecord[]           # size = IMSTB_TEXTEDIT_UNDOSTATECOUNT
+--- @field undo_char       IMSTB_TEXTEDIT_CHARTYPE[] # size = IMSTB_TEXTEDIT_UNDOCHARCOUNT
+--- @field undo_point      short                     # next available slot
+--- @field redo_point      short                     # next available slot
+--- @field undo_char_point int                       # next available slot
+--- @field redo_char_point int                       # next available slot
 
 --- @return StbUndoState
 --- @nodiscard
 local function StbUndoState()
     local undo_rec = {}
-    for i = 1, ImStb.TEXTEDIT_UNDOSTATECOUNT do
+    for i = 1, IMSTB_TEXTEDIT_UNDOSTATECOUNT do
         undo_rec[i] = StbUndoRecord()
     end
 
     local undo_char = {}
-    for i = 1, ImStb.TEXTEDIT_UNDOCHARCOUNT do
+    for i = 1, IMSTB_TEXTEDIT_UNDOCHARCOUNT do
         undo_char[i] = 0
     end
 
@@ -75,10 +79,10 @@ local function StbUndoState()
         undo_rec        = undo_rec,
         undo_char       = undo_char,
 
-        undo_point      = 0,
-        redo_point      = 0,
-        undo_char_point = 0,
-        redo_char_point = 0
+        undo_point      = 1,
+        redo_point      = 1,
+        undo_char_point = 1,
+        redo_char_point = 1
     }
 end
 
@@ -152,6 +156,93 @@ end
 ----------------------------------------
 ----------------------------------------
 ---
---- TODO: Implementation
+--- Implementation
 ---
 ---
+
+-----------------------------------------------------
+-----------------------------------------------------
+---
+--- Undo processing
+--- OPTIMIZE: the undo/redo buffer should be circular
+---
+
+--- @param state StbUndoState
+local function stb_textedit_flush_redo(state)
+    state.redo_point = IMSTB_TEXTEDIT_UNDOSTATECOUNT + 1
+    state.redo_char_point = IMSTB_TEXTEDIT_UNDOCHARCOUNT + 1
+end
+
+-- discard the oldest entry in the undo list
+--- @param state StbUndoState
+local function stb_textedit_discard_undo(state)
+    if state.undo_point > 0 then
+        -- if the 1th undo state has characters, clean those up
+        if state.undo_rec[1].char_storage >= 0 then
+            local n = state.undo_rec[1].insert_length
+            -- delete n characters from all other records
+            state.undo_char_point = state.undo_char_point - n
+            IMSTB_TEXTEDIT_memmove(state.undo_char, n + 1, state.undo_char_point - 1, 1)
+            for i = 1, state.undo_point do
+                if state.undo_rec[i].char_storage >= 0 then
+                    state.undo_rec[i].char_storage = state.undo_rec[i].char_storage - n -- OPTIMIZE: get rid of char_storage and infer it
+                end
+            end
+        end
+        state.undo_point = state.undo_point - 1
+        IMSTB_TEXTEDIT_memmove(state.undo_rec, 2, state.undo_point - 1, 1)
+    end
+end
+
+--- @param state    StbUndoState
+--- @param numchars int
+local function stb_text_create_undo_record(state, numchars)
+    -- any time we create a new undo record, we discard redo
+    stb_textedit_flush_redo(state)
+
+    -- if we have no free records, we have to make room, by sliding the
+    -- existing records down
+    if state.undo_point == IMSTB_TEXTEDIT_UNDOSTATECOUNT then
+        stb_textedit_discard_undo(state)
+    end
+
+    -- if the characters to store won't possibly fit in the buffer, we can't undo
+    if numchars > IMSTB_TEXTEDIT_UNDOCHARCOUNT then
+        state.undo_point = 1
+        state.undo_char_point = 1
+        return nil
+    end
+
+    -- if we don't have enough free characters in the buffer, we have to make room
+    while state.undo_char_point + numchars > IMSTB_TEXTEDIT_UNDOCHARCOUNT do
+        stb_textedit_discard_undo(state)
+    end
+
+    local ret = state.undo_rec[state.undo_point]
+    state.undo_point = state.undo_point + 1
+    return ret
+end
+
+--- @param state      StbUndoState
+--- @param pos        int
+--- @param insert_len int
+--- @param delete_len int
+local function stb_text_createundo(state, pos, insert_len, delete_len)
+    local r = stb_text_create_undo_record(state, insert_len)
+    if r == nil then
+        return nil
+    end
+
+    r.where = pos
+    r.insert_length = insert_len
+    r.delete_length = delete_len
+
+    if insert_len == 0 then
+        r.char_storage = -1
+        return nil
+    else
+        r.char_storage = state.undo_char_point
+        state.undo_char_point = state.undo_char_point + insert_len
+        return state.undo_char[r.char_storage]
+    end
+end

@@ -219,10 +219,10 @@ end
 
 -- Use FNV1a, as one ImGui FIXME suggested
 --- @param str  string
---- @param seed int?
 --- @param size int?
+--- @param seed int?
 --- @return int
-function ImHashStr(str, seed, size)
+function ImHashStr(str, size, seed)
     if size == nil then size = #str end
     if seed == nil then seed = 0    end
 
@@ -1517,7 +1517,7 @@ function MT.ImGuiWindow:GetID(id)
     local seed = self.IDStack:back()
 
     if type(id) == "string" then
-        return ImHashStr(id, seed)
+        return ImHashStr(id, nil, seed)
     else --- @cast id int
         return ImHashData(id, -1, seed)
     end
@@ -3600,6 +3600,134 @@ function ImGui.SetActiveIdUsingAllKeyboardKeys()
     g.ActiveIdUsingNavDirMask = (bit.lshift(1, ImGuiDir.COUNT) - 1)
     g.ActiveIdUsingAllKeyboardKeys = true
     ImGui.NavMoveRequestCancel()
+end
+
+--- @param name         string
+--- @param id           ImGuiID
+--- @param size_arg     ImVec2
+--- @param child_flags  ImGuiChildFlags
+--- @param window_flags ImGuiWindowFlags
+function ImGui.BeginChildEx(name, id, size_arg, child_flags, window_flags)
+    local g = GImGui
+    local parent_window = g.CurrentWindow
+    IM_ASSERT(id ~= 0)
+
+    -- Sanity check as it is likely that some user will accidentally pass ImGuiWindowFlags into the ImGuiChildFlags argument
+    local ImGuiChildFlags_SupportedMask_ = bit.bor(ImGuiChildFlags.Borders, ImGuiChildFlags.AlwaysUseWindowPadding, ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY, ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize, ImGuiChildFlags.FrameStyle, ImGuiChildFlags.NavFlattened)
+    -- IM_UNUSED(ImGuiChildFlags_SupportedMask_)
+    IM_ASSERT(bit.band(child_flags, bit.bnot(ImGuiChildFlags_SupportedMask_)) == 0, "Illegal ImGuiChildFlags value. Did you pass ImGuiWindowFlags values instead of ImGuiChildFlags?")
+    IM_ASSERT(bit.band(window_flags, ImGuiWindowFlags.AlwaysAutoResize) == 0, "Cannot specify ImGuiWindowFlags.AlwaysAutoResize for BeginChild(). Use ImGuiChildFlags.AlwaysAutoResize!")
+    if bit.band(child_flags, ImGuiChildFlags.AlwaysAutoResize) ~= 0 then
+        IM_ASSERT(bit.band(child_flags, bit.bor(ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY)) == 0, "Cannot use ImGuiChildFlags.ResizeX or ImGuiChildFlags.ResizeY with ImGuiChildFlags.AlwaysAutoResize!")
+        IM_ASSERT(bit.band(child_flags, bit.bor(ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AutoResizeY)) ~= 0, "Must use ImGuiChildFlags.AutoResizeX or ImGuiChildFlags.AutoResizeY with ImGuiChildFlags.AlwaysAutoResize!")
+    end
+    if bit.band(child_flags, ImGuiChildFlags.AutoResizeX) ~= 0 then
+        child_flags = bit.band(child_flags, bit.bnot(ImGuiChildFlags.ResizeX))
+    end
+    if bit.band(child_flags, ImGuiChildFlags.AutoResizeY) ~= 0 then
+        child_flags = bit.band(child_flags, bit.bnot(ImGuiChildFlags.ResizeY))
+    end
+
+    -- Set window flags
+    window_flags = bit.bor(window_flags, ImGuiWindowFlags.ChildWindow, ImGuiWindowFlags.NoTitleBar)
+    window_flags = bit.bor(window_flags, bit.band(parent_window.Flags, ImGuiWindowFlags.NoMove)) -- Inherit the NoMove flag
+    if bit.band(child_flags, bit.bor(ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize)) ~= 0 then
+        window_flags = bit.bor(window_flags, ImGuiWindowFlags.AlwaysAutoResize)
+    end
+    if bit.band(child_flags, bit.bor(ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY)) == 0 then
+        window_flags = bit.bor(window_flags, ImGuiWindowFlags.NoResize, ImGuiWindowFlags.NoSavedSettings)
+    end
+
+    -- Special framed style
+    if bit.band(child_flags, ImGuiChildFlags.FrameStyle) ~= 0 then
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, g.Style.Colors[ImGuiCol.FrameBg])
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, g.Style.FrameRounding)
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildBorderSize, g.Style.FrameBorderSize)
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, g.Style.FramePadding)
+        child_flags = bit.bor(child_flags, ImGuiChildFlags.Borders, ImGuiChildFlags.AlwaysUseWindowPadding)
+        window_flags = bit.bor(window_flags, ImGuiWindowFlags.NoMove)
+    end
+
+    -- Forward size
+    -- Important: Begin() has special processing to switch condition to ImGuiCond_FirstUseEver for a given axis when ImGuiChildFlags.ResizeXXX is set.
+    -- (the alternative would to store conditional flags per axis, which is possible but more code)
+    local size_avail = ImGui.GetContentRegionAvail()
+    local size_default = ImVec2((bit.band(child_flags, ImGuiChildFlags.AutoResizeX) ~= 0) and 0.0 or size_avail.x, (bit.band(child_flags, ImGuiChildFlags.AutoResizeY) ~= 0) and 0.0 or size_avail.y)
+    local size = ImGui.CalcItemSize(size_arg, size_default.x, size_default.y)
+
+    -- A SetNextWindowSize() call always has priority (#8020)
+    -- (since the code in Begin() never supported SizeVal==0.0f aka auto-resize via SetNextWindowSize() call, we don't support it here for now)
+    -- FIXME: We only support ImGuiCond_Always in this path. Supporting other paths would requires to obtain window pointer.
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasSize) ~= 0 and bit.band(g.NextWindowData.SizeCond, ImGuiCond.Always) ~= 0 then
+        if g.NextWindowData.SizeVal.x > 0.0 then
+            size.x = g.NextWindowData.SizeVal.x
+            child_flags = bit.band(child_flags, bit.bnot(ImGuiChildFlags.ResizeX))
+        end
+        if g.NextWindowData.SizeVal.y > 0.0 then
+            size.y = g.NextWindowData.SizeVal.y
+            child_flags = bit.band(child_flags, bit.bnot(ImGuiChildFlags.ResizeY))
+        end
+    end
+    ImGui.SetNextWindowSize(size)
+
+    -- Forward child flags (we allow prior settings to merge but it'll only work for adding flags)
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags) ~= 0 then
+        g.NextWindowData.ChildFlags = bit.bor(g.NextWindowData.ChildFlags, child_flags)
+    else
+        g.NextWindowData.ChildFlags = child_flags
+    end
+    g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags)
+
+    -- Build up name. If you need to append to a same child from multiple location in the ID stack, use BeginChild(ImGuiID id) with a stable value.
+    -- FIXME: 2023/11/14: commented out shorted version. We had an issue with multiple ### in child window path names, which the trailing hash helped workaround.
+    -- e.g. "ParentName###ParentIdentifier/ChildName###ChildIdentifier" would get hashed incorrectly by ImHashStr(), trailing _%08X somehow fixes it.
+    local temp_window_name
+    if name then
+        temp_window_name = ImFormatString("%s/%s_%08X", parent_window.Name, name, id)
+    else
+        temp_window_name = ImFormatString("%s/%08X", parent_window.Name, id)
+    end
+
+    -- Set style
+    local backup_border_size = g.Style.ChildBorderSize
+    if bit.band(child_flags, ImGuiChildFlags.Borders) == 0 then
+        g.Style.ChildBorderSize = 0.0
+    end
+
+    -- Begin into window
+    local _, ret = ImGui.Begin(temp_window_name, nil, window_flags)
+
+    -- Restore style
+    g.Style.ChildBorderSize = backup_border_size
+
+    if bit.band(child_flags, ImGuiChildFlags.FrameStyle) ~= 0 then
+        ImGui.PopStyleVar(3)
+        ImGui.PopStyleColor()
+    end
+
+    local child_window = g.CurrentWindow
+    child_window.ChildId = id
+
+    -- Set the cursor to handle case where the user called SetNextWindowPos()+BeginChild() manually.
+    -- While this is not really documented/defined, it seems that the expected thing to do.
+    if child_window.BeginCount == 1 then
+        ImVec2_Copy(parent_window.DC.CursorPos, child_window.Pos)
+    end
+
+    -- Process navigation-in immediately so NavInit can run on first frame
+    -- Can enter a child if (A) it has navigable items or (B) it can be scrolled.
+    local temp_id_for_activation = ImHashStr("##Child", nil, id)
+    if g.ActiveId == temp_id_for_activation then
+        ImGui.ClearActiveID()
+    end
+    if g.NavActivateId == id and bit.band(child_flags, ImGuiChildFlags.NavFlattened) == 0 and (child_window.DC.NavLayersActiveMask ~= 0 or child_window.DC.NavWindowHasScrollY) then
+        ImGui.FocusWindow(child_window)
+        ImGui.NavInitWindow(child_window, false)
+        ImGui.SetActiveID(temp_id_for_activation, child_window) -- Steal ActiveId with another arbitrary id so that key-press won't activate child item
+        g.ActiveIdSource = g.NavInputSource
+    end
+
+    return ret
 end
 
 --- @param window ImGuiWindow
@@ -6695,6 +6823,11 @@ function ImGui.SetNavWindow(window)
 end
 
 function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
+
+end
+
+function ImGui.NavInitWindow(window, force_reinit)
+
 end
 
 --- @param window_type ImGuiWindowFlags
@@ -7770,7 +7903,7 @@ function ImGui.UpdatePlatformWindows()
             local title = window_for_title.Name
             local title_begin = 1
             local title_end = ImGui.FindRenderedTextEnd(title)
-            local title_hash = ImHashStr(title, nil, title_end - title_begin)
+            local title_hash = ImHashStr(title, title_end - title_begin)
             if viewport.LastNameHash ~= title_hash then
                 -- This still creates new strings
                 g.PlatformIO.Platform_SetWindowTitle(viewport, string.sub(title, title_begin, title_end - 1))

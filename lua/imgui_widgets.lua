@@ -1701,7 +1701,7 @@ function ImGui.BeginCombo(label, preview_value, flags)
     end
 
     local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
-    local popup_id = ImHashStr("##ComboPopup", id)
+    local popup_id = ImHashStr("##ComboPopup", nil, id)
     local popup_open = ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags.None)
     if pressed and not popup_open then
         ImGui.OpenPopupEx(popup_id, ImGuiPopupFlags.None)
@@ -2578,6 +2578,21 @@ ImStb.TEXTEDIT_UNDOSTATECOUNT   = 99
 ImStb.TEXTEDIT_UNDOCHARCOUNT    = 999
 ImStb.TEXTEDIT_GETWIDTH_NEWLINE = -1.0
 
+ImStb.TEXTEDIT_memmove = table.move or function(src, src_start, src_end, dest_start)
+    local dest = src
+    local count = src_end - src_start + 1
+
+    if dest_start > src_start then
+        for i = count, 1, -1 do
+            src[dest_start + i - 1] = src[src_start + i - 1]
+        end
+    else
+        for i = 1, count do
+            src[dest_start + i - 1] = src[src_start + i - 1]
+        end
+    end
+end
+
 IM_INCLUDE"imstb_textedit.lua"
 
 --- @param ctx  ImGuiContext
@@ -2900,8 +2915,67 @@ function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback
         ImVec2_Copy(draw_window.DC.CursorPos, draw_window.DC.CursorPos + style.FramePadding)
         inner_size.x = inner_size.x - draw_window.ScrollbarSizes.x
     else
-        -- TODO:
+        -- Support for internal ImGuiInputTextFlags_MergedItem flag, which could be redesigned as an ItemFlags if needed (with test performed in ItemAdd)
+        ImGui.ItemSize(total_bb, style.FramePadding.y)
+
+        if bit.band(flags, ImGuiInputTextFlags.MergedItem) == 0 then
+            if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.Inputable) then
+                return false
+            end
+        end
     end
+
+    -- Ensure mouse cursor is set even after switching to keyboard/gamepad mode. May generalize further? (#6417)
+    local hovered = ImGui.ItemHoverable(frame_bb, id, bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.NoNavDisableMouseHover))
+    if hovered then
+        ImGui.SetMouseCursor(ImGuiMouseCursor.TextInput)
+    end
+    if hovered and g.NavHighlightItemUnderNav then
+        hovered = false
+    end
+
+    -- We are only allowed to access the state if we are already the active widget
+    local state = ImGui.GetInputTextState(id)
+
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.ReadOnly) ~= 0 then
+        flags = bit.bor(flags, ImGuiInputTextFlags.ReadOnly)
+    end
+    local is_readonly = bit.band(flags, ImGuiInputTextFlags.ReadOnly) ~= 0
+    local is_password = bit.band(flags, ImGuiInputTextFlags.Password) ~= 0
+    local is_undoable = bit.band(flags, ImGuiInputTextFlags.NoUndoRedo) == 0
+    local is_resizable = bit.band(flags, ImGuiInputTextFlags.CallbackResize) ~= 0
+    if is_resizable then
+        IM_ASSERT(callback ~= nil) -- Must provide a callback if you set the ImGuiInputTextFlags_CallbackResize flag!
+    end
+
+    -- Word-wrapping: enforcing a fixed width not altered by vertical scrollbar makes things easier, notably to track cursor reliably and avoid one-frame glitches.
+    -- Instead of using ImGuiWindowFlags_AlwaysVerticalScrollbar we account for that space if the scrollbar is not visible.
+    local is_wordwrap = bit.band(flags, ImGuiInputTextFlags.WordWrap) ~= 0
+    local wrap_width = 0.0
+    if is_wordwrap then
+        wrap_width = ImMax(1.0, ImGui.GetContentRegionAvail().x + (draw_window.ScrollbarY and 0.0 or -g.Style.ScrollbarSize))
+    end
+
+    local input_requested_by_nav = (g.ActiveId ~= id) and (g.NavActivateId == id) and ((bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) or (g.NavInputSource == ImGuiInputSource.Keyboard))
+
+    local user_clicked = hovered and io.MouseClicked[0]
+    local user_scroll_finish = is_multiline and state ~= nil and g.ActiveId == 0 and g.ActiveIdPreviousFrame == ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y)
+    local user_scroll_active = is_multiline and state ~= nil and g.ActiveId == ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y)
+    local clear_active_id = false
+    local select_all = false
+
+    local scroll_y = is_multiline and draw_window.Scroll.y or FLT_MAX
+
+    local init_reload_from_user_buf = (state ~= nil and state.WantReloadUserBuf)
+    local init_changed_specs = (state ~= nil and state.Stb.single_line ~= (not is_multiline)) -- state ~= nil means its our state
+    local init_make_active = (user_clicked or user_scroll_finish or input_requested_by_nav)
+    local init_state = (init_make_active or user_scroll_active)
+    if init_reload_from_user_buf then
+
+    else
+
+    end
+    -- TODO:
 end
 
 ----------------------------------------------------------------
