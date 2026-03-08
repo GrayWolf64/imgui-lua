@@ -757,7 +757,7 @@ end
 --- @field TexData             ImTextureData
 --- @field TexList             ImVector<ImTextureData>
 --- @field Locked              bool
---- @field RenderHasTextures   bool
+--- @field RendererHasTextures bool
 --- @field TexPixelsUseColors  bool
 --- @field TexUvScale          ImVec2
 --- @field TexUvWhitePixel     ImVec2

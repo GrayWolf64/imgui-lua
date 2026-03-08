@@ -418,10 +418,12 @@ end
 function MT.ImRect:Overlaps(other)
     local min_x, min_y, max_x, max_y
 
-    if other.Min then -- ImRect
+    if other.Min then
+        --- @cast other ImRect
         min_x = other.Min.x; min_y = other.Min.y
         max_x = other.Max.x; max_y = other.Max.y
-    elseif other.z then -- ImVec4
+    elseif other.z then
+        --- @cast other ImVec4
         min_x = other.x; min_y = other.y
         max_x = other.z; max_y = other.w
     else
@@ -436,11 +438,14 @@ function MT.ImRect:GetHeight() return self.Max.y - self.Min.y end
 function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
 function MT.ImRect:GetBL() return ImVec2(self.Min.x, self.Max.y) end
 
+--- @param r ImRect|ImVec4
 function MT.ImRect:ClipWith(r)
-    if r.Min then -- ImRect
+    if r.Min then
+        --- @cast r ImRect
         self.Min.x = ImMax(self.Min.x, r.Min.x) self.Min.y = ImMax(self.Min.y, r.Min.y)
         self.Max.x = ImMin(self.Max.x, r.Max.x) self.Max.y = ImMin(self.Max.y, r.Max.y)
-    elseif r.z then -- ImVec4
+    elseif r.z then
+        --- @cast r ImVec4
         self.Min.x = ImMax(self.Min.x, r.x) self.Min.y = ImMax(self.Min.y, r.y)
         self.Max.x = ImMin(self.Max.x, r.z) self.Max.y = ImMin(self.Max.y, r.w)
     else
@@ -456,9 +461,11 @@ end
 --- @param p ImRect|ImVec2
 function MT.ImRect:Add(p)
     if p.Min then
+        --- @cast p ImRect
         self:Add(p.Min)
         self:Add(p.Max)
     else
+        --- @cast p ImVec2
         if p.x < self.Min.x then self.Min.x = p.x end
         if p.y < self.Min.y then self.Min.y = p.y end
         if p.x > self.Max.x then self.Max.x = p.x end

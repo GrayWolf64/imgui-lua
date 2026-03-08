@@ -251,7 +251,7 @@ function ImGui.LabelText(label, fmt, ...)
     ImVec2_Copy(pos, window.DC.CursorPos)
     local value_bb = ImRect(pos, pos + ImVec2(w, value_size.y + style.FramePadding.y * 2))
     local total_bb = ImRect(pos, pos + ImVec2(w + ((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0), ImMax(value_size.y, label_size.y) + style.FramePadding.y * 2))
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, 0) then
         return
     end
@@ -942,7 +942,7 @@ function ImGui.ImageWithBg(tex_ref, image_size, uv0, uv1, bg_col, tint_col)
     local g = ImGui.GetCurrentContext()
     local padding = ImVec2(g.Style.ImageBorderSize, g.Style.ImageBorderSize)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + image_size + padding * 2.0)
-    ImGui.ItemSizeR(bb)
+    ImGui.ItemSize(bb)
     if not ImGui.ItemAdd(bb, 0) then
         return
     end
@@ -989,7 +989,7 @@ function ImGui.ImageButtonEx(id, tex_ref, image_size, uv0, uv1, bg_col, tint_col
     local g = ImGui.GetCurrentContext()
     local padding = g.Style.FramePadding
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + image_size + padding * 2.0)
-    ImGui.ItemSizeR(bb)
+    ImGui.ItemSize(bb)
     if not ImGui.ItemAdd(bb, id) then
         return false
     end
@@ -1058,7 +1058,7 @@ function ImGui.Checkbox(label, v)
         total_width = square_sz
     end
     local total_bb = ImRect(pos, pos + ImVec2(total_width, label_size.y + style.FramePadding.y * 2.0))
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     local is_visible = ImGui.ItemAdd(total_bb, id)
     local is_multi_select = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.IsMultiSelect) ~= 0)
     if not is_visible then
@@ -1184,7 +1184,7 @@ function ImGui.RadioButtonEx(label, active)
     ImVec2_Copy(pos, window.DC.CursorPos)
     local check_bb = ImRect(pos, pos + ImVec2(square_sz, square_sz))
     local total_bb = ImRect(pos, pos + ImVec2(square_sz + (label_size.x > 0.0 and style.ItemInnerSpacing.x + label_size.x or 0.0), label_size.y + style.FramePadding.y * 2.0))
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, id) then
         return false
     end
@@ -1322,7 +1322,7 @@ function ImGui.Bullet()
     local style = g.Style
     local line_height = ImMax(ImMin(window.DC.CurrLineSize.y, g.FontSize + style.FramePadding.y * 2), g.FontSize)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(g.FontSize, line_height))
-    ImGui.ItemSizeR(bb)
+    ImGui.ItemSize(bb)
     if not ImGui.ItemAdd(bb, 0) then
         ImGui.SameLine(0, style.FramePadding.x * 2)
         return
@@ -1695,7 +1695,7 @@ function ImGui.BeginCombo(label, preview_value, flags)
     local label_offset = (label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0
     local total_bb = ImRect(bb.Min, bb.Max + ImVec2(label_offset, 0.0))
 
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, id, bb) then
         return false
     end
@@ -2301,7 +2301,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     local total_bb = ImRect(frame_bb.Min, frame_bb.Max + ImVec2((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0, 0.0))
 
     local temp_input_allowed = (bit.band(flags, ImGuiSliderFlags.NoInput) == 0)
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, id, frame_bb, temp_input_allowed and ImGuiItemFlags.Inputable or 0) then
         return data, false
     end
@@ -2859,7 +2859,15 @@ function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback
     local inner_size = ImVec2()
     ImVec2_Copy(inner_size, frame_size)
     local item_data_backup = ImGuiLastItemData()
-    -- TODO:
+    if is_multiline then
+        local backup_pos = ImVec2()
+        ImVec2_Copy(backup_pos, window.DC.CursorPos)
+        ImGui.ItemSize(total_bb, style.FramePadding.y)
+        if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.Inputable) then
+            ImGui.EndGroup()
+            return false
+        end
+    end
 end
 
 ----------------------------------------------------------------
@@ -3592,7 +3600,7 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
     local default_size = ImGui.GetFrameHeight()
     local size = ImVec2(size_arg.x == 0.0 and default_size or size_arg.x, size_arg.y == 0.0 and default_size or size_arg.y)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
-    ImGui.ItemSizeR(bb, (size.y >= default_size) and g.Style.FramePadding.y or 0.0)
+    ImGui.ItemSize(bb, (size.y >= default_size) and g.Style.FramePadding.y or 0.0)
     if not ImGui.ItemAdd(bb, id) then
         return false
     end
@@ -4088,7 +4096,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
     local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + frame_size)
     local inner_bb = ImRect(frame_bb.Min + style.FramePadding, frame_bb.Max - style.FramePadding)
     local total_bb = ImRect(frame_bb.Min, frame_bb.Max + ImVec2(label_size.x > 0.0 and style.ItemInnerSpacing.x + label_size.x or 0.0, 0))
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.NoNav) then
         return -1
     end

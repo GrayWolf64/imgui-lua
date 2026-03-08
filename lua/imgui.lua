@@ -912,10 +912,19 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     return true
 end
 
---- @param size             ImVec2
+--- @param size_or_bb       ImVec2|ImRect
 --- @param text_baseline_y? float
-function ImGui.ItemSize(size, text_baseline_y)
+function ImGui.ItemSize(size_or_bb, text_baseline_y)
     if text_baseline_y == nil then text_baseline_y = -1.0 end
+
+    local size
+    if size_or_bb.Min then
+        --- @cast size_or_bb ImRect
+        size = size_or_bb:GetSize()
+    else
+        --- @cast size_or_bb ImVec2
+        size = size_or_bb
+    end
 
     local g = GImGui
     local window = g.CurrentWindow
@@ -958,12 +967,6 @@ function ImGui.ItemSize(size, text_baseline_y)
     if (window.DC.LayoutType == ImGuiLayoutType.Horizontal) then
         ImGui.SameLine()
     end
-end
-
---- @param bb               ImRect
---- @param text_baseline_y? float
-function ImGui.ItemSizeR(bb, text_baseline_y)
-    ImGui.ItemSize(bb:GetSize(), text_baseline_y)
 end
 
 --- @param offset_from_start_x float?
