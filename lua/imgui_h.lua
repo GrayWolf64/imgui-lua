@@ -259,6 +259,13 @@ MT.ImVector.__index = function(t, k)
     return MT.ImVector[k] or t.Data[k] -- if the mt access turns out nil, the k must be int index into Data
 end
 
+--- @param t ImVector
+--- @param k int
+--- @param v any
+MT.ImVector.__newindex = function(t, k, v)
+    t.Data[k] = v
+end
+
 --- @param T? function
 --- @return ImVector
 --- @nodiscard
