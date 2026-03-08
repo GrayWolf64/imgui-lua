@@ -1522,7 +1522,7 @@ function ImGui.SeparatorEx(flags, thickness)
             -- Draw
             window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Separator))
             if g.LogEnabled then
-                ImGui.LogRenderedText(bb.Min, "--------------------------------\n")
+                ImGui.LogRenderedText(bb.Min, "--------------------------------")
             end
         end
 
@@ -2867,6 +2867,40 @@ function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback
             ImGui.EndGroup()
             return false
         end
+        ImGuiLastItemData_Copy(item_data_backup, g.LastItemData)
+        ImVec2_Copy(window.DC.CursorPos, backup_pos)
+
+        -- Prevent NavActivation from explicit Tabbing when our widget accepts Tab inputs: this allows cycling through widgets without stopping
+        if g.NavActivateId == id and (bit.band(g.NavActivateFlags, ImGuiActivateFlags.FromTabbing) ~= 0) and (bit.band(g.NavActivateFlags, ImGuiActivateFlags.FromFocusApi) == 0) and (bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0) then
+            g.NavActivateId = 0
+        end
+
+        -- Prevent NavActivate reactivating in BeginChild() when we are already active
+        local backup_activate_id = g.NavActivateId
+        if g.ActiveId == id then -- Prevent reactivation
+            g.NavActivateId = 0
+        end
+
+        -- We reproduce the contents of BeginChildFrame() in order to provide 'label' so our window internal data are easier to read/debug
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, style.Colors[ImGuiCol.FrameBg])
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, style.FrameRounding)
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildBorderSize, style.FrameBorderSize)
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, ImVec2(0, 0)) -- Ensure no clip rect so mouse hover can reach FramePadding edges
+        local child_visible = ImGui.BeginChildEx(label, id, frame_bb:GetSize(), ImGuiChildFlags.Borders, ImGuiWindowFlags.NoMove)
+        g.NavActivateId = backup_activate_id
+        ImGui.PopStyleVar(3)
+        ImGui.PopStyleColor()
+        if not child_visible then
+            ImGui.EndChild()
+            ImGui.EndGroup()
+            return false
+        end
+        draw_window = g.CurrentWindow -- Child window
+        draw_window.DC.NavLayersActiveMaskNext = bit.bor(draw_window.DC.NavLayersActiveMaskNext, bit.lshift(1, draw_window.DC.NavLayerCurrent)) -- This is to ensure that EndChild() will display a navigation highlight so we can "enter" into it
+        ImVec2_Copy(draw_window.DC.CursorPos, draw_window.DC.CursorPos + style.FramePadding)
+        inner_size.x = inner_size.x - draw_window.ScrollbarSizes.x
+    else
+        -- TODO:
     end
 end
 
