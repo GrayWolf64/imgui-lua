@@ -47,7 +47,8 @@ ImMax = math.max
 --- @nodiscard
 function ImMaxVec2(a, b) return ImVec2(ImMax(a.x, b.x), ImMax(a.y, b.y)) end
 
-ImRound = math.Round
+ImRound64 = function(val) return math.floor(val + 0.5) end -- FIXME: Positive values only
+
 ImCeil  = math.ceil
 ImSin   = math.sin
 ImCos   = math.cos
