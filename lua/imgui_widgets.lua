@@ -2626,7 +2626,7 @@ end
 
 --- @param obj ImGuiInputTextState
 --- @param idx int
-function ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+function ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     if idx >= obj.TextLen then
         return obj.TextLen + 1
     end
@@ -2635,7 +2635,7 @@ end
 
 --- @param obj ImGuiInputTextState
 --- @param idx int
-function ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+function ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, idx)
     if idx <= 1 then
         return -1
     end
@@ -2702,10 +2702,10 @@ end
 
 --- @param obj ImGuiInputTextState
 --- @param idx int
-function ImStb.TEXTEDIT_MOVEWORDLEFT_IMPL(obj, idx)
-    idx = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+function ImStb.TEXTEDIT_MOVEWORDLEFT(obj, idx)
+    idx = ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, idx)
     while idx >= 1 and not ImStb.is_word_boundary_from_right(obj, idx) do
-        idx = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+        idx = ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, idx)
     end
     return (idx < 1) and 1 or idx
 end
@@ -2714,9 +2714,9 @@ end
 --- @param idx int
 local function STB_TEXTEDIT_MOVEWORDRIGHT_MAC(obj, idx)
     local len = obj.TextLen
-    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     while idx <= len and not ImStb.is_word_boundary_from_left(obj, idx) do
-        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     end
     return (idx > len + 1) and len + 1 or idx
 end
@@ -2724,17 +2724,17 @@ end
 --- @param obj ImGuiInputTextState
 --- @param idx int
 local function STB_TEXTEDIT_MOVEWORDRIGHT_WIN(obj, idx)
-    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     local len = obj.TextLen
     while idx <= len and not ImStb.is_word_boundary_from_right(obj, idx) do
-        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     end
     return (idx > len + 1) and len + 1 or idx
 end
 
 --- @param obj ImGuiInputTextState
 --- @param idx int
-function ImStb.TEXTEDIT_MOVEWORDRIGHT_IMPL(obj, idx)
+function ImStb.TEXTEDIT_MOVEWORDRIGHT(obj, idx)
     local g = obj.Ctx
     if g.IO.ConfigMacOSXBehaviors then
         return STB_TEXTEDIT_MOVEWORDRIGHT_MAC(obj, idx)
@@ -2747,7 +2747,7 @@ end
 --- @param obj    ImGuiInputTextState
 --- @param state  STB_TexteditState
 --- @param cursor int
-function ImStb.TEXTEDIT_MOVELINESTART_IMPL(obj, state, cursor)
+function ImStb.TEXTEDIT_MOVELINESTART(obj, state, cursor)
     if state.single_line then
         return 1
     end
@@ -2762,7 +2762,7 @@ function ImStb.TEXTEDIT_MOVELINESTART_IMPL(obj, state, cursor)
             if p == cursor then -- If we are already on a visible beginning-of-line, return real beginning-of-line (would be same as regular handler below)
                 return bol
             end
-            if eol == cursor and obj.TextA.Data[cursor] ~= 10 and obj.LastMoveDirectionLR == ImGuiDir.Left then -- TODO: number indexing support on ImVector?
+            if eol == cursor and obj.TextA[cursor] ~= 10 and obj.LastMoveDirectionLR == ImGuiDir.Left then
                 return bol
             end
             if eol >= cursor then
@@ -2774,11 +2774,44 @@ function ImStb.TEXTEDIT_MOVELINESTART_IMPL(obj, state, cursor)
 
     -- Regular handler, same as stb_textedit_move_line_start()
     while cursor > 1 do
-        local prev_cursor = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, cursor)
+        local prev_cursor = ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, cursor)
         if (ImStb.TEXTEDIT_GETCHAR(obj, prev_cursor) == ImStb.TEXTEDIT_NEWLINE) then
             break
         end
         cursor = prev_cursor
+    end
+    return cursor
+end
+
+--- @param obj    ImGuiInputTextState
+--- @param state  STB_TexteditState
+--- @param cursor int
+function ImStb.TEXTEDIT_MOVELINEEND(obj, state, cursor)
+    local n = ImStb.TEXTEDIT_STRINGLEN(obj)
+    if state.single_line then
+        return n + 1
+    end
+
+    if obj.WrapWidth > 0.0 then
+        local g = obj.Ctx
+        local p = ImStd.ImStrbol(obj.TextSrc, cursor, 1)
+        local text_end = obj.TextLen + 1 -- End of line would be enough
+        while p < text_end do
+            local eol = ImFontCalcWordWrapPositionEx(g.Font, g.FontSize, obj.TextSrc, p, text_end, obj.WrapWidth, ImDrawTextFlags.WrapKeepBlanks)
+            cursor = eol
+            if eol == cursor and obj.LastMoveDirectionLR ~= ImGuiDir.Left then -- If we are already on a visible end-of-line, switch to regular handle
+                break
+            end
+            if eol > cursor then
+                return cursor
+            end
+            p = (obj.TextSrc[eol] == 10) and eol + 1 or eol
+        end
+    end
+
+    -- Regular handler, same as stb_textedit_move_line_end()
+    while (cursor < n and ImStb.TEXTEDIT_GETCHAR(obj, cursor) ~= ImStb.TEXTEDIT_NEWLINE) do
+        cursor = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, cursor)
     end
     return cursor
 end
@@ -2811,6 +2844,21 @@ function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback
     local RENDER_SELECTION_WHEN_INACTIVE = false
     local is_multiline = bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0
 
+    if is_multiline then -- Open group before calling GetID() because groups tracks id created within their scope (including the scrollbar)
+        ImGui.BeginGroup()
+    end
+    local id = window:GetID(label)
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local frame_size = ImGui.CalcItemSize(size_arg, ImGui.CalcItemWidth(), (is_multiline and g.FontSize * 8.0 or label_size.y) + style.FramePadding.y * 2.0)  -- Arbitrary default of 8 lines high for multi-line
+    local total_size = ImVec2(frame_size.x + ((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0), frame_size.y)
+
+    local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + frame_size)
+    local total_bb = ImRect(frame_bb.Min, frame_bb.Min + total_size)
+
+    local draw_window = window
+    local inner_size = ImVec2()
+    ImVec2_Copy(inner_size, frame_size)
+    local item_data_backup = ImGuiLastItemData()
     -- TODO:
 end
 

@@ -256,7 +256,7 @@ MT.ImVector = {}
 --- @param k string|int
 --- @return any
 MT.ImVector.__index = function(t, k)
-    return MT.ImVector[k] or t.Data[k]
+    return MT.ImVector[k] or t.Data[k] -- if the mt access turns out nil, the k must be int index into Data
 end
 
 --- @param T? function
