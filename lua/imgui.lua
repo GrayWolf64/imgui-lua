@@ -6056,7 +6056,7 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
 
             scroll[axis] = scroll_target - center_ratio * (window.SizeFull[axis] - decoration_size[axis])
         end
-        scroll[axis] = ImRound(ImMax(scroll[axis], 0.0))
+        scroll[axis] = ImRound64(ImMax(scroll[axis], 0.0))
         if not window.Collapsed and not window.SkipItems then
             scroll[axis] = ImMin(scroll[axis], window.ScrollMax[axis])
         end
