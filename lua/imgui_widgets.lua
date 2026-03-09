@@ -424,6 +424,8 @@ function ImGui.ButtonBehavior(bb, id, flags)
                 end
             end
 
+            -- 'Repeat' mode acts when held regardless of _PressedOn flags (see table above).
+            -- Relies on repeat logic of IsMouseClicked() but we may as well do it ourselves if we end up exposing finer RepeatDelay/RepeatRate settings.
             if g.ActiveId == id and (bit.band(item_flags, ImGuiItemFlags.ButtonRepeat) ~= 0) then
                 if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClickedEx(g.ActiveIdMouseButton, ImGuiInputFlags.Repeat, test_owner_id) then
                     pressed = true

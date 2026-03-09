@@ -436,7 +436,7 @@ local function ImGui_ImplGMOD_NewFrame()
     end
 
     local current_time = SysTime()
-    io.DeltaTime = current_time - bd.Time
+    io.DeltaTime = (current_time - bd.Time) / RealFrameTime()
     bd.Time = current_time
 
     ImGui_ImplGMOD_UpdateMouseData(io)

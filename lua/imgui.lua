@@ -2293,8 +2293,8 @@ function ImGui.IsMouseClickedEx(button, flags, owner_id)
     end
     IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedByIsMouseClicked)) == 0)
 
-    local repeat_flag = (bit.band(flags, ImGuiInputFlags.Repeat) ~= 0)
-    local pressed = (t == 0.0) or (repeat_flag and t > g.IO.KeyRepeatDelay and ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0)
+    local is_repeat = (bit.band(flags, ImGuiInputFlags.Repeat) ~= 0)
+    local pressed = (t == 0.0) or (is_repeat and t > g.IO.KeyRepeatDelay and ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0)
 
     if not pressed then
         return false
