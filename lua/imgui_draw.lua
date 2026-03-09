@@ -733,7 +733,7 @@ local function ImFontAtlasBuildDiscardBakes(atlas, unused_frames)
     local builder = atlas.Builder
 
     for baked_n = 1, builder.BakedPool.Size do
-        local baked = builder.BakedPool:at(baked_n)
+        local baked = builder.BakedPool[baked_n]
         if (baked.LastUsedFrame + unused_frames > atlas.Builder.FrameCount) then
             goto CONTINUE
         end
@@ -773,7 +773,7 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
         if index_entry.IsUsed == false then
             goto CONTINUE
         end
-        local old_r = old_rects:at(index_entry.TargetIndex + 1)
+        local old_r = old_rects[index_entry.TargetIndex + 1]
         if (old_r.w == 0 and old_r.h == 0) then
             goto CONTINUE
         end
@@ -802,7 +802,7 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
     builder.RectsDiscardedSurface = 0
 
     for baked_n = 1, builder.BakedPool.Size do
-        for _, glyph in builder.BakedPool:at(baked_n).Glyphs:iter() do
+        for _, glyph in builder.BakedPool[baked_n].Glyphs:iter() do
             if (glyph.PackId ~= ImFontAtlasRectId_Invalid) then
                 local r = ImFontAtlasPackGetRect(atlas, glyph.PackId)
                 glyph.U0 = (r.x) * atlas.TexUvScale.x
@@ -876,7 +876,7 @@ local function ImFontAtlasPackAllocRectEntry(atlas, rect_idx)
         builder.RectsIndex.Data[builder.RectsIndex.Size] = index_entry
     else
         index_idx = builder.RectsIndexFreeListStart
-        index_entry = builder.RectsIndex:at(index_idx + 1)
+        index_entry = builder.RectsIndex[index_idx + 1]
         IM_ASSERT(index_entry.IsUsed == false and index_entry.Generation > 0)
         builder.RectsIndexFreeListStart = index_entry.TargetIndex
     end
@@ -1066,7 +1066,7 @@ local function ImGui_ImplStbTrueType_FontSrcInit(atlas, src)
     end
     src.FontLoaderData = bd_font_data
 
-    local ref_size = src.DstFont.Sources:at(1).SizePixels
+    local ref_size = src.DstFont.Sources[1].SizePixels
     if (src.MergeMode and src.SizePixels == 0.0) then
         src.SizePixels = ref_size
     end
@@ -1167,7 +1167,7 @@ local function ImGui_ImplStbTrueType_FontBakedLoadGlyph(atlas, src, baked, _, co
         local sub_x, sub_y = stbtt.MakeGlyphBitmapSubpixelPrefilter(bd_font_data.FontInfo, bitmap_pixels, w, h, w,
             scale_for_raster_x, scale_for_raster_y, 0, 0, oversample_h, oversample_v, glyph_index)
 
-        local ref_size = baked.OwnerFont.Sources:at(1).SizePixels
+        local ref_size = baked.OwnerFont.Sources[1].SizePixels
         local offsets_scale = (ref_size ~= 0.0) and (baked.Size / ref_size) or 1.0
         local font_off_x = ImFloor(src.GlyphOffset.x * offsets_scale + 0.5)
         local font_off_y = ImFloor(src.GlyphOffset.y * offsets_scale + 0.5)
@@ -1267,7 +1267,7 @@ function ImFontAtlasBakedGetClosestMatch(atlas, font, font_size, font_rasterizer
         local closest_larger_match
         local closest_smaller_match
         for baked_n = 1, builder.BakedPool.Size do
-            local baked = builder.BakedPool:at(baked_n)
+            local baked = builder.BakedPool[baked_n]
             if (baked.OwnerFont ~= font or baked.WantDestroy) then
                 goto CONTINUE
             end
@@ -1331,7 +1331,7 @@ local function ImFontAtlasFontDiscardBakes(atlas, font, unused_frames)
     local builder = atlas.Builder
     if builder then
         for baked_n = 1, builder.BakedPool.Size do
-            local baked = builder.BakedPool:at(baked_n)
+            local baked = builder.BakedPool[baked_n]
             if baked.LastUsedFrame + unused_frames > atlas.Builder.FrameCount then
                 goto CONTINUE
             end
@@ -1384,7 +1384,7 @@ function ImFontAtlasFontSourceAddToFont(atlas, font, src)
     if src.MergeMode == false then
         font:ClearOutputData()
         font.OwnerAtlas = atlas
-        IM_ASSERT(font.Sources:at(1) == src)
+        IM_ASSERT(font.Sources[1] == src)
     end
     atlas.TexIsBuilt = false
     ImFontAtlasBuildSetupFontSpecialGlyphs(atlas, font, src)
@@ -2107,7 +2107,7 @@ function ImFontAtlasBakedAddFontGlyph(atlas, baked, src, in_glyph)
     end
 
     if (src ~= nil) then
-        local ref_size = baked.OwnerFont.Sources:at(1).SizePixels
+        local ref_size = baked.OwnerFont.Sources[1].SizePixels
         local offsets_scale = (ref_size ~= 0.0) and (baked.Size / ref_size) or 1.0
         local advance_x = ImClamp(glyph.AdvanceX, src.GlyphMinAdvanceX * offsets_scale, src.GlyphMaxAdvanceX * offsets_scale)
         if (advance_x ~= glyph.AdvanceX) then
@@ -2145,7 +2145,7 @@ end
 function ImFontAtlasBakedAddFontGlyphAdvancedX(atlas, baked, src, codepoint, advance_x)
     -- IM_UNUSED(atlas)
     if (src ~= nil) then
-        local ref_size = baked.OwnerFont.Sources:at(1).SizePixels
+        local ref_size = baked.OwnerFont.Sources[1].SizePixels
         local offsets_scale = (ref_size ~= 0.0) and (baked.Size / ref_size) or 1.0
         advance_x = ImClamp(advance_x, src.GlyphMinAdvanceX * offsets_scale, src.GlyphMaxAdvanceX * offsets_scale)
 

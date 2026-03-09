@@ -248,7 +248,7 @@ end
 --- @class ImVector<T>
 --- @field Data          T[] # 1-based table
 --- @field Size          int # >= 0
---- @field _Constructor? function
+--- @field _Constructor  function
 MT.ImVector = {}
 
 -- Support 1-based number key indexing while keep method accessing speed
@@ -256,7 +256,7 @@ MT.ImVector = {}
 --- @param k string|int
 --- @return any
 MT.ImVector.__index = function(t, k)
-    return MT.ImVector[k] or t.Data[k] -- if the mt access turns out nil, the k must be int index into Data
+    return MT.ImVector[k] or t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] -- if the mt access turns out nil, the k must be int index into Data
 end
 
 --- @param t ImVector
@@ -266,10 +266,12 @@ MT.ImVector.__newindex = function(t, k, v)
     t.Data[k] = v
 end
 
+local _default_constructor = function() return nil end
+
 --- @param T? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T) return setmetatable({Data = {}, Size = 0, _Constructor = T}, MT.ImVector) end
+function ImVector(T) return setmetatable({Data = {}, Size = 0, _Constructor = T or _default_constructor}, MT.ImVector) end
 
 function MT.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value return value end
 function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0) local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
@@ -295,7 +297,7 @@ function MT.ImVector:resize(new_size, v)
             for i = old_size + 1, new_size do self.Data[i] = v end
         else
             local new = self._Constructor
-            if new then
+            if new ~= _default_constructor then
                 for i = old_size + 1, new_size do self.Data[i] = new() end
             end
         end

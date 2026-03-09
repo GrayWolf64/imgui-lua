@@ -576,7 +576,7 @@ function ImGui.GetDefaultFont()
     if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
         ImFontAtlasBuildMain(atlas)
     end
-    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
+    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts[1]
 end
 
 --- @param atlas ImFontAtlas
@@ -5700,7 +5700,7 @@ end
 
 function ImGui.GetDrawData()
     local g = GImGui
-    local viewport = g.Viewports:at(1)
+    local viewport = g.Viewports[1]
     return viewport.DrawDataP.Valid and viewport.DrawDataP or nil
 end
 
@@ -6974,7 +6974,7 @@ end
 function ImGui.GetMainViewport()
     local g = GImGui
 
-    return g.Viewports:at(1)
+    return g.Viewports[1]
 end
 
 --- @param viewport_id ImGuiID
