@@ -4,14 +4,13 @@
 
 --- @meta
 
+-- TODO: Implement actual ImString type
 --- @alias ImString char[]|string
 --- @alias ImStringBuffer char[]
 
 local setmetatable = setmetatable
 
 local MT = ImGui.GetMetatables()
-
-local stbrp_context = IM_INCLUDE"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
 
@@ -24,12 +23,12 @@ UINT_MAX = 0x7fffffff * 2 + 1
 LLONG_MIN = -9223372036854775807 - 1
 LLONG_MAX = 9223372036854775807
 
-IM_PI   = math.pi
-ImPow   = math.pow
-ImLog   = math.log
-ImAbs   = math.abs
-ImFabs  = math.abs
-ImFmod  = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
+IM_PI  = math.pi
+ImPow  = math.pow
+ImLog  = math.log
+ImAbs  = math.abs
+ImFabs = math.abs
+ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
 ImMin = math.min
 
@@ -635,7 +634,7 @@ function ImFontAtlasBuilder()
     --- @type ImFontAtlasBuilder
     local this = setmetatable({}, MT.ImFontAtlasBuilder)
 
-    this.PackContext              = stbrp_context() -- struct stbrp_context_opaque { char data[80]; };
+    this.PackContext              = nil -- struct stbrp_context_opaque { char data[80]; };
     this.PackNodes                = ImVector()
     this.Rects                    = ImVector()
     this.RectsIndex               = ImVector()

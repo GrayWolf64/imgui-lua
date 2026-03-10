@@ -1046,6 +1046,13 @@ local function ImGui_ImplStbTrueType_FontSrcData()
     }
 end
 
+-- Need this in Lua since I don't want to include 'stbrp' just for context constructor
+-- in ImFontAtlasBuilder def code. The cpp code has 'stbrp_context_opaque' which I don't/can't have here
+--- @param atlas ImFontAtlas
+local function ImGui_ImplStbTrueType_LoaderInit(atlas)
+    atlas.Builder.PackContext = atlas.Builder.PackContext or stbrp.context()
+end
+
 local function ImGui_ImplStbTrueType_FontSrcInit(atlas, src)
     -- IM_UNUSED(atlas)
 
@@ -1193,6 +1200,7 @@ local function ImFontAtlasGetFontLoaderForStbTruetype()
     local loader = ImFontLoader()
 
     loader.Name                 = "stb_truetype"
+    loader.LoaderInit           = ImGui_ImplStbTrueType_LoaderInit
     loader.FontSrcInit          = ImGui_ImplStbTrueType_FontSrcInit
     loader.FontSrcDestroy       = ImGui_ImplStbTrueType_FontSrcDestroy
     loader.FontSrcContainsGlyph = ImGui_ImplStbTrueType_FontSrcContainsGlyph
