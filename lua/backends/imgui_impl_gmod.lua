@@ -324,6 +324,7 @@ local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
 
     local bd = ImGui_ImplGMOD_Data()
     bd.Window = window
+    bd.Time = 0.0
     io.BackendPlatformUserData = bd
 
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.PlatformHasViewports)
@@ -436,7 +437,10 @@ local function ImGui_ImplGMOD_NewFrame()
     end
 
     local current_time = SysTime()
-    io.DeltaTime = (current_time - bd.Time) / RealFrameTime()
+    if current_time <= bd.Time then
+        current_time = bd.Time + 1e-5
+    end
+    io.DeltaTime = (bd.Time > 0.0) and (current_time - bd.Time) or (1.0 / 60.0)
     bd.Time = current_time
 
     ImGui_ImplGMOD_UpdateMouseData(io)

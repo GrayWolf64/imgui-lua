@@ -4960,6 +4960,9 @@ function ImGui.UpdateMouseInputs()
     local g = GImGui
     local io = g.IO
 
+    -- Mouse Wheel swapping flag
+    -- As a standard behavior holding Shift while using Vertical Mouse Wheel triggers Horizontal scroll instead
+    -- - We avoid doing it on OSX as it the OS input layer handles this already
     io.MouseWheelRequestAxisSwap = io.KeyShift and not io.ConfigMacOSXBehaviors
 
     -- Round mouse position to avoid spreading non-rounded position (e.g. UpdateManualResize doesn't support them well)
@@ -4978,23 +4981,30 @@ function ImGui.UpdateMouseInputs()
         io.MouseDelta = ImVec2(0.0, 0.0)
     end
 
+    -- Update stationary timer
+    -- FIXME: May need to rework again to have some tolerance for occasional small movement, while being functional on high-framerates
     local mouse_stationary_threshold = (io.MouseSource == ImGuiMouseSource.Mouse) and 2.0 or 3.0
     local mouse_stationary = (ImLengthSqr(io.MouseDelta) <= mouse_stationary_threshold * mouse_stationary_threshold)
     g.MouseStationaryTimer = mouse_stationary and (g.MouseStationaryTimer + io.DeltaTime) or 0.0
 
+    -- If mouse moved we re-enable mouse hovering in case it was disabled by keyboard/gamepad. In theory should use a >0.0 threshold but would need to reset in everywhere we set this to true.
+    if io.MouseDelta.x ~= 0.0 or io.MouseDelta.y ~= 0.0 then
+        g.NavHighlightItemUnderNav = false
+    end
+
     for i = 0, 2 do -- IM_COUNTOF(io.MouseDown)
-        io.MouseClicked[i] = io.MouseDown[i] and (io.MouseDownDuration[i] < 0)
-        io.MouseClickedCount[i] = 0
-        io.MouseReleased[i] = not io.MouseDown[i] and (io.MouseDownDuration[i] >= 0)
+        io.MouseClicked[i] = io.MouseDown[i] and (io.MouseDownDuration[i] < 0.0)
+        io.MouseClickedCount[i] = 0 -- Will be filled below
+        io.MouseReleased[i] = not io.MouseDown[i] and (io.MouseDownDuration[i] >= 0.0)
         if (io.MouseReleased[i]) then
             io.MouseReleasedTime[i] = g.Time
         end
         io.MouseDownDurationPrev[i] = io.MouseDownDuration[i]
         if io.MouseDown[i] then
-            if io.MouseDownDuration[i] < 0 then
-                io.MouseDownDuration[i] = 0
+            if io.MouseDownDuration[i] < 0.0 then
+                io.MouseDownDuration[i] = 0.0
             else
-                io.MouseDownDuration[i] = io.MouseDownDuration[i] + 1
+                io.MouseDownDuration[i] = io.MouseDownDuration[i] + io.DeltaTime
             end
         else
             io.MouseDownDuration[i] = -1.0
