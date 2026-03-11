@@ -39,11 +39,7 @@ The core code(code except backend ones) in [lua/](lua) don't and shouldn't use a
 
 ## Primary Goal
 
-Try to make an *Immediate Mode UI* library for Garry's Mod.
-
-In other words, currently I'm implementing an ImGui clone in **pure Lua**.
-
-Originally I just wanted to make some contributions to [RiceLib](https://github.com/RiceMCUT/Lib-Rice), and it wasn't the first time that I got terrified by the messy and bloat codebase of it. Eventually I decided to port Dear ImGui over to Lua. Can it make UI creation for GMod or other games that enable advanced Lua scripting in general easier?
+Implementing a Dear ImGui clone in **pure Lua**.
 
 ## Credits
 

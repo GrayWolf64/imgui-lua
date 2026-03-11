@@ -601,7 +601,7 @@ end
 function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
 
-    ImGui._SetCurrentContextInWidgetsCode(ctx)
+    ImGui._SetCurrentContextWidgetsScope(ctx)
 end
 
 --- @param key  ImGuiLocKey

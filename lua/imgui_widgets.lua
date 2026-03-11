@@ -3,10 +3,10 @@
 
 local GImGui
 
--- Sets local `GImGui` in this file.
+-- Sets local `GImGui` in this file(imgui_widgets.lua).
 -- This is currently only used in main code `ImGui.SetCurrentContext()`
 --- @param ctx ImGuiContext?
-function ImGui._SetCurrentContextInWidgetsCode(ctx)
+function ImGui._SetCurrentContextWidgetsScope(ctx)
     GImGui = ctx
 end
 
