@@ -678,8 +678,6 @@ function ImGui.CloseButton(id, pos)
         window.DrawList:AddRectFilled(bb.Min, bb.Max, bg_col)
     end
 
-    --- DrawLine draws lines of different thickness, why? Antialiasing
-    -- AddText(window.DrawList, "X", "ImCloseButtonCross", x + w * 0.25, y, ImGui.GetColorU32(ImGuiCol.Text))
     local cross_center = bb:GetCenter() - ImVec2(0.5, 0.5)
     local cross_extent = g.FontSize * 0.5 * 0.7071 - 1
     local cross_col = ImGui.GetColorU32(ImGuiCol.Text)

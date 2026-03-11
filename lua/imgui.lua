@@ -2865,17 +2865,18 @@ function ImGui.CalcWrapWidthForPos(pos, wrap_pos_x)
     return ImMax(wrap_pos_x - pos.x, 1.0)
 end
 
---- @param text string
+--- @param text     string
 --- @param text_end int?
 --- @return int # Exclusive upper bound
 function ImGui.FindRenderedTextEnd(text, text_end)
     local text_display_end = 1
+    local text_len = #text
     if not text_end then
-        text_end = #text + 1
+        text_end = text_len + 1
     end
-    while (text_display_end < text_end and text_display_end <= #text and (string.sub(text, text_display_end, text_display_end) ~= "#" or string.sub(text, text_display_end + 1, text_display_end + 1) ~= "#")) do
-        text_display_end = text_display_end + 1
-    end
+
+    text_display_end = ImMemchr(text, "##", 1) or text_end
+    text_display_end = ImMin(text_display_end, text_end)
 
     return text_display_end
 end

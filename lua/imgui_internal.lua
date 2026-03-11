@@ -198,12 +198,16 @@ function ImMul(lhs, rhs)
     return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
 end
 
+-- string.find with patterns disabled
+--- @param str        string
+--- @param s          string
+--- @param start_pos? int
 --- @return int?
-function ImMemchr(str, char, start_pos)
+function ImMemchr(str, s, start_pos)
     local start = start_pos or 1
     if start < 1 then start = 1 end
 
-    local pos = string.find(str, char, start, true)
+    local pos = string.find(str, s, start, true)
 
     return pos
 end
