@@ -2578,22 +2578,10 @@ ImStb.TEXTEDIT_UNDOSTATECOUNT   = 99
 ImStb.TEXTEDIT_UNDOCHARCOUNT    = 999
 ImStb.TEXTEDIT_GETWIDTH_NEWLINE = -1.0
 
-ImStb.TEXTEDIT_memmove = table.move or function(src, src_start, src_end, dest_start)
-    local dest = src
-    local count = src_end - src_start + 1
+ImStb.TEXTEDIT_memmove = ImStd.memmove
 
-    if dest_start > src_start then
-        for i = count, 1, -1 do
-            src[dest_start + i - 1] = src[src_start + i - 1]
-        end
-    else
-        for i = 1, count do
-            src[dest_start + i - 1] = src[src_start + i - 1]
-        end
-    end
-end
-
-IM_INCLUDE"imstb_textedit.lua"
+--- @module "imstb_textedit"
+local stbte = IM_INCLUDE"imstb_textedit.lua"
 
 --- @param ctx  ImGuiContext
 --- @param text             ImString
@@ -2831,21 +2819,67 @@ function ImStb.TEXTEDIT_MOVELINEEND(obj, state, cursor)
     return cursor
 end
 
+-- Find the shortest single replacement we can make to get from old_buf to new_buf
+-- Note that this doesn't directly alter state->TextA, state->TextLen. They are expected to be made valid separately.
+-- FIXME: Ideally we should transition toward (1) making InsertChars()/DeleteChars() update undo-stack (2) discourage (and keep reconcile) or obsolete (and remove reconcile) accessing buffer directly
+--- @param state      ImGuiInputTextState
+--- @param old_buf    ImStringBuffer
+--- @param old_length int
+--- @param new_buf    ImStringBuffer
+--- @param new_length int
+local function InputTextReconcileUndoState(state, old_buf, old_length, new_buf, new_length)
+    local shorter_length = ImMin(old_length, new_length)
+    local first_diff
+    for i = 1, shorter_length do
+        first_diff = i
+        if old_buf[first_diff] ~= new_buf[first_diff] then
+            break
+        end
+    end
+    if first_diff == old_length + 1 and first_diff == new_length + 1 then
+        return
+    end
+
+    local old_last_diff = old_length
+    local new_last_diff = new_length
+    while old_last_diff >= first_diff and new_last_diff >= first_diff do
+        if old_buf[old_last_diff] ~= new_buf[new_last_diff] then
+            break
+        end
+
+        old_last_diff = old_last_diff - 1
+        new_last_diff = new_last_diff - 1
+    end
+
+    local insert_len = new_last_diff - first_diff + 1
+    local delete_len = old_last_diff - first_diff + 1
+    if insert_len > 0 or delete_len > 0 then
+        local undostate = state.Stb.undostate
+        local p = stbte.createundo(undostate, first_diff, delete_len, insert_len)
+        if p then
+            for i = 0, delete_len - 1 do
+                undostate.undo_char[p + i] = old_buf[first_diff + i]
+            end
+        end
+    end
+end
+
 -- Edit a string of text
 --- @param label              string
 --- @param hint               string
 --- @param buf                ImStringBuffer
+--- @param buf_size           int
 --- @param size_arg           ImVec2
 --- @param flags              ImGuiInputTextFlags
 --- @param callback?          ImGuiInputTextCallback
 --- @param callback_user_data any
-function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback_user_data)
+function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback, callback_user_data)
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return false
     end
 
-    IM_ASSERT(buf ~= nil)
+    IM_ASSERT(buf ~= nil and buf_size >= 0)
     IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0))        -- Can't use both together (they both use up/down keys)
     IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.CallbackCompletion) ~= 0 and bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0)) -- Can't use both together (they both use tab key)
     IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.ElideLeft) ~= 0 and bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0))              -- Multiline does not not work with left-trimming
@@ -2971,10 +3005,22 @@ function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback
     local init_make_active = (user_clicked or user_scroll_finish or input_requested_by_nav)
     local init_state = (init_make_active or user_scroll_active)
     if init_reload_from_user_buf then
-
-    else
+        local new_len = #buf
+        -- IM_ASSERT(new_len + 1 <= buf_size && "Is your input buffer properly zero-terminated?")
+        state.WantReloadUserBuf = false
+        --- @cast state ImGuiInputTextState
+        InputTextReconcileUndoState(state, state.TextA.Data, state.TextLen, buf, new_len)
+        state.TextA:resize(buf_size + 1)
+        state.TextLen = new_len
+        ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen)
+        state.Stb.select_start = state.ReloadSelectionStart
+        state.Stb.cursor = state.ReloadSelectionEnd
+        state.Stb.select_end = state.ReloadSelectionEnd -- will be clamped to bounds below
+    elseif (init_state and g.ActiveId ~= id) or init_changed_specs then
+        -- Access state even if we don't own it yet
 
     end
+
     -- TODO:
 end
 

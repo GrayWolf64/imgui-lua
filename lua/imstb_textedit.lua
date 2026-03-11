@@ -182,7 +182,7 @@ local function stb_textedit_discard_undo(state)
             local n = state.undo_rec[1].insert_length
             -- delete n characters from all other records
             state.undo_char_point = state.undo_char_point - n
-            IMSTB_TEXTEDIT_memmove(state.undo_char, n + 1, state.undo_char_point - 1, 1)
+            IMSTB_TEXTEDIT_memmove(state.undo_char, 1, state.undo_char, n + 1, state.undo_char_point - 1)
             for i = 1, state.undo_point do
                 if state.undo_rec[i].char_storage >= 0 then
                     state.undo_rec[i].char_storage = state.undo_rec[i].char_storage - n -- OPTIMIZE: get rid of char_storage and infer it
@@ -190,7 +190,7 @@ local function stb_textedit_discard_undo(state)
             end
         end
         state.undo_point = state.undo_point - 1
-        IMSTB_TEXTEDIT_memmove(state.undo_rec, 2, state.undo_point - 1, 1)
+        IMSTB_TEXTEDIT_memmove(state.undo_rec, 1, state.undo_rec, 2, state.undo_point - 1)
     end
 end
 
@@ -227,6 +227,7 @@ end
 --- @param pos        int
 --- @param insert_len int
 --- @param delete_len int
+--- @return int? # index into undostate.undo_char[]
 local function stb_text_createundo(state, pos, insert_len, delete_len)
     local r = stb_text_create_undo_record(state, insert_len)
     if r == nil then
@@ -243,6 +244,10 @@ local function stb_text_createundo(state, pos, insert_len, delete_len)
     else
         r.char_storage = state.undo_char_point
         state.undo_char_point = state.undo_char_point + insert_len
-        return state.undo_char[r.char_storage]
+        return r.char_storage
     end
 end
+
+return {
+    createundo = stb_text_createundo
+}

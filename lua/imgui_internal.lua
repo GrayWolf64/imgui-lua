@@ -138,6 +138,35 @@ function ImStd.ImExponentialMovingAverage(avg, sample, n)
     return avg
 end
 
+do
+
+local _memmove
+
+if table.move then
+    _memmove = function(dest, dest_start, src, src_start, count)
+        table.move(src, src_start, src_start + count - 1, dest_start, dest)
+    end
+else
+    _memmove = function(dest, dest_start, src, src_start, count)
+        if count <= 0 then return end
+
+        if dest == src then
+            if dest_start < src_start then
+                for i = 0, count - 1 do dest[dest_start + i] = src[src_start + i] end
+            else
+                for i = count - 1, 0, -1 do dest[dest_start + i] = src[src_start + i] end
+            end
+        else
+            for i = 0, count - 1 do dest[dest_start + i] = src[src_start + i] end
+        end
+    end
+end
+
+--- @type fun(dest: table, dest_start: int, src: table, src_start: int, count: int)
+ImStd.memmove = _memmove
+
+end
+
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
 IM_F32_TO_INT8_UNBOUND = function(val) return math.floor(val * 255.0 + (val >= 0 and 0.5 or -0.5)) end
