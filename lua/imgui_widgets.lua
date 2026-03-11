@@ -1,6 +1,15 @@
 --- ImGui Sincerely WIP
 -- (Widgets Code)
 
+local GImGui
+
+-- Sets local `GImGui` in this file.
+-- This is currently only used in main code `ImGui.SetCurrentContext()`
+--- @param ctx ImGuiContext?
+function ImGui._SetCurrentContextInWidgetsCode(ctx)
+    GImGui = ctx
+end
+
 local DRAG_MOUSE_THRESHOLD_FACTOR = 0.50 -- Multiplier for the default value of io.MouseDragThreshold to make DragFloat/DragInt react faster to mouse drags
 
 local IM_S8_MIN = -128
@@ -28,7 +37,7 @@ local IM_S64_MAX = LLONG_MAX
 function ImGui.TextEx(text, text_end, flags)
     if not flags then flags = 0 end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     if window.SkipItems then
         return
@@ -169,7 +178,7 @@ end
 --- @param fmt string
 --- @param ... any
 function ImGui.TextDisabled(fmt, ...)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextDisabled])
     ImGui.TextV(fmt, ...)
     ImGui.PopStyleColor()
@@ -178,7 +187,7 @@ end
 --- @param fmt string
 --- @param ... any
 function ImGui.TextWrapped(fmt, ...)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local need_backup = (g.CurrentWindow.DC.TextWrapPos < 0.0)
     if need_backup then
         ImGui.PushTextWrapPos(0.0)
@@ -238,7 +247,7 @@ function ImGui.LabelText(label, fmt, ...)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local w = ImGui.CalcItemWidth()
 
@@ -271,7 +280,7 @@ function ImGui.BulletText(fmt, ...)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
 
     local text = ImFormatString(fmt, ...)
@@ -303,7 +312,7 @@ end
 function ImGui.ButtonBehavior(bb, id, flags)
     if flags == nil then flags = 0 end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     local window = g.CurrentWindow
 
@@ -510,7 +519,7 @@ function ImGui.ButtonEx(label, size_arg, flags)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
@@ -564,7 +573,7 @@ end
 --- @param label string
 --- @return bool
 function ImGui.SmallButton(label)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local backup_padding_y = g.Style.FramePadding.y
     g.Style.FramePadding.y = 0.0
     local pressed = ImGui.ButtonEx(label, ImVec2(0, 0), ImGuiButtonFlags.AlignTextBaseLine)
@@ -614,7 +623,7 @@ function ImGui.ArrowButtonEx(str_id, dir, size, flags)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local id = window:GetID(str_id)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
     local default_size = ImGui.GetFrameHeight()
@@ -647,7 +656,7 @@ end
 --- @param pos ImVec2
 --- @return bool
 function ImGui.CloseButton(id, pos)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     local window = g.CurrentWindow
 
@@ -690,7 +699,7 @@ end
 
 --- @return bool
 function ImGui.CollapseButton(id, pos)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     local window = g.CurrentWindow
 
@@ -774,7 +783,7 @@ end
 --- @return bool  is_held
 --- @return ImS64 scroll_v # Updated p_scroll_v
 function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_contents_v, draw_rounding_flags)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     if window.SkipItems then
         return false, p_scroll_v
@@ -906,7 +915,7 @@ end
 
 --- @param axis ImGuiAxis
 function ImGui.Scrollbar(axis)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     local id = ImGui.GetWindowScrollbarID(window, axis)
 
@@ -939,7 +948,7 @@ function ImGui.ImageWithBg(tex_ref, image_size, uv0, uv1, bg_col, tint_col)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local padding = ImVec2(g.Style.ImageBorderSize, g.Style.ImageBorderSize)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + image_size + padding * 2.0)
     ImGui.ItemSize(bb)
@@ -986,7 +995,7 @@ function ImGui.ImageButtonEx(id, tex_ref, image_size, uv0, uv1, bg_col, tint_col
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local padding = g.Style.FramePadding
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + image_size + padding * 2.0)
     ImGui.ItemSize(bb)
@@ -1023,7 +1032,7 @@ end
 --- @param bg_col     ImVec4
 --- @param tint_col   ImVec4
 function ImGui.ImageButton(str_id, tex_ref, image_size, uv0, uv1, bg_col, tint_col)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     if window.SkipItems then
         return false
@@ -1042,7 +1051,7 @@ function ImGui.Checkbox(label, v)
         return false, v
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
@@ -1148,7 +1157,7 @@ function ImGui.CheckboxFlags(label, flags, flags_value)
     local any_on = bit.band(flags, flags_value) ~= 0
     local pressed
     if not all_on and any_on then
-        local g = ImGui.GetCurrentContext()
+        local g = GImGui
         g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.MixedValue)
         pressed, all_on = ImGui.Checkbox(label, all_on)
     else
@@ -1174,7 +1183,7 @@ function ImGui.RadioButtonEx(label, active)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
@@ -1257,7 +1266,7 @@ function ImGui.ProgressBar(fraction, size_arg, overlay)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
 
     local pos = ImVec2()
@@ -1318,7 +1327,7 @@ function ImGui.Bullet()
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local line_height = ImMax(ImMin(window.DC.CurrLineSize.y, g.FontSize + style.FramePadding.y * 2), g.FontSize)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(g.FontSize, line_height))
@@ -1341,7 +1350,7 @@ function ImGui.TextLink(label)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local id = window:GetID(label)
     local label_end = ImGui.FindRenderedTextEnd(label)
 
@@ -1391,7 +1400,7 @@ end
 --- @param label string
 --- @param url   string
 function ImGui.TextLinkOpenURL(label, url)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if url == nil then
         url = label
     end
@@ -1443,7 +1452,7 @@ function ImGui.NewLine()
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local backup_layout_type = window.DC.LayoutType
     window.DC.LayoutType = ImGuiLayoutType.Vertical
     window.DC.IsSameLine = false
@@ -1464,7 +1473,7 @@ function ImGui.AlignTextToFramePadding()
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     window.DC.CurrLineSize.y = ImMax(window.DC.CurrLineSize.y, g.FontSize + g.Style.FramePadding.y * 2)
     window.DC.CurrLineTextBaseOffset = ImMax(window.DC.CurrLineTextBaseOffset, g.Style.FramePadding.y)
 end
@@ -1479,7 +1488,7 @@ function ImGui.SeparatorEx(flags, thickness)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, bit.bor(ImGuiSeparatorFlags.Horizontal, ImGuiSeparatorFlags.Vertical)))) -- Check that only 1 option is selected
     IM_ASSERT(thickness > 0.0)
 
@@ -1534,7 +1543,7 @@ function ImGui.SeparatorEx(flags, thickness)
 end
 
 function ImGui.Separator()
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     if window.SkipItems then
         return
@@ -1561,7 +1570,7 @@ end
 --- @param label_end? int
 --- @param extra_w    float
 function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     local style = g.Style
 
@@ -1637,7 +1646,7 @@ end
 --- @param items_count float
 --- @return float
 local function CalcMaxPopupHeightFromItemCount(items_count)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if items_count <= 0 then
         return FLT_MAX
     end
@@ -1650,7 +1659,7 @@ end
 function ImGui.BeginCombo(label, preview_value, flags)
     if flags == nil then flags = 0 end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = ImGui.GetCurrentWindow()
 
     local backup_next_window_data_flags = g.NextWindowData.HasFlags
@@ -1762,7 +1771,7 @@ end
 --- @param bb       ImRect
 --- @param flags    ImGuiComboFlags
 function ImGui.BeginComboPopup(popup_id, bb, flags)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if not ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags.None) then
         g.NextWindowData:ClearFlags()
         return false
@@ -1834,7 +1843,7 @@ function ImGui.BeginComboPopup(popup_id, bb, flags)
 end
 
 function ImGui.EndCombo()
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     g.BeginComboDepth = g.BeginComboDepth - 1
 
     local name = ImFormatString("##Combo_%02d", g.BeginComboDepth) -- FIXME: Move those to helpers?
@@ -1849,7 +1858,7 @@ end
 -- Call directly after the BeginCombo/EndCombo block. The preview is designed to only host non-interactive elements
 -- (Experimental, see GitHub issues: #1658, #4168)
 function ImGui.BeginComboPreview()
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     local preview_data = g.ComboPreviewData
 
@@ -1881,7 +1890,7 @@ function ImGui.BeginComboPreview()
 end
 
 function ImGui.EndComboPreview()
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     local preview_data = g.ComboPreviewData
 
@@ -2093,7 +2102,7 @@ end
 --- @return number new_v   # Updated `v`
 --- @return bool   changed
 function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local axis = (bit.band(flags, ImGuiSliderFlags.Vertical) ~= 0) and ImGuiAxis.Y or ImGuiAxis.X
     local is_bounded = (v_min < v_max) or ((v_min == v_max) and (v_min ~= 0.0 or (bit.band(flags, ImGuiSliderFlags.ClampZeroRange) ~= 0)))
     local is_wrapped = is_bounded and (bit.band(flags, ImGuiSliderFlags.WrapAround) ~= 0)
@@ -2245,7 +2254,7 @@ end
 function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
     IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if g.ActiveId == id then
         if g.ActiveIdSource == ImGuiInputSource.Mouse and not g.IO.MouseDown[0] then
             ImGui.ClearActiveID()
@@ -2290,7 +2299,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
         return data, false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
     local w = ImGui.CalcItemWidth()
@@ -2819,6 +2828,15 @@ function ImStb.TEXTEDIT_MOVELINEEND(obj, state, cursor)
     return cursor
 end
 
+do
+
+local MT = ImGui.GetMetatables()
+
+-- After a user-input the cursor stays on for a while without blinking
+function MT.ImGuiInputTextState:CursorAnimReset() self.CursorAnim = -0.30 end
+
+end
+
 -- Find the shortest single replacement we can make to get from old_buf to new_buf
 -- Note that this doesn't directly alter state->TextA, state->TextLen. They are expected to be made valid separately.
 -- FIXME: Ideally we should transition toward (1) making InsertChars()/DeleteChars() update undo-stack (2) discourage (and keep reconcile) or obsolete (and remove reconcile) accessing buffer directly
@@ -2864,6 +2882,11 @@ local function InputTextReconcileUndoState(state, old_buf, old_length, new_buf, 
     end
 end
 
+--- @param id ImGuiID
+function ImGui.InputTextDeactivateHook(id)
+
+end
+
 -- Edit a string of text
 --- @param label              string
 --- @param hint               string
@@ -2886,7 +2909,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Password) == 0)  -- WordWrap does not work with Password mode
     IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0) -- WordWrap does not work in single-line mode
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local io = g.IO
     local style = g.Style
 
@@ -3018,6 +3041,10 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state.Stb.select_end = state.ReloadSelectionEnd -- will be clamped to bounds below
     elseif (init_state and g.ActiveId ~= id) or init_changed_specs then
         -- Access state even if we don't own it yet
+        state = g.InputTextState
+        state:CursorAnimReset()
+
+        -- Backup state of deactivating item so they'll have a chance to do a write to output buffer on the same frame they report IsItemDeactivatedAfterEdit (#4714)
 
     end
 
@@ -3032,7 +3059,7 @@ end
 --- @param H   float
 --- @return float
 local function ColorEditRestoreH(col, H)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     IM_ASSERT(g.ColorEditCurrentID ~= 0)
     if g.ColorEditSavedID ~= g.ColorEditCurrentID or g.ColorEditSavedColor ~= ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0)) then
         return H
@@ -3047,7 +3074,7 @@ end
 --- @param V float
 --- @return float, float, float
 local function ColorEditRestoreHS(col, H, S, V)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     IM_ASSERT(g.ColorEditCurrentID ~= 0)
 
     if g.ColorEditSavedID ~= g.ColorEditCurrentID or g.ColorEditSavedColor ~= ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0)) then
@@ -3091,7 +3118,7 @@ function ImGui.ColorEdit4(label, col, flags)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local square_sz = ImGui.GetFrameHeight()
     local label_display_end = ImGui.FindRenderedTextEnd(label)
@@ -3333,7 +3360,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     end
 
     local draw_list = window.DrawList
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local io = g.IO
 
@@ -3749,7 +3776,7 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local id = window:GetID(desc_id)
     local default_size = ImGui.GetFrameHeight()
     local size = ImVec2(size_arg.x == 0.0 and default_size or size_arg.x, size_arg.y == 0.0 and default_size or size_arg.y)
@@ -3829,7 +3856,7 @@ end
 --- @param col   ImVec4
 --- @param flags ImGuiColorEditFlags
 function ImGui.ColorTooltip(text, col, flags)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     if not ImGui.BeginTooltipEx(ImGuiTooltipFlags.OverridePrevious, ImGuiWindowFlags.None) then
         return
@@ -3880,7 +3907,7 @@ function ImGui.ColorEditOptionsPopup(col, flags)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     ImGui.PushItemFlag(ImGuiItemFlags.NoMarkEdited, true)
     local opts = g.ColorEditOptions
     if allow_opt_inputs then
@@ -3956,7 +3983,7 @@ function ImGui.ColorPickerOptionsPopup(ref_col, flags)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     ImGui.PushItemFlag(ImGuiItemFlags.NoMarkEdited, true)
     if allow_opt_picker then
         local picker_size = ImVec2(g.FontSize * 8, ImMax(g.FontSize * 8 - (ImGui.GetFrameHeight() + g.Style.ItemInnerSpacing.x), 1.0)) -- FIXME: Picker size copied from main picker function
@@ -4024,7 +4051,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         return false, selected
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
 
     local id = window:GetID(label)
@@ -4235,7 +4262,7 @@ end
 --- @param size_arg      ImVec2
 --- @return int
 function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, size_arg)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return -1
@@ -4469,7 +4496,7 @@ function ImGui.EndMenuBar()
     if window.SkipItems then
         return false
     end
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     IM_ASSERT(bit.band(window.Flags, ImGuiWindowFlags.MenuBar) ~= 0)
     IM_ASSERT(window.DC.MenuBarAppending)

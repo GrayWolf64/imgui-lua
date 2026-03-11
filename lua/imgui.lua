@@ -600,6 +600,8 @@ end
 --- @param ctx ImGuiContext?
 function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
+
+    ImGui._SetCurrentContextInWidgetsCode(ctx)
 end
 
 --- @param key  ImGuiLocKey
@@ -651,13 +653,14 @@ end
 
 --- @param shared_font_atlas? ImFontAtlas
 function ImGui.CreateContext(shared_font_atlas)
-    GImGui = ImGuiContext(shared_font_atlas)
-
-    for i = 0, 59 do GImGui.FramerateSecPerFrame[i] = 0 end
-
+    local prev_ctx = ImGui.GetCurrentContext()
+    local ctx = ImGuiContext(shared_font_atlas)
+    ImGui.SetCurrentContext(ctx)
     ImGui.Initialize()
-
-    return GImGui
+    if prev_ctx ~= nil then
+        ImGui.SetCurrentContext(prev_ctx) -- Restore previous context if any, else keep new one
+    end
+    return ctx
 end
 
 --- @param ctx? ImGuiContext
@@ -5754,7 +5757,7 @@ end
 --- @param col_a ImU32
 --- @param col_b ImU32
 --- @return ImU32
-function ImAlphaBlendColors(col_a, col_b)
+function ImStd.ImAlphaBlendColors(col_a, col_b)
     local t = bit.band(bit.rshift(col_b, IM_COL32_A_SHIFT), 0xFF) / 255.0
     local r = ImLerp(bit.band(bit.rshift(col_a, IM_COL32_R_SHIFT), 0xFF), bit.band(bit.rshift(col_b, IM_COL32_R_SHIFT), 0xFF), t)
     local g = ImLerp(bit.band(bit.rshift(col_a, IM_COL32_G_SHIFT), 0xFF), bit.band(bit.rshift(col_b, IM_COL32_G_SHIFT), 0xFF), t)

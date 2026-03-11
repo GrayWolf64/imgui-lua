@@ -1024,6 +1024,57 @@ function ImGuiWindowStackData()
     }
 end
 
+--- @class ImGuiComboPreviewData
+--- @field PreviewRect                  ImRect
+--- @field BackupCursorPos              ImVec2
+--- @field BackupCursorMaxPos           ImVec2
+--- @field BackupCursorPosPrevLine      ImVec2
+--- @field BackupPrevLineTextBaseOffset float
+--- @field BackupLayout                 ImGuiLayoutType
+
+--- @return ImGuiComboPreviewData
+--- @nodiscard
+local function ImGuiComboPreviewData()
+    return {
+        PreviewRect                  = ImRect(),
+        BackupCursorPos              = ImVec2(),
+        BackupCursorMaxPos           = ImVec2(),
+        BackupCursorPosPrevLine      = ImVec2(),
+        BackupPrevLineTextBaseOffset = 0.0,
+        BackupLayout                 = 0
+    }
+end
+
+--- @alias ImStbTexteditState STB_TexteditState
+
+--- @class ImGuiInputTextState
+--- @field Ctx        ImGuiContext        # parent UI context (needs to be set explicitly by parent)
+--- @field Stb        ImStbTexteditState  # State for stb_textedit.lua
+--- @field Flags      ImGuiInputTextFlags
+--- @field ID         ImGuiID             # widget id owning the text state
+--- @field TextLen    int                 # UTF-8 length of the string in TextA (in bytes)
+--- @field TextSrc    char[]              # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
+--- @field TextA      ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
+--- @field CursorAnim float               # timer for cursor blink, reset on every user action so the cursor reappears immediately
+MT.ImGuiInputTextState = {}
+MT.ImGuiInputTextState.__index = MT.ImGuiInputTextState
+
+local function ImGuiInputTextState()
+    local this = {
+        Ctx     = nil,
+        Stb     = nil,
+        Flags   = 0,
+        ID      = 0,
+        TextLen = 0,
+        TextSrc = {},
+        TextA   = ImVector(),
+
+        CursorAnim = 0.0,
+    }
+
+    return setmetatable(this, MT.ImGuiInputTextState)
+end
+
 --- @class ImGuiContext
 --- @field Initialized                        bool
 --- @field WithinFrameScope                   bool
@@ -1053,6 +1104,7 @@ end
 --- @field ColorEditSavedSat                  float                          # Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
 --- @field ColorEditSavedColor                ImU32                          # RGB value with alpha set to 0
 --- @field ColorPickerRef                     ImVec4                         # Initial/reference color at the time of opening the color picker
+--- @field InputTextState                     ImGuiInputTextState
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1223,6 +1275,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         MouseCursor = ImGuiMouseCursor.Arrow,
         MouseStationaryTimer = 0.0,
 
+        InputTextState = ImGuiInputTextState(),
+
         ComboPreviewData = ImGuiComboPreviewData(),
 
         WindowResizeBorderExpectedRect = ImRect(),
@@ -1267,6 +1321,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         DebugLogFlags = bit.bor(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
         DebugFlashStyleColorIdx = nil,
     }
+
+    for i = 0, 59 do this.FramerateSecPerFrame[i] = 0 end
 
     this.IO.Fonts = (shared_font_atlas ~= nil) and shared_font_atlas or ImFontAtlas()
     if shared_font_atlas == nil then
@@ -1963,27 +2019,6 @@ ImGuiActivateFlags = {
     FromFocusApi       = bit.lshift(1, 5)  -- Activation requested by an api request (ImGuiNavMoveFlags_FocusApi)
 }
 
---- @class ImGuiComboPreviewData
---- @field PreviewRect                  ImRect
---- @field BackupCursorPos              ImVec2
---- @field BackupCursorMaxPos           ImVec2
---- @field BackupCursorPosPrevLine      ImVec2
---- @field BackupPrevLineTextBaseOffset float
---- @field BackupLayout                 ImGuiLayoutType
-
---- @return ImGuiComboPreviewData
---- @nodiscard
-function ImGuiComboPreviewData()
-    return {
-        PreviewRect                  = ImRect(),
-        BackupCursorPos              = ImVec2(),
-        BackupCursorMaxPos           = ImVec2(),
-        BackupCursorPosPrevLine      = ImVec2(),
-        BackupPrevLineTextBaseOffset = 0.0,
-        BackupLayout                 = 0
-    }
-end
-
 --- @class ImGuiGroupData
 --- @field WindowID                             ImGuiID
 --- @field BackupCursorPos                      ImVec2
@@ -2157,14 +2192,3 @@ function ImGui.GetInputTextState(id)
     end
     return nil
 end
-
---- @alias ImStbTexteditState STB_TexteditState
-
---- @class ImGuiInputTextState
---- @field Ctx     ImGuiContext        # parent UI context (needs to be set explicitly by parent)
---- @field Stb     ImStbTexteditState  # State for stb_textedit.lua
---- @field Flags   ImGuiInputTextFlags
---- @field ID      ImGuiID             # widget id owning the text state
---- @field TextLen int                 # UTF-8 length of the string in TextA (in bytes)
---- @field TextSrc char[]              # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
---- @field TextA   ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
