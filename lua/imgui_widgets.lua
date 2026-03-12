@@ -2854,8 +2854,8 @@ function ImGui.PushPasswordFont()
     g.InputTextPasswordFontBackupFlags = g.Font.Flags
     backup.FallbackGlyphIndex = g.FontBaked.FallbackGlyphIndex
     backup.FallbackAdvanceX = g.FontBaked.FallbackAdvanceX
-    backup.IndexLookup = g.FontBaked.IndexLookup
-    backup.IndexAdvanceX = g.FontBaked.IndexAdvanceX
+    backup.IndexLookup:swap(g.FontBaked.IndexLookup)
+    backup.IndexAdvanceX:swap(g.FontBaked.IndexAdvanceX)
     g.Font.Flags = bit.bor(g.Font.Flags, ImFontFlags.NoLoadGlyphs)
     g.FontBaked.FallbackGlyphIndex = g.FontBaked.Glyphs:index_from_ptr(glyph) + 1
     g.FontBaked.FallbackAdvanceX = glyph.AdvanceX
@@ -2867,8 +2867,8 @@ function ImGui.PopPasswordFont()
     g.Font.Flags = g.InputTextPasswordFontBackupFlags
     g.FontBaked.FallbackGlyphIndex = backup.FallbackGlyphIndex
     g.FontBaked.FallbackAdvanceX = backup.FallbackAdvanceX
-    g.FontBaked.IndexLookup = backup.IndexLookup
-    g.FontBaked.IndexAdvanceX = backup.IndexAdvanceX
+    g.FontBaked.IndexLookup:swap(backup.IndexLookup)
+    g.FontBaked.IndexAdvanceX:swap(backup.IndexAdvanceX)
     IM_ASSERT(backup.IndexAdvanceX.Size == 0 and backup.IndexLookup.Size == 0)
 end
 
@@ -3063,6 +3063,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     local input_requested_by_nav = (g.ActiveId ~= id) and (g.NavActivateId == id) and ((bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) or (g.NavInputSource == ImGuiInputSource.Keyboard))
 
+    local input_requested_by_reactivate = (g.InputTextReactivateId == id) -- for io.ConfigInputTextEnterKeepActive
     local user_clicked = hovered and io.MouseClicked[0]
     local user_scroll_finish = is_multiline and state ~= nil and g.ActiveId == 0 and g.ActiveIdPreviousFrame == ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y)
     local user_scroll_active = is_multiline and state ~= nil and g.ActiveId == ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y)
@@ -3073,7 +3074,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     local init_reload_from_user_buf = (state ~= nil and state.WantReloadUserBuf)
     local init_changed_specs = (state ~= nil and state.Stb.single_line ~= (not is_multiline)) -- state ~= nil means its our state
-    local init_make_active = (user_clicked or user_scroll_finish or input_requested_by_nav)
+    local init_make_active = (user_clicked or user_scroll_finish or input_requested_by_nav or input_requested_by_reactivate)
     local init_state = (init_make_active or user_scroll_active)
     if init_reload_from_user_buf then
         local new_len = #buf
