@@ -167,6 +167,25 @@ ImStd.memmove = _memmove
 
 end
 
+--- @param str1      ImStringBuffer
+--- @param str2      ImStringBuffer
+--- @param max_count int
+function ImStd.strncmp(str1, str2, max_count)
+    for i = 1, max_count do
+        local c1 = str1[i] or 0
+        local c2 = str2[i] or 0
+
+        if c1 ~= c2 then
+            return c1 - c2
+        end
+
+        if c1 == 0 then
+            return 0
+        end
+    end
+    return 0
+end
+
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
 
 IM_F32_TO_INT8_UNBOUND = function(val) return math.floor(val * 255.0 + (val >= 0 and 0.5 or -0.5)) end
@@ -1048,31 +1067,69 @@ end
 --- @alias ImStbTexteditState STB_TexteditState
 
 --- @class ImGuiInputTextState
---- @field Ctx        ImGuiContext        # parent UI context (needs to be set explicitly by parent)
---- @field Stb        ImStbTexteditState  # State for stb_textedit.lua
---- @field Flags      ImGuiInputTextFlags
---- @field ID         ImGuiID             # widget id owning the text state
---- @field TextLen    int                 # UTF-8 length of the string in TextA (in bytes)
---- @field TextSrc    char[]              # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
---- @field TextA      ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
---- @field CursorAnim float               # timer for cursor blink, reset on every user action so the cursor reappears immediately
+--- @field Ctx                ImGuiContext        # parent UI context (needs to be set explicitly by parent)
+--- @field Stb                ImStbTexteditState  # State for stb_textedit.lua
+--- @field Flags              ImGuiInputTextFlags
+--- @field ID                 ImGuiID             # widget id owning the text state
+--- @field TextLen            int                 # UTF-8 length of the string in TextA (in bytes)
+--- @field TextSrc            ImStringBuffer      # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
+--- @field TextA              ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
+--- @field TextToRevertTo     ImVector<char>      # value to revert to when pressing Escape = backup of end-user buffer at the time of focus (in UTF-8, unaltered)
+--- @field CallbackTextBackup ImVector<char>      # temporary storage for callback to support automatic reconcile of undo-stack
+--- @field BufCapacity        int                 # end-user buffer capacity (include zero terminator)
+--- @field Scroll             ImVec2              # horizontal offset (managed manually) + vertical scrolling (pulled from child window's own Scroll.y)
+--- @field LineCount          int                 # last line count (solely for debugging)
+--- @field WrapWidth          float               # word-wrapping width
+--- @field CursorAnim         float               # timer for cursor blink, reset on every user action so the cursor reappears immediately
+--- @field CursorFollow       bool                # set when we want scrolling to follow the current cursor position (not always!)
+--- @field CursorCenterY      bool                # set when we want scrolling to be centered over the cursor position (while resizing a word-wrapping field)
 MT.ImGuiInputTextState = {}
 MT.ImGuiInputTextState.__index = MT.ImGuiInputTextState
 
 local function ImGuiInputTextState()
     local this = {
-        Ctx     = nil,
-        Stb     = nil,
-        Flags   = 0,
-        ID      = 0,
-        TextLen = 0,
-        TextSrc = {},
-        TextA   = ImVector(),
+        Ctx   = nil,
+        Stb   = nil,
+        Flags = 0,
+        ID    = 0,
 
-        CursorAnim = 0.0,
+        TextLen            = 0,
+        TextSrc            = {},
+        TextA              = ImVector(),
+        TextToRevertTo     = ImVector,
+        CallbackTextBackup = ImVector(),
+
+        BufCapacity = 0,
+        Scroll      = ImVec2(),
+        LineCount   = 0,
+        WrapWidth   = 0.0,
+
+        CursorAnim    = 0.0,
+        CursorFollow  = false,
+        CursorCenterY = false,
     }
 
     return setmetatable(this, MT.ImGuiInputTextState)
+end
+
+--- @class ImGuiInputTextDeactivatedState
+--- @field ID    ImGuiID        # widget id owning the text state (which just got deactivated)
+--- @field TextA ImVector<char> # text buffer
+MT.ImGuiInputTextDeactivatedState = {}
+MT.ImGuiInputTextDeactivatedState.__index = MT.ImGuiInputTextDeactivatedState
+
+function MT.ImGuiInputTextDeactivatedState:ClearFreeMemory()
+    self.ID = 0
+    self.TextA:clear()
+end
+
+--- @return ImGuiInputTextDeactivatedState
+--- @nodiscard
+local function ImGuiInputTextDeactivatedState()
+    return setmetatable({
+        ID    = 0,
+        TextA = ImVector()
+    }, MT.ImGuiInputTextDeactivatedState)
 end
 
 --- @class ImGuiContext
@@ -1105,6 +1162,8 @@ end
 --- @field ColorEditSavedColor                ImU32                          # RGB value with alpha set to 0
 --- @field ColorPickerRef                     ImVec4                         # Initial/reference color at the time of opening the color picker
 --- @field InputTextState                     ImGuiInputTextState
+--- @field InputTextDeactivatedState          ImGuiInputTextDeactivatedState
+--- @field InputTextPasswordFontBackupBaked   ImFontBaked
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1276,6 +1335,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         MouseStationaryTimer = 0.0,
 
         InputTextState = ImGuiInputTextState(),
+        InputTextDeactivatedState = ImGuiInputTextDeactivatedState(),
+        InputTextPasswordFontBackupBaked = ImFontBaked(),
 
         ComboPreviewData = ImGuiComboPreviewData(),
 

@@ -1,6 +1,7 @@
 --- ImGui Sincerely WIP
 -- (Widgets Code)
 
+--- @type ImGuiContext?
 local GImGui
 
 -- Sets local `GImGui` in this file(imgui_widgets.lua).
@@ -2678,7 +2679,7 @@ end
 --- @param obj ImGuiInputTextState
 --- @param idx int
 function ImStb.is_word_boundary_from_right(obj, idx)
-    -- When ImGuiInputTextFlags_Password is set, we don't want actions such as Ctrl+Arrow to leak the fact that underlying data are blanks or separators
+    -- When ImGuiInputTextFlags.Password is set, we don't want actions such as Ctrl+Arrow to leak the fact that underlying data are blanks or separators
     if bit.band(obj.Flags, ImGuiInputTextFlags.Password) ~= 0 or idx <= 1 then
         return false
     end
@@ -2835,6 +2836,40 @@ local MT = ImGui.GetMetatables()
 -- After a user-input the cursor stays on for a while without blinking
 function MT.ImGuiInputTextState:CursorAnimReset() self.CursorAnim = -0.30 end
 
+function MT.ImGuiInputTextState:CursorClamp()
+    self.Stb.cursor = ImMin(self.Stb.cursor, self.TextLen)
+    self.Stb.select_start = ImMin(self.Stb.select_start, self.TextLen)
+    self.Stb.select_end = ImMin(self.Stb.select_end, self.TextLen)
+end
+
+function MT.ImGuiInputTextState:HasSelection() return self.Stb.select_start ~= self.Stb.select_end end
+
+end
+
+function ImGui.PushPasswordFont()
+    local g = GImGui
+    local backup = g.InputTextPasswordFontBackupBaked
+    IM_ASSERT(backup.IndexAdvanceX.Size == 0 and backup.IndexLookup.Size == 0)
+    local glyph = g.FontBaked:FindGlyph(42) -- '*'
+    g.InputTextPasswordFontBackupFlags = g.Font.Flags
+    backup.FallbackGlyphIndex = g.FontBaked.FallbackGlyphIndex
+    backup.FallbackAdvanceX = g.FontBaked.FallbackAdvanceX
+    backup.IndexLookup = g.FontBaked.IndexLookup
+    backup.IndexAdvanceX = g.FontBaked.IndexAdvanceX
+    g.Font.Flags = bit.bor(g.Font.Flags, ImFontFlags.NoLoadGlyphs)
+    g.FontBaked.FallbackGlyphIndex = g.FontBaked.Glyphs:index_from_ptr(glyph) + 1
+    g.FontBaked.FallbackAdvanceX = glyph.AdvanceX
+end
+
+function ImGui.PopPasswordFont()
+    local g = GImGui
+    local backup = g.InputTextPasswordFontBackupBaked
+    g.Font.Flags = g.InputTextPasswordFontBackupFlags
+    g.FontBaked.FallbackGlyphIndex = backup.FallbackGlyphIndex
+    g.FontBaked.FallbackAdvanceX = backup.FallbackAdvanceX
+    g.FontBaked.IndexLookup = backup.IndexLookup
+    g.FontBaked.IndexAdvanceX = backup.IndexAdvanceX
+    IM_ASSERT(backup.IndexAdvanceX.Size == 0 and backup.IndexLookup.Size == 0)
 end
 
 -- Find the shortest single replacement we can make to get from old_buf to new_buf
@@ -2884,7 +2919,20 @@ end
 
 --- @param id ImGuiID
 function ImGui.InputTextDeactivateHook(id)
-
+    local g = GImGui
+    local state = g.InputTextState
+    if id == 0 or state.ID ~= id then
+        return
+    end
+    g.InputTextDeactivatedState.ID = state.ID
+    if bit.band(state.Flags, ImGuiInputTextFlags.ReadOnly) ~= 0 then
+        g.InputTextDeactivatedState.TextA:resize(0) -- In theory this data won't be used, but clear to be neat
+    else
+        IM_ASSERT(state.TextA.Data ~= nil)
+        -- IM_ASSERT(state.TextA[state.TextLen + 1] == 0)
+        g.InputTextDeactivatedState.TextA:resize(state.TextLen + 1)
+        ImStd.memmove(g.InputTextDeactivatedState.TextA.Data, 1, state.TextA.Data, 1, state.TextLen) -- state.TextLen + 1
+    end
 end
 
 -- Edit a string of text
@@ -2972,7 +3020,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         ImVec2_Copy(draw_window.DC.CursorPos, draw_window.DC.CursorPos + style.FramePadding)
         inner_size.x = inner_size.x - draw_window.ScrollbarSizes.x
     else
-        -- Support for internal ImGuiInputTextFlags_MergedItem flag, which could be redesigned as an ItemFlags if needed (with test performed in ItemAdd)
+        -- Support for internal ImGuiInputTextFlags.MergedItem flag, which could be redesigned as an ItemFlags if needed (with test performed in ItemAdd)
         ImGui.ItemSize(total_bb, style.FramePadding.y)
 
         if bit.band(flags, ImGuiInputTextFlags.MergedItem) == 0 then
@@ -3002,7 +3050,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local is_undoable = bit.band(flags, ImGuiInputTextFlags.NoUndoRedo) == 0
     local is_resizable = bit.band(flags, ImGuiInputTextFlags.CallbackResize) ~= 0
     if is_resizable then
-        IM_ASSERT(callback ~= nil) -- Must provide a callback if you set the ImGuiInputTextFlags_CallbackResize flag!
+        IM_ASSERT(callback ~= nil) -- Must provide a callback if you set the ImGuiInputTextFlags.CallbackResize flag!
     end
 
     -- Word-wrapping: enforcing a fixed width not altered by vertical scrollbar makes things easier, notably to track cursor reliably and avoid one-frame glitches.
@@ -3045,7 +3093,146 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state:CursorAnimReset()
 
         -- Backup state of deactivating item so they'll have a chance to do a write to output buffer on the same frame they report IsItemDeactivatedAfterEdit (#4714)
+        ImGui.InputTextDeactivateHook(state.ID)
 
+        -- Take a copy of the initial buffer value.
+        -- From the moment we focused we are normally ignoring the content of 'buf' (unless we are in read-only mode)
+        local buf_len = #buf
+        -- IM_ASSERT(((buf_len + 1 <= buf_size) or (buf_len == 0 and buf_size == 0)), "Is your input buffer properly zero-terminated?")
+        state.TextToRevertTo:resize(buf_len)
+        ImStd.memmove(state.TextToRevertTo.Data, 1, buf, 1, buf_len)
+
+        -- Preserve cursor position and undo/redo stack if we come back to same widget
+        -- FIXME: Since we reworked this on 2022/06, may want to differentiate recycle_cursor vs recycle_undostate?
+        local recycle_state = (state.ID == id and not init_changed_specs)
+        if (recycle_state and (state.TextLen ~= buf_len or (state.TextA.Data == nil or ImStd.strncmp(state.TextA.Data, buf, buf_len) ~= 0))) then
+            recycle_state = false
+        end
+
+        -- Start edition
+        state.ID = id
+        state.TextLen = buf_len
+        if not is_readonly then
+            state.TextA:resize(buf_size)
+            ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen)
+        end
+
+        -- Find initial scroll position for right alignment
+        ImVec2_Copy(state.Scroll, ImVec2(0.0, 0.0))
+        if bit.band(flags, ImGuiInputTextFlags.ElideLeft) ~= 0 then
+            state.Scroll.x = state.Scroll.x + ImMax(0.0, ImGui.CalcTextSize(table.concat(buf)).x - frame_size.x + style.FramePadding.x * 2.0) -- FIXME: no table.concat here
+        end
+
+        -- Recycle existing cursor/selection/undo stack but clamp position
+        -- Note a single mouse click will override the cursor/position immediately by calling stb_textedit_click handler
+        if not recycle_state then
+            stbte.initialize_state(state.Stb, not is_multiline)
+        end
+
+        if not is_multiline then
+            if bit.band(flags, ImGuiInputTextFlags.AutoSelectAll) ~= 0 then
+                select_all = true
+            end
+            if input_requested_by_nav and (not recycle_state or (bit.band(g.NavActivateFlags, ImGuiActivateFlags.TryToPreserveState) == 0)) then
+                select_all = true
+            end
+            if user_clicked and io.KeyCtrl then
+                select_all = true
+            end
+        end
+
+        if bit.band(flags, ImGuiInputTextFlags.AlwaysOverwrite) ~= 0 then
+            state.Stb.insert_mode = true -- stb field name is indeed incorrect (see #2863)
+        end
+    end
+
+    local is_osx = io.ConfigMacOSXBehaviors
+
+    if g.ActiveId ~= id and init_make_active then
+        IM_ASSERT(state ~= nil and state.ID == id)
+        ImGui.SetActiveID(id, window)
+        ImGui.SetFocusID(id, window)
+        ImGui.FocusWindow(window)
+        if input_requested_by_nav then
+            ImGui.SetNavCursorVisibleAfterMove()
+        end
+    end
+    if g.ActiveId == id then
+        -- Declare some inputs, the other are registered and polled via Shortcut() routing system
+        -- FIXME: The reason we don't use Shortcut() is we would need a routing flag to specify multiple mods, or to all mods combination into individual shortcuts
+        local always_owned_keys = { ImGuiKey.LeftArrow, ImGuiKey.RightArrow, ImGuiKey.Delete, ImGuiKey.Backspace, ImGuiKey.Home, ImGuiKey.End }
+        for _, key in ipairs(always_owned_keys) do
+            ImGui.SetKeyOwner(key, id)
+        end
+        if user_clicked then
+            ImGui.SetKeyOwner(ImGuiKey.MouseLeft, id)
+        end
+        g.ActiveIdUsingNavDirMask = bit.bor(g.ActiveIdUsingNavDirMask, bit.lshift(1, ImGuiDir.Left), bit.lshift(1, ImGuiDir.Right))
+        if is_multiline or (bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0) then
+            g.ActiveIdUsingNavDirMask = bit.bor(g.ActiveIdUsingNavDirMask, bit.lshift(1, ImGuiDir.Up), bit.lshift(1, ImGuiDir.Down))
+            ImGui.SetKeyOwner(ImGuiKey.UpArrow, id)
+            ImGui.SetKeyOwner(ImGuiKey.DownArrow, id)
+        end
+        if is_multiline then
+            ImGui.SetKeyOwner(ImGuiKey.PageUp, id)
+            ImGui.SetKeyOwner(ImGuiKey.PageDown, id)
+        end
+        -- FIXME: May be a problem to always steal Alt on OSX, would ideally still allow an uninterrupted Alt down-up to toggle menu
+        if is_osx then
+            ImGui.SetKeyOwner(ImGuiMod.Alt, id)
+        end
+
+        -- Expose scroll in a manner that is agnostic to us using a child window
+        if is_multiline and state ~= nil then
+            state.Scroll.y = draw_window.Scroll.y
+        end
+
+        -- Read-only mode always ever read from source buffer. Refresh TextLen when active.
+        if is_readonly and state ~= nil then
+            state.TextLen = #buf
+        end
+        if state ~= nil then
+            state:CursorClamp()
+        end
+        -- if is_readonly and state ~= nil then
+        --     state.TextA:clear() -- Uncomment to facilitate debugging, but we otherwise prefer to keep/amortize th allocation.
+        -- end
+    end
+    if state ~= nil then
+        state.TextSrc = is_readonly and buf or state.TextA.Data
+    end
+
+    -- We have an edge case if ActiveId was set through another widget (e.g. widget being swapped), clear id immediately (don't wait until the end of the function)
+    if g.ActiveId == id and state == nil then
+        ImGui.ClearActiveID()
+    end
+
+    -- Release focus when we click outside
+    if g.ActiveId == id and io.MouseClicked[0] and not init_state and not init_make_active then
+        clear_active_id = true
+    end
+
+    -- Lock the decision of whether we are going to take the path displaying the cursor or selection
+    local render_cursor = (g.ActiveId == id) or (state and user_scroll_active)
+    local render_selection = state and (state:HasSelection() or select_all) and (RENDER_SELECTION_WHEN_INACTIVE or render_cursor)
+    local value_changed = false
+    local validated = false
+
+    -- Select the buffer to render
+    local buf_display_from_state = (render_cursor or render_selection or g.ActiveId == id) and not is_readonly and state ~= nil
+    local is_displaying_hint = (hint ~= nil and (buf_display_from_state and state.TextA.Data or buf)[1] == 0)
+
+    -- Password pushes a temporary font with only a fallback glyph
+    if is_password and not is_displaying_hint then
+        ImGui.PushPasswordFont()
+    end
+
+    -- Word-wrapping: attempt to keep cursor in view while resizing frame/parent
+    -- FIXME-WORDWRAP: It would be better to preserve same relative offset.
+    if is_wordwrap and state ~= nil and state.ID == id and state.WrapWidth ~= wrap_width then
+        state.CursorCenterY = true
+        state.WrapWidth = wrap_width
+        render_cursor = true
     end
 
     -- TODO:

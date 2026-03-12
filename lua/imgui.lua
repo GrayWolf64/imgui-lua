@@ -30,6 +30,8 @@ IM_INCLUDE"imgui_draw.lua"
 
 IM_INCLUDE"imgui_widgets.lua"
 
+IM_INCLUDE"imgui_tables.lua"
+
 local FONT_DEFAULT_SIZE_BASE = 20
 
 local WINDOWS_RESIZE_FROM_EDGES_FEEDBACK_TIMER = 0.04
@@ -602,6 +604,7 @@ function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
 
     ImGui._SetCurrentContextWidgetsScope(ctx)
+    ImGui._SetCurrentContextTablesScope(ctx)
 end
 
 --- @param key  ImGuiLocKey
@@ -6826,6 +6829,21 @@ end
 ---------------------------------------------------------------------------------------
 -- [SECTION] NAVIGATION
 ---------------------------------------------------------------------------------------
+
+function ImGui.SetNavCursorVisibleAfterMove()
+    local g = GImGui
+    if g.NavWindow and (bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) ~= 0) then
+        g.NavCursorVisible = false
+    elseif g.NavInputSource == ImGuiInputSource.Keyboard and (bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) == 0) then
+        g.NavCursorVisible = false
+    elseif g.NavInputSource == ImGuiInputSource.Gamepad and (bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) == 0) then
+        g.NavCursorVisible = false
+    elseif g.IO.ConfigNavCursorVisibleAuto then
+        g.NavCursorVisible = true
+    end
+    g.NavHighlightItemUnderNav = true
+    g.NavMousePosDirty = true
+end
 
 --- @param window? ImGuiWindow
 function ImGui.SetNavWindow(window)

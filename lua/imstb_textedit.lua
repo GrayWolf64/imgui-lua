@@ -90,7 +90,7 @@ end
 --- @field cursor                int           # position of the text cursor within the string
 --- @field select_start          int           # selection start point
 --- @field select_end            int
---- @field insert_mode           unsigned_char
+--- @field insert_mode           bool
 --- @field row_count_per_page    int
 --- @field cursor_at_end_of_line bool          # not implemented yet
 --- @field initialized           bool
@@ -111,7 +111,7 @@ local function STB_TexteditState()
         select_start = 0,
         select_end   = 0,
 
-        insert_mode = 0,
+        insert_mode = false,
 
         row_count_per_page = 0,
 
@@ -248,6 +248,11 @@ local function stb_text_createundo(state, pos, insert_len, delete_len)
     end
 end
 
+local function stb_textedit_clear_state(state, is_single_line)
+
+end
+
 return {
-    createundo = stb_text_createundo
+    createundo = stb_text_createundo,
+    initialize_state = stb_textedit_clear_state
 }
