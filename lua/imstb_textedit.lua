@@ -48,10 +48,10 @@ local IMSTB_TEXTEDIT_memmove = ImStb.TEXTEDIT_memmove
 --- @nodiscard
 local function StbUndoRecord()
     return {
-        where         = 0,
+        where         = 1,
         insert_length = 0,
         delete_length = 0,
-        char_storage  = 0
+        char_storage  = 1
     }
 end
 
@@ -487,6 +487,36 @@ local function stb_textedit_discard_undo(state)
     end
 end
 
+-- discard the oldest entry in the redo list--it's bad if this
+-- ever happens, but because undo & redo have to store the actual
+-- characters in different cases, the redo character buffer can
+-- fill up even though the undo buffer didn't
+--- @param state StbUndoState
+local function stb_textedit_discard_redo(state)
+    local k = IMSTB_TEXTEDIT_UNDOSTATECOUNT
+
+    if state.redo_point <= k then
+        -- if the k'th undo state has characters, clean those up
+        if state.undo_rec[k].char_storage >= 1 then
+            local n = state.undo_rec[k].insert_length
+            -- move the remaining redo character data to the end of the buffer
+            state.redo_char_point = state.redo_char_point + n
+            IMSTB_TEXTEDIT_memmove(state.undo_char, state.redo_char_point, state.undo_char, state.redo_char_point - n, IMSTB_TEXTEDIT_UNDOCHARCOUNT - state.redo_char_point + 1)
+            -- adjust the position of all the other records to account for above memmove
+            for i = state.redo_point, k - 1 do
+                if state.undo_rec[i].char_storage >= 1 then
+                    state.undo_rec[i].char_storage = state.undo_rec[i].char_storage + n
+                end
+            end
+        end
+
+        -- now move all the redo records towards the end of the buffer; the first one is at 'redo_point'
+        -- [IMGUI]
+        local move_size = IMSTB_TEXTEDIT_UNDOSTATECOUNT - state.redo_point
+        -- TODO:
+    end
+end
+
 --- @param state    StbUndoState
 --- @param numchars int
 local function stb_text_create_undo_record(state, numchars)
@@ -544,7 +574,72 @@ end
 --- @param str   IMSTB_TEXTEDIT_STRING
 --- @param state STB_TexteditState
 local function stb_text_undo(str, state)
+    local s = state.undostate
 
+    if s.undo_point == 1 then
+        return
+    end
+
+    -- we need to do two things: apply the undo record, and create a redo record
+    local u = s.undo_rec[s.undo_point - 1]
+    local r = s.undo_rec[s.redo_point - 1]
+    r.char_storage = -1
+
+    r.insert_length = u.delete_length
+    r.delete_length = u.insert_length
+    r.where = u.where
+
+    if u.delete_length > 0 then
+        -- if the undo record says to delete characters, then the redo record will
+        -- need to re-insert the characters that get deleted, so we need to store
+        -- them.
+
+        -- there are three cases:
+        --    there's enough room to store the characters
+        --    characters stored for *redoing* don't leave room for redo
+        --    characters stored for *undoing* don't leave room for redo
+        -- if the last is true, we have to bail
+
+        if s.undo_char_point + u.delete_length > IMSTB_TEXTEDIT_UNDOCHARCOUNT then
+            -- the undo records take up too much character space; there's no space to store the redo characters
+            r.insert_length = 0
+        else
+            -- there's definitely room to store the characters eventually
+            while s.undo_char_point + u.delete_length > s.redo_char_point do
+                -- should never happen:
+                if s.redo_point == IMSTB_TEXTEDIT_UNDOSTATECOUNT + 1 then
+                    return
+                end
+
+                -- there's currently not enough room, so discard a redo record
+                stb_textedit_discard_redo(s)
+            end
+            r = s.undo_rec[s.redo_point - 1]
+
+            r.char_storage = s.redo_char_point - u.delete_length
+            s.redo_char_point = s.redo_char_point - u.delete_length
+
+            -- now save the characters
+            for i = 0, u.delete_length - 1 do
+                s.undo_char[r.char_storage + i] = STB_TEXTEDIT_GETCHAR(str, u.where + i)
+            end
+        end
+
+        -- now we can carry out the deletion
+        STB_TEXTEDIT_DELETECHARS(str, u.where, u.delete_length)
+    end
+
+    -- check type of recorded action:
+    if u.insert_length > 0 then
+        -- easy case: was a deletion, so we need to insert n characters
+        u.insert_length = STB_TEXTEDIT_INSERTCHARS(str, u.where, s.undo_char[u.char_storage], u.insert_length)
+        s.undo_char_point = s.undo_char_point - u.insert_length
+    end
+
+    state.cursor = u.where + u.insert_length
+
+    s.undo_point = s.undo_point - 1
+    s.redo_point = s.redo_point - 1
 end
 
 local function stb_text_redo()
