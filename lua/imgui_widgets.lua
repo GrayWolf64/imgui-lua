@@ -2590,6 +2590,8 @@ ImStb.TEXTEDIT_GETWIDTH_NEWLINE = -1.0
 
 ImStb.TEXTEDIT_memmove = ImStd.memmove
 
+--- @alias IMSTB_TEXTEDIT_STRING ImGuiInputTextState
+
 --- @module "imstb_textedit"
 local stbte = IM_INCLUDE"imstb_textedit.lua"
 
@@ -2829,6 +2831,16 @@ function ImStb.TEXTEDIT_MOVELINEEND(obj, state, cursor)
     return cursor
 end
 
+--- @param obj ImGuiInputTextState
+--- @param pos int
+--- @param n   int
+function ImStb.TEXTEDIT_DELETECHARS(obj, pos, n)
+    IM_ASSERT(obj.TextSrc == obj.TextA.Data)
+    ImStd.memmove(obj.TextA.Data, pos, obj.TextA.Data, pos + n - 1, n)
+    obj.Edited = true
+    obj.TextLen = obj.TextLen - n
+end
+
 do
 
 local MT = ImGui.GetMetatables()
@@ -2843,6 +2855,13 @@ function MT.ImGuiInputTextState:CursorClamp()
 end
 
 function MT.ImGuiInputTextState:HasSelection() return self.Stb.select_start ~= self.Stb.select_end end
+
+function MT.ImGuiInputTextState:SelectAll()
+    self.Stb.select_start = 1
+    self.Stb.cursor = self.TextLen + 1
+    self.Stb.select_end = self.TextLen + 1
+    self.Stb.has_preferred_x = false
+end
 
 end
 
@@ -3236,7 +3255,41 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         render_cursor = true
     end
 
-    -- TODO:
+    -- Process mouse inputs and character inputs
+    if g.ActiveId == id then
+        --- @cast state ImGuiInputTextState
+        IM_ASSERT(state ~= nil)
+        state.Edited = false
+        state.BufCapacity = buf_size
+        state.Flags = flags
+        state.WrapWidth = wrap_width
+
+        -- Although we are active we don't prevent mouse from hovering other elements unless we are interacting right now with the widget.
+        -- Down the line we should have a cleaner library-wide concept of Selected vs Active
+        g.ActiveIdAllowOverlap = not io.MouseDown[0]
+
+        -- Edit in progress
+        local mouse_x = (io.MousePos.x - frame_bb.Min.x - style.FramePadding.x) + state.Scroll.x
+        local mouse_y = (is_multiline and (io.MousePos.y - draw_window.DC.CursorPos.y) or (g.FontSize * 0.5))
+
+        if select_all then
+            state:SelectAll()
+            state.SelectedAllMouseLock = true
+        elseif hovered and io.MouseClickedCount[0] >= 2 and not io.KeyShift then
+            stbte.click(state, state.Stb, mouse_x, mouse_y)
+            local multiclick_count = (io.MouseClickedCount[0] - 2)
+            if multiclick_count % 2 == 0 then
+                -- Double-click: Select word
+                -- We always use the "Mac" word advance for double-click select vs Ctrl+Right which use the platform dependent variant:
+                -- FIXME: There are likely many ways to improve this behavior, but there's no "right" behavior (depends on use-case, software, OS)
+                local is_bol = (state.Stb.cursor == 1) or ImStb.TEXTEDIT_GETCHAR(state, state.Stb.cursor - 1) == 10
+                if stbte.HAS_SELECTION(state.Stb) or not is_bol then
+
+                end
+            end
+        end
+    end
+
 end
 
 ----------------------------------------------------------------

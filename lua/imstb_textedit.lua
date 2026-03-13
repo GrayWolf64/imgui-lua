@@ -20,6 +20,7 @@ local STB_TEXTEDIT_MOVEWORDLEFT  = ImStb.TEXTEDIT_MOVEWORDLEFT
 local STB_TEXTEDIT_MOVEWORDRIGHT = ImStb.TEXTEDIT_MOVEWORDRIGHT
 local STB_TEXTEDIT_MOVELINESTART = ImStb.TEXTEDIT_MOVELINESTART
 local STB_TEXTEDIT_MOVELINEEND   = ImStb.TEXTEDIT_MOVELINEEND
+local STB_TEXTEDIT_DELETECHARS   = ImStb.TEXTEDIT_DELETECHARS
 
 local IMSTB_TEXTEDIT_UNDOSTATECOUNT = ImStb.TEXTEDIT_UNDOSTATECOUNT
 local IMSTB_TEXTEDIT_UNDOCHARCOUNT = ImStb.TEXTEDIT_UNDOCHARCOUNT
@@ -129,6 +130,11 @@ local function STB_TexteditState()
     }
 end
 
+--- @param s STB_TexteditState
+local function STB_TEXT_HAS_SELECTION(s)
+    return s.select_start ~= s.select_end
+end
+
 --- @class StbTexteditRow
 --- @field x0               float # starting x location
 --- @field x1               float # end x location
@@ -153,12 +159,299 @@ local function StbTexteditRow()
     }
 end
 
+--- @param r StbTexteditRow
+local function StbTexteditRow_Reset(r)
+    r.x0 = 0.0
+    r.x1 = 0.0
+    r.baseline_y_delta = 0.0
+    r.ymin = 0.0
+    r.ymax = 0.0
+    r.num_chars = 0
+end
+
 ----------------------------------------
 ----------------------------------------
 ---
 --- Implementation
 ---
 ---
+
+local stb_text_locate_coord do
+
+-- only create once, reuse later
+local r = StbTexteditRow()
+
+--- traverse the layout to locate the nearest character to a display position
+--- @param str IMSTB_TEXTEDIT_STRING
+--- @param x   float
+--- @param y   float
+--- @return int  idx
+--- @return bool side_on_line
+function stb_text_locate_coord(str, x, y)
+    local n = STB_TEXTEDIT_STRINGLEN(str)
+    local base_y = 0
+    local prev_x
+
+    StbTexteditRow_Reset(r)
+
+    local out_side_on_line = false
+
+    -- search rows to find one that straddles 'y'
+    local i = 1
+    while i <= n do
+        STB_TEXTEDIT_LAYOUTROW(r, str, i)
+        if r.num_chars <= 0 then
+            return n + 1, out_side_on_line
+        end
+
+        if i == 1 and y < base_y + r.ymin then
+            return 1, out_side_on_line
+        end
+
+        if y < base_y + r.ymax then
+            break
+        end
+
+        i = i + r.num_chars
+        base_y = base_y + r.baseline_y_delta
+    end
+
+    -- below all text, return 'after' last character
+    if i > n then
+        out_side_on_line = true
+        return n + 1, out_side_on_line
+    end
+
+    -- check if it's before the beginning of the line
+    if x < r.x0 then
+        return i, out_side_on_line
+    end
+
+    -- check if it's before the end of the line
+    if x < r.x1 then
+        -- search characters in row for one that straddles 'x'
+        prev_x = r.x0
+        local k = 1
+        while k <= r.num_chars do
+            local w = STB_TEXTEDIT_GETWIDTH(str, i, k)
+            if x < prev_x + w then
+                out_side_on_line = (k == 1) and false or true
+                if x < prev_x + w / 2 then
+                    return k + i - 1, out_side_on_line
+                else
+                    return IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, i + k - 1), out_side_on_line
+                end
+            end
+            prev_x = prev_x + w
+            k = IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, i + k - 1) - i + 1
+        end
+        -- shouldn't happen, but if it does, fall through to end-of-line case
+    end
+
+    -- if the last character is a newline, return that. otherwise return 'after' the last character
+    out_side_on_line = true
+    if STB_TEXTEDIT_GETCHAR(str, i + r.num_chars - 1) == STB_TEXTEDIT_NEWLINE then
+        return i + r.num_chars - 1, out_side_on_line
+    else
+        return i + r.num_chars, out_side_on_line
+    end
+end
+
+end
+
+local stb_textedit_click do
+
+local r = StbTexteditRow()
+
+-- API click: on mouse down, move the cursor to the clicked location, and reset the selection
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+--- @param x     float
+--- @param y     float
+function stb_textedit_click(str, state, x, y)
+    -- In single-line mode, just always make y = 0. This lets the drag keep working if the mouse
+    -- goes off the top or bottom of the text
+    local side_on_line
+    if state.single_line then
+        StbTexteditRow_Reset(r)
+        STB_TEXTEDIT_LAYOUTROW(r, str, 1)
+        y = r.ymin
+    end
+
+    state.cursor, side_on_line = stb_text_locate_coord(str, x, y)
+    state.select_start = state.cursor
+    state.select_end = state.cursor
+    state.has_preferred_x = false
+    str.LastMoveDirectionLR = (side_on_line ~= false) and ImGuiDir.Right or ImGuiDir.Left
+end
+
+end
+
+local stb_textedit_drag do
+
+local r = StbTexteditRow()
+
+-- API drag: on mouse drag, move the cursor and selection endpoint to the clicked location
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+--- @param x     float
+--- @param y     float
+function stb_textedit_drag(str, state, x, y)
+    local p = 1
+    local side_on_line
+
+    -- In single-line mode, just always make y = 0. This lets the drag keep working if the mouse
+    -- goes off the top or bottom of the text
+    if state.single_line then
+        StbTexteditRow_Reset(r)
+        STB_TEXTEDIT_LAYOUTROW(r, str, 1)
+        y = r.ymin
+    end
+
+    if state.select_start == state.select_end then
+        state.select_start = state.cursor
+    end
+
+    p, side_on_line = stb_text_locate_coord(str, x, y)
+    state.cursor = p
+    state.select_end = p
+    str.LastMoveDirectionLR = (side_on_line ~= false) and ImGuiDir.Right or ImGuiDir.Left
+end
+
+end
+
+---------------------------
+---------------------------
+---
+--- Keyboard input handling
+---
+---
+
+local stb_text_makeundo_delete
+
+--- @class StbFindState
+--- @field x          float # position of n'th character
+--- @field y          float
+--- @field height     float # height of line
+--- @field first_char int   # first char of row, and length
+--- @field length     int
+--- @field prev_first int   # first char of previous row
+
+--- @return StbFindState
+local function StbFindState()
+    return {
+        x = 0.0, y = 0.0,
+        height = 0.0,
+        first_char = 0, length = 0,
+        prev_first = 0
+    }
+end
+
+--- @param f StbFindState
+local function StbFindState_Reset(f)
+    f.x = 0.0
+    f.y = 0.0
+    f.height = 0.0
+    f.first_char = 0
+    f.length = 0
+    f.prev_first = 0
+end
+
+local stb_textedit_find_charpos do
+
+local r = StbTexteditRow()
+
+-- find the x/y location of a character, and remember info about the previous row in
+-- case we get a move-up event (for page up, we'll have to rescan)
+--- @param find        StbFindState
+--- @param str         IMSTB_TEXTEDIT_STRING
+--- @param n           int
+--- @param single_line int
+function stb_textedit_find_charpos(find, str, n, single_line)
+    StbTexteditRow_Reset(r)
+    local prev_start = 1
+    local z = STB_TEXTEDIT_STRINGLEN(str)
+    local first
+
+    -- special case if it's at the end (may not be needed?)
+    if n == z + 1 and single_line then
+        STB_TEXTEDIT_LAYOUTROW(r, str, 1)
+        find.y = 0
+        find.first_char = 1
+        find.length = z
+        find.height = r.ymax - r.ymin
+        find.x = r.x1
+
+        return
+    end
+
+    -- search rows to find the one that straddles character n
+    find.y = 0
+
+    local i = 1
+    while true do
+        STB_TEXTEDIT_LAYOUTROW(r, str, i)
+        if n < i + r.num_chars - 1 then
+            break
+        end
+        if str.LastMoveDirectionLR == ImGuiDir.Right and str.Stb.cursor > 1 and str.Stb.cursor == i + r.num_chars and STB_TEXTEDIT_GETCHAR(str, i + r.num_chars - 1) ~= STB_TEXTEDIT_NEWLINE then -- [IMGUI] Wrapping point handling
+            break
+        end
+        if (i - 1) + r.num_chars == z and z > 0 and STB_TEXTEDIT_GETCHAR(str, z) ~= STB_TEXTEDIT_NEWLINE then -- [IMGUI] special handling for last line
+            break
+        end
+        prev_start = i
+        i = i + r.num_chars
+        find.y = find.y + r.baseline_y_delta
+        if i == z + 1 then -- [IMGUI]
+            r.num_chars = 0
+            break
+        end
+    end
+
+    find.first_char = i
+    first = i
+    find.length = r.num_chars
+    find.height = r.ymax - r.ymin
+    find.prev_first = prev_start
+
+    -- now scan to find xpos
+    find.x = r.x0
+    i = 1
+    while first + i <= n + 1 do
+        find.x = find.x + STB_TEXTEDIT_GETWIDTH(str, first, i)
+        i = IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, first + i - 1) - first + 1
+    end
+end
+
+end
+
+-- make the selection/cursor state valid if client altered the string
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+local function stb_textedit_clamp(str, state)
+    local n = STB_TEXTEDIT_STRINGLEN(str)
+    if STB_TEXT_HAS_SELECTION(state) then
+        if state.select_start > n + 1 then state.select_start = n + 1 end
+        if state.select_end > n + 1 then state.select_end = n + 1 end
+        -- if clamping forced them to be equal, move the cursor to match
+        if state.select_start == state.select_end then
+            state.cursor = state.select_start
+        end
+    end
+    if state.cursor > n + 1 then state.cursor = n + 1 end
+end
+
+-- delete characters while updating undo
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+--- @param where int
+--- @param len   int
+local function stb_textedit_delete(str, state, where, len)
+    stb_text_makeundo_delete(str, state, where, len)
+    STB_TEXTEDIT_DELETECHARS(str, where, len)
+    state.has_preferred_x = false
+end
 
 -----------------------------------------------------
 -----------------------------------------------------
@@ -248,11 +541,37 @@ local function stb_text_createundo(state, pos, insert_len, delete_len)
     end
 end
 
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+local function stb_text_undo(str, state)
+
+end
+
+local function stb_text_redo()
+
+end
+
+local function stb_text_makeundo_insert()
+
+end
+
+function stb_text_makeundo_delete(str, state, where, length)
+
+end
+
+local function stb_text_makeundo_replace()
+
+end
+
 local function stb_textedit_clear_state(state, is_single_line)
 
 end
 
 return {
+    click = stb_textedit_click,
+    drag = stb_textedit_drag,
     createundo = stb_text_createundo,
-    initialize_state = stb_textedit_clear_state
+    initialize_state = stb_textedit_clear_state,
+
+    HAS_SELECTION = STB_TEXT_HAS_SELECTION
 }

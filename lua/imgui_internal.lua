@@ -1067,22 +1067,23 @@ end
 --- @alias ImStbTexteditState STB_TexteditState
 
 --- @class ImGuiInputTextState
---- @field Ctx                ImGuiContext        # parent UI context (needs to be set explicitly by parent)
---- @field Stb                ImStbTexteditState  # State for stb_textedit.lua
---- @field Flags              ImGuiInputTextFlags
---- @field ID                 ImGuiID             # widget id owning the text state
---- @field TextLen            int                 # UTF-8 length of the string in TextA (in bytes)
---- @field TextSrc            ImStringBuffer      # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
---- @field TextA              ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
---- @field TextToRevertTo     ImVector<char>      # value to revert to when pressing Escape = backup of end-user buffer at the time of focus (in UTF-8, unaltered)
---- @field CallbackTextBackup ImVector<char>      # temporary storage for callback to support automatic reconcile of undo-stack
---- @field BufCapacity        int                 # end-user buffer capacity (include zero terminator)
---- @field Scroll             ImVec2              # horizontal offset (managed manually) + vertical scrolling (pulled from child window's own Scroll.y)
---- @field LineCount          int                 # last line count (solely for debugging)
---- @field WrapWidth          float               # word-wrapping width
---- @field CursorAnim         float               # timer for cursor blink, reset on every user action so the cursor reappears immediately
---- @field CursorFollow       bool                # set when we want scrolling to follow the current cursor position (not always!)
---- @field CursorCenterY      bool                # set when we want scrolling to be centered over the cursor position (while resizing a word-wrapping field)
+--- @field Ctx                  ImGuiContext        # parent UI context (needs to be set explicitly by parent)
+--- @field Stb                  ImStbTexteditState  # State for stb_textedit.lua
+--- @field Flags                ImGuiInputTextFlags
+--- @field ID                   ImGuiID             # widget id owning the text state
+--- @field TextLen              int                 # UTF-8 length of the string in TextA (in bytes)
+--- @field TextSrc              ImStringBuffer      # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
+--- @field TextA                ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
+--- @field TextToRevertTo       ImVector<char>      # value to revert to when pressing Escape = backup of end-user buffer at the time of focus (in UTF-8, unaltered)
+--- @field CallbackTextBackup   ImVector<char>      # temporary storage for callback to support automatic reconcile of undo-stack
+--- @field BufCapacity          int                 # end-user buffer capacity (include zero terminator)
+--- @field Scroll               ImVec2              # horizontal offset (managed manually) + vertical scrolling (pulled from child window's own Scroll.y)
+--- @field LineCount            int                 # last line count (solely for debugging)
+--- @field WrapWidth            float               # word-wrapping width
+--- @field CursorAnim           float               # timer for cursor blink, reset on every user action so the cursor reappears immediately
+--- @field CursorFollow         bool                # set when we want scrolling to follow the current cursor position (not always!)
+--- @field CursorCenterY        bool                # set when we want scrolling to be centered over the cursor position (while resizing a word-wrapping field)
+--- @field SelectedAllMouseLock bool                # after a double-click to select all, we ignore further mouse drags to update selection
 MT.ImGuiInputTextState = {}
 MT.ImGuiInputTextState.__index = MT.ImGuiInputTextState
 
@@ -1094,7 +1095,7 @@ local function ImGuiInputTextState()
         ID    = 0,
 
         TextLen            = 0,
-        TextSrc            = {},
+        TextSrc            = nil,
         TextA              = ImVector(),
         TextToRevertTo     = ImVector,
         CallbackTextBackup = ImVector(),
@@ -1107,6 +1108,7 @@ local function ImGuiInputTextState()
         CursorAnim    = 0.0,
         CursorFollow  = false,
         CursorCenterY = false,
+        SelectedAllMouseLock = false,
     }
 
     return setmetatable(this, MT.ImGuiInputTextState)

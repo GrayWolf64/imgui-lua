@@ -101,7 +101,7 @@ function IM_SLICE_FILL(_dst, _val, _cnt)
 end
 
 IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
-ImTextureID_Invalid             = 0
+ImTextureID_Invalid = -1
 
 --- @enum ImTextureFormat
 ImTextureFormat = {
