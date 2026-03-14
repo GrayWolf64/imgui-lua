@@ -390,7 +390,7 @@ local r = StbTexteditRow()
 --- @param find        StbFindState
 --- @param str         IMSTB_TEXTEDIT_STRING
 --- @param n           int
---- @param single_line int
+--- @param single_line bool
 function stb_textedit_find_charpos(find, str, n, single_line)
     StbTexteditRow_Reset(r)
     local prev_start = 1
@@ -541,11 +541,16 @@ local function stb_textedit_prep_selection_at_cursor(state)
     end
 end
 
+local stb_textedit_key do
+
+local find = StbFindState()
+local row = StbTexteditRow()
+
 -- API key: process a keyboard input
 --- @param str   IMSTB_TEXTEDIT_STRING
 --- @param state STB_TexteditState
 --- @param key   STB_TEXTEDIT_KEYTYPE
-local function stb_textedit_key(str, state, key)
+function stb_textedit_key(str, state, key)
 :: retry ::
     if key == STB_TEXTEDIT_K_UNDO then
         stb_text_undo(str, state)
@@ -624,8 +629,233 @@ local function stb_textedit_key(str, state, key)
         stb_textedit_clamp(str, state)
         state.cursor = state.select_end
         state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_DOWN
+        or key == bit.bor(STB_TEXTEDIT_K_DOWN, STB_TEXTEDIT_K_SHIFT)
+        or key == STB_TEXTEDIT_K_PGDOWN
+        or key == bit.bor(STB_TEXTEDIT_K_PGDOWN, STB_TEXTEDIT_K_SHIFT) then
+
+        StbFindState_Reset(find)
+        StbTexteditRow_Reset(row)
+        local sel = (bit.band(key, STB_TEXTEDIT_K_SHIFT) ~= 0)
+        local is_page = (bit.band(key, bit.bnot(STB_TEXTEDIT_K_SHIFT)) == STB_TEXTEDIT_K_PGDOWN)
+        local row_count = is_page and state.row_count_per_page or 1
+
+        if not is_page and state.single_line then
+            -- on windows, up&down in single-line behave like left&right
+            key = bit.bor(STB_TEXTEDIT_K_RIGHT, bit.band(key, STB_TEXTEDIT_K_SHIFT))
+            goto retry
+        end
+
+        if sel then
+            stb_textedit_prep_selection_at_cursor(state)
+        elseif STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_move_to_last(str, state)
+        end
+
+        -- compute current position of cursor point
+        stb_textedit_clamp(str, state)
+        stb_textedit_find_charpos(find, str, state.cursor, state.single_line)
+
+        for j = 1, row_count do
+            local goal_x = state.has_preferred_x and state.preferred_x or find.x
+            local x
+            local start = find.first_char + find.length
+
+            if find.length == 0 then
+                break
+            end
+
+            -- [IMGUI]
+            -- going down while being on the last line shouldn't bring us to that line end
+            --if STB_TEXTEDIT_GETCHAR(str, find.first_char + find.length - 1) ~= STB_TEXTEDIT_NEWLINE then
+            --   break
+            --end
+
+            -- now find character position down a row
+            state.cursor = start
+            STB_TEXTEDIT_LAYOUTROW(row, str, state.cursor)
+            x = row.x0
+            local i = 1
+            while i <= row.num_chars do
+                local dx = STB_TEXTEDIT_GETWIDTH(str, start, i)
+                local next = IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, state.cursor)
+                x = x + dx
+                if x > goal_x then
+                    break
+                end
+                i = i + (next - state.cursor)
+                state.cursor = next
+            end
+            stb_textedit_clamp(str, state)
+
+            if state.cursor == find.first_char + find.length then
+                str.LastMoveDirectionLR = ImGuiDir.Left
+            end
+            state.has_preferred_x = true
+            state.preferred_x = goal_x
+
+            if sel then
+                state.select_end = state.cursor
+            end
+
+            -- go to next line
+            find.first_char = find.first_char + find.length
+            find.length = row.num_chars
+        end
+    elseif key == STB_TEXTEDIT_K_UP
+        or key == bit.bor(STB_TEXTEDIT_K_UP, STB_TEXTEDIT_K_SHIFT)
+        or key == STB_TEXTEDIT_K_PGUP
+        or key == bit.bor(STB_TEXTEDIT_K_PGUP, STB_TEXTEDIT_K_SHIFT) then
+
+        StbFindState_Reset(find)
+        StbTexteditRow_Reset(row)
+        local sel = (bit.band(key, STB_TEXTEDIT_K_SHIFT) ~= 0)
+        local is_page = (bit.band(key, bit.bnot(STB_TEXTEDIT_K_SHIFT)) == STB_TEXTEDIT_K_PGUP)
+        local row_count = is_page and state.row_count_per_page or 1
+
+        if not is_page and state.single_line then
+            -- on windows, up&down become left&right
+            key = bit.bor(STB_TEXTEDIT_K_LEFT, bit.band(key, STB_TEXTEDIT_K_SHIFT))
+            goto retry
+        end
+
+        if sel then
+            stb_textedit_prep_selection_at_cursor(state)
+        elseif STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_move_to_first(state)
+        end
+
+        -- compute current position of cursor point
+        stb_textedit_clamp(str, state)
+        stb_textedit_find_charpos(find, str, state.cursor, state.single_line)
+
+        for j = 1, row_count do
+            local goal_x
+            if state.has_preferred_x then
+                goal_x = state.preferred_x
+            else
+                goal_x = find.x
+            end
+            local x
+
+            -- can only go up if there's a previous row
+            if find.prev_first == find.first_char then
+                break
+            end
+
+            -- now find character position up a row
+            state.cursor = find.prev_first
+            STB_TEXTEDIT_LAYOUTROW(row, str, state.cursor)
+            x = row.x0
+            local i = 1
+            while i <= row.num_chars do
+                local dx = STB_TEXTEDIT_GETWIDTH(str, find.prev_first, i)
+                local next = IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, state.cursor)
+                x = x + dx
+                if x > goal_x then
+                    break
+                end
+                i = i + (next - state.cursor)
+                state.cursor = next
+            end
+            stb_textedit_clamp(str, state)
+
+            if state.cursor == find.first_char then
+                str.LastMoveDirectionLR = ImGuiDir.Right
+            elseif state.cursor == find.prev_first then
+                str.LastMoveDirectionLR = ImGuiDir.Left
+            end
+            state.has_preferred_x = true
+            state.preferred_x = goal_x
+
+            if sel then
+                state.select_end = state.cursor
+            end
+
+            -- go to previous line
+            -- (we need to scan previous line the hard way. maybe we could expose this as a new API function?)
+            local prev_scan = find.prev_first > 1 and find.prev_first - 1 or 1
+            while prev_scan > 1 do
+                local prev = IMSTB_TEXTEDIT_GETPREVCHARINDEX(str, prev_scan)
+                if STB_TEXTEDIT_GETCHAR(str, prev) == STB_TEXTEDIT_NEWLINE then
+                    break
+                end
+                prev_scan = prev
+            end
+            find.first_char = find.prev_first
+            find.prev_first = STB_TEXTEDIT_MOVELINESTART(str, state, prev_scan)
+        end
+    elseif key == STB_TEXTEDIT_K_DELETE
+        or key == bit.bor(STB_TEXTEDIT_K_DELETE, STB_TEXTEDIT_K_SHIFT) then
+
+        if STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_delete_selection(str, state)
+        else
+            local n = STB_TEXTEDIT_STRINGLEN(str)
+            if state.cursor <= n then
+                stb_textedit_delete(str, state, state.cursor, IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, state.cursor) - state.cursor)
+            end
+        end
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_BACKSPACE
+        or key == bit.bor(STB_TEXTEDIT_K_BACKSPACE, STB_TEXTEDIT_K_SHIFT) then
+
+        if STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_delete_selection(str, state)
+        else
+            stb_textedit_clamp(str, state)
+            if state.cursor > 1 then
+                local prev = IMSTB_TEXTEDIT_GETPREVCHARINDEX(str, state.cursor)
+                stb_textedit_delete(str, state, prev, state.cursor - prev)
+                state.cursor = prev
+            end
+        end
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_TEXTSTART then
+        state.cursor = 1
+        state.select_start = 1
+        state.select_end = 1
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_TEXTEND then
+        state.cursor = STB_TEXTEDIT_STRINGLEN(str) + 1
+        state.select_start = 1
+        state.select_end = 1
+        state.has_preferred_x = false
+    elseif key == bit.bor(STB_TEXTEDIT_K_TEXTSTART, STB_TEXTEDIT_K_SHIFT) then
+        stb_textedit_prep_selection_at_cursor(state)
+        state.cursor = 1
+        state.select_end = 1
+        state.has_preferred_x = false
+    elseif key == bit.bor(STB_TEXTEDIT_K_TEXTEND, STB_TEXTEDIT_K_SHIFT) then
+        stb_textedit_prep_selection_at_cursor(state)
+        state.cursor = STB_TEXTEDIT_STRINGLEN(str) + 1
+        state.select_end = state.cursor
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_LINESTART then
+        stb_textedit_clamp(str, state)
+        stb_textedit_move_to_first(state)
+        state.cursor = STB_TEXTEDIT_MOVELINESTART(str, state, state.cursor)
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_LINEEND then
+        stb_textedit_clamp(str, state)
+        stb_textedit_move_to_last(str, state)
+        state.cursor = STB_TEXTEDIT_MOVELINEEND(str, state, state.cursor)
+        state.has_preferred_x = false
+    elseif key == bit.bor(STB_TEXTEDIT_K_LINESTART, STB_TEXTEDIT_K_SHIFT) then
+        stb_textedit_clamp(str, state)
+        stb_textedit_prep_selection_at_cursor(state)
+        state.cursor = STB_TEXTEDIT_MOVELINESTART(str, state, state.cursor)
+        state.select_end = state.cursor
+        state.has_preferred_x = false
+    elseif key == bit.bor(STB_TEXTEDIT_K_LINEEND, STB_TEXTEDIT_K_SHIFT) then
+        stb_textedit_clamp(str, state)
+        stb_textedit_prep_selection_at_cursor(state)
+        state.cursor = STB_TEXTEDIT_MOVELINEEND(str, state, state.cursor)
+        state.select_end = state.cursor
+        state.has_preferred_x = false
     end
-    -- TODO:
+end
+
 end
 
 -----------------------------------------------------
