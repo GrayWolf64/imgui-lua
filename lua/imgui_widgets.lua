@@ -2841,6 +2841,45 @@ function ImStb.TEXTEDIT_DELETECHARS(obj, pos, n)
     obj.TextLen = obj.TextLen - n
 end
 
+--- @param obj          ImGuiInputTextState
+--- @param pos          int
+--- @param new_text     ImStringBuffer
+--- @param new_text_pos int
+--- @param new_text_len int
+function ImStb.TEXTEDIT_INSERTCHARS(obj, pos, new_text, new_text_pos, new_text_len)
+    local is_resizable = bit.band(obj.Flags, ImGuiInputTextFlags.CallbackResize) ~= 0
+    local text_len = obj.TextLen
+    IM_ASSERT(pos <= text_len + 1)
+
+    -- We support partial insertion (with a mod in stb_textedit)
+    local avail = obj.BufCapacity - 1 - obj.TextLen
+    if not is_resizable and new_text_len > avail then
+        new_text_len = math.floor(ImStd.ImTextFindValidUtf8CodepointEnd(new_text, new_text_pos, new_text_len + 1, avail) - new_text_pos) -- Truncate to closest UTF-8 codepoint. Alternative: return 0 to cancel insertion
+    end
+    if new_text_len == 0 then
+        return 0
+    end
+
+    -- Grow internal buffer if needed
+    IM_ASSERT(obj.TextSrc == obj.TextA.Data)
+    if text_len + new_text_len + 1 > obj.TextA.Size and is_resizable then
+        obj.TextA:resize(text_len + ImClamp(new_text_len, 32, ImMax(256, new_text_len)) + 1)
+        obj.TextSrc = obj.TextA.Data
+    end
+
+    local text = obj.TextA.Data
+    if pos ~= text_len + 1 then
+        ImStd.memmove(text, pos + new_text_len, text, pos, text_len - pos + 1)
+    end
+    ImStd.memmove(text, pos, new_text, new_text_pos, new_text_len)
+
+    obj.Edited = true
+    obj.TextLen = obj.TextLen + new_text_len
+    -- obj.TextA[obj.TextLen + 1] = 0
+
+    return new_text_len
+end
+
 do
 
 local MT = ImGui.GetMetatables()

@@ -21,6 +21,7 @@ local STB_TEXTEDIT_MOVEWORDRIGHT = ImStb.TEXTEDIT_MOVEWORDRIGHT
 local STB_TEXTEDIT_MOVELINESTART = ImStb.TEXTEDIT_MOVELINESTART
 local STB_TEXTEDIT_MOVELINEEND   = ImStb.TEXTEDIT_MOVELINEEND
 local STB_TEXTEDIT_DELETECHARS   = ImStb.TEXTEDIT_DELETECHARS
+local STB_TEXTEDIT_INSERTCHARS   = ImStb.TEXTEDIT_INSERTCHARS
 
 local IMSTB_TEXTEDIT_UNDOSTATECOUNT = ImStb.TEXTEDIT_UNDOSTATECOUNT
 local IMSTB_TEXTEDIT_UNDOCHARCOUNT = ImStb.TEXTEDIT_UNDOCHARCOUNT
@@ -512,8 +513,11 @@ local function stb_textedit_discard_redo(state)
 
         -- now move all the redo records towards the end of the buffer; the first one is at 'redo_point'
         -- [IMGUI]
-        local move_size = IMSTB_TEXTEDIT_UNDOSTATECOUNT - state.redo_point
-        -- TODO:
+        local move_size = IMSTB_TEXTEDIT_UNDOSTATECOUNT - state.redo_point - 1
+        IMSTB_TEXTEDIT_memmove(state.undo_rec, state.redo_point + 1, state.undo_rec, state.redo_point, move_size)
+
+        -- now move redo_point to point to the new one
+        state.redo_point = state.redo_point + 1
     end
 end
 
@@ -632,7 +636,7 @@ local function stb_text_undo(str, state)
     -- check type of recorded action:
     if u.insert_length > 0 then
         -- easy case: was a deletion, so we need to insert n characters
-        u.insert_length = STB_TEXTEDIT_INSERTCHARS(str, u.where, s.undo_char[u.char_storage], u.insert_length)
+        u.insert_length = STB_TEXTEDIT_INSERTCHARS(str, u.where, s.undo_char, u.char_storage, u.insert_length)
         s.undo_char_point = s.undo_char_point - u.insert_length
     end
 

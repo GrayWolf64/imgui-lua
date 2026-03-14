@@ -332,6 +332,26 @@ function ImStd.ImTextFindPreviousUtf8Codepoint(text, in_text_start, in_p)
     return in_text_start
 end
 
+--- @param text          ImString
+--- @param in_text_start int
+--- @param in_text_end   int
+--- @param in_p          int
+--- @return int
+function ImStd.ImTextFindValidUtf8CodepointEnd(text, in_text_start, in_text_end, in_p)
+    if in_text_start == in_p then
+        return in_text_start
+    end
+
+    local prev = ImStd.ImTextFindPreviousUtf8Codepoint(text, in_text_start, in_p)
+    local prev_c_len, prev_c = ImStd.ImTextCharFromUtf8(text, prev, in_text_end)
+
+    -- Check if the previous character is valid and fits within the range
+    if prev_c ~= IM_UNICODE_CODEPOINT_INVALID and prev_c_len <= (in_p - prev) then
+        return in_p
+    end
+    return prev
+end
+
 --- @param a ImVec2
 --- @param b ImVec2
 --- @param p ImVec2
