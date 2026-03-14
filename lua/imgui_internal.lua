@@ -246,6 +246,17 @@ function ImMul(lhs, rhs)
     return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
 end
 
+--- @param str char[]
+function ImStd.ImStrlen(str)
+    local l = #str
+    for i = 1, l do
+        if str[i] == 0 then
+            return i - 1
+        end
+    end
+    return l
+end
+
 -- string.find with patterns disabled
 --- @param str        string
 --- @param s          string

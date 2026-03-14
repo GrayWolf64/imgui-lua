@@ -351,7 +351,9 @@ end
 ---
 ---
 
+local stb_text_makeundo_insert
 local stb_text_makeundo_delete
+local stb_text_makeundo_replace
 
 --- @class StbFindState
 --- @field x          float # position of n'th character
@@ -538,6 +540,37 @@ local function stb_textedit_prep_selection_at_cursor(state)
         state.select_end = state.cursor
     else
         state.cursor = state.select_end
+    end
+end
+
+-- API key: process text input
+-- [IMGUI] Added stb_textedit_text(), extracted out and called by stb_textedit_key() for backward compatibility.
+--- @param str       IMSTB_TEXTEDIT_STRING
+--- @param state     STB_TexteditState
+--- @param text      IMSTB_TEXTEDIT_CHARTYPE[]
+--- @param text_len int
+local function stb_textedit_text(str, state, text, text_len)
+    -- can't add newline in single-line mode
+    if text[1] == STB_TEXTEDIT_NEWLINE and state.single_line then
+        return
+    end
+
+    if state.insert_mode and not STB_TEXT_HAS_SELECTION(state) and state.cursor < STB_TEXTEDIT_STRINGLEN(str) then
+        stb_text_makeundo_replace(str, state, state.cursor, 1, 1)
+        STB_TEXTEDIT_DELETECHARS(str, state.cursor, 1)
+        text_len = STB_TEXTEDIT_INSERTCHARS(str, state.cursor, text, 1, text_len)
+        if text_len then
+            state.cursor = state.cursor + text_len
+            state.has_preferred_x = false
+        end
+    else
+        stb_textedit_delete_selection(str, state) -- implicitly clamps
+        text_len = STB_TEXTEDIT_INSERTCHARS(str, state.cursor, text, 1, text_len)
+        if text_len then
+            stb_text_makeundo_insert(state, state.cursor, text_len)
+            state.cursor = state.cursor + text_len
+            state.has_preferred_x = false
+        end
     end
 end
 
@@ -1056,7 +1089,7 @@ function stb_text_redo(str, state)
 
 end
 
-local function stb_text_makeundo_insert()
+function stb_text_makeundo_insert(state, where, length)
 
 end
 
@@ -1064,7 +1097,7 @@ function stb_text_makeundo_delete(str, state, where, length)
 
 end
 
-local function stb_text_makeundo_replace()
+function stb_text_makeundo_replace()
 
 end
 
@@ -1077,6 +1110,9 @@ return {
     drag = stb_textedit_drag,
     createundo = stb_text_createundo,
     initialize_state = stb_textedit_clear_state,
+
+    text = stb_textedit_text,
+    key = stb_textedit_key,
 
     clamp = stb_textedit_clamp,
     prep_selection_at_cursor = stb_textedit_prep_selection_at_cursor,

@@ -2886,7 +2886,7 @@ local MT = ImGui.GetMetatables()
 
 --- @param key int
 function MT.ImGuiInputTextState:OnKeyPressed(key)
-    stb_textedit_key(self, self.Stb, key)
+    stbte.key(self, self.Stb, key)
     self.CursorFollow = true
     self:CursorAnimReset()
     local key_u = bit.band(key, bit.bnot(ImStb.TEXTEDIT_K_SHIFT))
@@ -2895,6 +2895,18 @@ function MT.ImGuiInputTextState:OnKeyPressed(key)
     elseif key_u == ImStb.TEXTEDIT_K_RIGHT or key_u == ImStb.TEXTEDIT_K_LINEEND or key_u == ImStb.TEXTEDIT_K_TEXTEND or key_u == ImStb.TEXTEDIT_K_DELETE or key_u == ImStb.TEXTEDIT_K_WORDRIGHT then
         self.LastMoveDirectionLR = ImGuiDir.Right
     end
+end
+
+local utf8 = {0, 0, 0, 0, 0}
+
+--- @param c unsigned_int
+function MT.ImGuiInputTextState:OnCharPressed(c)
+    -- Convert the key to a UTF8 byte sequence.
+    -- The changes we had to make to stb_textedit_key made it very much UTF-8 specific which is not too great.
+    ImStd.ImTextCharToUtf8(utf8, c)
+    stbte.text(self, self.Stb, utf8, ImStd.ImStrlen(utf8))
+    self.CursorFollow = true
+    self:CursorAnimReset()
 end
 
 -- After a user-input the cursor stays on for a while without blinking
@@ -2943,15 +2955,17 @@ function ImGui.PopPasswordFont()
     IM_ASSERT(backup.IndexAdvanceX.Size == 0 and backup.IndexLookup.Size == 0)
 end
 
---- @param ctx                       ImGuiContext
---- @param state                     ImGuiInputTextState
---- @param char                      unsigned_int
---- @param callback                  ImGuiInputTextCallback
---- @param user_data                 any
---- @param input_source_is_clipboard bool
+--- @param ctx                        ImGuiContext
+--- @param state                      ImGuiInputTextState
+--- @param char                       unsigned_int
+--- @param callback?                  ImGuiInputTextCallback
+--- @param user_data                  any
+--- @param input_source_is_clipboard? bool
 --- @return unsigned_int out_char
 --- @return bool
 local function InputTextFilterCharacter(ctx, state, char, callback, user_data, input_source_is_clipboard)
+    if input_source_is_clipboard == nil then input_source_is_clipboard = false end
+
     local c = char
     local flags = state.Flags
 
@@ -3160,7 +3174,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Password) == 0)  -- WordWrap does not work with Password mode
     IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0) -- WordWrap does not work in single-line mode
 
-    local g = GImGui
+    local g = GImGui --[[@as ImGuiContext]]
     local io = g.IO
     local style = g.Style
 
@@ -3510,6 +3524,34 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             state.SelectedAllMouseLock = false
         end
 
+        if bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0 and not is_readonly then
+            -- TODO: Shortcut
+            -- FIXME: Implement Shift+Tab
+        end
+
+        -- Process regular text input
+        local ignore_char_inputs = io.KeyCtrl and not io.KeyAlt
+        if io.InputQueueCharacters.Size > 0 then
+            if not ignore_char_inputs and not is_readonly and not input_requested_by_nav then
+                for n = 1, io.InputQueueCharacters.Size do
+                    -- Insert character if they pass filtering
+                    local c = io.InputQueueCharacters[n]
+                    if c == 9 then -- Skip Tab, see above
+                        goto CONTINUE
+                    end
+                    local ret2
+                    c, ret2 = InputTextFilterCharacter(g, state, c, callback, callback_user_data)
+                    if ret2 then
+                        state:OnCharPressed(c)
+                    end
+
+                    :: CONTINUE ::
+                end
+            end
+
+            -- Consume characters
+            io.InputQueueCharacters:resize(0)
+        end
     end
 
 end

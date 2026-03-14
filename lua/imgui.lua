@@ -310,6 +310,54 @@ end
 
 end
 
+--- @param buf      char[]
+--- @param buf_size int
+--- @param c        unsigned_int
+local function ImTextCharToUtf8_inline(buf, buf_size, c)
+    if c < 0x80 then
+        buf[1] = c
+        return 1
+    end
+    if c < 0x800 then
+        if buf_size < 2 then
+            return 0
+        end
+        buf[1] = (0xc0 + bit.rshift(c, 6))
+        buf[2] = (0x80 + bit.band(c, 0x3f))
+        return 2
+    end
+    if c < 0x10000 then
+        if buf_size < 3 then
+            return 0
+        end
+        buf[1] = (0xe0 + bit.rshift(c, 12))
+        buf[2] = (0x80 + bit.band(bit.rshift(c, 6), 0x3f))
+        buf[3] = (0x80 + bit.band(c, 0x3f))
+        return 3
+    end
+    if c <= 0x10FFFF then
+        if buf_size < 4 then
+            return 0
+        end
+        buf[1] = (0xf0 + bit.rshift(c, 18))
+        buf[2] = (0x80 + bit.band(bit.rshift(c, 12), 0x3f))
+        buf[3] = (0x80 + bit.band(bit.rshift(c, 6), 0x3f))
+        buf[4] = (0x80 + bit.band(c, 0x3f))
+        return 4
+    end
+
+    -- Invalid code point, the max unicode is 0x10FFFF
+    return 0
+end
+
+--- @param out_buf [char, char, char, char, char]
+--- @param c       unsigned_int
+function ImStd.ImTextCharToUtf8(out_buf, c)
+    local count = ImTextCharToUtf8_inline(out_buf, 5, c)
+    out_buf[count + 1] = 0
+    return count
+end
+
 --- @param in_text     ImString
 --- @param pos         int
 --- @param in_text_end int
