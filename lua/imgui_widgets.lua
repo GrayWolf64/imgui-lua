@@ -2943,6 +2943,138 @@ function ImGui.PopPasswordFont()
     IM_ASSERT(backup.IndexAdvanceX.Size == 0 and backup.IndexLookup.Size == 0)
 end
 
+--- @param ctx                       ImGuiContext
+--- @param state                     ImGuiInputTextState
+--- @param char                      unsigned_int
+--- @param callback                  ImGuiInputTextCallback
+--- @param user_data                 any
+--- @param input_source_is_clipboard bool
+--- @return unsigned_int out_char
+--- @return bool
+local function InputTextFilterCharacter(ctx, state, char, callback, user_data, input_source_is_clipboard)
+    local c = char
+    local flags = state.Flags
+
+    -- Filter non-printable (NB: isprint is unreliable! see #2467)
+    local apply_named_filters = true
+    if c < 0x20 then
+        local pass = false
+        pass = pass or (c == 10) and (bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0) -- Note that an Enter KEY will emit \r and be ignored (we poll for KEY in InputText() code)
+        if c == 10 and input_source_is_clipboard and (bit.band(flags, ImGuiInputTextFlags.Multiline) == 0) then -- In single line mode, replace \n with a space
+            char = 32
+            c = 32
+            pass = true
+        end
+        pass = pass or (c == 10) and (bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0)
+        pass = pass or (c == 9) and (bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0) -- tab
+        if not pass then
+            return char, false
+        end
+        apply_named_filters = false -- Override named filters below so newline and tabs can still be inserted.
+    end
+
+    if not input_source_is_clipboard then
+        -- We ignore Ascii representation of delete (emitted from Backspace on OSX, see #2578, #2817)
+        if c == 127 then
+            return char, false
+        end
+
+        -- Filter private Unicode range. GLFW on OSX seems to send private characters for special keys like arrow keys (FIXME)
+        if c >= 0xE000 and c <= 0xF8FF then
+            return char, false
+        end
+    end
+
+    -- Filter Unicode ranges we are not handling in this build
+    if c > IM_UNICODE_CODEPOINT_MAX then
+        return char, false
+    end
+
+    -- Generic named filters
+    if apply_named_filters and (bit.band(flags, bit.bor(ImGuiInputTextFlags.CharsDecimal, ImGuiInputTextFlags.CharsHexadecimal, ImGuiInputTextFlags.CharsUppercase, ImGuiInputTextFlags.CharsNoBlank, ImGuiInputTextFlags.CharsScientific, ImGuiInputTextFlags.LocalizeDecimalPoint))) ~= 0 then
+        -- The libc allows overriding locale, with e.g. 'setlocale(LC_NUMERIC, "de_DE.UTF-8");' which affect the output/input of printf/scanf to use e.g. ',' instead of '.'.
+        -- The standard mandate that programs starts in the "C" locale where the decimal point is '.'.
+        -- We don't really intend to provide widespread support for it, but out of empathy for people stuck with using odd API, we support the bare minimum aka overriding the decimal point.
+        -- Change the default decimal_point with:
+        --   ImGui::GetPlatformIO()->Platform_LocaleDecimalPoint = *localeconv()->decimal_point;
+        -- Users of non-default decimal point (in particular ',') may be affected by word-selection logic (is_word_boundary_from_right/is_word_boundary_from_left) functions.
+        local g = ctx
+        local c_decimal_point = g.PlatformIO.Platform_LocaleDecimalPoint
+        if bit.band(flags, bit.bor(ImGuiInputTextFlags.CharsDecimal, ImGuiInputTextFlags.CharsScientific, ImGuiInputTextFlags.LocalizeDecimalPoint)) ~= 0 then
+            if c == 46 or c == 44 then -- '.' or ','
+                c = c_decimal_point
+            end
+        end
+
+        -- Full-width -> half-width conversion for numeric fields: https://en.wikipedia.org/wiki/Halfwidth_and_Fullwidth_Forms_(Unicode_block)
+        -- While this is mostly convenient, this has the side-effect for uninformed users accidentally inputting full-width characters that they may
+        -- scratch their head as to why it works in numerical fields vs in generic text fields it would require support in the font.
+        if bit.band(flags, bit.bor(ImGuiInputTextFlags.CharsDecimal, ImGuiInputTextFlags.CharsScientific, ImGuiInputTextFlags.CharsHexadecimal)) ~= 0 then
+            if c >= 0xFF01 and c <= 0xFF5E then
+                c = c - 0xFF01 + 0x21
+            end
+        end
+
+        -- Allow 0-9 . - + * /
+        if bit.band(flags, ImGuiInputTextFlags.CharsDecimal) ~= 0 then
+            if not (c >= 48 and c <= 57) and (c ~= c_decimal_point) and (c ~= 45) and (c ~= 43) and (c ~= 42) and (c ~= 47) then -- 0-9 . - + * /
+                return char, false
+            end
+        end
+
+        -- Allow 0-9 . - + * / e E
+        if bit.band(flags, ImGuiInputTextFlags.CharsScientific) ~= 0 then
+            if not (c >= 48 and c <= 57) and (c ~= c_decimal_point) and (c ~= 45) and (c ~= 43) and (c ~= 42) and (c ~= 47) and (c ~= 101) and (c ~= 69) then -- 0-9 . - + * / e E
+                return char, false
+            end
+        end
+
+        -- Allow 0-9 a-F A-F
+        if bit.band(flags, ImGuiInputTextFlags.CharsHexadecimal) ~= 0 then
+            if not (c >= 48 and c <= 57) and not (c >= 97 and c <= 102) and not (c >= 65 and c <= 70) then -- 0-9 a-f A-F
+                return char, false
+            end
+        end
+
+        -- Turn a-z into A-Z
+        if bit.band(flags, ImGuiInputTextFlags.CharsUppercase) ~= 0 then
+            if c >= 97 and c <= 122 then -- a-z
+                c = c + (65 - 97) -- 'A' - 'a'
+            end
+        end
+
+        if bit.band(flags, ImGuiInputTextFlags.CharsNoBlank) ~= 0 then
+            if ImStd.ImCharIsBlankW(c) then
+                return char, false
+            end
+        end
+
+        char = c
+    end
+
+    -- Custom callback filter
+    if bit.band(flags, ImGuiInputTextFlags.CallbackCharFilter) ~= 0 then
+        local g = GImGui
+        local callback_data = ImGuiInputTextCallbackData()
+        callback_data.Ctx = g
+        callback_data.ID = state.ID
+        callback_data.Flags = flags
+        callback_data.EventFlag = ImGuiInputTextFlags.CallbackCharFilter
+        callback_data.EventChar = c
+        callback_data.EventActivated = (g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
+        callback_data.UserData = user_data
+        if callback(callback_data) ~= 0 then
+            return char, false
+        end
+        char = callback_data.EventChar
+        if not callback_data.EventChar then
+            return char, false
+        end
+    end
+
+    return char, true
+end
+
 -- Find the shortest single replacement we can make to get from old_buf to new_buf
 -- Note that this doesn't directly alter state->TextA, state->TextLen. They are expected to be made valid separately.
 -- FIXME: Ideally we should transition toward (1) making InsertChars()/DeleteChars() update undo-stack (2) discourage (and keep reconcile) or obsolete (and remove reconcile) accessing buffer directly

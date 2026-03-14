@@ -1903,4 +1903,9 @@ ImGuiInputTextFlags = {
 
 --- @class ImGuiInputTextCallbackData
 
+--- @return ImGuiInputTextCallbackData
+function ImGuiInputTextCallbackData()
+    return {}
+end
+
 --- @alias ImGuiInputTextCallback fun(data: ImGuiInputTextCallbackData)
