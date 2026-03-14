@@ -1078,5 +1078,8 @@ return {
     createundo = stb_text_createundo,
     initialize_state = stb_textedit_clear_state,
 
+    clamp = stb_textedit_clamp,
+    prep_selection_at_cursor = stb_textedit_prep_selection_at_cursor,
+
     HAS_SELECTION = STB_TEXT_HAS_SELECTION
 }

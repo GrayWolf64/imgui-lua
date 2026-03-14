@@ -2884,6 +2884,19 @@ do
 
 local MT = ImGui.GetMetatables()
 
+--- @param key int
+function MT.ImGuiInputTextState:OnKeyPressed(key)
+    stb_textedit_key(self, self.Stb, key)
+    self.CursorFollow = true
+    self:CursorAnimReset()
+    local key_u = bit.band(key, bit.bnot(ImStb.TEXTEDIT_K_SHIFT))
+    if key_u == ImStb.TEXTEDIT_K_LEFT or key_u == ImStb.TEXTEDIT_K_LINESTART or key_u == ImStb.TEXTEDIT_K_TEXTSTART or key_u == ImStb.TEXTEDIT_K_BACKSPACE or key_u == ImStb.TEXTEDIT_K_WORDLEFT then
+        self.LastMoveDirectionLR = ImGuiDir.Left
+    elseif key_u == ImStb.TEXTEDIT_K_RIGHT or key_u == ImStb.TEXTEDIT_K_LINEEND or key_u == ImStb.TEXTEDIT_K_TEXTEND or key_u == ImStb.TEXTEDIT_K_DELETE or key_u == ImStb.TEXTEDIT_K_WORDRIGHT then
+        self.LastMoveDirectionLR = ImGuiDir.Right
+    end
+end
+
 -- After a user-input the cursor stays on for a while without blinking
 function MT.ImGuiInputTextState:CursorAnimReset() self.CursorAnim = -0.30 end
 
@@ -3323,10 +3336,48 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 -- FIXME: There are likely many ways to improve this behavior, but there's no "right" behavior (depends on use-case, software, OS)
                 local is_bol = (state.Stb.cursor == 1) or ImStb.TEXTEDIT_GETCHAR(state, state.Stb.cursor - 1) == 10
                 if stbte.HAS_SELECTION(state.Stb) or not is_bol then
-
+                    state:OnKeyPressed(ImStb.TEXTEDIT_K_WORDLEFT)
                 end
+                -- state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_WORDRIGHT, STB_TEXTEDIT_K_SHIFT))
+                if not stbte.HAS_SELECTION(state.Stb) then
+                    stbte.prep_selection_at_cursor(state.Stb)
+                end
+                state.Stb.cursor = STB_TEXTEDIT_MOVEWORDRIGHT_MAC(state, state.Stb.cursor)
+                state.Stb.select_end = state.Stb.cursor
+                stbte.clamp(state, state.Stb)
+            else
+                -- Triple-click: Select line
+                local is_eol = ImStb.TEXTEDIT_GETCHAR(state, state.Stb.cursor) == 10
+                state.WrapWidth = 0.0 -- Temporarily disable wrapping so we use real line start
+                state:OnKeyPressed(ImStb.TEXTEDIT_K_LINESTART)
+                state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_LINEEND, ImStb.TEXTEDIT_K_SHIFT))
+                state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_RIGHT, ImStb.TEXTEDIT_K_SHIFT))
+                state.WrapWidth = wrap_width
+                if not is_eol and is_multiline then
+                    state.Stb.select_start, state.Stb.select_end = state.Stb.select_end, state.Stb.select_start
+                    state.Stb.cursor = state.Stb.select_end
+                end
+                state.CursorFollow = false
             end
+            state:CursorAnimReset()
+        elseif io.MouseClicked[0] and not state.SelectedAllMouseLock then
+            if hovered then
+                if io.KeyShift then
+                    stbte.drag(state, state.Stb, mouse_x, mouse_y)
+                else
+                    stbte.click(state, state.Stb, mouse_x, mouse_y)
+                end
+                state:CursorAnimReset()
+            end
+        elseif io.MouseDown[0] and not state.SelectedAllMouseLock and (io.MouseDelta.x ~= 0.0 or io.MouseDelta.y ~= 0.0) then
+            stbte.drag(state, state.Stb, mouse_x, mouse_y)
+            state.CursorAnimReset()
+            state.CursorFollow = true
         end
+        if state.SelectedAllMouseLock and not io.MouseDown[0] then
+            state.SelectedAllMouseLock = false
+        end
+
     end
 
 end
