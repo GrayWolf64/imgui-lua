@@ -20,22 +20,10 @@ local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", S
     ["$gammacolorread"] = 1  -- Disables SRGB conversion of color texture read
 })
 
---- @type function
-local ImGui_ImplGMOD_DestroyTexture
-
---- @type function
 local ImGui_ImplGMOD_UpdateTexture
-
---- @type function
 local ImGui_ImplGMOD_RenderDrawData
-
---- @type function
 local ImGui_ImplGMOD_ProcessEvent
-
---- @type function
 local ImGui_ImplGMOD_Shutdown
-
---- @type function
 local ImGui_ImplGMOD_InvalidateEngineObjects
 
 local function ImGui_ImplGMOD_GetBackendData()
