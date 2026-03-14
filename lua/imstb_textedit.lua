@@ -23,9 +23,30 @@ local STB_TEXTEDIT_MOVELINEEND   = ImStb.TEXTEDIT_MOVELINEEND
 local STB_TEXTEDIT_DELETECHARS   = ImStb.TEXTEDIT_DELETECHARS
 local STB_TEXTEDIT_INSERTCHARS   = ImStb.TEXTEDIT_INSERTCHARS
 
+local STB_TEXTEDIT_K_LEFT      = ImStb.TEXTEDIT_K_LEFT      -- keyboard input to move cursor left
+local STB_TEXTEDIT_K_RIGHT     = ImStb.TEXTEDIT_K_RIGHT     -- keyboard input to move cursor right
+local STB_TEXTEDIT_K_UP        = ImStb.TEXTEDIT_K_UP        -- keyboard input to move cursor up
+local STB_TEXTEDIT_K_DOWN      = ImStb.TEXTEDIT_K_DOWN      -- keyboard input to move cursor down
+local STB_TEXTEDIT_K_LINESTART = ImStb.TEXTEDIT_K_LINESTART -- keyboard input to move cursor to start of line
+local STB_TEXTEDIT_K_LINEEND   = ImStb.TEXTEDIT_K_LINEEND   -- keyboard input to move cursor to end of line
+local STB_TEXTEDIT_K_TEXTSTART = ImStb.TEXTEDIT_K_TEXTSTART -- keyboard input to move cursor to start of text
+local STB_TEXTEDIT_K_TEXTEND   = ImStb.TEXTEDIT_K_TEXTEND   -- keyboard input to move cursor to end of text
+local STB_TEXTEDIT_K_DELETE    = ImStb.TEXTEDIT_K_DELETE    -- keyboard input to delete selection or character under cursor
+local STB_TEXTEDIT_K_BACKSPACE = ImStb.TEXTEDIT_K_BACKSPACE -- keyboard input to delete selection or character left of cursor
+local STB_TEXTEDIT_K_UNDO      = ImStb.TEXTEDIT_K_UNDO      -- keyboard input to perform undo
+local STB_TEXTEDIT_K_REDO      = ImStb.TEXTEDIT_K_REDO      -- keyboard input to perform redo
+local STB_TEXTEDIT_K_WORDLEFT  = ImStb.TEXTEDIT_K_WORDLEFT  -- keyboard input to move cursor left one word
+local STB_TEXTEDIT_K_WORDRIGHT = ImStb.TEXTEDIT_K_WORDRIGHT -- keyboard input to move cursor right one word
+local STB_TEXTEDIT_K_PGUP      = ImStb.TEXTEDIT_K_PGUP      -- keyboard input to move cursor up a page
+local STB_TEXTEDIT_K_PGDOWN    = ImStb.TEXTEDIT_K_PGDOWN    -- keyboard input to move cursor down a page
+local STB_TEXTEDIT_K_SHIFT     = ImStb.TEXTEDIT_K_SHIFT
+
 local IMSTB_TEXTEDIT_UNDOSTATECOUNT = ImStb.TEXTEDIT_UNDOSTATECOUNT
 local IMSTB_TEXTEDIT_UNDOCHARCOUNT = ImStb.TEXTEDIT_UNDOCHARCOUNT
 local IMSTB_TEXTEDIT_memmove = ImStb.TEXTEDIT_memmove
+
+local stb_text_undo
+local stb_text_redo
 
 ----------------------------------------------------------------
 ----------------------------------------------------------------
@@ -38,6 +59,8 @@ local IMSTB_TEXTEDIT_memmove = ImStb.TEXTEDIT_memmove
 ---
 --- @alias IMSTB_TEXTEDIT_POSITIONTYPE int
 --- @alias IMSTB_TEXTEDIT_CHARTYPE     char
+
+--- @alias STB_TEXTEDIT_KEYTYPE int
 
 --- @class StbUndoRecord
 --- @field where         IMSTB_TEXTEDIT_POSITIONTYPE
@@ -454,6 +477,96 @@ local function stb_textedit_delete(str, state, where, len)
     state.has_preferred_x = false
 end
 
+-- delete the selection
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+local function stb_textedit_delete_selection(str, state)
+    stb_textedit_clamp(str, state)
+    if STB_TEXT_HAS_SELECTION(state) then
+        if state.select_start < state.select_end then
+            stb_textedit_delete(str, state, state.select_start, state.select_end - state.select_start)
+            state.cursor = state.select_start
+            state.select_end = state.cursor
+        else
+            stb_textedit_delete(str, state, state.select_end, state.select_start - state.select_end)
+            state.cursor = state.select_end
+            state.select_start = state.cursor
+        end
+        state.has_preferred_x = false
+    end
+end
+
+-- canonicalize the selection so start <= end
+--- @param state STB_TexteditState
+local function stb_textedit_sortselection(state)
+    if state.select_end < state.select_start then
+        local temp = state.select_end
+        state.select_end = state.select_start
+        state.select_start = temp
+    end
+end
+
+-- move cursor to first character of selection
+--- @param state STB_TexteditState
+local function stb_textedit_move_to_first(state)
+    if STB_TEXT_HAS_SELECTION(state) then
+        stb_textedit_sortselection(state)
+        state.cursor = state.select_start
+        state.select_end = state.select_start
+        state.has_preferred_x = false
+    end
+end
+
+-- move cursor to last character of selection
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+local function stb_textedit_move_to_last(str, state)
+    if STB_TEXT_HAS_SELECTION(state) then
+        stb_textedit_sortselection(state)
+        stb_textedit_clamp(str, state)
+        state.cursor = state.select_end
+        state.select_start = state.select_end
+        state.has_preferred_x = false
+    end
+end
+
+-- API key: process a keyboard input
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+--- @param key   STB_TEXTEDIT_KEYTYPE
+local function stb_textedit_key(str, state, key)
+:: retry ::
+    if key == STB_TEXTEDIT_K_UNDO then
+        stb_text_undo(str, state)
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_REDO then
+        stb_text_redo(str, state)
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_LEFT then
+        -- if currently there's a selection, move cursor to start of selection
+        if STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_move_to_first(state)
+        else
+            if state.cursor > 1 then
+                state.cursor = IMSTB_TEXTEDIT_GETPREVCHARINDEX(str, state.cursor)
+            end
+        end
+
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_RIGHT then
+        -- if currently there's a selection, move cursor to end of selection
+        if STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_move_to_last(str, state)
+        else
+            state.cursor = IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, state.cursor)
+        end
+
+        stb_textedit_clamp(str, state)
+        state.has_preferred_x = false
+    end
+    -- TODO:
+end
+
 -----------------------------------------------------
 -----------------------------------------------------
 ---
@@ -577,7 +690,7 @@ end
 
 --- @param str   IMSTB_TEXTEDIT_STRING
 --- @param state STB_TexteditState
-local function stb_text_undo(str, state)
+function stb_text_undo(str, state)
     local s = state.undostate
 
     if s.undo_point == 1 then
@@ -646,7 +759,9 @@ local function stb_text_undo(str, state)
     s.redo_point = s.redo_point - 1
 end
 
-local function stb_text_redo()
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+function stb_text_redo(str, state)
 
 end
 
