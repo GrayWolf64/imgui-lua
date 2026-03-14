@@ -530,6 +530,17 @@ local function stb_textedit_move_to_last(str, state)
     end
 end
 
+-- update selection and cursor to match each other
+--- @param state STB_TexteditState
+local function stb_textedit_prep_selection_at_cursor(state)
+    if not STB_TEXT_HAS_SELECTION(state) then
+        state.select_start = state.cursor
+        state.select_end = state.cursor
+    else
+        state.cursor = state.select_end
+    end
+end
+
 -- API key: process a keyboard input
 --- @param str   IMSTB_TEXTEDIT_STRING
 --- @param state STB_TexteditState
@@ -562,6 +573,56 @@ local function stb_textedit_key(str, state, key)
         end
 
         stb_textedit_clamp(str, state)
+        state.has_preferred_x = false
+    elseif key == bit.bor(STB_TEXTEDIT_K_LEFT, STB_TEXTEDIT_K_SHIFT) then
+        stb_textedit_clamp(str, state)
+        stb_textedit_prep_selection_at_cursor(state)
+        -- move selection left
+        if state.select_end > 1 then
+            state.select_end = IMSTB_TEXTEDIT_GETPREVCHARINDEX(str, state.select_end)
+        end
+        state.cursor = state.select_end
+        state.has_preferred_x = false
+    elseif key == STB_TEXTEDIT_K_WORDLEFT then
+        -- if currently there's a selection, move cursor to start of selection
+        if STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_move_to_first(state)
+        else
+            state.cursor = STB_TEXTEDIT_MOVEWORDLEFT(str, state.cursor)
+            stb_textedit_clamp(str, state)
+        end
+    elseif key == bit.bor(STB_TEXTEDIT_K_WORDLEFT, STB_TEXTEDIT_K_SHIFT) then
+        if not STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_prep_selection_at_cursor(state)
+        end
+
+        state.cursor = STB_TEXTEDIT_MOVEWORDLEFT(str, state.cursor)
+        state.select_end = state.cursor
+
+        stb_textedit_clamp(str, state)
+    elseif key == STB_TEXTEDIT_K_WORDRIGHT then
+        -- if currently there's a selection, move cursor to end of selection
+        if STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_move_to_last(str, state)
+        else
+            state.cursor = STB_TEXTEDIT_MOVEWORDRIGHT(str, state.cursor)
+            stb_textedit_clamp(str, state)
+        end
+    elseif key == bit.bor(STB_TEXTEDIT_K_WORDRIGHT, STB_TEXTEDIT_K_SHIFT) then
+        if not STB_TEXT_HAS_SELECTION(state) then
+            stb_textedit_prep_selection_at_cursor(state)
+        end
+
+        state.cursor = STB_TEXTEDIT_MOVEWORDRIGHT(str, state.cursor)
+        state.select_end = state.cursor
+
+        stb_textedit_clamp(str, state)
+    elseif key == bit.bor(STB_TEXTEDIT_K_RIGHT, STB_TEXTEDIT_K_SHIFT) then
+        stb_textedit_prep_selection_at_cursor(state)
+        -- move selection right
+        state.select_end = IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, state.select_end)
+        stb_textedit_clamp(str, state)
+        state.cursor = state.select_end
         state.has_preferred_x = false
     end
     -- TODO:
