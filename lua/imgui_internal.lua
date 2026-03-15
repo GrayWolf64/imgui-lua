@@ -8,6 +8,16 @@
 --- @alias ImString char[]|string
 --- @alias ImStringBuffer char[]
 
+--- @type ImGuiContext?
+local GImGui
+
+-- Sets local `GImGui` in this file(imgui_internal.lua).
+-- This is currently only used in main code `ImGui.SetCurrentContext()`
+--- @param ctx ImGuiContext?
+function ImGui._SetCurrentContext_Internal(ctx)
+    GImGui = ctx
+end
+
 local setmetatable = setmetatable
 
 local MT = ImGui.GetMetatables()
@@ -289,9 +299,9 @@ function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCo
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
-function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = ImGui.GetCurrentContext() if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
-function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = ImGui.GetCurrentContext() if g2 and bit.band(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
-function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = ImGui.GetCurrentContext() if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = GImGui if g2 and bit.band(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
 
 ImGuiKeyOwner_Any     = 0
 ImGuiKeyOwner_NoOwner = 4294967295
@@ -604,7 +614,7 @@ end
 
 --- @param col ImU32
 function ImGui.SetNextItemColorMarker(col)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     g.NextItemData.HasFlags = bit.bor(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker)
     g.NextItemData.ColorMarker = col
 end
@@ -2246,21 +2256,21 @@ ImGuiLocKey = {
 --- @param key ImGuiLocKey
 --- @return string
 function ImGui.LocalizeGetMsg(key)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local msg = g.LocalizationTable[key]
     if msg then return msg else return "*Missing Text*" end
 end
 
 --- @param id ImGuiID
 function ImGui.TempInputIsActive(id)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     return g.ActiveId == id and g.TempInputId == id
 end
 
 --- @param id ImGuiID
 --- @return ImGuiInputTextState?
 function ImGui.GetInputTextState(id)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if id ~= 0 and g.InputTextState.ID == id then
         return g.InputTextState
     end

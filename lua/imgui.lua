@@ -671,8 +671,9 @@ end
 function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
 
-    ImGui._SetCurrentContextWidgetsScope(ctx)
-    ImGui._SetCurrentContextTablesScope(ctx)
+    ImGui._SetCurrentContext_Internal(ctx)
+    ImGui._SetCurrentContext_Widgets(ctx)
+    ImGui._SetCurrentContext_Tables(ctx)
 end
 
 --- @param key  ImGuiLocKey
@@ -2203,24 +2204,6 @@ end
 
 --- @param key      ImGuiKey
 --- @param owner_id ImGuiID
---- @param flags?   ImGuiInputFlags
-function ImGui.SetKeyOwner(key, owner_id, flags)
-    if flags == nil then flags = 0 end
-
-    local g = GImGui --- @cast g ImGuiContext
-    IM_ASSERT(ImGui.IsNamedKeyOrMod(key) and (owner_id ~= ImGuiKeyOwner_Any or (bit.band(flags, bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)) ~= 0)), "Can only use _Any with _LockXXX flags (to eat a key away without an ID to retrieve it)")
-    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedBySetKeyOwner)) == 0, "Passing flags not supported by this function!")
-
-    local owner_data = ImGui.GetKeyOwnerData(g, key)
-    owner_data.OwnerCurr = owner_id
-    owner_data.OwnerNext = owner_id
-
-    owner_data.LockUntilRelease = (bit.band(flags, ImGuiInputFlags.LockUntilRelease) ~= 0)
-    owner_data.LockThisFrame = (bit.band(flags, ImGuiInputFlags.LockThisFrame) ~= 0) or owner_data.LockUntilRelease
-end
-
---- @param key      ImGuiKey
---- @param owner_id ImGuiID
 function ImGui.TestKeyOwner(key, owner_id)
     if not ImGui.IsNamedKeyOrMod(key) then
         return true
@@ -2311,6 +2294,33 @@ function ImGui.GetTypematicRepeatRate(flags)
     if     flags == ImGuiInputFlags.RepeatRateNavMove  then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.80; return repeat_delay, repeat_rate
     elseif flags == ImGuiInputFlags.RepeatRateNavTweak then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.30; return repeat_delay, repeat_rate
     else                                                    repeat_delay = g.IO.KeyRepeatDelay * 1.00; repeat_rate = g.IO.KeyRepeatRate * 1.00; return repeat_delay, repeat_rate end
+end
+
+--- @param key          ImGuiKey
+--- @param repeat_delay float
+--- @param repeat_rate  float
+function ImGui.GetKeyPressedAmount(key, repeat_delay, repeat_rate)
+    local g = GImGui
+    local key_data = ImGui.GetKeyData(g, key)
+    if not key_data.Down then -- In theory this should already be encoded as (DownDuration < 0.0f), but testing this facilitates eating mechanism (until we finish work on key ownership)
+        return 0
+    end
+    local t = key_data.DownDuration
+    return ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, repeat_delay, repeat_rate)
+end
+
+-- owner_id may be None/Any, but routing_id needs to be always be set, so we default to GetCurrentFocusScope()
+--- @param owner_id ImGuiID
+local function GetRoutingIdFromOwnerId(owner_id)
+    local g = GImGui
+    return (owner_id ~= ImGuiKeyOwner_NoOwner and owner_id ~= ImGuiKeyOwner_Any) and owner_id or g.CurrentFocusScopeId
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @param flags     ImGuiInputFlags
+--- @param owner_id  ImGuiID
+function ImGui.SetShortcutRouting(key_chord, flags, owner_id)
+    -- TODO:
 end
 
 --- @param mouse_pos? ImVec2
@@ -2465,6 +2475,85 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             g.InputEventsQueue:erase(1)
         end
     end
+end
+
+--- @param key      ImGuiKey
+--- @param owner_id ImGuiID
+--- @param flags?   ImGuiInputFlags
+function ImGui.SetKeyOwner(key, owner_id, flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui --- @cast g ImGuiContext
+    IM_ASSERT(ImGui.IsNamedKeyOrMod(key) and (owner_id ~= ImGuiKeyOwner_Any or (bit.band(flags, bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)) ~= 0)), "Can only use _Any with _LockXXX flags (to eat a key away without an ID to retrieve it)")
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedBySetKeyOwner)) == 0, "Passing flags not supported by this function!")
+
+    local owner_data = ImGui.GetKeyOwnerData(g, key)
+    owner_data.OwnerCurr = owner_id
+    owner_data.OwnerNext = owner_id
+
+    owner_data.LockUntilRelease = (bit.band(flags, ImGuiInputFlags.LockUntilRelease) ~= 0)
+    owner_data.LockThisFrame = (bit.band(flags, ImGuiInputFlags.LockThisFrame) ~= 0) or owner_data.LockUntilRelease
+end
+
+-- Rarely used helper
+--- @param key_chord ImGuiKeyChord
+--- @param owner_id  ImGuiID
+--- @param flags?    ImGuiInputFlags
+function ImGui.SetKeyOwnersForKeyChord(key_chord, owner_id, flags)
+    if flags == nil then flags = 0 end
+
+    -- TODO:
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @param flags     ImGuiInputFlags
+--- @param owner_id  ImGuiID
+function ImGui.IsKeyChordPressed(key_chord, flags, owner_id)
+    -- TODO:
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @param flags     ImGuiInputFlags
+--- @param owner_id  ImGuiID
+function ImGui.Shortcut(key_chord, flags, owner_id)
+    local g = GImGui
+    -- IMGUI_DEBUG_LOG("Shortcut(%s, flags=%X, owner_id=0x%08X)", ImGui.GetKeyChordName(key_chord, g.TempBuffer.Data, g.TempBuffer.Size), flags, owner_id)
+
+    -- When using (owner_id == 0/Any): SetShortcutRouting() will use CurrentFocusScopeId and filter with this, so IsKeyPressed() is fine with he 0/Any.
+    if bit.band(flags, ImGuiInputFlags.RouteTypeMask_) == 0 then
+        flags = bit.bor(flags, ImGuiInputFlags.RouteFocused)
+    end
+
+    -- Using 'owner_id == ImGuiKeyOwner_Any/0': auto-assign an owner based on current focus scope (each window has its focus scope by default)
+    -- Effectively makes Shortcut() always input-owner aware.
+    if owner_id == ImGuiKeyOwner_Any or owner_id == ImGuiKeyOwner_NoOwner then
+        owner_id = GetRoutingIdFromOwnerId(owner_id)
+    end
+
+    if bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0 then
+        return false
+    end
+
+    -- Submit route
+    if not ImGui.SetShortcutRouting(key_chord, flags, owner_id) then
+        return false
+    end
+
+    -- Default repeat behavior for Shortcut()
+    -- So e.g. pressing Ctrl+W and releasing Ctrl while holding W will not trigger the W shortcut.
+    if bit.band(flags, ImGuiInputFlags.Repeat) ~= 0 and bit.band(flags, ImGuiInputFlags.RepeatUntilMask_) == 0 then
+        flags = bit.bor(flags, ImGuiInputFlags.RepeatUntilKeyModsChange)
+    end
+
+    if not ImGui.IsKeyChordPressed(key_chord, flags, owner_id) then
+        return false
+    end
+
+    -- Claim mods during the press
+    ImGui.SetKeyOwnersForKeyChord(bit.band(key_chord, ImGuiMod_Mask_), owner_id)
+
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedByShortcut)) == 0) -- Passing flags not supported by this function!
+    return true
 end
 
 --- @param window ImGuiWindow
