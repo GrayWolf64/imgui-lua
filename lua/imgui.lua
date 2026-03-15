@@ -5582,11 +5582,6 @@ function ImGui.GetIO() return GImGui.IO end
 --- @return ImGuiPlatformIO
 function ImGui.GetPlatformIO() return GImGui.PlatformIO end
 
-function ImGui.GetStyle()
-    IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?")
-    return GImGui.Style
-end
-
 function ImGui.GetMouseCursor()
     local g = GImGui
     return g.MouseCursor
@@ -5693,6 +5688,15 @@ function ImGui.ColorConvertHSVtoRGB(h, s, v)
     else -- i == 5 or default
         return v, p, q
     end
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] STYLING
+---------------------------------------------------------------------------------------
+
+function ImGui.GetStyle()
+    IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?")
+    return GImGui.Style
 end
 
 --- @param col        ImGuiCol|ImVec4
