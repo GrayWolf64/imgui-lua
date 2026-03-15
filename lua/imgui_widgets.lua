@@ -3154,7 +3154,7 @@ end
 
 -- Edit a string of text
 --- @param label              string
---- @param hint               string
+--- @param hint               ImStringBuffer
 --- @param buf                ImStringBuffer
 --- @param buf_size           int
 --- @param size_arg           ImVec2
@@ -3554,6 +3554,69 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         end
     end
 
+    -- Process other shortcuts/key-presses
+    local revert_edit = false
+    if g.ActiveId == id and not g.ActiveIdIsJustActivated and not clear_active_id then
+        IM_ASSERT(state ~= nil)
+        -- TODO:
+    end
+
+    -- Process callbacks and apply result back to user's buffer
+    -- TODO:
+
+    -- Release active ID at the end of the function (so e.g. pressing Return still does a final application of the value)
+    -- Otherwise request text input ahead for next frame.
+    if g.ActiveId == id and clear_active_id then
+        ImGui.ClearActiveID()
+    end
+
+    -- Render frame
+    if not is_multiline then
+        ImGui.RenderNavCursor(frame_bb, id)
+        ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), true, style.FrameRounding)
+    end
+
+    local draw_pos = ImVec2()
+    ImVec2_Copy(draw_pos, is_multiline and draw_window.DC.CursorPos or (frame_bb.Min + style.FramePadding))
+    local clip_rect = ImRect(frame_bb.Min.x, frame_bb.Min.y, frame_bb.Min.x + inner_size.x, frame_bb.Min.y + inner_size.y) -- Not using frame_bb.Max because we have adjusted size
+    if is_multiline then
+        clip_rect:ClipWith(draw_window.ClipRect)
+    end
+
+    -- Set upper limit of single-line InputTextEx() at 2 million characters strings. The current pathological worst case is a long line
+    -- without any carriage return, which would makes ImFont::RenderText() reserve too many vertices and probably crash. Avoid it altogether.
+    -- Note that we only use this limit on single-line InputText(), so a pathologically large line on a InputTextMultiline() would still crash.
+    local buf_display_max_length = 2 * 1024 * 1024
+    local buf_display = buf_display_from_state and state.TextA.Data or buf
+    local buf_display_end = nil -- We have specialized paths below for setting the length
+
+    -- Display hint when contents is empty
+    -- At this point we need to handle the possibility that a callback could have modified the underlying buffer (#8368)
+    local new_is_displaying_hint = (hint ~= nil and (buf_display_from_state and state.TextA.Data or buf)[1] == 0)
+    if new_is_displaying_hint ~= is_displaying_hint then
+        if is_password and not is_displaying_hint then
+            ImGui.PopPasswordFont()
+        end
+        is_displaying_hint = new_is_displaying_hint
+        if is_password and not is_displaying_hint then
+            ImGui.PushPasswordFont()
+        end
+    end
+    if is_displaying_hint then
+        buf_display = hint
+        buf_display_end = ImStd.ImStrlen(hint) + 1
+    else
+        if render_cursor or render_selection or g.ActiveId == id then
+            buf_display_end = state.TextLen + 1
+        elseif is_multiline and not is_wordwrap then
+            buf_display_end = nil -- Inactive multi-line: end of buffer will be output by InputTextLineIndexBuild() special strchr() path
+        else
+            buf_display_end = ImStd.ImStrlen(buf_display)
+        end
+    end
+
+    -- Calculate visibility
+    -- TODO:
 end
 
 ----------------------------------------------------------------
