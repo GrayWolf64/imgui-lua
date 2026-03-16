@@ -2248,6 +2248,56 @@ function ImGui.IsKeyDown(key, owner_id)
     return true
 end
 
+--- @param key      ImGuiKey
+--- @param flags    ImGuiInputFlags
+--- @param owner_id ImGuiID
+function ImGui.IsKeyPressed(key, flags, owner_id)
+    local g = GImGui
+    local key_data = ImGui.GetKeyData(g, key)
+
+    -- In theory this should already be encoded as (DownDuration < 0.0), but testing this facilitates eating mechanism (until we finish work on key ownership)
+    if not key_data.Down then
+        return false
+    end
+    local t = key_data.DownDuration
+    if t < 0.0 then
+        return false
+    end
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedByIsKeyPressed)) == 0) -- Passing flags not supported by this function!
+    if bit.band(flags, bit.bor(ImGuiInputFlags.RepeatRateMask_, ImGuiInputFlags.RepeatUntilMask_)) ~= 0 then -- Setting any _RepeatXXX option enables _Repeat
+        flags = bit.bor(flags, ImGuiInputFlags.Repeat)
+    end
+
+    local pressed = (t == 0.0)
+    if not pressed and bit.band(flags, ImGuiInputFlags.Repeat) ~= 0 then
+        local repeat_delay, repeat_rate = ImGui.GetTypematicRepeatRate(flags)
+        pressed = (t > repeat_delay) and (ImGui.GetKeyPressedAmount(key, repeat_delay, repeat_rate) > 0)
+        if pressed and bit.band(flags, ImGuiInputFlags.RepeatUntilMask_) ~= 0 then
+            -- Slightly bias 'key_pressed_time' as DownDuration is an accumulation of DeltaTime which we compare to an absolute time value.
+            -- Ideally we'd replace DownDuration with KeyPressedTime but it would break user's code.
+            local key_pressed_time = g.Time - t + 0.00001
+            if bit.band(flags, ImGuiInputFlags.RepeatUntilKeyModsChange) ~= 0 and g.LastKeyModsChangeTime > key_pressed_time then
+                pressed = false
+            end
+            if bit.band(flags, ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone) ~= 0 and g.LastKeyModsChangeFromNoneTime > key_pressed_time then
+                pressed = false
+            end
+            if bit.band(flags, ImGuiInputFlags.RepeatUntilOtherKeyPress) ~= 0 and g.LastKeyboardKeyPressTime > key_pressed_time then
+                pressed = false
+            end
+        end
+    end
+
+    if not pressed then
+        return false
+    end
+    if not ImGui.TestKeyOwner(key, owner_id) then
+        return false
+    end
+
+    return true
+end
+
 -- TODO:
 function ImGui.GetKeyChordName(key_chord)
     error("NOT IMPLEMENTED", 2)
@@ -2502,14 +2552,43 @@ end
 function ImGui.SetKeyOwnersForKeyChord(key_chord, owner_id, flags)
     if flags == nil then flags = 0 end
 
-    -- TODO:
+    if bit.band(key_chord, ImGuiMod_Ctrl) ~= 0 then
+        ImGui.SetKeyOwner(ImGuiMod_Ctrl, owner_id, flags)
+    end
+    if bit.band(key_chord, ImGuiMod_Shift) ~= 0 then
+        ImGui.SetKeyOwner(ImGuiMod_Shift, owner_id, flags)
+    end
+    if bit.band(key_chord, ImGuiMod_Alt) ~= 0 then
+        ImGui.SetKeyOwner(ImGuiMod_Alt, owner_id, flags)
+    end
+    if bit.band(key_chord, ImGuiMod_Super) ~= 0 then
+        ImGui.SetKeyOwner(ImGuiMod_Super, owner_id, flags)
+    end
+    if bit.band(key_chord, bit.bnot(ImGuiMod_Mask_)) ~= 0 then
+        ImGui.SetKeyOwner(bit.band(key_chord, bit.bnot(ImGuiMod_Mask_)), owner_id, flags)
+    end
 end
 
 --- @param key_chord ImGuiKeyChord
 --- @param flags     ImGuiInputFlags
 --- @param owner_id  ImGuiID
 function ImGui.IsKeyChordPressed(key_chord, flags, owner_id)
-    -- TODO:
+    local g = GImGui
+    key_chord = ImGui.FixupKeyChord(key_chord)
+    local mods = bit.band(key_chord, ImGuiMod_Mask_)
+    if g.IO.KeyMods ~= mods then
+        return false
+    end
+
+    -- Special storage location for mods
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    if key == ImGuiKey.None then
+        key = ImGui.ConvertSingleModFlagToKey(mods)
+    end
+    if not ImGui.IsKeyPressed(key, bit.band(flags, ImGuiInputFlags.RepeatMask_), owner_id) then
+        return false
+    end
+    return true
 end
 
 --- @param key_chord ImGuiKeyChord
