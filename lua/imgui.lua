@@ -2469,8 +2469,11 @@ local function CalcWindowContentSizes(window, content_size_current, content_size
         preserve_old_content_sizes = true
     end
     if preserve_old_content_sizes then
-        content_size_current.x = window.ContentSize.x;      content_size_current.y = window.ContentSize.y
-        content_size_current.x = window.ContentSizeIdeal.x; content_size_current.y = window.ContentSizeIdeal.y
+        content_size_current.x = window.ContentSize.x
+        content_size_current.y = window.ContentSize.y
+        content_size_ideal.x = window.ContentSizeIdeal.x
+        content_size_ideal.y = window.ContentSizeIdeal.y
+        return
     end
 
     if (window.ContentSizeExplicit.x ~= 0.0) then content_size_current.x = window.ContentSizeExplicit.x else content_size_current.x = ImTrunc64(window.DC.CursorMaxPos.x - window.DC.CursorStartPos.x) end
@@ -2532,30 +2535,6 @@ function ImGui.CalcWindowNextAutoFitSize(window)
     local size_auto_fit = CalcWindowAutoFitSize(window, size_contents_ideal, -1)
     local size_final = CalcWindowSizeAfterConstraint(window, size_auto_fit)
     return size_final
-end
-
---- @param window               ImGuiWindow
---- @param content_size_current ImVec2
---- @param content_size_ideal   ImVec2
-local function CalcWindowContentSizes(window, content_size_current, content_size_ideal)
-    local preserve_old_content_sizes = false
-    if window.Collapsed and window.AutoFitFramesX <= 0 and window.AutoFitFramesY <= 0 then
-        preserve_old_content_sizes = true
-    elseif window.Hidden and window.HiddenFramesCannotSkipItems == 0 and window.HiddenFramesCanSkipItems > 0 then
-        preserve_old_content_sizes = true
-    end
-    if preserve_old_content_sizes then
-        content_size_current.x = window.ContentSize.x
-        content_size_current.y = window.ContentSize.y
-        content_size_ideal.x = window.ContentSizeIdeal.x
-        content_size_ideal.y = window.ContentSizeIdeal.y
-        return
-    end
-
-    content_size_current.x = (window.ContentSizeExplicit.x ~= 0.0) and window.ContentSizeExplicit.x or ImTrunc64(window.DC.CursorMaxPos.x - window.DC.CursorStartPos.x)
-    content_size_current.y = (window.ContentSizeExplicit.y ~= 0.0) and window.ContentSizeExplicit.y or ImTrunc64(window.DC.CursorMaxPos.y - window.DC.CursorStartPos.y)
-    content_size_ideal.x = (window.ContentSizeExplicit.x ~= 0.0) and window.ContentSizeExplicit.x or ImTrunc64(ImMax(window.DC.CursorMaxPos.x, window.DC.IdealMaxPos.x) - window.DC.CursorStartPos.x)
-    content_size_ideal.y = (window.ContentSizeExplicit.y ~= 0.0) and window.ContentSizeExplicit.y or ImTrunc64(ImMax(window.DC.CursorMaxPos.y, window.DC.IdealMaxPos.y) - window.DC.CursorStartPos.y)
 end
 
 --- @param window ImGuiWindow
