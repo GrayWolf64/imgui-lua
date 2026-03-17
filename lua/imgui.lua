@@ -2400,9 +2400,65 @@ local function GetRoutingIdFromOwnerId(owner_id)
     return (owner_id ~= ImGuiKeyOwner_NoOwner and owner_id ~= ImGuiKeyOwner_Any) and owner_id or g.CurrentFocusScopeId
 end
 
+--- @param focus_scope_id ImGuiID
+--- @param owner_id       ImGuiID
+--- @param flags          ImGuiInputFlags
+local function CalcRoutingScore(focus_scope_id, owner_id, flags)
+    local g = GImGui
+    if bit.band(flags, ImGuiInputFlags.RouteFocused) ~= 0 then
+        if owner_id ~= 0 and g.ActiveId == owner_id then
+            return 300
+        end
+
+        if focus_scope_id == 0 then
+            return 0
+        end
+        for index_in_focus_path = 1, g.NavFocusRoute.Size do
+            if g.NavFocusRoute.Data[index_in_focus_path].ID == focus_scope_id then
+                if bit.band(flags, ImGuiInputFlags.RouteOverActive) ~= 0 then
+                    return 599 - (index_in_focus_path - 1)
+                else
+                    return 199 - (index_in_focus_path - 1)
+                end
+            end
+        end
+        return 0
+    elseif bit.band(flags, ImGuiInputFlags.RouteActive) ~= 0 then
+        if owner_id ~= 0 and g.ActiveId == owner_id then
+            return 300
+        end
+        return 0
+    elseif bit.band(flags, ImGuiInputFlags.RouteGlobal) ~= 0 then
+        if bit.band(flags, ImGuiInputFlags.RouteOverActive) ~= 0 then
+            return 400
+        end
+        if owner_id ~= 0 and g.ActiveId == owner_id then
+            return 300
+        end
+        if bit.band(flags, ImGuiInputFlags.RouteOverFocused) ~= 0 then
+            return 200
+        end
+        return 1
+    end
+    IM_ASSERT(false)
+    return 0
+end
+
 --- @param key_chord ImGuiKeyChord
 local function IsKeyChordPotentiallyCharInput(key_chord)
-    -- TODO:
+    local g = GImGui
+
+    local mods = bit.band(key_chord, ImGuiMod_Mask_)
+    local ignore_char_inputs = ((bit.band(mods, ImGuiMod_Ctrl) ~= 0) and (bit.band(mods, ImGuiMod_Alt) == 0)) or (g.IO.ConfigMacOSXBehaviors and (bit.band(mods, ImGuiMod_Ctrl) ~= 0))
+    if ignore_char_inputs then
+        return false
+    end
+
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    if key == ImGuiKey.None then
+        return false
+    end
+    return g.KeysMayBeCharInput:TestBit(key)
 end
 
 --- @param key_chord ImGuiKeyChord
@@ -2460,6 +2516,17 @@ function ImGui.SetShortcutRouting(key_chord, flags, owner_id)
                 return false
             end
         end
+    end
+
+    local focus_scope_id = g.CurrentFocusScopeId
+    if bit.band(flags, ImGuiInputFlags.RouteFromRootWindow) ~= 0 then
+        focus_scope_id = g.CurrentWindow.RootWindow.ID
+    end
+
+    local score = CalcRoutingScore(focus_scope_id, owner_id, flags)
+    -- IMGUI_DEBUG_LOG_INPUTROUTING("SetShortcutRouting(%s, flags=%04X, owner_id=0x%08X) -> score %d", ImGui.GetKeyChordName(key_chord), flags, owner_id, score)
+    if score == 0 then
+        return false
     end
 
     -- TODO:

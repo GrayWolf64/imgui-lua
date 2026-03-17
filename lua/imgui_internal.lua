@@ -589,6 +589,50 @@ function ImRect_CopyFromV4(dest, src)
     dest.Max.x = src.z; dest.Max.y = src.w
 end
 
+--- @param _ARRAY ImU32[]
+--- @param _N     int
+function IM_BITARRAY_TESTBIT(_ARRAY, _N)
+    return bit.band(_ARRAY[bit.rshift(_N - 1, 5) + 1], bit.lshift(1, bit.band(_N - 1, 31))) ~= 0
+end
+
+--- @param _ARRAY ImU32[]
+--- @param _N     int
+function IM_BITARRAY_CLEARBIT(_ARRAY, _N)
+    local idx = bit.rshift(_N - 1, 5) + 1
+    _ARRAY[idx] = bit.band(_ARRAY[idx], bit.bnot(bit.lshift(1, bit.band(_N - 1, 31))))
+end
+
+--- @alias ImBitArrayForNamedKeys ImBitArray
+
+--- @class ImBitArray<BITCOUNT, OFFSET>
+--- @field [1] ImU32[] # Data
+--- @field [2] int     # BITCOUNT
+--- @field [3] int     # OFFSET
+--- @field [4] int     # Pre-calculated size of Data
+local _ImBitArray = {}
+_ImBitArray.__index = _ImBitArray
+
+--- @param bitcount int
+--- @param offset?  int
+--- @return ImBitArray
+function ImBitArray(bitcount, offset)
+    local this = setmetatable({ {}, bitcount, offset or 0, bit.rshift(bitcount + 31, 5) }, _ImBitArray)
+    this:ClearAllBits()
+    return this
+end
+
+function _ImBitArray:ClearAllBits()
+    for i = 1, self[4] do self[1][i] = 0 end
+end
+
+function _ImBitArray:SetAllBits()
+    for i = 1, self[4] do self[1][i] = 0xFFFFFFFF end
+end
+
+--- @param n int
+--- @return boolean
+function _ImBitArray:TestBit(n) n = n + self[3]; IM_ASSERT(n >= 1 and n <= self[2]); return IM_BITARRAY_TESTBIT(self[1], n); end
+
 function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
 end
@@ -1192,6 +1236,9 @@ end
 --- @field InputTextState                     ImGuiInputTextState
 --- @field InputTextDeactivatedState          ImGuiInputTextDeactivatedState
 --- @field InputTextPasswordFontBackupBaked   ImFontBaked
+--- @field KeysMayBeCharInput                 ImBitArrayForNamedKeys
+--- @field KeysOwnerData                      ImGuiKeyOwnerData[]
+--- @field NavFocusRoute                      ImVector<ImGuiFocusScopeData>
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1227,6 +1274,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         MouseLastValidPos = ImVec2(),
 
+        KeysMayBeCharInput = ImBitArray(ImGuiKey.NamedKey_COUNT, -ImGuiKey.NamedKey_BEGIN),
         KeysOwnerData = {}, -- size = ImGuiKey.NamedKey_COUNT
 
         InputEventsQueue = ImVector(),
@@ -1297,6 +1345,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         NavCursorVisible = false,
         NavHighlightItemUnderNav = false,
         NavIdIsAlive = false,
+
+        NavFocusRoute = ImVector(),
 
         FrameCount = -1,
 
@@ -2281,3 +2331,6 @@ function ImGui.GetInputTextState(id)
     end
     return nil
 end
+
+--- @class ImGuiFocusScopeData
+-- TODO:
