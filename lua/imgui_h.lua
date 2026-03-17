@@ -1728,7 +1728,7 @@ ImGuiSelectableFlags = {
     SpanAllColumns    = bit.lshift(1, 1), -- Frame will span all columns of its container table (text will still fit in current column)
     AllowDoubleClick  = bit.lshift(1, 2), -- Generate press events on double clicks too
     Disabled          = bit.lshift(1, 3), -- Cannot be selected, display grayed out text
-    AllowOverlap      = bit.lshift(1, 4), -- (WIP) Hit testing to allow subsequent widgets to overlap this one
+    AllowOverlap      = bit.lshift(1, 4), -- Hit testing will allow subsequent widgets to overlap this one. Require previous frame HoveredId to match before being usable. Shortcut to calling SetNextItemAllowOverlap()
     Highlight         = bit.lshift(1, 5), -- Make the item be displayed as if it is hovered
     SelectOnNav       = bit.lshift(1, 6), -- Auto-select when moved into, unless Ctrl is held. Automatic when in a BeginMultiSelect() block
 

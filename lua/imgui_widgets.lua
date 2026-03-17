@@ -3561,7 +3561,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         -- TODO:
     end
 
-    -- Process callbacks and apply result back to user's buffer
+    -- Process revert and user callbacks
     -- TODO:
 
     -- Release active ID at the end of the function (so e.g. pressing Return still does a final application of the value)

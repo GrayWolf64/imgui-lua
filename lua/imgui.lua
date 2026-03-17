@@ -2188,6 +2188,32 @@ function MT.ImGuiIO:AddMouseWheelEvent(wheel_x, wheel_y)
     g.InputEventsQueue:push_back(e)
 end
 
+--- @param key ImGuiKey
+local function GetModForLRModKey(key)
+    if key == ImGuiKey.LeftCtrl or key == ImGuiKey.RightCtrl then
+        return ImGuiMod_Ctrl
+    end
+    if key == ImGuiKey.LeftShift or key == ImGuiKey.RightShift then
+        return ImGuiMod_Shift
+    end
+    if key == ImGuiKey.LeftAlt or key == ImGuiKey.RightAlt then
+        return ImGuiMod_Alt
+    end
+    if key == ImGuiKey.LeftSuper or key == ImGuiKey.RightSuper then
+        return ImGuiMod_Super
+    end
+    return ImGuiMod_None
+end
+
+--- @param key_chord ImGuiKeyChord
+function ImGui.FixupKeyChord(key_chord)
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    if ImGui.IsLRModKey(key) then
+        key_chord = bit.bor(key_chord, GetModForLRModKey(key))
+    end
+    return key_chord
+end
+
 --- @param ctx? ImGuiContext
 --- @param key  ImGuiKey
 --- @return ImGuiKeyData
@@ -2248,10 +2274,18 @@ function ImGui.IsKeyDown(key, owner_id)
     return true
 end
 
---- @param key      ImGuiKey
---- @param flags    ImGuiInputFlags
---- @param owner_id ImGuiID
-function ImGui.IsKeyPressed(key, flags, owner_id)
+--- @param key       ImGuiKey
+--- @param is_repeat bool
+function ImGui.IsKeyPressed(key, is_repeat)
+    return ImGui.IsKeyPressedEx(key, is_repeat and ImGuiInputFlags.Repeat or ImGuiInputFlags.None, ImGuiKeyOwner_Any)
+end
+
+--- @param key       ImGuiKey
+--- @param flags     ImGuiInputFlags
+--- @param owner_id? ImGuiID
+function ImGui.IsKeyPressedEx(key, flags, owner_id)
+    if owner_id == nil then owner_id = 0 end
+
     local g = GImGui
     local key_data = ImGui.GetKeyData(g, key)
 
@@ -2367,9 +2401,67 @@ local function GetRoutingIdFromOwnerId(owner_id)
 end
 
 --- @param key_chord ImGuiKeyChord
+local function IsKeyChordPotentiallyCharInput(key_chord)
+    -- TODO:
+end
+
+--- @param key_chord ImGuiKeyChord
 --- @param flags     ImGuiInputFlags
 --- @param owner_id  ImGuiID
 function ImGui.SetShortcutRouting(key_chord, flags, owner_id)
+    local g = GImGui
+
+    if bit.band(flags, ImGuiInputFlags.RouteTypeMask_) == 0 then
+        flags = bit.bor(flags, ImGuiInputFlags.RouteGlobal, ImGuiInputFlags.RouteOverFocused, ImGuiInputFlags.RouteOverActive) -- IMPORTANT: This is the default for SetShortcutRouting() but NOT Shortcut()
+    else
+        IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiInputFlags.RouteTypeMask_))) -- Check that only 1 routing flag is used
+    end
+    IM_ASSERT(owner_id ~= ImGuiKeyOwner_Any and owner_id ~= ImGuiKeyOwner_NoOwner)
+    if bit.band(flags, bit.bor(ImGuiInputFlags.RouteOverFocused, ImGuiInputFlags.RouteUnlessBgFocused)) ~= 0 then
+        IM_ASSERT(bit.band(flags, ImGuiInputFlags.RouteGlobal) ~= 0)
+    end
+    if bit.band(flags, ImGuiInputFlags.RouteOverActive) ~= 0 then
+        IM_ASSERT(bit.band(flags, bit.bor(ImGuiInputFlags.RouteGlobal, ImGuiInputFlags.RouteFocused)) ~= 0)
+    end
+
+    key_chord = ImGui.FixupKeyChord(key_chord)
+
+    if g.DebugBreakInShortcutRouting == key_chord then
+        -- IM_DEBUG_BREAK()
+    end
+
+    if bit.band(flags, ImGuiInputFlags.RouteUnlessBgFocused) ~= 0 then
+        if g.NavWindow == nil then
+            return false
+        end
+    end
+
+    if bit.band(flags, ImGuiInputFlags.RouteAlways) ~= 0 then
+        -- IMGUI_DEBUG_LOG_INPUTROUTING("SetShortcutRouting(%s, flags=%04X, owner_id=0x%08X) -> always, no register", ImGui.GetKeyChordName(key_chord), flags, owner_id)
+        return true
+    end
+
+    if g.ActiveId ~= 0 and g.ActiveId ~= owner_id then
+        if bit.band(flags, ImGuiInputFlags.RouteActive) ~= 0 then
+            return false
+        end
+
+        if g.IO.WantTextInput and IsKeyChordPotentiallyCharInput(key_chord) then
+            -- IMGUI_DEBUG_LOG_INPUTROUTING("SetShortcutRouting(%s, flags=%04X, owner_id=0x%08X) -> filtered as potential char input", ImGui.GetKeyChordName(key_chord), flags, owner_id)
+            return false
+        end
+
+        if bit.band(flags, ImGuiInputFlags.RouteOverActive) == 0 and g.ActiveIdUsingAllKeyboardKeys then
+            local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+            if key == ImGuiKey.None then
+                key = ImGui.ConvertSingleModFlagToKey(bit.band(key_chord, ImGuiMod_Mask_))
+            end
+            if key >= ImGuiKey_Keyboard_BEGIN and key < ImGuiKey_Keyboard_END then
+                return false
+            end
+        end
+    end
+
     -- TODO:
 end
 
@@ -2585,7 +2677,7 @@ function ImGui.IsKeyChordPressed(key_chord, flags, owner_id)
     if key == ImGuiKey.None then
         key = ImGui.ConvertSingleModFlagToKey(mods)
     end
-    if not ImGui.IsKeyPressed(key, bit.band(flags, ImGuiInputFlags.RepeatMask_), owner_id) then
+    if not ImGui.IsKeyPressedEx(key, bit.band(flags, ImGuiInputFlags.RepeatMask_), owner_id) then
         return false
     end
     return true

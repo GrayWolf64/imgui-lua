@@ -336,6 +336,11 @@ function ImGui.IsAliasKey(key)
 end
 
 --- @param key ImGuiKey
+function ImGui.IsLRModKey(key)
+    return key >= ImGuiKey.LeftCtrl and key <= ImGuiKey.RightSuper
+end
+
+--- @param key ImGuiKey
 --- @return bool
 function ImGui.IsNamedKeyOrMod(key)
     return (key >= ImGuiKey.NamedKey_BEGIN and key < ImGuiKey.NamedKey_END) or key == ImGuiMod_Ctrl or key == ImGuiMod_Shift or key == ImGuiMod_Alt or key == ImGuiMod_Super
