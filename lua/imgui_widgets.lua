@@ -3525,7 +3525,15 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         end
 
         if bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0 and not is_readonly then
-            -- TODO: Shortcut
+            if ImGui.Shortcut(ImGuiKey.Tab, ImGuiInputFlags.Repeat, id) then
+                local c = 9 -- Insert TAB
+                local ret2
+                c, ret2 = InputTextFilterCharacter(g, state, c, callback, callback_user_data)
+                if ret2 then
+                    state:OnCharPressed(c)
+                end
+            end
+
             -- FIXME: Implement Shift+Tab
         end
 

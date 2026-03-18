@@ -2423,7 +2423,7 @@ function ImGui.GetShortcutRoutingData(key_chord)
         idx = routing_data.NextEntryIndex
     end
 
-    local routing_data_idx = rt.Entries.Size
+    local routing_data_idx = rt.Entries.Size + 1
     rt.Entries:push_back(ImGuiKeyRoutingData())
     routing_data = rt.Entries[routing_data_idx]
     routing_data.Mods = mods
