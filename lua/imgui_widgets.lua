@@ -3431,7 +3431,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     -- Lock the decision of whether we are going to take the path displaying the cursor or selection
-    local render_cursor = (g.ActiveId == id) or (state and user_scroll_active)
+    local render_cursor = (g.ActiveId == id) or (state and user_scroll_active) --[[@as bool]]
     local render_selection = state and (state:HasSelection() or select_all) and (RENDER_SELECTION_WHEN_INACTIVE or render_cursor)
     local value_changed = false
     local validated = false
@@ -3566,7 +3566,118 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local revert_edit = false
     if g.ActiveId == id and not g.ActiveIdIsJustActivated and not clear_active_id then
         IM_ASSERT(state ~= nil)
-        -- TODO:
+        --- @cast state ImGuiInputTextState
+
+        local row_count_per_page = ImMax(math.floor((inner_size.y - style.FramePadding.y) / g.FontSize), 1)
+        state.Stb.row_count_per_page = row_count_per_page
+
+        local k_mask = (io.KeyShift and ImStb.TEXTEDIT_K_SHIFT or 0)
+        local is_wordmove_key_down = is_osx and io.KeyAlt or io.KeyCtrl
+        local is_startend_key_down = is_osx and io.KeyCtrl and not io.KeySuper and not io.KeyAlt
+
+        local f_repeat = ImGuiInputFlags.Repeat
+        local is_cut   = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.X), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.Delete), f_repeat, id)) and not is_readonly and not is_password and (not is_multiline or state:HasSelection())
+        local is_copy  = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.C), 0,        id) or ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl,  ImGuiKey.Insert), 0,        id)) and not is_password and (not is_multiline or state:HasSelection())
+        local is_paste = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.V), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.Insert), f_repeat, id)) and not is_readonly
+        local is_undo  = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.Z), f_repeat, id)) and not is_readonly and is_undoable
+        local is_redo  = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.Y), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiMod_Shift, ImGuiKey.Z), f_repeat, id)) and not is_readonly and is_undoable
+        local is_select_all = ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.A), 0, id)
+
+        local nav_gamepad_active  = (bit.band(io.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0) and (bit.band(io.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0)
+        local is_enter            = ImGui.Shortcut(ImGuiKey.Enter, f_repeat, id) or ImGui.Shortcut(ImGuiKey.KeypadEnter, f_repeat, id)
+        local is_ctrl_enter       = ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.Enter), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.KeypadEnter), f_repeat, id)
+        local is_shift_enter      = ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.Enter), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.KeypadEnter), f_repeat, id)
+        local is_gamepad_validate = nav_gamepad_active and ImGui.IsKeyPressed(ImGuiKey.NavGamepadActivate, false)
+        local is_cancel           = ImGui.Shortcut(ImGuiKey.Escape, f_repeat, id) or (nav_gamepad_active and ImGui.Shortcut(ImGuiKey.NavGamepadCancel, f_repeat, id))
+
+        if ImGui.IsKeyPressed(ImGuiKey.LeftArrow) then
+            state:OnKeyPressed(bit.bor(is_startend_key_down and ImStb.TEXTEDIT_K_LINESTART or (is_wordmove_key_down and ImStb.TEXTEDIT_K_WORDLEFT or ImStb.TEXTEDIT_K_LEFT), k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.RightArrow) then
+            state:OnKeyPressed(bit.bor(is_startend_key_down and ImStb.TEXTEDIT_K_LINEEND or (is_wordmove_key_down and ImStb.TEXTEDIT_K_WORDRIGHT or ImStb.TEXTEDIT_K_RIGHT), k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.UpArrow) and is_multiline then
+            if io.KeyCtrl then
+                ImGui.SetScrollY(draw_window, ImMax(draw_window.Scroll.y - g.FontSize, 0.0))
+            else
+                state:OnKeyPressed(bit.bor(is_startend_key_down and ImStb.TEXTEDIT_K_TEXTSTART or ImStb.TEXTEDIT_K_UP, k_mask))
+            end
+        elseif ImGui.IsKeyPressed(ImGuiKey.DownArrow) and is_multiline then
+            if io.KeyCtrl then
+                ImGui.SetScrollY(draw_window, ImMin(draw_window.Scroll.y + g.FontSize, ImGui.GetScrollMaxY()))
+            else
+                state:OnKeyPressed(bit.bor(is_startend_key_down and ImStb.TEXTEDIT_K_TEXTEND or ImStb.TEXTEDIT_K_DOWN, k_mask))
+            end
+        elseif ImGui.IsKeyPressed(ImGuiKey.PageUp) and is_multiline then
+            state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_PGUP, k_mask))
+            scroll_y = scroll_y - row_count_per_page * g.FontSize
+        elseif ImGui.IsKeyPressed(ImGuiKey.PageDown) and is_multiline then
+            state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_PGDOWN, k_mask))
+            scroll_y = scroll_y + row_count_per_page * g.FontSize
+        elseif ImGui.IsKeyPressed(ImGuiKey.Home) then
+            state:OnKeyPressed(io.KeyCtrl and bit.bor(ImStb.TEXTEDIT_K_TEXTSTART, k_mask) or bit.bor(ImStb.TEXTEDIT_K_LINESTART, k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.End) then
+            state:OnKeyPressed(io.KeyCtrl and bit.bor(ImStb.TEXTEDIT_K_TEXTEND, k_mask) or bit.bor(ImStb.TEXTEDIT_K_LINEEND, k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.Delete) and not is_readonly and not is_cut then
+            if not state:HasSelection() then
+                if is_wordmove_key_down then
+                    state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_WORDRIGHT, ImStb.TEXTEDIT_K_SHIFT))
+                end
+            end
+            state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_DELETE, k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.Backspace) and not is_readonly then
+            if not state:HasSelection() then
+                if is_wordmove_key_down then
+                    state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_WORDLEFT, ImStb.TEXTEDIT_K_SHIFT))
+                elseif is_osx and io.KeyCtrl and not io.KeyAlt and not io.KeySuper then
+                    state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_LINESTART, ImStb.TEXTEDIT_K_SHIFT))
+                end
+            end
+            state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_BACKSPACE, k_mask))
+        elseif is_enter or is_ctrl_enter or is_shift_enter or is_gamepad_validate then
+            local ctrl_enter_for_new_line = bit.band(flags, ImGuiInputTextFlags.CtrlEnterForNewLine) ~= 0
+            local is_new_line = is_multiline and not is_gamepad_validate and (is_shift_enter or (is_enter and not ctrl_enter_for_new_line) or (is_ctrl_enter and ctrl_enter_for_new_line))
+            if not is_new_line then
+                validated = true
+                clear_active_id = true
+                if io.ConfigInputTextEnterKeepActive and not is_multiline then
+                    state:SelectAll()
+                    g.InputTextReactivateId = id
+                end
+            elseif not is_readonly then
+                local c = 10 -- Insert new line
+                local ret2
+                c, ret2 = InputTextFilterCharacter(g, state, c, callback, callback_user_data)
+                if ret2 then
+                    state:OnCharPressed(c)
+                end
+            end
+        elseif is_cancel then
+            if bit.band(flags, ImGuiInputTextFlags.EscapeClearsAll) ~= 0 then
+                if state.TextA.Data[1] ~= 0 then
+                    revert_edit = true
+                else
+                    render_cursor = false
+                    render_selection = false
+                    clear_active_id = true
+                end
+            else
+                clear_active_id = true
+                revert_edit = true
+                render_cursor = false
+                render_selection = false
+            end
+        elseif is_undo or is_redo then
+            state:OnKeyPressed(is_undo and ImStb.TEXTEDIT_K_UNDO or ImStb.TEXTEDIT_K_REDO)
+            state:ClearSelection()
+        elseif is_select_all then
+            state:SelectAll()
+            state.CursorFollow = true
+        elseif is_cut or is_copy then
+            -- TODO:
+        elseif is_paste then
+            -- TODO:
+        end
+
+        render_selection = render_selection or (state:HasSelection() and (RENDER_SELECTION_WHEN_INACTIVE or render_cursor))
     end
 
     -- Process revert and user callbacks

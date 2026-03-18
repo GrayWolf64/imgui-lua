@@ -2274,9 +2274,11 @@ function ImGui.IsKeyDown(key, owner_id)
     return true
 end
 
---- @param key       ImGuiKey
---- @param is_repeat bool
+--- @param key        ImGuiKey
+--- @param is_repeat? bool
 function ImGui.IsKeyPressed(key, is_repeat)
+    if is_repeat == nil then is_repeat = true end
+
     return ImGui.IsKeyPressedEx(key, is_repeat and ImGuiInputFlags.Repeat or ImGuiInputFlags.None, ImGuiKeyOwner_Any)
 end
 
@@ -6626,6 +6628,12 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
             scroll[axis] = ImMin(scroll[axis], window.ScrollMax[axis])
         end
     end
+end
+
+--- @return float
+function ImGui.GetScrollMaxY()
+    local window = GImGui.CurrentWindow
+    return window.ScrollMax.y
 end
 
 --- @param window   ImGuiWindow
