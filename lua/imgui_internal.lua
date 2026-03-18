@@ -1204,6 +1204,51 @@ local function ImGuiInputTextDeactivatedState()
     }, MT.ImGuiInputTextDeactivatedState)
 end
 
+--- @alias ImGuiKeyRoutingIndex ImS16
+
+--- @class ImGuiKeyRoutingData
+--- @field NextEntryIndex   ImGuiKeyRoutingIndex
+--- @field Mods             ImU16
+--- @field RoutingCurrScore ImU16
+--- @field RoutingNextScore ImU16
+--- @field RoutingCurr      ImGuiID
+--- @field RoutingNext      ImGuiID
+
+--- @return ImGuiKeyRoutingData
+--- @nodiscard
+function ImGuiKeyRoutingData()
+    return {
+        NextEntryIndex = -1,
+        Mods = 0,
+        RoutingCurrScore = 0,
+        RoutingNextScore = 0,
+        RoutingCurr = ImGuiKeyOwner_NoOwner,
+        RoutingNext = ImGuiKeyOwner_NoOwner
+    }
+end
+
+--- @class ImGuiKeyRoutingTable
+--- @field Index       ImGuiKeyRoutingIndex[]
+--- @field Entries     ImVector<ImGuiKeyRoutingData>
+--- @field EntriesNext ImVector<ImGuiKeyRoutingData>
+local _ImGuiKeyRoutingTable = {}
+_ImGuiKeyRoutingTable.__index = _ImGuiKeyRoutingTable
+
+function _ImGuiKeyRoutingTable:Clear()
+    for n = 1, ImGuiKey.NamedKey_COUNT do self.Index[n] = -1 end
+    self.Entries:clear()
+    self.EntriesNext:clear()
+end
+
+--- @return ImGuiKeyRoutingTable
+local function ImGuiKeyRoutingTable()
+    return setmetatable({
+        Index       = {},
+        Entries     = ImVector(),
+        EntriesNext = ImVector()
+    }, _ImGuiKeyRoutingTable)
+end
+
 --- @class ImGuiContext
 --- @field Initialized                        bool
 --- @field WithinFrameScope                   bool
@@ -1238,6 +1283,7 @@ end
 --- @field InputTextPasswordFontBackupBaked   ImFontBaked
 --- @field KeysMayBeCharInput                 ImBitArrayForNamedKeys
 --- @field KeysOwnerData                      ImGuiKeyOwnerData[]
+--- @field KeysRoutingTable                   ImGuiKeyRoutingTable
 --- @field NavFocusRoute                      ImVector<ImGuiFocusScopeData>
 
 --- @param shared_font_atlas? ImFontAtlas
@@ -1276,6 +1322,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         KeysMayBeCharInput = ImBitArray(ImGuiKey.NamedKey_COUNT, -ImGuiKey.NamedKey_BEGIN),
         KeysOwnerData = {}, -- size = ImGuiKey.NamedKey_COUNT
+        KeysRoutingTable = ImGuiKeyRoutingTable(),
 
         InputEventsQueue = ImVector(),
 
@@ -2332,5 +2379,11 @@ function ImGui.GetInputTextState(id)
     return nil
 end
 
+-- Storage for PushFocusScope(), g.FocusScopeStack[], g.NavFocusRoute[]
 --- @class ImGuiFocusScopeData
--- TODO:
+--- @field ID       ImGuiID
+--- @field WindowID ImGuiID
+
+--- @return ImGuiFocusScopeData
+--- @nodiscard
+function ImGuiFocusScopeData() return { ID = nil, WindowID = nil } end

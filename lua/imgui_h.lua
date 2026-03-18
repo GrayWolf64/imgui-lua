@@ -5,6 +5,7 @@
 
 --- @alias ImU8           integer
 --- @alias ImU16          integer
+--- @alias ImS16          integer
 --- @alias ImU32          integer
 --- @alias ImU64          integer
 --- @alias ImS8           integer

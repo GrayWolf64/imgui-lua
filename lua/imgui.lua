@@ -2400,6 +2400,39 @@ local function GetRoutingIdFromOwnerId(owner_id)
     return (owner_id ~= ImGuiKeyOwner_NoOwner and owner_id ~= ImGuiKeyOwner_Any) and owner_id or g.CurrentFocusScopeId
 end
 
+--- @param key_chord ImGuiKeyChord
+--- @return ImGuiKeyRoutingData
+function ImGui.GetShortcutRoutingData(key_chord)
+    local g = GImGui
+    local rt = g.KeysRoutingTable
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    local mods = bit.band(key_chord, ImGuiMod_Mask_)
+    if key == ImGuiKey.None then
+        key = ImGui.ConvertSingleModFlagToKey(mods)
+    end
+    IM_ASSERT(ImGui.IsNamedKey(key))
+
+    local routing_data
+    local idx = rt.Index[key - ImGuiKey.NamedKey_BEGIN + 1]
+    while idx ~= -1 do
+        routing_data = rt.Entries.Data[idx]
+        if routing_data.Mods == mods then
+            return routing_data
+        end
+
+        idx = routing_data.NextEntryIndex
+    end
+
+    local routing_data_idx = rt.Entries.Size
+    rt.Entries:push_back(ImGuiKeyRoutingData())
+    routing_data = rt.Entries[routing_data_idx]
+    routing_data.Mods = mods
+    routing_data.NextEntryIndex = rt.Index[key - ImGuiKey.NamedKey_BEGIN + 1]
+    rt.Index[key - ImGuiKey.NamedKey_BEGIN + 1] = routing_data_idx
+
+    return routing_data
+end
+
 --- @param focus_scope_id ImGuiID
 --- @param owner_id       ImGuiID
 --- @param flags          ImGuiInputFlags
@@ -2529,7 +2562,16 @@ function ImGui.SetShortcutRouting(key_chord, flags, owner_id)
         return false
     end
 
-    -- TODO:
+    local routing_data = ImGui.GetShortcutRoutingData(key_chord)
+    if score > routing_data.RoutingNextScore then
+        routing_data.RoutingNext = owner_id
+        routing_data.RoutingNextScore = score
+    end
+
+    if routing_data.RoutingCurr == owner_id then
+        -- IMGUI_DEBUG_LOG_INPUTROUTING("--> granting current route")
+    end
+    return routing_data.RoutingCurr == owner_id
 end
 
 --- @param mouse_pos? ImVec2
