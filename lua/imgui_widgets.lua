@@ -3255,6 +3255,60 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
     return size, out_buf_end
 end
 
+--- @param t        table
+--- @param in_begin int
+--- @param in_end   int
+--- @param v        int
+local function ImLowerBound(t, in_begin, in_end, v)
+    local in_p = in_begin
+    local count = in_end - in_begin
+
+    local floor = math.floor
+    local rshift = bit.rshift
+    while count > 0 do
+        local count2 = floor(rshift(count, 1))
+        local mid = in_p + count2
+
+        if t[mid] < v then
+            in_p = mid + 1
+            count = count - count2 - 1
+        else
+            count = count2
+        end
+    end
+
+    return in_p
+end
+
+--- @param g          ImGuiContext
+--- @param state      ImGuiInputTextState
+--- @param line_index ImGuiTextIndex
+--- @param buf        char[]
+--- @param buf_end    int
+--- @param cursor_n   int
+--- @return ImVec2
+local function InputTextLineIndexGetPosOffset(g, state, line_index, buf, buf_end, cursor_n)
+    local cursor_ptr = cursor_n
+
+    local it = ImLowerBound(line_index.Offsets, 1, line_index.Offsets.Size + 1, cursor_ptr)
+
+    if it > 1 then
+        if it > line_index.Offsets.Size or line_index.Offsets[it] ~= cursor_ptr or (state ~= nil and state.WrapWidth > 0.0 and state.LastMoveDirectionLR == ImGuiDir.Right and
+            buf[cursor_ptr - 1] ~= 10 and buf[cursor_ptr - 1] ~= 0) then
+            it = it - 1
+        end
+    end
+
+    local line_no = (it == 1) and 0 or (it - 1)
+    local line_start = (line_no == 0) and 1 or line_index.Offsets[line_no]
+
+    local offset = ImVec2()
+    offset.x = InputTextCalcTextSize(g, buf, line_start, cursor_ptr, buf_end, nil, ImDrawTextFlags.WrapKeepBlanks).x
+    offset.y = (line_no + 1) * g.FontSize
+
+    return offset
+end
+
 -- Edit a string of text
 --- @param label              string
 --- @param hint               ImStringBuffer
@@ -4015,7 +4069,19 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         line_visible_n0, line_visible_n1 = ImGui.CalcClipRectVisibleItemsY(clip_rect, draw_pos, g.FontSize)
     end
 
-    -- TODO:
+    local line_index = g.InputTextLineIndex
+    line_index.Offsets:resize(0)
+    local line_count = 1
+    if is_multiline then
+        local will_scroll_y = state and ((state.CursorFollow and render_cursor) or (state.CursorCenterY and (render_cursor or render_selection)))
+        line_count = ImGui.InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1), buf_display_end and nil or buf_display_end)
+    end
+    line_index.EndOffset = buf_display_end - 1
+    line_visible_n1 = ImMin(line_visible_n1, line_count)
+
+    local text_size_y = line_count * g.FontSize
+
+
 end
 
 ----------------------------------------------------------------
