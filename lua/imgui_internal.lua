@@ -1201,7 +1201,7 @@ local function ImGuiInputTextState()
         TextLen            = 0,
         TextSrc            = nil,
         TextA              = ImVector(),
-        TextToRevertTo     = ImVector,
+        TextToRevertTo     = ImVector(),
         CallbackTextBackup = ImVector(),
 
         BufCapacity = 0,

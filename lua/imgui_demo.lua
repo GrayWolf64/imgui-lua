@@ -17,6 +17,8 @@ local col2 = ImVec4(0, 0, 0, 1)
 
 local counter = 0
 
+local str0 = {}
+
 function DemoWindowWidgetsBasic()
     ImGui.SeparatorText("General")
 
@@ -78,6 +80,13 @@ function DemoWindowWidgetsBasic()
     ImGui.SetItemTooltip("I am a tooltip")
 
     ImGui.LabelText("label", "Value")
+
+    ImGui.SeparatorText("Inputs")
+
+    do
+        ImGui.InputText("input text", str0, 128)
+        -- TODO:
+    end
 end
 
 end

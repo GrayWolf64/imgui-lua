@@ -2562,6 +2562,19 @@ end
 -- [SECTION] INPUT TEXT
 ----------------------------------------------------------------
 
+--- @param label     string
+--- @param buf       char[]
+--- @param buf_size  int
+--- @param flags?    ImGuiInputTextFlags
+--- @param callback? ImGuiInputTextCallback
+--- @param user_data any
+function ImGui.InputText(label, buf, buf_size, flags, callback, user_data)
+    if flags == nil then flags = 0 end
+
+    IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.Multiline) == 0)
+    return ImGui.InputTextEx(label, nil, buf, buf_size, ImVec2(0, 0), flags, callback, user_data)
+end
+
 ImStb = {}
 
 ImStb.TEXTEDIT_K_LEFT      = 0x200000 -- keyboard input to move cursor left
@@ -3311,7 +3324,7 @@ end
 
 -- Edit a string of text
 --- @param label              string
---- @param hint               ImStringBuffer
+--- @param hint?              ImStringBuffer
 --- @param buf                ImStringBuffer
 --- @param buf_size           int
 --- @param size_arg           ImVec2
@@ -4051,6 +4064,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         end
     end
     if is_displaying_hint then
+        --- @cast hint char[]
         buf_display = hint
         buf_display_end = ImStd.ImStrlen(hint) + 1
     else
@@ -4177,7 +4191,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     -- TODO: ImRect:AsVec4
-    if (is_multiline or (buf_display_end - buf_display) < buf_display_max_length) and bit.band(text_col, IM_COL32_A_MASK) ~= 0 and line_visible_n0 < line_visible_n1 then
+    if (is_multiline or (buf_display_end - 1) < buf_display_max_length) and bit.band(text_col, IM_COL32_A_MASK) ~= 0 and line_visible_n0 < line_visible_n1 then
         g.Font:RenderText(draw_window.DrawList, g.FontSize,
         draw_pos - draw_scroll + ImVec2(0.0, line_visible_n0 * g.FontSize),
         text_col, clip_rect:AsVec4(),
