@@ -543,6 +543,19 @@ local function stb_textedit_prep_selection_at_cursor(state)
     end
 end
 
+-- API cut: delete selection
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+--- @return bool
+local function stb_textedit_cut(str, state)
+    if STB_TEXT_HAS_SELECTION(state) then
+        stb_textedit_delete_selection(str, state) -- implicitly clamps
+        state.has_preferred_x = false
+        return true
+    end
+    return false
+end
+
 -- API key: process text input
 -- [IMGUI] Added stb_textedit_text(), extracted out and called by stb_textedit_key() for backward compatibility.
 --- @param str       IMSTB_TEXTEDIT_STRING
@@ -1086,23 +1099,23 @@ end
 --- @param str   IMSTB_TEXTEDIT_STRING
 --- @param state STB_TexteditState
 function stb_text_redo(str, state)
-
+    -- TODO:
 end
 
 function stb_text_makeundo_insert(state, where, length)
-
+    -- TODO:
 end
 
 function stb_text_makeundo_delete(str, state, where, length)
-
+    -- TODO:
 end
 
-function stb_text_makeundo_replace()
-
+function stb_text_makeundo_replace(str, state, where, old_length, new_length)
+    -- TODO:
 end
 
 local function stb_textedit_clear_state(state, is_single_line)
-
+    -- TODO:
 end
 
 return {
@@ -1116,6 +1129,7 @@ return {
 
     clamp = stb_textedit_clamp,
     prep_selection_at_cursor = stb_textedit_prep_selection_at_cursor,
+    cut = stb_textedit_cut,
 
     HAS_SELECTION = STB_TEXT_HAS_SELECTION
 }

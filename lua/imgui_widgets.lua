@@ -3672,9 +3672,29 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             state:SelectAll()
             state.CursorFollow = true
         elseif is_cut or is_copy then
-            -- TODO:
+            if g.IO.PlatformIO.Platform_SetClipboardTextFn ~= nil then
+                local ib = state:HasSelection() and ImMin(state.Stb.select_start, state.Stb.select_end) or 1
+                local ie = state:HasSelection() and ImMax(state.Stb.select_start, state.Stb.select_end) or state.TextLen + 1
+                g.TempBuffer:reserve(ie - ib + 1)
+                ImStd.memmove(g.TempBuffer.Data, 1, state.TextSrc, ib, ie - ib)
+                g.TempBuffer.Data[ie - ib + 1] = 0
+                ImGui.SetClipboardText(g.TempBuffer.Data) -- FIXME: to lua string
+            end
+            if is_cut then
+                if not state:HasSelection() then
+                    state:SelectAll()
+                end
+                state.CursorFollow = true
+                stbte.cut(state, state.Stb)
+            end
         elseif is_paste then
-            -- TODO:
+            local clipboard = ImGui.GetClipboardText()
+            if clipboard then
+                local clipboard_len = #clipboard
+                local clipboard_end = clipboard_len + 1
+
+                -- TODO:
+            end
         end
 
         render_selection = render_selection or (state:HasSelection() and (RENDER_SELECTION_WHEN_INACTIVE or render_cursor))

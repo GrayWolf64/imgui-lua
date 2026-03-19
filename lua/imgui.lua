@@ -6154,6 +6154,20 @@ function ImGui.Shutdown()
     -- TODO:
 end
 
+--- @return string?
+function ImGui.GetClipboardText()
+    local g = GImGui
+    return g.IO.PlatformIO.Platform_GetClipboardTextFn and g.IO.PlatformIO.Platform_GetClipboardTextFn(g) or nil
+end
+
+--- @param text string
+function ImGui.SetClipboardText(text)
+    local g = GImGui
+    if g.IO.PlatformIO.Platform_SetClipboardTextFn ~= nil then
+        g.IO.PlatformIO.Platform_SetClipboardTextFn(g, text)
+    end
+end
+
 function ImGui.GetIO() return GImGui.IO end
 
 --- @return ImGuiPlatformIO
