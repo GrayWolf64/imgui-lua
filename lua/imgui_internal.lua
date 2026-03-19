@@ -288,14 +288,27 @@ function ImStd.ImStrlen(str)
 end
 
 -- string.find with patterns disabled
---- @param str        string
---- @param s          string
+--- @param str        string|char[]
+--- @param s          string|char
 --- @param start_pos? int
 --- @return int?
-function ImMemchr(str, s, start_pos)
+function ImMemchr(str, s, start_pos) -- FIXME: should accept count instead
     local start = start_pos or 1
     if start < 1 then start = 1 end
 
+    if type(str) == "table" then -- FIXME: slow path
+        for i = start_pos, #str do
+            if str[i] == 0 then break end
+
+            if str[i] == s then
+                return i
+            end
+        end
+
+        return nil
+    end
+
+    --- @cast str string
     local pos = string.find(str, s, start, true)
 
     return pos
@@ -1270,6 +1283,14 @@ local function ImGuiKeyRoutingTable()
     }, _ImGuiKeyRoutingTable)
 end
 
+--- @class ImGuiTextIndex
+--- @field Offsets   ImVector<int>
+--- @field EndOffset int
+
+--- @return ImGuiTextIndex
+local function ImGuiTextIndex()
+end
+
 --- @class ImGuiContext
 --- @field Initialized                        bool
 --- @field WithinFrameScope                   bool
@@ -1300,6 +1321,7 @@ end
 --- @field ColorEditSavedColor                ImU32                          # RGB value with alpha set to 0
 --- @field ColorPickerRef                     ImVec4                         # Initial/reference color at the time of opening the color picker
 --- @field InputTextState                     ImGuiInputTextState
+--- @field InputTextLineIndex                 ImGuiTextIndex
 --- @field InputTextDeactivatedState          ImGuiInputTextDeactivatedState
 --- @field InputTextPasswordFontBackupBaked   ImFontBaked
 --- @field KeysMayBeCharInput                 ImBitArrayForNamedKeys
@@ -1481,6 +1503,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         MouseStationaryTimer = 0.0,
 
         InputTextState = ImGuiInputTextState(),
+        InputTextLineIndex = ImGuiTextIndex(),
         InputTextDeactivatedState = ImGuiInputTextDeactivatedState(),
         InputTextPasswordFontBackupBaked = ImFontBaked(),
 

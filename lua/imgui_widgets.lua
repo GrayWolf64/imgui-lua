@@ -3181,6 +3181,80 @@ function ImGui.InputTextDeactivateHook(id)
     end
 end
 
+--- @param flags                  ImGuiInputTextFlags
+--- @param line_index             ImGuiTextIndex
+--- @param buf                    char[]
+--- @param buf_end                int
+--- @param wrap_width             float
+--- @param max_output_buffer_size int
+--- @return int  size
+--- @return int? out_buf_end
+local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_width, max_output_buffer_size)
+    local g = GImGui
+    local size = 0
+    local s = 1
+    local trailing_line_already_counted = false
+    if bit.band(flags, ImGuiInputTextFlags.WordWrap) ~= 0 then
+        while s < buf_end do
+            if size <= max_output_buffer_size then
+                line_index.Offsets:push_back(s)
+            end
+            size = size + 1
+            s = ImFontCalcWordWrapPositionEx(g.Font, g.FontSize, buf, s, buf_end, wrap_width, ImDrawTextFlags.WrapKeepBlanks)
+
+            if buf[s] == 10 then s = s + 1 end
+        end
+    elseif buf_end ~= nil then
+        while s < buf_end do
+            if size <= max_output_buffer_size then
+                line_index.Offsets:push_back(s)
+            end
+            size = size + 1
+            s = ImMemchr(buf, 10, s) --[[@as int]] -- FIXME:
+
+            if s then s = s + 1 else s = buf_end end
+        end
+    else
+        -- Inactive path: we don't know buf_end ahead of time.
+        local s_eol
+        s = 1
+        while true do
+            if size <= max_output_buffer_size then
+                line_index.Offsets:push_back(s)
+            end
+            size = size + 1
+
+            s_eol = ImMemchr(buf, 10, s)
+            if s_eol ~= nil then
+                goto CONTINUE
+            end
+            s = s + ImStd.ImStrlen(buf) - s -- FIXME:
+            trailing_line_already_counted = true
+
+            do break end
+
+            :: CONTINUE ::
+
+            s = s_eol + 1
+        end
+    end
+
+    local out_buf_end
+    if out_buf_end ~= nil then
+        out_buf_end = s
+        buf_end = s
+    end
+    if size == 0 then
+        line_index.Offsets:push_back(1)
+        size = size + 1
+    end
+    if s > 1 and buf[s - 1] == 10 and size <= max_output_buffer_size and not trailing_line_already_counted then
+        line_index.Offsets:push_back(s)
+        size = size + 1
+    end
+    return size, out_buf_end
+end
+
 -- Edit a string of text
 --- @param label              string
 --- @param hint               ImStringBuffer
