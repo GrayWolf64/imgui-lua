@@ -99,57 +99,57 @@ local MAP_BUTTON = {
     [KEY_PAD_9] = ImGuiKey.Keypad9,
 
     [KEY_PAD_DIVIDE] = ImGuiKey.KeypadDivide,   [KEY_PAD_MULTIPLY] = ImGuiKey.KeypadMultiply,
-    [KEY_PAD_MINUS]  = ImGuiKey.KeypadSubtract, [KEY_PAD_PLUS]     = ImGuiKey.KeypadAdd,
-    [KEY_PAD_ENTER]  = ImGuiKey.KeypadEnter,    [KEY_PAD_DECIMAL]  = ImGuiKey.KeypadDecimal,
+    [KEY_PAD_MINUS ] = ImGuiKey.KeypadSubtract, [KEY_PAD_PLUS    ] = ImGuiKey.KeypadAdd,
+    [KEY_PAD_ENTER ] = ImGuiKey.KeypadEnter,    [KEY_PAD_DECIMAL ] = ImGuiKey.KeypadDecimal,
 
-    [KEY_LBRACKET]   = ImGuiKey.LeftBracket, [KEY_RBRACKET]   = ImGuiKey.RightBracket,
-    [KEY_SEMICOLON]  = ImGuiKey.Semicolon,   [KEY_APOSTROPHE] = ImGuiKey.Apostrophe,
-    [KEY_BACKQUOTE]  = ImGuiKey.GraveAccent, [KEY_COMMA]      = ImGuiKey.Comma,
-    [KEY_PERIOD]     = ImGuiKey.Period,      [KEY_SLASH]      = ImGuiKey.Slash,
-    [KEY_BACKSLASH]  = ImGuiKey.Backslash,   [KEY_MINUS]      = ImGuiKey.Minus,
-    [KEY_EQUAL]      = ImGuiKey.Equal,       [KEY_ENTER]      = ImGuiKey.Enter,
-    [KEY_SPACE]      = ImGuiKey.Space,       [KEY_BACKSPACE]  = ImGuiKey.Backspace,
-    [KEY_TAB]        = ImGuiKey.Tab,         [KEY_CAPSLOCK]   = ImGuiKey.CapsLock,
-    [KEY_NUMLOCK]    = ImGuiKey.NumLock,     [KEY_ESCAPE]     = ImGuiKey.Escape,
+    [KEY_LBRACKET  ] = ImGuiKey.LeftBracket, [KEY_RBRACKET  ] = ImGuiKey.RightBracket,
+    [KEY_SEMICOLON ] = ImGuiKey.Semicolon,   [KEY_APOSTROPHE] = ImGuiKey.Apostrophe,
+    [KEY_BACKQUOTE ] = ImGuiKey.GraveAccent, [KEY_COMMA     ] = ImGuiKey.Comma,
+    [KEY_PERIOD    ] = ImGuiKey.Period,      [KEY_SLASH     ] = ImGuiKey.Slash,
+    [KEY_BACKSLASH ] = ImGuiKey.Backslash,   [KEY_MINUS     ] = ImGuiKey.Minus,
+    [KEY_EQUAL     ] = ImGuiKey.Equal,       [KEY_ENTER     ] = ImGuiKey.Enter,
+    [KEY_SPACE     ] = ImGuiKey.Space,       [KEY_BACKSPACE ] = ImGuiKey.Backspace,
+    [KEY_TAB       ] = ImGuiKey.Tab,         [KEY_CAPSLOCK  ] = ImGuiKey.CapsLock,
+    [KEY_NUMLOCK   ] = ImGuiKey.NumLock,     [KEY_ESCAPE    ] = ImGuiKey.Escape,
     [KEY_SCROLLLOCK] = ImGuiKey.ScrollLock,
 
-    [KEY_INSERT] = ImGuiKey.Insert, [KEY_DELETE]   = ImGuiKey.Delete,
-    [KEY_HOME]   = ImGuiKey.Home,   [KEY_END]      = ImGuiKey.End,
+    [KEY_INSERT] = ImGuiKey.Insert, [KEY_DELETE  ] = ImGuiKey.Delete,
+    [KEY_HOME  ] = ImGuiKey.Home,   [KEY_END     ] = ImGuiKey.End,
     [KEY_PAGEUP] = ImGuiKey.PageUp, [KEY_PAGEDOWN] = ImGuiKey.PageDown,
 
-    [KEY_BREAK]      = ImGuiKey.Pause, -- ?
+    [KEY_BREAK] = ImGuiKey.Pause, -- ?
 
-    [KEY_LSHIFT]   = ImGuiKey.LeftShift, [KEY_RSHIFT]   = ImGuiKey.RightShift,
-    [KEY_LALT]     = ImGuiKey.LeftAlt,   [KEY_RALT]     = ImGuiKey.RightAlt,
+    [KEY_LSHIFT  ] = ImGuiKey.LeftShift, [KEY_RSHIFT  ] = ImGuiKey.RightShift,
+    [KEY_LALT    ] = ImGuiKey.LeftAlt,   [KEY_RALT    ] = ImGuiKey.RightAlt,
     [KEY_LCONTROL] = ImGuiKey.LeftCtrl,  [KEY_RCONTROL] = ImGuiKey.RightCtrl,
-    [KEY_LWIN]     = ImGuiKey.LeftSuper, [KEY_RWIN]     = ImGuiKey.RightSuper,
+    [KEY_LWIN    ] = ImGuiKey.LeftSuper, [KEY_RWIN    ] = ImGuiKey.RightSuper,
 
     [KEY_APP] = ImGuiKey.Menu, -- ?
 
-    [KEY_UP]   = ImGuiKey.UpArrow,   [KEY_LEFT]  = ImGuiKey.LeftArrow,
+    [KEY_UP  ] = ImGuiKey.UpArrow,   [KEY_LEFT ] = ImGuiKey.LeftArrow,
     [KEY_DOWN] = ImGuiKey.DownArrow, [KEY_RIGHT] = ImGuiKey.RightArrow,
 
-    [KEY_F1] = ImGuiKey.F1, [KEY_F2]  = ImGuiKey.F2,  [KEY_F3]  = ImGuiKey.F3,  [KEY_F4]  = ImGuiKey.F4,
-    [KEY_F5] = ImGuiKey.F5, [KEY_F6]  = ImGuiKey.F6,  [KEY_F7]  = ImGuiKey.F7,  [KEY_F8]  = ImGuiKey.F8,
+    [KEY_F1] = ImGuiKey.F1, [KEY_F2 ] = ImGuiKey.F2,  [KEY_F3 ] = ImGuiKey.F3,  [KEY_F4 ] = ImGuiKey.F4,
+    [KEY_F5] = ImGuiKey.F5, [KEY_F6 ] = ImGuiKey.F6,  [KEY_F7 ] = ImGuiKey.F7,  [KEY_F8 ] = ImGuiKey.F8,
     [KEY_F9] = ImGuiKey.F9, [KEY_F10] = ImGuiKey.F10, [KEY_F11] = ImGuiKey.F11, [KEY_F12] = ImGuiKey.F12,
 
     [KEY_XBUTTON_A] = ImGuiKey.GamepadFaceDown, [KEY_XBUTTON_B] = ImGuiKey.GamepadFaceRight,
     [KEY_XBUTTON_X] = ImGuiKey.GamepadFaceLeft, [KEY_XBUTTON_Y] = ImGuiKey.GamepadFaceUp,
 
     [KEY_XBUTTON_LEFT_SHOULDER] = ImGuiKey.GamepadL1,   [KEY_XBUTTON_RIGHT_SHOULDER] = ImGuiKey.GamepadR1,
-    [KEY_XBUTTON_BACK]          = ImGuiKey.GamepadBack, [KEY_XBUTTON_START]          = ImGuiKey.GamepadStart,
-    [KEY_XBUTTON_STICK1]        = ImGuiKey.GamepadL3,   [KEY_XBUTTON_STICK2]         = ImGuiKey.GamepadR3,
+    [KEY_XBUTTON_BACK         ] = ImGuiKey.GamepadBack, [KEY_XBUTTON_START         ] = ImGuiKey.GamepadStart,
+    [KEY_XBUTTON_STICK1       ] = ImGuiKey.GamepadL3,   [KEY_XBUTTON_STICK2        ] = ImGuiKey.GamepadR3,
 
-    [KEY_XBUTTON_UP]   = ImGuiKey.GamepadDpadUp,   [KEY_XBUTTON_RIGHT] = ImGuiKey.GamepadDpadRight,
-    [KEY_XBUTTON_DOWN] = ImGuiKey.GamepadDpadDown, [KEY_XBUTTON_LEFT]  = ImGuiKey.GamepadDpadLeft,
+    [KEY_XBUTTON_UP  ] = ImGuiKey.GamepadDpadUp,   [KEY_XBUTTON_RIGHT] = ImGuiKey.GamepadDpadRight,
+    [KEY_XBUTTON_DOWN] = ImGuiKey.GamepadDpadDown, [KEY_XBUTTON_LEFT ] = ImGuiKey.GamepadDpadLeft,
 
     [KEY_XSTICK1_RIGHT] = ImGuiKey.GamepadLStickRight, [KEY_XSTICK1_LEFT] = ImGuiKey.GamepadLStickLeft,
-    [KEY_XSTICK1_DOWN]  = ImGuiKey.GamepadLStickDown,  [KEY_XSTICK1_UP]   = ImGuiKey.GamepadLStickUp,
+    [KEY_XSTICK1_DOWN ] = ImGuiKey.GamepadLStickDown,  [KEY_XSTICK1_UP  ] = ImGuiKey.GamepadLStickUp,
 
     [KEY_XBUTTON_LTRIGGER] = ImGuiKey.GamepadL2, [KEY_XBUTTON_RTRIGGER] = ImGuiKey.GamepadR2,
 
     [KEY_XSTICK2_RIGHT] = ImGuiKey.GamepadRStickRight, [KEY_XSTICK2_LEFT] = ImGuiKey.GamepadRStickLeft,
-    [KEY_XSTICK2_DOWN]  = ImGuiKey.GamepadRStickDown,  [KEY_XSTICK2_UP]   = ImGuiKey.GamepadRStickUp,
+    [KEY_XSTICK2_DOWN ] = ImGuiKey.GamepadRStickDown,  [KEY_XSTICK2_UP  ] = ImGuiKey.GamepadRStickUp,
 }
 
 --- - Single-viewport mode: mouse position in GMod Derma window coordinates
