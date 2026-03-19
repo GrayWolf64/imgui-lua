@@ -474,6 +474,21 @@ function ImStd.ImTriangleClosestPoint(a, b, c, p)
     end
 end
 
+--- @param dst     char[]
+--- @param dst_pos int
+--- @param src     char[]
+--- @param src_pos int
+--- @param count   size_t
+function ImStd.ImStrncpy(dst, dst_pos, src, src_pos, count)
+    if count < 1 then
+        return
+    end
+    if count > 1 then
+        ImStd.memmove(dst, dst_pos, src, src_pos, count - 1)
+    end
+    dst[dst_pos + (count - 1)] = 0
+end
+
 --- @param str      char[]
 --- @param mid_line int
 --- @param begin    int
@@ -485,7 +500,6 @@ function ImStd.ImStrbol(str, mid_line, begin)
     return mid_line
 end
 
---- void ImGui::UpdateCurrentFontSize
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     local g = GImGui
     local window = g.CurrentWindow
@@ -522,7 +536,6 @@ function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     g.DrawListSharedData.FontScale = g.FontBakedScale
 end
 
---- void ImGui::SetCurrentFont
 function ImGui.SetCurrentFont(font, font_size_before_scaling, font_size_after_scaling)
     local g = GImGui
 
@@ -552,11 +565,7 @@ function ImGui.PushFont(font, font_size_base)
     IM_ASSERT(font ~= nil)
     IM_ASSERT(font_size_base >= 0.0)
 
-    g.FontStack:push_back({
-        Font = font,
-        FontSizeBeforeScaling = g.FontSizeBase,
-        FontSizeAfterScaling = g.FontSize
-    }) -- TODO: ImFontStackData
+    g.FontStack:push_back(ImFontStackData(font, g.FontSizeBase, g.FontSize))
 
     if font_size_base == 0.0 then
         font_size_base = g.FontSizeBase
@@ -1329,10 +1338,18 @@ function ImGui.IsItemActive()
     return false
 end
 
---- void ImGuiStyle::ScaleAllSizes
--- local function ScaleAllSizes(scale_factor)
+function ImGui.IsItemDeactivated()
+    local g = GImGui
+    if bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasDeactivated) ~= 0 then
+        return bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Deactivated) ~= 0
+    end
+    return g.DeactivatedItemData.ID == g.LastItemData.ID and g.LastItemData.ID ~= 0 and g.DeactivatedItemData.ElapseFrame >= g.FrameCount
+end
 
--- end
+function ImGui.IsItemDeactivatedAfterEdit()
+    local g = GImGui
+    return ImGui.IsItemDeactivated() and g.DeactivatedItemData.HasBeenEditedBefore
+end
 
 ---------------------------------------------------------------------------------------
 -- [SECTION] WINDOW FOCUS

@@ -2880,6 +2880,33 @@ function ImStb.TEXTEDIT_INSERTCHARS(obj, pos, new_text, new_text_pos, new_text_l
     return new_text_len
 end
 
+--- @param str      ImGuiInputTextState
+--- @param state    STB_TexteditState
+--- @param text     IMSTB_TEXTEDIT_CHARTYPE[]
+--- @param text_len int
+function ImStb.stb_textedit_replace(str, state, text, text_len)
+    stbte.makeundo_replace(str, state, 1, str.TextLen, text_len)
+    ImStb.TEXTEDIT_DELETECHARS(str, 1, str.TextLen)
+    state.cursor = 1
+    state.select_start = 1
+    state.select_end = 1
+    if text_len <= 0 then
+        return
+    end
+
+    local text_len_inserted = ImStb.TEXTEDIT_INSERTCHARS(str, 1, text, 1, text_len)
+    if text_len_inserted > 0 then
+        state.cursor = text_len + 1
+        state.select_start = text_len + 1
+        state.select_end = text_len + 1
+        state.has_preferred_x = false
+
+        return
+    end
+
+    IM_ASSERT(false) -- Failed to insert character, normally shouldn't happen because of how we currently use stb_textedit_replace()
+end
+
 do
 
 local MT = ImGui.GetMetatables()
@@ -3727,7 +3754,133 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     -- Process revert and user callbacks
-    -- TODO:
+    local apply_new_text = {}
+    local apply_new_text_length = 0
+    if g.ActiveId == id then
+        IM_ASSERT(state ~= nil)
+        --- @cast state ImGuiInputTextState
+
+        if revert_edit and not is_readonly then
+            if bit.band(flags, ImGuiInputTextFlags.EscapeClearsAll) ~= 0 then
+                IM_ASSERT(state.TextA.Data[1] ~= 0)
+                apply_new_text[1] = 0
+                apply_new_text_length = 0
+                value_changed = true
+                local empty_string = {0}
+                ImStb.stb_textedit_replace(state, state.Stb, empty_string, 0)
+            elseif ImStd.strcmp(state.TextA.Data, state.TextToRevertTo.Data) ~= 0 then
+                apply_new_text = state.TextToRevertTo.Data
+                apply_new_text_length = state.TextToRevertTo.Size - 1
+
+                value_changed = true
+                ImStd.stb_textedit_replace(state, state.Stb, state.TextToRevertTo.Data, state.TextToRevertTo.Size - 1)
+            end
+        end
+
+        if bit.band(flags, bit.bor(ImGuiInputTextFlags.CallbackCompletion, ImGuiInputTextFlags.CallbackHistory, ImGuiInputTextFlags.CallbackEdit, ImGuiInputTextFlags.CallbackAlways)) ~= 0 then
+            IM_ASSERT(callback ~= nil)
+
+            local event_flag = 0
+            local event_key = ImGuiKey.None
+            if bit.band(flags, ImGuiInputTextFlags.CallbackCompletion) ~= 0 and ImGui.Shortcut(ImGuiKey.Tab, 0, id) then
+                event_flag = ImGuiInputTextFlags.CallbackCompletion
+                event_key = ImGuiKey.Tab
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and ImGui.IsKeyPressed(ImGuiKey.UpArrow) then
+                event_flag = ImGuiInputTextFlags.CallbackHistory
+                event_key = ImGuiKey.UpArrow
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and ImGui.IsKeyPressed(ImGuiKey.DownArrow) then
+                event_flag = ImGuiInputTextFlags.CallbackHistory
+                event_key = ImGuiKey.DownArrow
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackEdit) ~= 0 and state.Edited then
+                event_flag = ImGuiInputTextFlags.CallbackEdit
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackAlways) ~= 0 then
+                event_flag = ImGuiInputTextFlags.CallbackAlways
+            end
+
+            if event_flag ~= 0 then
+                local callback_data = ImGuiInputTextCallbackData()
+                callback_data.Ctx = g
+                callback_data.ID = id
+                callback_data.Flags = flags
+                callback_data.EventFlag = event_flag
+                callback_data.EventActivated = (g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
+                callback_data.UserData = callback_user_data
+
+                local callback_buf = is_readonly and buf or state.TextA.Data
+                IM_ASSERT(callback_buf == state.TextSrc)
+                state.CallbackTextBackup:resize(state.TextLen + 1)
+                ImStd.memmove(state.CallbackTextBackup.Data, 1, callback_buf, 1, state.TextLen + 1)
+
+                callback_data.EventKey = event_key
+                callback_data.Buf = callback_buf
+                callback_data.BufTextLen = state.TextLen
+                callback_data.BufSize = state.BufCapacity
+                callback_data.BufDirty = false
+                callback_data.CursorPos = state.Stb.cursor
+                callback_data.SelectionStart = state.Stb.select_start
+                callback_data.SelectionEnd = state.Stb.select_end
+
+                callback(callback_data)
+
+                callback_buf = is_readonly and buf or state.TextA.Data
+                IM_ASSERT(callback_data.Buf == callback_buf)
+                IM_ASSERT(callback_data.BufSize == state.BufCapacity)
+                IM_ASSERT(callback_data.Flags == flags)
+                if callback_data.BufDirty or callback_data.CursorPos ~= state.Stb.cursor then
+                    state.CursorFollow = true
+                end
+                state.Stb.cursor = ImClamp(callback_data.CursorPos, 0, callback_data.BufTextLen)
+                state.Stb.select_start = ImClamp(callback_data.SelectionStart, 0, callback_data.BufTextLen)
+                state.Stb.select_end = ImClamp(callback_data.SelectionEnd, 0, callback_data.BufTextLen)
+                if callback_data.BufDirty then
+                    IM_ASSERT(callback_data.BufTextLen == ImStd.ImStrlen(callback_data.Buf))
+                    InputTextReconcileUndoState(state, state.CallbackTextBackup.Data, state.CallbackTextBackup.Size - 1, callback_data.Buf, callback_data.BufTextLen)
+                    state.TextLen = callback_data.BufTextLen
+                    state:CursorAnimReset()
+                end
+            end
+        end
+
+        if not is_readonly and ImStd.strcmp(state.TextSrc, buf) ~= 0 then
+            apply_new_text = state.TextSrc
+            apply_new_text_length = state.TextLen
+            value_changed = true
+        end
+    end
+
+    if g.InputTextDeactivatedState.ID == id then
+        if g.ActiveId ~= id and ImGui.IsItemDeactivatedAfterEdit() and not is_readonly and ImStd.strcmp(g.InputTextDeactivatedState.TextA.Data, buf) ~= 0 then
+            apply_new_text = g.InputTextDeactivatedState.TextA.Data
+            apply_new_text_length = g.InputTextDeactivatedState.TextA.Size - 1
+            value_changed = true
+        end
+        g.InputTextDeactivatedState.ID = 0
+    end
+
+    if apply_new_text ~= nil then
+        IM_ASSERT(apply_new_text_length >= 0)
+        if is_resizable then
+            local callback_data = ImGuiInputTextCallbackData()
+            callback_data.Ctx = g
+            callback_data.ID = id
+            callback_data.Flags = flags
+            callback_data.EventFlag = ImGuiInputTextFlags_CallbackResize
+            callback_data.EventActivated = (g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
+            callback_data.Buf = buf
+            callback_data.BufTextLen = apply_new_text_length
+            callback_data.BufSize = ImMax(buf_size, apply_new_text_length + 1)
+            callback_data.UserData = callback_user_data
+
+            callback(callback_data)
+
+            buf = callback_data.Buf
+            buf_size = callback_data.BufSize
+            apply_new_text_length = ImMin(callback_data.BufTextLen, buf_size - 1)
+            IM_ASSERT(apply_new_text_length <= buf_size)
+        end
+
+        ImStd.ImStrncpy(buf, 1, apply_new_text, 1, ImMin(apply_new_text_length + 1, buf_size))
+    end
 
     -- Release active ID at the end of the function (so e.g. pressing Return still does a final application of the value)
     -- Otherwise request text input ahead for next frame.

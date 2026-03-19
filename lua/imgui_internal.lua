@@ -177,6 +177,26 @@ ImStd.memmove = _memmove
 
 end
 
+--- @param str1 ImStringBuffer
+--- @param str2 ImStringBuffer
+function ImStd.strcmp(str1, str2)
+    local i = 1
+    while true do
+        local c1 = str1[i] or 0
+        local c2 = str2[i] or 0
+
+        if c1 ~= c2 then
+            return c1 - c2
+        end
+
+        if c1 == 0 then
+            return 0
+        end
+
+        i = i + 1
+    end
+end
+
 --- @param str1      ImStringBuffer
 --- @param str2      ImStringBuffer
 --- @param max_count int
@@ -783,14 +803,15 @@ function ImFontAtlasBuilder()
 end
 
 --- @class ImFontStackData
---- @field Font ImFont
+--- @field Font                  ImFont
 --- @field FontSizeBeforeScaling float
---- @field FontSizeAfterScaling float
+--- @field FontSizeAfterScaling  float
 
 --- @return ImFontStackData
---- @param font ImFont
+--- @param font                     ImFont
 --- @param font_size_before_scaling float
---- @param font_size_after_scaling float
+--- @param font_size_after_scaling  float
+--- @nodiscard
 function ImFontStackData(font, font_size_before_scaling, font_size_after_scaling)
     return {
         Font                  = font,

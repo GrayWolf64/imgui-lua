@@ -1228,6 +1228,8 @@ return {
     text = stb_textedit_text,
     key = stb_textedit_key,
 
+    makeundo_replace = stb_text_makeundo_replace,
+
     clamp = stb_textedit_clamp,
     prep_selection_at_cursor = stb_textedit_prep_selection_at_cursor,
     cut = stb_textedit_cut,
