@@ -3692,8 +3692,34 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             if clipboard then
                 local clipboard_len = #clipboard
                 local clipboard_end = clipboard_len + 1
+                local clipboard_filtered = ImVector()
+                clipboard_filtered:reserve(clipboard_len + 1)
+                local s
+                local i = 1
+                while i <= clipboard_len do
+                    s = string.byte(clipboard, i)
+                    local c, ret2
+                    local in_len
+                    in_len, c = ImStd.ImTextCharFromUtf8(clipboard, i, clipboard_end)
+                    i = i + in_len
+                    c, ret2 = InputTextFilterCharacter(g, state, c, callback, callback_user_data, true)
+                    if ret2 then
+                        goto CONTINUE
+                    end
 
-                -- TODO:
+                    local c_utf8 = {0, 0, 0, 0, 0}
+                    ImStd.ImTextCharToUtf8(c_utf8, c)
+                    local out_len = ImStd.ImStrlen(c_utf8)
+                    clipboard_filtered:resize(clipboard_filtered.Size + out_len)
+                    ImStd.memmove(clipboard_filtered.Data, clipboard_filtered.Size - out_len, c_utf8, 1, out_len)
+
+                    :: CONTINUE ::
+                end
+                if clipboard_filtered.Size > 0 then
+                    clipboard_filtered:push_back(0)
+                    stbte.paste(state, state.Stb, clipboard_filtered.Data, clipboard_filtered.Size - 1)
+                    state.CursorFollow = true
+                end
             end
         end
 
