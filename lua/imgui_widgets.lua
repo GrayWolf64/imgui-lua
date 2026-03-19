@@ -3597,7 +3597,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         IM_ASSERT(state ~= nil)
         --- @cast state ImGuiInputTextState
 
-        local row_count_per_page = ImMax(math.floor((inner_size.y - style.FramePadding.y) / g.FontSize), 1)
+        local row_count_per_page = ImMax(ImTrunc((inner_size.y - style.FramePadding.y) / g.FontSize), 1)
         state.Stb.row_count_per_page = row_count_per_page
 
         local k_mask = (io.KeyShift and ImStb.TEXTEDIT_K_SHIFT or 0)
@@ -3936,6 +3936,11 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     -- Calculate visibility
+    local line_visible_n0, line_visible_n1 = 1, 2
+    if is_multiline then
+        line_visible_n0, line_visible_n1 = ImGui.CalcClipRectVisibleItemsY(clip_rect, draw_pos, g.FontSize)
+    end
+
     -- TODO:
 end
 

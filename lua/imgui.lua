@@ -6298,6 +6298,15 @@ function ImGui.ColorConvertHSVtoRGB(h, s, v)
     end
 end
 
+--- @param clip_rect    ImRect
+--- @param pos          ImVec2
+--- @param items_height float
+function ImGui.CalcClipRectVisibleItemsY(clip_rect, pos, items_height)
+    local visible_start = ImMax(ImTrunc((clip_rect.Min.y - pos.y) / items_height), 0)
+    local visible_end = ImMax(ImTrunc(ImCeil((clip_rect.Max.y - pos.y) / items_height)), visible_start)
+    return visible_start + 1, visible_end + 1
+end
+
 ---------------------------------------------------------------------------------------
 -- [SECTION] STYLING
 ---------------------------------------------------------------------------------------

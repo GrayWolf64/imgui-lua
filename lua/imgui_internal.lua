@@ -103,7 +103,7 @@ function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 function ImClampV2(v, min, max) return ImVec2(ImMin(ImMax(v.x, min.x), max.x), ImMin(ImMax(v.y, min.y), max.y)) end
 
 --- @param f number
-function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
+function ImTrunc(f) if f >= 0 then return math.floor(f) else return math.ceil(f) end end
 
 --- @param v ImVec2
 --- @nodiscard
