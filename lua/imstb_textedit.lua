@@ -1121,23 +1121,102 @@ end
 --- @param str   IMSTB_TEXTEDIT_STRING
 --- @param state STB_TexteditState
 function stb_text_redo(str, state)
-    -- TODO:
+    local s = state.undostate
+    if s.undo_point == IMSTB_TEXTEDIT_UNDOSTATECOUNT + 1 then
+        return
+    end
+
+    -- we need to do two things: apply the redo record, and create an undo record
+    local u = s.undo_rec[s.undo_point]
+    local r = s.undo_rec[s.redo_point]
+
+    u.delete_length = r.insert_length
+    u.insert_length = r.delete_length
+    u.where = r.where
+    u.char_storage = -1
+
+    if r.delete_length > 0 then
+        -- the redo record requires us to delete characters, so the undo record
+        -- needs to store the characters
+        if s.undo_char_point + u.insert_length > s.redo_char_point then
+            u.insert_length = 0
+            u.delete_length = 0
+        else
+            u.char_storage = s.undo_char_point
+            s.undo_char_point = s.undo_char_point + u.insert_length
+
+            for i = 0, u.insert_length - 1 do
+                s.undo_char[u.char_storage + i] = STB_TEXTEDIT_GETCHAR(str, u.where + i)
+            end
+        end
+
+        STB_TEXTEDIT_DELETECHARS(str, r.where, r.delete_length)
+    end
+
+    if r.insert_length ~= 0 then
+        r.insert_length = STB_TEXTEDIT_INSERTCHARS(str, r.where, s.undo_char, r.char_storage, r.insert_length)
+        s.redo_char_point = s.redo_char_point + r.insert_length
+    end
+
+    state.cursor = r.where + r.insert_length
+
+    s.undo_point = s.undo_point + 1
+    s.redo_point = s.redo_point + 1
 end
 
+--- @param state  STB_TexteditState
+--- @param where  int
+--- @param length int
 function stb_text_makeundo_insert(state, where, length)
-    -- TODO:
+    stb_text_createundo(state.undostate, where, 0, length)
 end
 
+--- @param str    IMSTB_TEXTEDIT_STRING
+--- @param state  STB_TexteditState
+--- @param where  int
+--- @param length int
 function stb_text_makeundo_delete(str, state, where, length)
-    -- TODO:
+    local s = state.undostate
+    local p = stb_text_createundo(s, where, length, 0)
+    if p then
+        for i = 0, length - 1 do
+            s.undo_char[p + i] = STB_TEXTEDIT_GETCHAR(str, where + i)
+        end
+    end
 end
 
+--- @param str        IMSTB_TEXTEDIT_STRING
+--- @param state      STB_TexteditState
+--- @param where      int
+--- @param old_length int
+--- @param new_length int
 function stb_text_makeundo_replace(str, state, where, old_length, new_length)
-    -- TODO:
+    local s = state.undostate
+    local p = stb_text_createundo(s, where, old_length, new_length)
+    if p then
+        for i = 0, old_length - 1 do
+            s.undo_char[p + i] = STB_TEXTEDIT_GETCHAR(str, where + i)
+        end
+    end
 end
 
+--- @param state          STB_TexteditState
+--- @param is_single_line bool
 local function stb_textedit_clear_state(state, is_single_line)
-    -- TODO:
+    state.undostate.undo_point = 1
+    state.undostate.undo_char_point = 1
+    state.undostate.redo_point = IMSTB_TEXTEDIT_UNDOSTATECOUNT + 1
+    state.undostate.redo_char_point = IMSTB_TEXTEDIT_UNDOCHARCOUNT + 1
+    state.select_end = 1
+    state.select_start = 1
+    state.cursor = 1
+    state.has_preferred_x = false
+    state.preferred_x = 0
+    state.cursor_at_end_of_line = false
+    state.initialized = true
+    state.single_line = is_single_line
+    state.insert_mode = false
+    state.row_count_per_page = 0
 end
 
 return {
