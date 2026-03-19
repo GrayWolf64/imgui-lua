@@ -3197,7 +3197,7 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
     if bit.band(flags, ImGuiInputTextFlags.WordWrap) ~= 0 then
         while s < buf_end do
             if size <= max_output_buffer_size then
-                line_index.Offsets:push_back(s)
+                line_index.Offsets:push_back(s - 1)
             end
             size = size + 1
             s = ImFontCalcWordWrapPositionEx(g.Font, g.FontSize, buf, s, buf_end, wrap_width, ImDrawTextFlags.WrapKeepBlanks)
@@ -3207,7 +3207,7 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
     elseif buf_end ~= nil then
         while s < buf_end do
             if size <= max_output_buffer_size then
-                line_index.Offsets:push_back(s)
+                line_index.Offsets:push_back(s - 1)
             end
             size = size + 1
             s = ImMemchr(buf, 10, s) --[[@as int]] -- FIXME:
@@ -3220,7 +3220,7 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
         s = 1
         while true do
             if size <= max_output_buffer_size then
-                line_index.Offsets:push_back(s)
+                line_index.Offsets:push_back(s - 1)
             end
             size = size + 1
 
@@ -3245,11 +3245,11 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
         buf_end = s
     end
     if size == 0 then
-        line_index.Offsets:push_back(1)
+        line_index.Offsets:push_back(0)
         size = size + 1
     end
     if s > 1 and buf[s - 1] == 10 and size <= max_output_buffer_size and not trailing_line_already_counted then
-        line_index.Offsets:push_back(s)
+        line_index.Offsets:push_back(s - 1)
         size = size + 1
     end
     return size, out_buf_end
@@ -4081,7 +4081,136 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     local text_size_y = line_count * g.FontSize
 
+    local cursor_offset = (render_cursor and state) and ImGui.InputTextLineIndexGetPosOffset(g, state, line_index, buf_display, buf_display_end, state.Stb.cursor) or ImVec2(0.0, 0.0)
+    local draw_scroll = ImVec2()
 
+    local text_col = ImGui.GetColorU32(is_displaying_hint and ImGuiCol.TextDisabled or ImGuiCol.Text)
+    if render_cursor or render_selection then
+        IM_ASSERT(state ~= nil)
+        state.LineCount = line_count
+
+        local new_scroll_y = scroll_y
+        if render_cursor and state.CursorFollow then
+            if bit.band(flags, ImGuiInputTextFlags.NoHorizontalScroll) == 0 then
+                local scroll_increment_x = inner_size.x * 0.25
+                local visible_width = inner_size.x - style.FramePadding.x
+                if cursor_offset.x < state.Scroll.x then
+                    state.Scroll.x = IM_TRUNC(ImMax(0.0, cursor_offset.x - scroll_increment_x))
+                elseif cursor_offset.x - visible_width >= state.Scroll.x then
+                    state.Scroll.x = IM_TRUNC(cursor_offset.x - visible_width + scroll_increment_x)
+                end
+            else
+                state.Scroll.x = 0.0
+            end
+
+            if is_multiline then
+                if cursor_offset.y - g.FontSize < scroll_y then
+                    new_scroll_y = ImMax(0.0, cursor_offset.y - g.FontSize)
+                elseif cursor_offset.y - (inner_size.y - style.FramePadding.y * 2.0) >= scroll_y then
+                    new_scroll_y = cursor_offset.y - inner_size.y + style.FramePadding.y * 2.0
+                end
+            end
+            state.CursorFollow = false
+        end
+        if state.CursorCenterY then
+            if is_multiline then
+                new_scroll_y = cursor_offset.y - g.FontSize - (inner_size.y * 0.5 - style.FramePadding.y)
+            end
+            state.CursorCenterY = false
+            render_cursor = false
+        end
+        if new_scroll_y ~= scroll_y then
+            local scroll_max_y = ImMax((text_size_y + style.FramePadding.y * 2.0) - inner_size.y, 0.0)
+            scroll_y = ImClamp(new_scroll_y, 0.0, scroll_max_y)
+            draw_pos.y = draw_pos.y + (draw_window.Scroll.y - scroll_y)
+            draw_window.Scroll.y = scroll_y
+            line_visible_n0, line_visible_n1 = ImGui.CalcClipRectVisibleItemsY(clip_rect, draw_pos, g.FontSize)
+            line_visible_n1 = ImMin(line_visible_n1, line_count)
+        end
+
+        draw_scroll.x = state.Scroll.x
+        if render_selection then
+            local bg_color = ImGui.GetColorU32(ImGuiCol.TextSelectedBg, render_cursor and 1.0 or 0.6)
+            local bg_offy_up = is_multiline and 0.0 or -1.0
+            local bg_offy_dn = is_multiline and 0.0 or 2.0
+            local bg_eol_width = IM_TRUNC(g.FontBaked:GetCharAdvance(32) * 0.50)
+
+            local text_selected_begin = ImMin(state.Stb.select_start, state.Stb.select_end)
+            local text_selected_end = ImMax(state.Stb.select_start, state.Stb.select_end)
+            for line_n = line_visible_n0, line_visible_n1 - 1 do
+                local p = line_index:get_line_begin(1, line_n)
+                local p_eol = line_index:get_line_end(1, line_n)
+                local p_eol_is_wrap = (p_eol < buf_display_end and buf_display[p_eol] ~= 10)
+                if p_eol_is_wrap then
+                    p_eol = p_eol + 1
+                end
+                local line_selected_begin = (text_selected_begin > p) and text_selected_begin or p
+                local line_selected_end = (text_selected_end < p_eol) and text_selected_end or p_eol
+
+                local rect_width = 0.0
+                if line_selected_begin < line_selected_end then
+                    rect_width = rect_width + ImGui.CalcTextSizeEx(buf_display, line_selected_begin, line_selected_end).x
+                end
+                if text_selected_begin <= p_eol and text_selected_end > p_eol and not p_eol_is_wrap then
+                    rect_width = rect_width + bg_eol_width
+                end
+                if rect_width == 0.0 then
+                    goto CONTINUE
+                end
+
+                local rect = ImRect()
+                rect.Min.x = draw_pos.x - draw_scroll.x + ImGui.CalcTextSizeEx(p, line_selected_begin).x
+                rect.Min.y = draw_pos.y - draw_scroll.y + line_n * g.FontSize
+                rect.Max.x = rect.Min.x + rect_width
+                rect.Max.y = rect.Min.y + bg_offy_dn + g.FontSize
+                rect.Min.y = rect.Min.y + bg_offy_up
+                rect:ClipWith(clip_rect)
+                draw_window.DrawList:AddRectFilled(rect.Min, rect.Max, bg_color)
+
+                :: CONTINUE ::
+            end
+        end
+    end
+
+    if g.ActiveId ~= id and bit.band(flags, ImGuiInputTextFlags.ElideLeft) ~= 0 and not render_cursor and not render_selection then
+        draw_pos.x = ImMin(draw_pos.x, frame_bb.Max.x - ImGui.CalcTextSize(buf_display, nil).x - style.FramePadding.x)
+    end
+
+    -- TODO: ImRect:AsVec4
+    if (is_multiline or (buf_display_end - buf_display) < buf_display_max_length) and bit.band(text_col, IM_COL32_A_MASK) ~= 0 and line_visible_n0 < line_visible_n1 then
+        g.Font:RenderText(draw_window.DrawList, g.FontSize,
+        draw_pos - draw_scroll + ImVec2(0.0, line_visible_n0 * g.FontSize),
+        text_col, clip_rect:AsVec4(),
+        line_index:get_line_begin(buf_display, line_visible_n0),
+        line_index:get_line_end(buf_display, line_visible_n1 - 1),
+        wrap_width, bit.bor(ImDrawTextFlags.WrapKeepBlanks, ImDrawTextFlags.CpuFineClip))
+    end
+
+    if render_cursor then
+        -- TODO:
+    end
+
+    if is_password and not is_displaying_hint then
+        ImGui.PopPasswordFont()
+    end
+
+    if is_multiline then
+        -- TODO:
+    end
+
+    if state and is_readonly then
+        state.TextSrc = nil
+    end
+
+    if value_changed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    if bit.band(flags, ImGuiInputTextFlags.EnterReturnsTrue) ~= 0 then
+        return validated
+    else
+        return value_changed
+    end
 end
 
 ----------------------------------------------------------------

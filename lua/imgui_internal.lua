@@ -1286,9 +1286,23 @@ end
 --- @class ImGuiTextIndex
 --- @field Offsets   ImVector<int>
 --- @field EndOffset int
+local _ImGuiTextIndex = {}
+_ImGuiTextIndex.__index = _ImGuiTextIndex
+
+function _ImGuiTextIndex:get_line_begin(base, n)
+    return base + (self.Offsets.Size ~= 0 and self.Offsets[n] or 0)
+end
+
+function _ImGuiTextIndex:get_line_end(base, n)
+    return base + ((n + 1 < self.Offsets.Size) and (self.Offsets[n + 1] - 1) or self.EndOffset)
+end
 
 --- @return ImGuiTextIndex
 local function ImGuiTextIndex()
+    return setmetatable({
+        Offsets = ImVector(),
+        EndOffset = 0
+    }, _ImGuiTextIndex)
 end
 
 --- @class ImGuiContext

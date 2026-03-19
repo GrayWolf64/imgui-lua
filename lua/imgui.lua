@@ -3306,7 +3306,7 @@ function ImGui.CalcWrapWidthForPos(pos, wrap_pos_x)
     return ImMax(wrap_pos_x - pos.x, 1.0)
 end
 
---- @param text     string
+--- @param text     ImString
 --- @param text_end int?
 --- @return int # Exclusive upper bound
 function ImGui.FindRenderedTextEnd(text, text_end)
@@ -6120,12 +6120,22 @@ function ImGui.Render()
     end
 end
 
---- @param text                         string
+--- @param text                         ImString
 --- @param text_end?                    int    # Exclusive upper bound
 --- @param hide_text_after_double_hash? bool
 --- @param wrap_width?                  float
 --- @return ImVec2
 function ImGui.CalcTextSize(text, text_end, hide_text_after_double_hash, wrap_width)
+    return ImGui.CalcTextSizeEx(text, 1, text_end, hide_text_after_double_hash, wrap_width)
+end
+
+--- @param text                         ImString
+--- @param text_begin                   int
+--- @param text_end?                    int    # Exclusive upper bound
+--- @param hide_text_after_double_hash? bool
+--- @param wrap_width?                  float
+--- @return ImVec2
+function ImGui.CalcTextSizeEx(text, text_begin, text_end, hide_text_after_double_hash, wrap_width)
     if hide_text_after_double_hash == nil then hide_text_after_double_hash = false end
     if wrap_width                  == nil then wrap_width                  = -1.0  end
 
@@ -6140,10 +6150,10 @@ function ImGui.CalcTextSize(text, text_end, hide_text_after_double_hash, wrap_wi
 
     local font = g.Font
     local font_size = g.FontSize
-    if text == "" or (text_end and text_end <= 1) then
+    if text == "" or (text_end and text_end <= text_begin) then
         return ImVec2(0.0, font_size)
     end
-    local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, 1, text_display_end, nil)
+    local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, text_begin, text_display_end, nil)
 
     text_size.x = IM_TRUNC(text_size.x + 0.99999)
 

@@ -2632,7 +2632,7 @@ end
 --- @param size       float
 --- @param max_width  float
 --- @param wrap_width float
---- @param text       string
+--- @param text       ImString
 --- @param text_begin int
 --- @param text_end?  int
 function MT.ImFont:CalcTextSizeA(size, max_width, wrap_width, text, text_begin, text_end)
