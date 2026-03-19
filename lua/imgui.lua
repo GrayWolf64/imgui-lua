@@ -5764,11 +5764,11 @@ local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
         viewport.BgFgDrawLists[drawlist_no] = draw_list
     end
 
-    if viewport.BgFgDrawListsLastFrame[drawlist_no] ~= g.FrameCount then
+    if viewport.BgFgDrawListsLastTimeActive[drawlist_no] ~= g.Time then
         draw_list:_ResetForNewFrame()
         draw_list:PushTexture(g.IO.Fonts.TexRef)
         draw_list:PushClipRect(viewport.Pos, viewport.Pos + viewport.Size, false)
-        viewport.BgFgDrawListsLastFrame[drawlist_no] = g.FrameCount
+        viewport.BgFgDrawListsLastTimeActive[drawlist_no] = g.Time
     end
 
     return draw_list
@@ -6074,7 +6074,7 @@ function ImGui.Render()
 
     for _, viewport in g.Viewports:iter() do
         InitViewportDrawData(viewport)
-        if viewport.BgFgDrawLists[1] ~= nil then
+        if viewport.BgFgDrawLists[1] ~= nil and viewport.BgFgDrawListsLastTimeActive[1] == g.Time then
             ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], ImGui.GetBackgroundDrawList(viewport))
         end
     end
@@ -6105,7 +6105,7 @@ function ImGui.Render()
     for _, viewport in g.Viewports:iter() do
         FlattenDrawDataIntoSingleLayer(viewport.DrawDataBuilder)
 
-        if viewport.BgFgDrawLists[2] ~= nil then
+        if viewport.BgFgDrawLists[2] ~= nil and viewport.BgFgDrawListsLastTimeActive[2] == g.Time then
             ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], ImGui.GetForegroundDrawList(viewport))
         end
 
@@ -7682,6 +7682,7 @@ function ImGui.FindHoveredViewportFromPlatformWindowStack(mouse_platform_pos)
     return best_candidate
 end
 
+-- TODO: GC?
 function ImGui.UpdateViewportsNewFrame()
     local g = GImGui
     IM_ASSERT(g.PlatformIO.Viewports.Size <= g.Viewports.Size)

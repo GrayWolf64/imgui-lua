@@ -2993,6 +2993,8 @@ end
 local function InputTextFilterCharacter(ctx, state, char, callback, user_data, input_source_is_clipboard)
     if input_source_is_clipboard == nil then input_source_is_clipboard = false end
 
+    IM_ASSERT(state ~= nil)
+
     local c = char
     local flags = state.Flags
 
@@ -3102,7 +3104,7 @@ local function InputTextFilterCharacter(ctx, state, char, callback, user_data, i
         callback_data.Flags = flags
         callback_data.EventFlag = ImGuiInputTextFlags.CallbackCharFilter
         callback_data.EventChar = c
-        callback_data.EventActivated = (g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
+        callback_data.EventActivated = (state ~= nil and g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
         callback_data.UserData = user_data
         if callback(callback_data) ~= 0 then
             return char, false

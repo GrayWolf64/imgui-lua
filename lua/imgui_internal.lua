@@ -1852,28 +1852,28 @@ local function ImDrawDataBuilder()
 end
 
 --- @class ImGuiViewportP : ImGuiViewport
---- @field Window?                 ImGuiWindow
---- @field Idx                     int               # Initial value = -1, then becomes 1-based index
---- @field LastFrameActive         int
---- @field LastFocusedStampCount   int
---- @field LastNameHash            ImGuiID
---- @field LastPos                 ImVec2
---- @field LastSize                ImVec2
---- @field Alpha                   float
---- @field LastAlpha               float
---- @field LastFocusedHadNavWindow bool
---- @field PlatformMonitor         short
---- @field BgFgDrawListsLastFrame  table<int>        # 1-based, size = 2
---- @field BgFgDrawLists           table<ImDrawList> # 1-based, size = 2
---- @field DrawDataP               ImDrawData
---- @field DrawDataBuilder         ImDrawDataBuilder
---- @field LastPlatformPos         ImVec2
---- @field LastPlatformSize        ImVec2
---- @field LastRendererSize        ImVec2
---- @field WorkInsetMin            ImVec2
---- @field WorkInsetMax            ImVec2
---- @field BuildWorkInsetMin       ImVec2
---- @field BuildWorkInsetMax       ImVec2
+--- @field Window?                     ImGuiWindow
+--- @field Idx                         int                      # Initial value = -1, then becomes 1-based index
+--- @field LastFrameActive             int
+--- @field LastFocusedStampCount       int
+--- @field LastNameHash                ImGuiID
+--- @field LastPos                     ImVec2
+--- @field LastSize                    ImVec2
+--- @field Alpha                       float
+--- @field LastAlpha                   float
+--- @field LastFocusedHadNavWindow     bool
+--- @field PlatformMonitor             short
+--- @field BgFgDrawListsLastTimeActive [int, int]               # 1-based
+--- @field BgFgDrawLists               [ImDrawList, ImDrawList] # 1-based
+--- @field DrawDataP                   ImDrawData
+--- @field DrawDataBuilder             ImDrawDataBuilder
+--- @field LastPlatformPos             ImVec2
+--- @field LastPlatformSize            ImVec2
+--- @field LastRendererSize            ImVec2
+--- @field WorkInsetMin                ImVec2
+--- @field WorkInsetMax                ImVec2
+--- @field BuildWorkInsetMin           ImVec2
+--- @field BuildWorkInsetMax           ImVec2
 MT.ImGuiViewportP = {}
 MT.ImGuiViewportP.__index = MT.ImGuiViewportP
 
@@ -1939,7 +1939,7 @@ function ImGuiViewportP()
     this.LastFocusedHadNavWindow = false
     this.PlatformMonitor = -1
 
-    this.BgFgDrawListsLastFrame = {-1, -1}
+    this.BgFgDrawListsLastTimeActive = {-1, -1}
     this.BgFgDrawLists = {nil, nil}
     this.DrawDataP = ImDrawData()
     this.DrawDataBuilder = ImDrawDataBuilder()
