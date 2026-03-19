@@ -3,8 +3,6 @@
 -- `input.GetCursorPos()` has issues in MacOS:
 -- https://github.com/Facepunch/garrysmod-issues/issues/4964
 
--- TODO: support clipboard
-
 local cam     = cam
 local render  = render
 local surface = surface
@@ -259,8 +257,16 @@ local function ImGui_ImplGMOD_SwapBuffers()
     return
 end
 
-local function ImGui_ImplGMOD_OpenInShellFn(g, url)
-    gui.OpenURL(url)
+--- @param ctx  ImGuiContext
+--- @param text string
+local function Platform_SetClipboardTextFn(ctx, text)
+    SetClipboardText(text)
+end
+
+--- @param ctx  ImGuiContext
+--- @param path string
+local function ImGui_ImplGMOD_OpenInShellFn(ctx, path)
+    gui.OpenURL(path)
 end
 
 --- @param platform_has_own_dc bool
@@ -280,6 +286,7 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
     platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
 
+    platform_io.Platform_SetClipboardTextFn = Platform_SetClipboardTextFn
     platform_io.Platform_OpenInShellFn = ImGui_ImplGMOD_OpenInShellFn
 
     local main_viewport = ImGui.GetMainViewport()
