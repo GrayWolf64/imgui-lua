@@ -2577,36 +2577,12 @@ end
 
 ImStb = {}
 
-ImStb.TEXTEDIT_K_LEFT      = 0x200000 -- keyboard input to move cursor left
-ImStb.TEXTEDIT_K_RIGHT     = 0x200001 -- keyboard input to move cursor right
-ImStb.TEXTEDIT_K_UP        = 0x200002 -- keyboard input to move cursor up
-ImStb.TEXTEDIT_K_DOWN      = 0x200003 -- keyboard input to move cursor down
-ImStb.TEXTEDIT_K_LINESTART = 0x200004 -- keyboard input to move cursor to start of line
-ImStb.TEXTEDIT_K_LINEEND   = 0x200005 -- keyboard input to move cursor to end of line
-ImStb.TEXTEDIT_K_TEXTSTART = 0x200006 -- keyboard input to move cursor to start of text
-ImStb.TEXTEDIT_K_TEXTEND   = 0x200007 -- keyboard input to move cursor to end of text
-ImStb.TEXTEDIT_K_DELETE    = 0x200008 -- keyboard input to delete selection or character under cursor
-ImStb.TEXTEDIT_K_BACKSPACE = 0x200009 -- keyboard input to delete selection or character left of cursor
-ImStb.TEXTEDIT_K_UNDO      = 0x20000A -- keyboard input to perform undo
-ImStb.TEXTEDIT_K_REDO      = 0x20000B -- keyboard input to perform redo
-ImStb.TEXTEDIT_K_WORDLEFT  = 0x20000C -- keyboard input to move cursor left one word
-ImStb.TEXTEDIT_K_WORDRIGHT = 0x20000D -- keyboard input to move cursor right one word
-ImStb.TEXTEDIT_K_PGUP      = 0x20000E -- keyboard input to move cursor up a page
-ImStb.TEXTEDIT_K_PGDOWN    = 0x20000F -- keyboard input to move cursor down a page
-ImStb.TEXTEDIT_K_SHIFT     = 0x400000
+--- @module "imstb_textedit"
+local stbte
 
-ImStb.TEXTEDIT_NEWLINE = 10 -- '\n'
-
-ImStb.TEXTEDIT_UNDOSTATECOUNT   = 99
-ImStb.TEXTEDIT_UNDOCHARCOUNT    = 999
-ImStb.TEXTEDIT_GETWIDTH_NEWLINE = -1.0
+local IMSTB_TEXTEDIT_GETWIDTH_NEWLINE = -1.0
 
 ImStb.TEXTEDIT_memmove = ImStd.memmove
-
---- @alias IMSTB_TEXTEDIT_STRING ImGuiInputTextState
-
---- @module "imstb_textedit"
-local stbte = IM_INCLUDE"imstb_textedit.lua"
 
 --- @param ctx  ImGuiContext
 --- @param text             ImString
@@ -2888,10 +2864,12 @@ function ImStb.TEXTEDIT_INSERTCHARS(obj, pos, new_text, new_text_pos, new_text_l
 
     obj.Edited = true
     obj.TextLen = obj.TextLen + new_text_len
-    -- obj.TextA[obj.TextLen + 1] = 0
+    obj.TextA[obj.TextLen + 1] = 0
 
     return new_text_len
 end
+
+stbte = IM_INCLUDE"imstb_textedit.lua"
 
 --- @param str      ImGuiInputTextState
 --- @param state    STB_TexteditState
@@ -2929,10 +2907,10 @@ function MT.ImGuiInputTextState:OnKeyPressed(key)
     stbte.key(self, self.Stb, key)
     self.CursorFollow = true
     self:CursorAnimReset()
-    local key_u = bit.band(key, bit.bnot(ImStb.TEXTEDIT_K_SHIFT))
-    if key_u == ImStb.TEXTEDIT_K_LEFT or key_u == ImStb.TEXTEDIT_K_LINESTART or key_u == ImStb.TEXTEDIT_K_TEXTSTART or key_u == ImStb.TEXTEDIT_K_BACKSPACE or key_u == ImStb.TEXTEDIT_K_WORDLEFT then
+    local key_u = bit.band(key, bit.bnot(STB_TEXTEDIT_K_SHIFT))
+    if key_u == STB_TEXTEDIT_K_LEFT or key_u == STB_TEXTEDIT_K_LINESTART or key_u == STB_TEXTEDIT_K_TEXTSTART or key_u == STB_TEXTEDIT_K_BACKSPACE or key_u == STB_TEXTEDIT_K_WORDLEFT then
         self.LastMoveDirectionLR = ImGuiDir.Left
-    elseif key_u == ImStb.TEXTEDIT_K_RIGHT or key_u == ImStb.TEXTEDIT_K_LINEEND or key_u == ImStb.TEXTEDIT_K_TEXTEND or key_u == ImStb.TEXTEDIT_K_DELETE or key_u == ImStb.TEXTEDIT_K_WORDRIGHT then
+    elseif key_u == STB_TEXTEDIT_K_RIGHT or key_u == STB_TEXTEDIT_K_LINEEND or key_u == STB_TEXTEDIT_K_TEXTEND or key_u == STB_TEXTEDIT_K_DELETE or key_u == STB_TEXTEDIT_K_WORDRIGHT then
         self.LastMoveDirectionLR = ImGuiDir.Right
     end
 end
@@ -3652,7 +3630,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 -- FIXME: There are likely many ways to improve this behavior, but there's no "right" behavior (depends on use-case, software, OS)
                 local is_bol = (state.Stb.cursor == 1) or ImStb.TEXTEDIT_GETCHAR(state, state.Stb.cursor - 1) == 10
                 if stbte.HAS_SELECTION(state.Stb) or not is_bol then
-                    state:OnKeyPressed(ImStb.TEXTEDIT_K_WORDLEFT)
+                    state:OnKeyPressed(STB_TEXTEDIT_K_WORDLEFT)
                 end
                 -- state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_WORDRIGHT, STB_TEXTEDIT_K_SHIFT))
                 if not stbte.HAS_SELECTION(state.Stb) then
@@ -3665,9 +3643,9 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 -- Triple-click: Select line
                 local is_eol = ImStb.TEXTEDIT_GETCHAR(state, state.Stb.cursor) == 10
                 state.WrapWidth = 0.0 -- Temporarily disable wrapping so we use real line start
-                state:OnKeyPressed(ImStb.TEXTEDIT_K_LINESTART)
-                state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_LINEEND, ImStb.TEXTEDIT_K_SHIFT))
-                state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_RIGHT, ImStb.TEXTEDIT_K_SHIFT))
+                state:OnKeyPressed(STB_TEXTEDIT_K_LINESTART)
+                state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_LINEEND, STB_TEXTEDIT_K_SHIFT))
+                state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_RIGHT, STB_TEXTEDIT_K_SHIFT))
                 state.WrapWidth = wrap_width
                 if not is_eol and is_multiline then
                     state.Stb.select_start, state.Stb.select_end = state.Stb.select_end, state.Stb.select_start
@@ -3741,7 +3719,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         local row_count_per_page = ImMax(ImTrunc((inner_size.y - style.FramePadding.y) / g.FontSize), 1)
         state.Stb.row_count_per_page = row_count_per_page
 
-        local k_mask = (io.KeyShift and ImStb.TEXTEDIT_K_SHIFT or 0)
+        local k_mask = (io.KeyShift and STB_TEXTEDIT_K_SHIFT or 0)
         local is_wordmove_key_down = is_osx and io.KeyAlt or io.KeyCtrl
         local is_startend_key_down = is_osx and io.KeyCtrl and not io.KeySuper and not io.KeyAlt
 
@@ -3761,47 +3739,47 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         local is_cancel           = ImGui.Shortcut(ImGuiKey.Escape, f_repeat, id) or (nav_gamepad_active and ImGui.Shortcut(ImGuiKey.NavGamepadCancel, f_repeat, id))
 
         if ImGui.IsKeyPressed(ImGuiKey.LeftArrow) then
-            state:OnKeyPressed(bit.bor(is_startend_key_down and ImStb.TEXTEDIT_K_LINESTART or (is_wordmove_key_down and ImStb.TEXTEDIT_K_WORDLEFT or ImStb.TEXTEDIT_K_LEFT), k_mask))
+            state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_LINESTART or (is_wordmove_key_down and STB_TEXTEDIT_K_WORDLEFT or STB_TEXTEDIT_K_LEFT), k_mask))
         elseif ImGui.IsKeyPressed(ImGuiKey.RightArrow) then
-            state:OnKeyPressed(bit.bor(is_startend_key_down and ImStb.TEXTEDIT_K_LINEEND or (is_wordmove_key_down and ImStb.TEXTEDIT_K_WORDRIGHT or ImStb.TEXTEDIT_K_RIGHT), k_mask))
+            state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_LINEEND or (is_wordmove_key_down and STB_TEXTEDIT_K_WORDRIGHT or STB_TEXTEDIT_K_RIGHT), k_mask))
         elseif ImGui.IsKeyPressed(ImGuiKey.UpArrow) and is_multiline then
             if io.KeyCtrl then
                 ImGui.SetScrollY(draw_window, ImMax(draw_window.Scroll.y - g.FontSize, 0.0))
             else
-                state:OnKeyPressed(bit.bor(is_startend_key_down and ImStb.TEXTEDIT_K_TEXTSTART or ImStb.TEXTEDIT_K_UP, k_mask))
+                state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_TEXTSTART or STB_TEXTEDIT_K_UP, k_mask))
             end
         elseif ImGui.IsKeyPressed(ImGuiKey.DownArrow) and is_multiline then
             if io.KeyCtrl then
                 ImGui.SetScrollY(draw_window, ImMin(draw_window.Scroll.y + g.FontSize, ImGui.GetScrollMaxY()))
             else
-                state:OnKeyPressed(bit.bor(is_startend_key_down and ImStb.TEXTEDIT_K_TEXTEND or ImStb.TEXTEDIT_K_DOWN, k_mask))
+                state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_TEXTEND or STB_TEXTEDIT_K_DOWN, k_mask))
             end
         elseif ImGui.IsKeyPressed(ImGuiKey.PageUp) and is_multiline then
-            state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_PGUP, k_mask))
+            state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_PGUP, k_mask))
             scroll_y = scroll_y - row_count_per_page * g.FontSize
         elseif ImGui.IsKeyPressed(ImGuiKey.PageDown) and is_multiline then
-            state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_PGDOWN, k_mask))
+            state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_PGDOWN, k_mask))
             scroll_y = scroll_y + row_count_per_page * g.FontSize
         elseif ImGui.IsKeyPressed(ImGuiKey.Home) then
-            state:OnKeyPressed(io.KeyCtrl and bit.bor(ImStb.TEXTEDIT_K_TEXTSTART, k_mask) or bit.bor(ImStb.TEXTEDIT_K_LINESTART, k_mask))
+            state:OnKeyPressed(io.KeyCtrl and bit.bor(STB_TEXTEDIT_K_TEXTSTART, k_mask) or bit.bor(STB_TEXTEDIT_K_LINESTART, k_mask))
         elseif ImGui.IsKeyPressed(ImGuiKey.End) then
-            state:OnKeyPressed(io.KeyCtrl and bit.bor(ImStb.TEXTEDIT_K_TEXTEND, k_mask) or bit.bor(ImStb.TEXTEDIT_K_LINEEND, k_mask))
+            state:OnKeyPressed(io.KeyCtrl and bit.bor(STB_TEXTEDIT_K_TEXTEND, k_mask) or bit.bor(STB_TEXTEDIT_K_LINEEND, k_mask))
         elseif ImGui.IsKeyPressed(ImGuiKey.Delete) and not is_readonly and not is_cut then
             if not state:HasSelection() then
                 if is_wordmove_key_down then
-                    state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_WORDRIGHT, ImStb.TEXTEDIT_K_SHIFT))
+                    state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_WORDRIGHT, STB_TEXTEDIT_K_SHIFT))
                 end
             end
-            state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_DELETE, k_mask))
+            state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_DELETE, k_mask))
         elseif ImGui.IsKeyPressed(ImGuiKey.Backspace) and not is_readonly then
             if not state:HasSelection() then
                 if is_wordmove_key_down then
-                    state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_WORDLEFT, ImStb.TEXTEDIT_K_SHIFT))
+                    state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_WORDLEFT, STB_TEXTEDIT_K_SHIFT))
                 elseif is_osx and io.KeyCtrl and not io.KeyAlt and not io.KeySuper then
-                    state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_LINESTART, ImStb.TEXTEDIT_K_SHIFT))
+                    state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_LINESTART, STB_TEXTEDIT_K_SHIFT))
                 end
             end
-            state:OnKeyPressed(bit.bor(ImStb.TEXTEDIT_K_BACKSPACE, k_mask))
+            state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_BACKSPACE, k_mask))
         elseif is_enter or is_ctrl_enter or is_shift_enter or is_gamepad_validate then
             local ctrl_enter_for_new_line = bit.band(flags, ImGuiInputTextFlags.CtrlEnterForNewLine) ~= 0
             local is_new_line = is_multiline and not is_gamepad_validate and (is_shift_enter or (is_enter and not ctrl_enter_for_new_line) or (is_ctrl_enter and ctrl_enter_for_new_line))
@@ -3836,7 +3814,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 render_selection = false
             end
         elseif is_undo or is_redo then
-            state:OnKeyPressed(is_undo and ImStb.TEXTEDIT_K_UNDO or ImStb.TEXTEDIT_K_REDO)
+            state:OnKeyPressed(is_undo and STB_TEXTEDIT_K_UNDO or STB_TEXTEDIT_K_REDO)
             state:ClearSelection()
         elseif is_select_all then
             state:SelectAll()
@@ -4095,7 +4073,8 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     local text_size_y = line_count * g.FontSize
 
-    local cursor_offset = (render_cursor and state) and ImGui.InputTextLineIndexGetPosOffset(g, state, line_index, buf_display, buf_display_end, state.Stb.cursor) or ImVec2(0.0, 0.0)
+    --- @cast buf_display_end int
+    local cursor_offset = (render_cursor and state) and InputTextLineIndexGetPosOffset(g, state, line_index, buf_display, buf_display_end, state.Stb.cursor) or ImVec2(0.0, 0.0)
     local draw_scroll = ImVec2()
 
     local text_col = ImGui.GetColorU32(is_displaying_hint and ImGuiCol.TextDisabled or ImGuiCol.Text)

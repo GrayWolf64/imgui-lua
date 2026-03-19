@@ -1168,6 +1168,8 @@ local function ImGuiComboPreviewData()
     }
 end
 
+--- @alias IMSTB_TEXTEDIT_STRING ImGuiInputTextState
+
 --- @alias ImStbTexteditState STB_TexteditState
 
 --- @class ImGuiInputTextState
@@ -1194,7 +1196,7 @@ MT.ImGuiInputTextState.__index = MT.ImGuiInputTextState
 local function ImGuiInputTextState()
     local this = {
         Ctx   = nil,
-        Stb   = nil,
+        Stb   = STB_TexteditState(), -- FIXME: no global!
         Flags = 0,
         ID    = 0,
 
@@ -1276,11 +1278,15 @@ end
 
 --- @return ImGuiKeyRoutingTable
 local function ImGuiKeyRoutingTable()
-    return setmetatable({
+    local this = setmetatable({
         Index       = {},
         Entries     = ImVector(),
         EntriesNext = ImVector()
     }, _ImGuiKeyRoutingTable)
+
+    this:Clear()
+
+    return this
 end
 
 --- @class ImGuiTextIndex
@@ -1578,6 +1584,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
     end
 
     this.IO.Ctx = this
+    this.InputTextState.Ctx = this
 
     return this
 end

@@ -9,7 +9,6 @@
 --     idx=n+1, the position after the n'th char
 
 -- Symbols that must be defined before using this:
-local STB_TEXTEDIT_NEWLINE   = ImStb.TEXTEDIT_NEWLINE
 local STB_TEXTEDIT_STRINGLEN = ImStb.TEXTEDIT_STRINGLEN
 local STB_TEXTEDIT_GETCHAR   = ImStb.TEXTEDIT_GETCHAR
 local STB_TEXTEDIT_GETWIDTH  = ImStb.TEXTEDIT_GETWIDTH
@@ -23,26 +22,27 @@ local STB_TEXTEDIT_MOVELINEEND   = ImStb.TEXTEDIT_MOVELINEEND
 local STB_TEXTEDIT_DELETECHARS   = ImStb.TEXTEDIT_DELETECHARS
 local STB_TEXTEDIT_INSERTCHARS   = ImStb.TEXTEDIT_INSERTCHARS
 
-local STB_TEXTEDIT_K_LEFT      = ImStb.TEXTEDIT_K_LEFT      -- keyboard input to move cursor left
-local STB_TEXTEDIT_K_RIGHT     = ImStb.TEXTEDIT_K_RIGHT     -- keyboard input to move cursor right
-local STB_TEXTEDIT_K_UP        = ImStb.TEXTEDIT_K_UP        -- keyboard input to move cursor up
-local STB_TEXTEDIT_K_DOWN      = ImStb.TEXTEDIT_K_DOWN      -- keyboard input to move cursor down
-local STB_TEXTEDIT_K_LINESTART = ImStb.TEXTEDIT_K_LINESTART -- keyboard input to move cursor to start of line
-local STB_TEXTEDIT_K_LINEEND   = ImStb.TEXTEDIT_K_LINEEND   -- keyboard input to move cursor to end of line
-local STB_TEXTEDIT_K_TEXTSTART = ImStb.TEXTEDIT_K_TEXTSTART -- keyboard input to move cursor to start of text
-local STB_TEXTEDIT_K_TEXTEND   = ImStb.TEXTEDIT_K_TEXTEND   -- keyboard input to move cursor to end of text
-local STB_TEXTEDIT_K_DELETE    = ImStb.TEXTEDIT_K_DELETE    -- keyboard input to delete selection or character under cursor
-local STB_TEXTEDIT_K_BACKSPACE = ImStb.TEXTEDIT_K_BACKSPACE -- keyboard input to delete selection or character left of cursor
-local STB_TEXTEDIT_K_UNDO      = ImStb.TEXTEDIT_K_UNDO      -- keyboard input to perform undo
-local STB_TEXTEDIT_K_REDO      = ImStb.TEXTEDIT_K_REDO      -- keyboard input to perform redo
-local STB_TEXTEDIT_K_WORDLEFT  = ImStb.TEXTEDIT_K_WORDLEFT  -- keyboard input to move cursor left one word
-local STB_TEXTEDIT_K_WORDRIGHT = ImStb.TEXTEDIT_K_WORDRIGHT -- keyboard input to move cursor right one word
-local STB_TEXTEDIT_K_PGUP      = ImStb.TEXTEDIT_K_PGUP      -- keyboard input to move cursor up a page
-local STB_TEXTEDIT_K_PGDOWN    = ImStb.TEXTEDIT_K_PGDOWN    -- keyboard input to move cursor down a page
-local STB_TEXTEDIT_K_SHIFT     = ImStb.TEXTEDIT_K_SHIFT
+STB_TEXTEDIT_NEWLINE     = 10
+STB_TEXTEDIT_K_LEFT      = 0x200000 -- keyboard input to move cursor left
+STB_TEXTEDIT_K_RIGHT     = 0x200001 -- keyboard input to move cursor right
+STB_TEXTEDIT_K_UP        = 0x200002 -- keyboard input to move cursor up
+STB_TEXTEDIT_K_DOWN      = 0x200003 -- keyboard input to move cursor down
+STB_TEXTEDIT_K_LINESTART = 0x200004 -- keyboard input to move cursor to start of line
+STB_TEXTEDIT_K_LINEEND   = 0x200005 -- keyboard input to move cursor to end of line
+STB_TEXTEDIT_K_TEXTSTART = 0x200006 -- keyboard input to move cursor to start of text
+STB_TEXTEDIT_K_TEXTEND   = 0x200007 -- keyboard input to move cursor to end of text
+STB_TEXTEDIT_K_DELETE    = 0x200008 -- keyboard input to delete selection or character under cursor
+STB_TEXTEDIT_K_BACKSPACE = 0x200009 -- keyboard input to delete selection or character left of cursor
+STB_TEXTEDIT_K_UNDO      = 0x20000A -- keyboard input to perform undo
+STB_TEXTEDIT_K_REDO      = 0x20000B -- keyboard input to perform redo
+STB_TEXTEDIT_K_WORDLEFT  = 0x20000C -- keyboard input to move cursor left one word
+STB_TEXTEDIT_K_WORDRIGHT = 0x20000D -- keyboard input to move cursor right one word
+STB_TEXTEDIT_K_PGUP      = 0x20000E -- keyboard input to move cursor up a page
+STB_TEXTEDIT_K_PGDOWN    = 0x20000F -- keyboard input to move cursor down a page
+STB_TEXTEDIT_K_SHIFT     = 0x400000
 
-local IMSTB_TEXTEDIT_UNDOSTATECOUNT = ImStb.TEXTEDIT_UNDOSTATECOUNT
-local IMSTB_TEXTEDIT_UNDOCHARCOUNT = ImStb.TEXTEDIT_UNDOCHARCOUNT
+IMSTB_TEXTEDIT_UNDOSTATECOUNT = 99
+IMSTB_TEXTEDIT_UNDOCHARCOUNT  = 999
 local IMSTB_TEXTEDIT_memmove = ImStb.TEXTEDIT_memmove
 
 local stb_text_undo
@@ -129,7 +129,7 @@ end
 
 --- @return STB_TexteditState
 --- @nodiscard
-local function STB_TexteditState()
+function STB_TexteditState()
     return {
         cursor = 0,
 
