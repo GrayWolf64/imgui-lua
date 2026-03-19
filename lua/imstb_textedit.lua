@@ -556,6 +556,28 @@ local function stb_textedit_cut(str, state)
     return false
 end
 
+-- API paste: replace existing selection with passed-in text
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+--- @param text  IMSTB_TEXTEDIT_CHARTYPE[]
+--- @param len   int
+--- @return bool
+local function stb_textedit_paste_internal(str, state, text, len)
+    -- if there's a selection, the paste should delete it
+    stb_textedit_clamp(str, state)
+    stb_textedit_delete_selection(str, state)
+    -- try to insert the characters
+    len = STB_TEXTEDIT_INSERTCHARS(str, state.cursor, text, 1, len)
+    if len then
+        stb_text_makeundo_insert(state, state.cursor, len)
+        state.cursor = state.cursor + len
+        state.has_preferred_x = false
+        return true
+    end
+    -- note: paste failure will leave deleted selection, may be restored with an undo (see https://github.com/nothings/stb/issues/734 for details)
+    return false
+end
+
 -- API key: process text input
 -- [IMGUI] Added stb_textedit_text(), extracted out and called by stb_textedit_key() for backward compatibility.
 --- @param str       IMSTB_TEXTEDIT_STRING
@@ -1130,6 +1152,7 @@ return {
     clamp = stb_textedit_clamp,
     prep_selection_at_cursor = stb_textedit_prep_selection_at_cursor,
     cut = stb_textedit_cut,
+    paste = stb_textedit_paste_internal,
 
     HAS_SELECTION = STB_TEXT_HAS_SELECTION
 }
