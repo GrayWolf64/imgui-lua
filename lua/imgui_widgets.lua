@@ -3290,12 +3290,12 @@ local function InputTextLineIndexGetPosOffset(g, state, line_index, buf, buf_end
         end
     end
 
-    local line_no = (it == 1) and 0 or (it - 1)
-    local line_start = (line_no == 0) and 1 or line_index.Offsets[line_no]
+    local line_no = it
+    local line_start = (line_no == 1) and 1 or line_index.Offsets[line_no] + 1
 
     local offset = ImVec2()
     offset.x = InputTextCalcTextSize(g, buf, line_start, cursor_ptr, buf_end, nil, ImDrawTextFlags.WrapKeepBlanks).x
-    offset.y = (line_no + 1) * g.FontSize
+    offset.y = line_no * g.FontSize
 
     return offset
 end
@@ -3875,7 +3875,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     -- Process revert and user callbacks
-    local apply_new_text = {}
+    local apply_new_text = nil
     local apply_new_text_length = 0
     if g.ActiveId == id then
         IM_ASSERT(state ~= nil)
@@ -3884,7 +3884,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         if revert_edit and not is_readonly then
             if bit.band(flags, ImGuiInputTextFlags.EscapeClearsAll) ~= 0 then
                 IM_ASSERT(state.TextA.Data[1] ~= 0)
-                apply_new_text[1] = 0
+                apply_new_text = {0}
                 apply_new_text_length = 0
                 value_changed = true
                 local empty_string = {0}
@@ -4153,7 +4153,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
                 local rect = ImRect()
                 rect.Min.x = draw_pos.x - draw_scroll.x + ImGui.CalcTextSizeEx(buf_display, p, line_selected_begin).x
-                rect.Min.y = draw_pos.y - draw_scroll.y + line_n * g.FontSize
+                rect.Min.y = draw_pos.y - draw_scroll.y + (line_n - 1) * g.FontSize
                 rect.Max.x = rect.Min.x + rect_width
                 rect.Max.y = rect.Min.y + bg_offy_dn + g.FontSize
                 rect.Min.y = rect.Min.y + bg_offy_up
@@ -4171,7 +4171,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     if (is_multiline or (buf_display_end - 1) < buf_display_max_length) and bit.band(text_col, IM_COL32_A_MASK) ~= 0 and line_visible_n0 < line_visible_n1 then
         g.Font:RenderText(draw_window.DrawList, g.FontSize,
-        draw_pos - draw_scroll + ImVec2(0.0, line_visible_n0 * g.FontSize),
+        draw_pos - draw_scroll + ImVec2(0.0, (line_visible_n0 - 1) * g.FontSize),
         text_col, clip_rect:AsVec4(),
         buf_display,
         line_index:get_line_begin(1, line_visible_n0),

@@ -17,7 +17,7 @@ local col2 = ImVec4(0, 0, 0, 1)
 
 local counter = 0
 
-local str0 = {string.byte("Hello, World!")}
+local str0 = {string.byte("Hello, World!", 1, 13)}
 table.insert(str0, 0)
 
 function DemoWindowWidgetsBasic()
