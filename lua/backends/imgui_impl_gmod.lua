@@ -96,7 +96,7 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
 
             io:AddMouseButtonEvent(mouse_button, is_down)
         else
-            -- TODO:
+            -- TODO: 
         end
     elseif x and y then -- cursor position update
         io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
