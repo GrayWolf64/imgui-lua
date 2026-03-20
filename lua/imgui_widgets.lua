@@ -4169,7 +4169,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         draw_pos.x = ImMin(draw_pos.x, frame_bb.Max.x - ImGui.CalcTextSize(buf_display, nil).x - style.FramePadding.x)
     end
 
-    -- TODO: ImRect:AsVec4
+    -- FIXME: ImRect:AsVec4
     if (is_multiline or (buf_display_end - 1) < buf_display_max_length) and bit.band(text_col, IM_COL32_A_MASK) ~= 0 and line_visible_n0 < line_visible_n1 then
         g.Font:RenderText(draw_window.DrawList, g.FontSize,
         draw_pos - draw_scroll + ImVec2(0.0, line_visible_n0 * g.FontSize),
@@ -4180,7 +4180,15 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     if render_cursor then
-        -- TODO:
+        state.CursorAnim = state.CursorAnim + io.DeltaTime
+        local cursor_is_visible = (not g.IO.ConfigInputTextCursorBlink) or (state.CursorAnim <= 0.0) or (ImFmod(state.CursorAnim, 1.20) <= 0.80)
+
+        local cursor_screen_pos = ImTruncV2(draw_pos + cursor_offset - draw_scroll)
+        local cursor_screen_rect = ImRect(cursor_screen_pos.x, cursor_screen_pos.y - g.FontSize + 0.5, cursor_screen_pos.x + 1.0, cursor_screen_pos.y - 1.5)
+
+        if cursor_is_visible and cursor_screen_rect:Overlaps(clip_rect) then
+            draw_window.DrawList:AddLine(cursor_screen_rect.Min, cursor_screen_rect:GetBL(), ImGui.GetColorU32(ImGuiCol.InputTextCursor), 1.0 * style._MainScale)
+        end
     end
 
     if is_password and not is_displaying_hint then
