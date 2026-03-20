@@ -12,6 +12,7 @@ if SERVER then
     AddCSLuaFile"imgui.lua"
     AddCSLuaFile"imgui_demo.lua"
     AddCSLuaFile"backends/imgui_impl_gmod.lua"
+    resource.AddFile"resource/fonts/ProggyClean.ttf"
 else
     include"imgui.lua"
 
