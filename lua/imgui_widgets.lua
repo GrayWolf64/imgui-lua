@@ -4189,6 +4189,15 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         if cursor_is_visible and cursor_screen_rect:Overlaps(clip_rect) then
             draw_window.DrawList:AddLine(cursor_screen_rect.Min, cursor_screen_rect:GetBL(), ImGui.GetColorU32(ImGuiCol.InputTextCursor), 1.0 * style._MainScale)
         end
+
+        if not is_readonly and g.ActiveId == id then
+            local ime_data = g.PlatformImeData
+            ime_data.WantVisible = true
+            ime_data.WantTextInput = true
+            ImVec2_Copy(ime_data.InputPos, ImVec2(cursor_screen_pos.x - 1.0, cursor_screen_pos.y - g.FontSize))
+            ime_data.InputLineHeight = g.FontSize
+            ime_data.ViewportId = window.Viewport.ID
+        end
     end
 
     if is_password and not is_displaying_hint then

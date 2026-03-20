@@ -1348,6 +1348,8 @@ end
 --- @field KeysOwnerData                      ImGuiKeyOwnerData[]
 --- @field KeysRoutingTable                   ImGuiKeyRoutingTable
 --- @field NavFocusRoute                      ImVector<ImGuiFocusScopeData>
+--- @field PlatformImeData                    ImGuiPlatformImeData
+--- @field PlatformImeDataPrev                ImGuiPlatformImeData
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1552,6 +1554,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ItemFlagsStack = ImVector(),
         GroupStack = ImVector(),
 
+        PlatformImeData = ImGuiPlatformImeData(),
+        PlatformImeDataPrev = ImGuiPlatformImeData(),
+
         -- Extensions
         UserTextures = ImVector(),
 
@@ -1585,6 +1590,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
     this.IO.Ctx = this
     this.InputTextState.Ctx = this
+
+    ImVec2_Copy(this.PlatformImeDataPrev.InputPos, ImVec2(-1.0, -1.0))
 
     return this
 end

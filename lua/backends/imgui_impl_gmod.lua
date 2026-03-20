@@ -20,6 +20,35 @@ local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", S
     ["$gammacolorread"] = 1  -- Disables SRGB conversion of color texture read
 })
 
+local g_TextEntry = vgui.Create("TextEntry")
+
+-- This disables drawing of the TextEntry entirely while keeping the IME related ui
+-- which currently can only show when a game/engine text entry panel is activated and is typing?
+-- g_TextEntry.Paint = function() return true end
+
+local function GMOD_StartTextInput(window)
+    g_TextEntry:RequestFocus()
+end
+
+local function GMOD_StopTextInput(window)
+
+end
+
+--- @param window Panel
+--- @param x      int
+--- @param y      int
+--- @param w      int
+--- @param h      int
+local function GMOD_SetTextInputArea(window, x, y, w, h)
+    g_TextEntry:SetParent(window)
+    g_TextEntry:SetPos(x, y)
+    g_TextEntry:SetSize(w, h)
+end
+
+local function GMOD_TextInputActive(window)
+
+end
+
 local ImGui_ImplGMOD_UpdateTexture
 local ImGui_ImplGMOD_RenderDrawData
 local ImGui_ImplGMOD_ProcessEvent
@@ -30,8 +59,10 @@ local function ImGui_ImplGMOD_GetBackendData()
     return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
 end
 
-local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, derma_window)
-    for _, viewport in platform_io.Viewports:iter() do
+local function ImGui_ImplGMOD_FindViewportByPlatformHandle(derma_window)
+    local g = ImGui.GetCurrentContext()
+
+    for _, viewport in g.Viewports:iter() do
         if (viewport.PlatformHandle == derma_window) then
             return viewport
         end
@@ -62,7 +93,7 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
     VGUI_Hook(panel, "OnKeyCodePressed", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil, nil); end)
     VGUI_Hook(panel, "OnKeyCodeReleased", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil, nil); end)
 
-    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
+    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
 
     if is_main_viewport then
         VGUI_Hook(panel, "OnRemove", function() ImGui_ImplGMOD_Shutdown(); end)
@@ -71,7 +102,7 @@ end
 
 local function ImGui_ImplGMOD_UpdateMouseData(io)
     local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
-    local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), hovered_panel)
+    local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(hovered_panel)
     if vp then
         io:AddMouseViewportEvent(vp.ID)
     end
@@ -177,7 +208,10 @@ local function ImGui_ImplGMOD_Data()
         RT_LockedStatus = {},
         NumFramesInFlight = 2,
         Time = 0,
-        Window = nil
+        Window = nil,
+
+        ImeData = nil,
+        ImeDirty = false
     }
 end
 
@@ -284,7 +318,7 @@ end
 local function ImGui_ImplGMOD_SetWindowFocus(viewport)
     local vd = viewport.PlatformUserData
     IM_ASSERT(IsValid(vd.DermaWindow))
-    vd:MakePopup()
+    vd.DermaWindow:MakePopup()
 end
 
 local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
@@ -302,9 +336,47 @@ local function ImGui_ImplGMOD_SwapBuffers()
     return
 end
 
+local function ImGui_ImplGMOD_UpdateIme()
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    local data = bd.ImeData
+    local window = vgui.GetHoveredPanel()
+
+    -- Stop previous input
+    if (not (data.WantVisible or data.WantTextInput) or bd.ImeWindow ~= window) and bd.ImeWindow ~= nil then
+        GMOD_StopTextInput(bd.ImeWindow)
+        bd.ImeWindow = nil
+    end
+    if (not bd.ImeDirty and bd.ImeWindow == window) or window == nil then
+        return
+    end
+
+    -- Start/update current input
+    bd.ImeDirty = false
+    if data.WantVisible then
+        local viewport_pos = ImVec2()
+        local viewport = ImGui_ImplGMOD_FindViewportByPlatformHandle(window)
+        if viewport then
+            ImVec2_Copy(viewport_pos, viewport.Pos)
+        end
+        GMOD_SetTextInputArea(window, data.InputPos.x - viewport_pos.x, data.InputPos.y - viewport_pos.y, 1, data.InputLineHeight)
+        bd.ImeWindow = window
+    end
+    if not GMOD_TextInputActive(window) and (data.WantVisible or data.WantTextInput) then
+        GMOD_StartTextInput(window)
+    end
+end
+
+--- @param data ImGuiPlatformImeData
+local function ImGui_ImplGMOD_PlatformSetImeData(ctx, vp, data)
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    bd.ImeData = data
+    bd.ImeDirty = true
+    ImGui_ImplGMOD_UpdateIme()
+end
+
 --- @param ctx  ImGuiContext
 --- @param text string
-local function Platform_SetClipboardTextFn(ctx, text)
+local function ImGui_ImplGMOD_PlatformSetClipboardText(ctx, text)
     SetClipboardText(text)
 end
 
@@ -331,7 +403,8 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
     platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
 
-    platform_io.Platform_SetClipboardTextFn = Platform_SetClipboardTextFn
+    platform_io.Platform_SetImeDataFn = ImGui_ImplGMOD_PlatformSetImeData
+    platform_io.Platform_SetClipboardTextFn = ImGui_ImplGMOD_PlatformSetClipboardText
     platform_io.Platform_OpenInShellFn = ImGui_ImplGMOD_OpenInShellFn
 
     local main_viewport = ImGui.GetMainViewport()
@@ -389,7 +462,7 @@ end
 local function ImGui_ImplGMOD_DermaSetCursor(cursor_type)
     local io = ImGui.GetPlatformIO()
     local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
-    if hovered_panel and ImGui_ImplGMOD_FindViewportByPlatformHandle(io, hovered_panel) then
+    if hovered_panel and ImGui_ImplGMOD_FindViewportByPlatformHandle(hovered_panel) then
         hovered_panel:SetCursor(cursor_type)
     end
 end

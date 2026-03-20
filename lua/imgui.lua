@@ -6024,6 +6024,11 @@ function ImGui.NewFrame()
     g.WantCaptureKeyboardNextFrame = -1
     g.WantTextInputNextFrame = -1
 
+    -- Platform IME data: reset for the frame
+    ImGuiPlatformImeData_Copy(g.PlatformImeDataPrev, g.PlatformImeData)
+    g.PlatformImeData.WantVisible = false
+    g.PlatformImeData.WantTextInput = false
+
     ImGui.UpdateMouseWheel()
 
     g.CurrentWindowStack:resize(0)
@@ -6045,11 +6050,19 @@ function ImGui.EndFrame()
     if g.FrameCountEnded == g.FrameCount then
         return
     end
-    if not g.WithinFrameScope then
-        IM_ASSERT_USER_ERROR(g.WithinFrameScope, "Forgot to call ImGui::NewFrame()?")
+    IM_ASSERT_USER_ERROR(g.WithinFrameScope, "Forgot to call ImGui::NewFrame()?")
 
-        return
+    -- Notify Platform when our Input Method Editor cursor has moved
+    local ime_data = g.PlatformImeData
+    if g.PlatformIO.Platform_SetImeDataFn ~= nil and not ImGuiPlatformImeData_Compare(ime_data, g.PlatformImeDataPrev) then
+        local viewport = ImGui.FindViewportByID(ime_data.ViewportId)
+        if viewport == nil then
+            viewport = ImGui.GetMainViewport()
+        end
+        -- IMGUI_DEBUG_LOG_IO("[io] Calling Platform_SetImeDataFn(): WantVisible: %d, InputPos (%.2f,%.2f) for Viewport 0x%08X", ime_data.WantVisible, ime_data.InputPos.x, ime_data.InputPos.y, viewport.ID)
+        g.PlatformIO.Platform_SetImeDataFn(g, viewport, ime_data)
     end
+    g.WantTextInputNextFrame = ime_data.WantTextInput
 
     g.WithinFrameScopeWithImplicitWindow = false
     if (g.CurrentWindow and g.CurrentWindow.IsFallbackWindow and g.CurrentWindow.WriteAccessed == false) then
@@ -7493,15 +7506,17 @@ end
 ---------------------------------------------------------------------------------------
 
 function MT.ImGuiPlatformIO:ClearPlatformHandlers()
-    self.Platform_GetClipboardTextFn = nil; self.Platform_SetClipboardTextFn      = nil; self.Platform_OpenInShellFn             = nil; self.Platform_SetImeDataFn = nil
-    self.Platform_ClipboardUserData  = nil; self.Platform_OpenInShellUserData     = nil; self.Platform_ImeUserData               = nil
-    self.Platform_CreateWindow       = nil; self.Platform_DestroyWindow           = nil; self.Platform_ShowWindow                = nil
-    self.Platform_SetWindowPos       = nil; self.Platform_SetWindowSize           = nil
-    self.Platform_GetWindowPos       = nil; self.Platform_GetWindowSize           = nil; self.Platform_GetWindowFramebufferScale = nil
-    self.Platform_SetWindowFocus     = nil; self.Platform_GetWindowFocus          = nil; self.Platform_GetWindowMinimized        = nil
-    self.Platform_SetWindowTitle     = nil; self.Platform_SetWindowAlpha          = nil; self.Platform_UpdateWindow              = nil
-    self.Platform_RenderWindow       = nil; self.Platform_SwapBuffers             = nil; self.Platform_GetWindowDpiScale         = nil
-    self.Platform_OnChangedViewport  = nil; self.Platform_GetWindowWorkAreaInsets = nil; self.Platform_CreateVkSurface           = nil
+    self.Platform_GetClipboardTextFn = nil; self.Platform_SetClipboardTextFn = nil
+    self.Platform_ClipboardUserData  = nil
+    self.Platform_OpenInShellFn = nil; self.Platform_OpenInShellUserData = nil
+    self.Platform_SetImeDataFn = nil; self.Platform_ImeUserData = nil
+    self.Platform_CreateWindow = nil; self.Platform_DestroyWindow = nil; self.Platform_ShowWindow = nil
+    self.Platform_SetWindowPos   = nil; self.Platform_SetWindowSize  = nil
+    self.Platform_GetWindowPos   = nil; self.Platform_GetWindowSize  = nil; self.Platform_GetWindowFramebufferScale = nil
+    self.Platform_SetWindowFocus = nil; self.Platform_GetWindowFocus = nil; self.Platform_GetWindowMinimized        = nil
+    self.Platform_SetWindowTitle = nil; self.Platform_SetWindowAlpha = nil; self.Platform_UpdateWindow              = nil
+    self.Platform_RenderWindow   = nil; self.Platform_SwapBuffers    = nil; self.Platform_GetWindowDpiScale         = nil
+    self.Platform_OnChangedViewport = nil; self.Platform_GetWindowWorkAreaInsets = nil; self.Platform_CreateVkSurface = nil
 end
 
 function MT.ImGuiPlatformIO:ClearRendererHandlers()

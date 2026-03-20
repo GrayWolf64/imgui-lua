@@ -1018,6 +1018,49 @@ function ImGuiIO()
     return setmetatable(this, MT.ImGuiIO)
 end
 
+--- @class ImGuiPlatformImeData
+--- @field WantVisible     bool
+--- @field WantTextInput   bool
+--- @field InputPos        ImVec2
+--- @field InputLineHeight float
+--- @field ViewportId      ImGuiID
+
+--- @return ImGuiPlatformImeData
+--- @nodiscard
+function ImGuiPlatformImeData()
+    return {
+        WantVisible     = false,
+        WantTextInput   = false,
+        InputPos        = ImVec2(),
+        InputLineHeight = 0.0,
+        ViewportId      = 0
+    }
+end
+
+--- @param dest ImGuiPlatformImeData
+--- @param src  ImGuiPlatformImeData
+function ImGuiPlatformImeData_Copy(dest, src)
+    dest.WantVisible = src.WantVisible
+    dest.WantTextInput = src.WantTextInput
+    ImVec2_Copy(dest.InputPos, src.InputPos)
+    dest.InputLineHeight = src.InputLineHeight
+    dest.ViewportId = src.ViewportId
+end
+
+--- @param data1 ImGuiPlatformImeData
+--- @param data2 ImGuiPlatformImeData
+function ImGuiPlatformImeData_Compare(data1, data2)
+    if data1.WantVisible ~= data2.WantVisible or
+        data1.WantTextInput ~= data2.WantTextInput or
+        data1.InputPos ~= data2.InputPos or
+        data1.InputLineHeight ~= data2.InputLineHeight or
+        data1.ViewportId ~= data2.ViewportId then
+        return false
+    end
+
+    return true
+end
+
 --- @enum ImGuiMouseCursor
 ImGuiMouseCursor = {
     None       = -1,
