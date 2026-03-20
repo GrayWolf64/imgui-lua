@@ -172,8 +172,8 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
             end
 
             io:AddMouseButtonEvent(mouse_button, is_down)
-        elseif key_code >= KEY_FIRST and KEY_LAST then
-            io:AddKeyEvent(MAP_BUTTON[key_code], is_down)
+        elseif key_code >= KEY_FIRST and key_code <= KEY_LAST then
+            -- FIXME: rework this whole function
         end
     elseif x and y then -- cursor position update
         io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)

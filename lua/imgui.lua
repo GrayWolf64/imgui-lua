@@ -1924,6 +1924,25 @@ function ImGui.SetLastItemDataForWindow(window, rect)
     end
 end
 
+--- @param c unsigned_int
+function MT.ImGuiIO:AddInputCharacter(c)
+    IM_ASSERT(self.Ctx ~= nil)
+    local g = self.Ctx
+    if c == 0 or not self.AppAcceptingEvents then
+        return
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType.Text
+    e.Source = ImGuiInputSource.Keyboard
+    e.EventId = g.InputEventsNextEventId
+    g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.Text = ImGuiInputEventText()
+    e.Text.Char = c
+
+    g.InputEventsQueue:push_back(e)
+end
+
 function MT.ImGuiIO:ClearEventsQueue()
     IM_ASSERT(self.Ctx ~= nil)
     local g = GImGui
@@ -2726,7 +2745,20 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         elseif e.Type == ImGuiInputEventType.Key then
             -- TODO:
         elseif e.Type == ImGuiInputEventType.Text then
-            -- TODO:
+            if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) ~= 0 then
+                goto CONTINUE
+            end
+            if trickle_fast_inputs and (mouse_button_changed ~= 0 or mouse_moved or mouse_wheeled) then
+                break
+            end
+            if trickle_interleaved_nonchar_keys_and_text and key_changed_nonchar then
+                break
+            end
+            local c = e.Text.Char
+            io.InputQueueCharacters:push_back((c <= IM_UNICODE_CODEPOINT_MAX) and c or IM_UNICODE_CODEPOINT_INVALID)
+            if trickle_interleaved_nonchar_keys_and_text then
+                text_inputted = true
+            end
         elseif e.Type == ImGuiInputEventType.Focus then
             -- TODO:
         else

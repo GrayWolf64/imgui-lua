@@ -2163,6 +2163,15 @@ function ImGuiInputEventKey()
     return { Key = 0, Down = false, AnalogValue = 0 }
 end
 
+--- @class ImGuiInputEventText
+--- @field Char unsigned_int
+
+--- @return ImGuiInputEventText
+--- @nodiscard
+function ImGuiInputEventText()
+    return { Char = nil }
+end
+
 --- @class ImGuiInputEventMouseViewport
 --- @field HoveredViewportID ImGuiID
 
