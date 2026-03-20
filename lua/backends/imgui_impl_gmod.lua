@@ -77,79 +77,57 @@ local function ImGui_ImplGMOD_UpdateMouseData(io)
     end
 end
 
--- TODO: complete / fix this
-local MAP_BUTTON = {
+local MAP_KEY = {
     [KEY_NONE] = ImGuiKey.None,
 
-    [KEY_0] = ImGuiKey.K0, [KEY_1] = ImGuiKey.K1, [KEY_2] = ImGuiKey.K2, [KEY_3] = ImGuiKey.K3,
-    [KEY_4] = ImGuiKey.K4, [KEY_5] = ImGuiKey.K5, [KEY_6] = ImGuiKey.K6, [KEY_7] = ImGuiKey.K7,
-    [KEY_8] = ImGuiKey.K8, [KEY_9] = ImGuiKey.K9,
-
-    [KEY_A] = ImGuiKey.A, [KEY_B] = ImGuiKey.B, [KEY_C] = ImGuiKey.C, [KEY_D] = ImGuiKey.D,
-    [KEY_E] = ImGuiKey.E, [KEY_F] = ImGuiKey.F, [KEY_G] = ImGuiKey.G, [KEY_H] = ImGuiKey.H,
-    [KEY_I] = ImGuiKey.I, [KEY_J] = ImGuiKey.J, [KEY_K] = ImGuiKey.K, [KEY_L] = ImGuiKey.L,
-    [KEY_M] = ImGuiKey.M, [KEY_N] = ImGuiKey.N, [KEY_O] = ImGuiKey.O, [KEY_P] = ImGuiKey.P,
-    [KEY_Q] = ImGuiKey.Q, [KEY_R] = ImGuiKey.R, [KEY_S] = ImGuiKey.S, [KEY_T] = ImGuiKey.T,
-    [KEY_U] = ImGuiKey.U, [KEY_V] = ImGuiKey.V, [KEY_W] = ImGuiKey.W, [KEY_X] = ImGuiKey.X,
-    [KEY_Y] = ImGuiKey.Y, [KEY_Z] = ImGuiKey.Z,
-
-    [KEY_PAD_0] = ImGuiKey.Keypad0, [KEY_PAD_1] = ImGuiKey.Keypad1, [KEY_PAD_2] = ImGuiKey.Keypad2,
-    [KEY_PAD_3] = ImGuiKey.Keypad3, [KEY_PAD_4] = ImGuiKey.Keypad4, [KEY_PAD_5] = ImGuiKey.Keypad5,
-    [KEY_PAD_6] = ImGuiKey.Keypad6, [KEY_PAD_7] = ImGuiKey.Keypad7, [KEY_PAD_8] = ImGuiKey.Keypad8,
-    [KEY_PAD_9] = ImGuiKey.Keypad9,
-
     [KEY_PAD_DIVIDE] = ImGuiKey.KeypadDivide,   [KEY_PAD_MULTIPLY] = ImGuiKey.KeypadMultiply,
-    [KEY_PAD_MINUS ] = ImGuiKey.KeypadSubtract, [KEY_PAD_PLUS    ] = ImGuiKey.KeypadAdd,
-    [KEY_PAD_ENTER ] = ImGuiKey.KeypadEnter,    [KEY_PAD_DECIMAL ] = ImGuiKey.KeypadDecimal,
-
-    [KEY_LBRACKET  ] = ImGuiKey.LeftBracket, [KEY_RBRACKET  ] = ImGuiKey.RightBracket,
-    [KEY_SEMICOLON ] = ImGuiKey.Semicolon,   [KEY_APOSTROPHE] = ImGuiKey.Apostrophe,
-    [KEY_BACKQUOTE ] = ImGuiKey.GraveAccent, [KEY_COMMA     ] = ImGuiKey.Comma,
-    [KEY_PERIOD    ] = ImGuiKey.Period,      [KEY_SLASH     ] = ImGuiKey.Slash,
-    [KEY_BACKSLASH ] = ImGuiKey.Backslash,   [KEY_MINUS     ] = ImGuiKey.Minus,
-    [KEY_EQUAL     ] = ImGuiKey.Equal,       [KEY_ENTER     ] = ImGuiKey.Enter,
-    [KEY_SPACE     ] = ImGuiKey.Space,       [KEY_BACKSPACE ] = ImGuiKey.Backspace,
-    [KEY_TAB       ] = ImGuiKey.Tab,         [KEY_CAPSLOCK  ] = ImGuiKey.CapsLock,
-    [KEY_NUMLOCK   ] = ImGuiKey.NumLock,     [KEY_ESCAPE    ] = ImGuiKey.Escape,
+    [KEY_PAD_MINUS]  = ImGuiKey.KeypadSubtract, [KEY_PAD_PLUS]     = ImGuiKey.KeypadAdd,
+    [KEY_PAD_ENTER]  = ImGuiKey.KeypadEnter,    [KEY_PAD_DECIMAL]  = ImGuiKey.KeypadDecimal,
+    [KEY_LBRACKET]   = ImGuiKey.LeftBracket,    [KEY_RBRACKET]     = ImGuiKey.RightBracket,
+    [KEY_SEMICOLON]  = ImGuiKey.Semicolon,      [KEY_APOSTROPHE]   = ImGuiKey.Apostrophe,
+    [KEY_BACKQUOTE]  = ImGuiKey.GraveAccent,    [KEY_COMMA]        = ImGuiKey.Comma,
+    [KEY_PERIOD]     = ImGuiKey.Period,         [KEY_SLASH]        = ImGuiKey.Slash,
+    [KEY_BACKSLASH]  = ImGuiKey.Backslash,      [KEY_MINUS]        = ImGuiKey.Minus,
+    [KEY_EQUAL]      = ImGuiKey.Equal,          [KEY_ENTER]        = ImGuiKey.Enter,
+    [KEY_SPACE]      = ImGuiKey.Space,          [KEY_BACKSPACE]    = ImGuiKey.Backspace,
+    [KEY_TAB]        = ImGuiKey.Tab,            [KEY_CAPSLOCK]     = ImGuiKey.CapsLock,
+    [KEY_NUMLOCK]    = ImGuiKey.NumLock,        [KEY_ESCAPE]       = ImGuiKey.Escape,
     [KEY_SCROLLLOCK] = ImGuiKey.ScrollLock,
+    [KEY_INSERT]     = ImGuiKey.Insert,         [KEY_DELETE]       = ImGuiKey.Delete,
+    [KEY_HOME]       = ImGuiKey.Home,           [KEY_END]          = ImGuiKey.End,
+    [KEY_PAGEUP]     = ImGuiKey.PageUp,         [KEY_PAGEDOWN]     = ImGuiKey.PageDown,
+    [KEY_BREAK]      = ImGuiKey.Pause,
+    [KEY_LSHIFT]     = ImGuiKey.LeftShift,      [KEY_RSHIFT]       = ImGuiKey.RightShift,
+    [KEY_LALT]       = ImGuiKey.LeftAlt,        [KEY_RALT]         = ImGuiKey.RightAlt,
+    [KEY_LCONTROL]   = ImGuiKey.LeftCtrl,       [KEY_RCONTROL]     = ImGuiKey.RightCtrl,
+    [KEY_LWIN]       = ImGuiKey.LeftSuper,      [KEY_RWIN]         = ImGuiKey.RightSuper,
+    [KEY_APP]        = ImGuiKey.Menu,
+    [KEY_UP]         = ImGuiKey.UpArrow,        [KEY_LEFT]         = ImGuiKey.LeftArrow,
+    [KEY_DOWN]       = ImGuiKey.DownArrow,      [KEY_RIGHT]        = ImGuiKey.RightArrow,
 
-    [KEY_INSERT] = ImGuiKey.Insert, [KEY_DELETE  ] = ImGuiKey.Delete,
-    [KEY_HOME  ] = ImGuiKey.Home,   [KEY_END     ] = ImGuiKey.End,
-    [KEY_PAGEUP] = ImGuiKey.PageUp, [KEY_PAGEDOWN] = ImGuiKey.PageDown,
+    [KEY_XBUTTON_A]             = ImGuiKey.GamepadFaceDown,    [KEY_XBUTTON_B]              = ImGuiKey.GamepadFaceRight,
+    [KEY_XBUTTON_X]             = ImGuiKey.GamepadFaceLeft,    [KEY_XBUTTON_Y]              = ImGuiKey.GamepadFaceUp,
+    [KEY_XBUTTON_LEFT_SHOULDER] = ImGuiKey.GamepadL1,          [KEY_XBUTTON_RIGHT_SHOULDER] = ImGuiKey.GamepadR1,
+    [KEY_XBUTTON_BACK]          = ImGuiKey.GamepadBack,        [KEY_XBUTTON_START]          = ImGuiKey.GamepadStart,
+    [KEY_XBUTTON_STICK1]        = ImGuiKey.GamepadL3,          [KEY_XBUTTON_STICK2]         = ImGuiKey.GamepadR3,
+    [KEY_XBUTTON_UP]            = ImGuiKey.GamepadDpadUp,      [KEY_XBUTTON_RIGHT]          = ImGuiKey.GamepadDpadRight,
+    [KEY_XBUTTON_DOWN]          = ImGuiKey.GamepadDpadDown,    [KEY_XBUTTON_LEFT]           = ImGuiKey.GamepadDpadLeft,
+    [KEY_XSTICK1_RIGHT]         = ImGuiKey.GamepadLStickRight, [KEY_XSTICK1_LEFT]           = ImGuiKey.GamepadLStickLeft,
+    [KEY_XSTICK1_DOWN]          = ImGuiKey.GamepadLStickDown,  [KEY_XSTICK1_UP]             = ImGuiKey.GamepadLStickUp,
+    [KEY_XBUTTON_LTRIGGER]      = ImGuiKey.GamepadL2,          [KEY_XBUTTON_RTRIGGER]       = ImGuiKey.GamepadR2,
+    [KEY_XSTICK2_RIGHT]         = ImGuiKey.GamepadRStickRight, [KEY_XSTICK2_LEFT]           = ImGuiKey.GamepadRStickLeft,
+    [KEY_XSTICK2_DOWN]          = ImGuiKey.GamepadRStickDown,  [KEY_XSTICK2_UP]             = ImGuiKey.GamepadRStickUp
+}
 
-    [KEY_BREAK] = ImGuiKey.Pause, -- ?
+for k = KEY_0,     KEY_9     do MAP_KEY[k] = k - KEY_0 + ImGuiKey.K0 end
+for k = KEY_A,     KEY_Z     do MAP_KEY[k] = k - KEY_A + ImGuiKey.A end
+for k = KEY_PAD_0, KEY_PAD_9 do MAP_KEY[k] = k - KEY_PAD_0 + ImGuiKey.Keypad0 end
+for k = KEY_F1,    KEY_F12   do MAP_KEY[k] = k - KEY_F1 + ImGuiKey.F1 end
 
-    [KEY_LSHIFT  ] = ImGuiKey.LeftShift, [KEY_RSHIFT  ] = ImGuiKey.RightShift,
-    [KEY_LALT    ] = ImGuiKey.LeftAlt,   [KEY_RALT    ] = ImGuiKey.RightAlt,
-    [KEY_LCONTROL] = ImGuiKey.LeftCtrl,  [KEY_RCONTROL] = ImGuiKey.RightCtrl,
-    [KEY_LWIN    ] = ImGuiKey.LeftSuper, [KEY_RWIN    ] = ImGuiKey.RightSuper,
-
-    [KEY_APP] = ImGuiKey.Menu, -- ?
-
-    [KEY_UP  ] = ImGuiKey.UpArrow,   [KEY_LEFT ] = ImGuiKey.LeftArrow,
-    [KEY_DOWN] = ImGuiKey.DownArrow, [KEY_RIGHT] = ImGuiKey.RightArrow,
-
-    [KEY_F1] = ImGuiKey.F1, [KEY_F2 ] = ImGuiKey.F2,  [KEY_F3 ] = ImGuiKey.F3,  [KEY_F4 ] = ImGuiKey.F4,
-    [KEY_F5] = ImGuiKey.F5, [KEY_F6 ] = ImGuiKey.F6,  [KEY_F7 ] = ImGuiKey.F7,  [KEY_F8 ] = ImGuiKey.F8,
-    [KEY_F9] = ImGuiKey.F9, [KEY_F10] = ImGuiKey.F10, [KEY_F11] = ImGuiKey.F11, [KEY_F12] = ImGuiKey.F12,
-
-    [KEY_XBUTTON_A] = ImGuiKey.GamepadFaceDown, [KEY_XBUTTON_B] = ImGuiKey.GamepadFaceRight,
-    [KEY_XBUTTON_X] = ImGuiKey.GamepadFaceLeft, [KEY_XBUTTON_Y] = ImGuiKey.GamepadFaceUp,
-
-    [KEY_XBUTTON_LEFT_SHOULDER] = ImGuiKey.GamepadL1,   [KEY_XBUTTON_RIGHT_SHOULDER] = ImGuiKey.GamepadR1,
-    [KEY_XBUTTON_BACK         ] = ImGuiKey.GamepadBack, [KEY_XBUTTON_START         ] = ImGuiKey.GamepadStart,
-    [KEY_XBUTTON_STICK1       ] = ImGuiKey.GamepadL3,   [KEY_XBUTTON_STICK2        ] = ImGuiKey.GamepadR3,
-
-    [KEY_XBUTTON_UP  ] = ImGuiKey.GamepadDpadUp,   [KEY_XBUTTON_RIGHT] = ImGuiKey.GamepadDpadRight,
-    [KEY_XBUTTON_DOWN] = ImGuiKey.GamepadDpadDown, [KEY_XBUTTON_LEFT ] = ImGuiKey.GamepadDpadLeft,
-
-    [KEY_XSTICK1_RIGHT] = ImGuiKey.GamepadLStickRight, [KEY_XSTICK1_LEFT] = ImGuiKey.GamepadLStickLeft,
-    [KEY_XSTICK1_DOWN ] = ImGuiKey.GamepadLStickDown,  [KEY_XSTICK1_UP  ] = ImGuiKey.GamepadLStickUp,
-
-    [KEY_XBUTTON_LTRIGGER] = ImGuiKey.GamepadL2, [KEY_XBUTTON_RTRIGGER] = ImGuiKey.GamepadR2,
-
-    [KEY_XSTICK2_RIGHT] = ImGuiKey.GamepadRStickRight, [KEY_XSTICK2_LEFT] = ImGuiKey.GamepadRStickLeft,
-    [KEY_XSTICK2_DOWN ] = ImGuiKey.GamepadRStickDown,  [KEY_XSTICK2_UP  ] = ImGuiKey.GamepadRStickUp,
+local MAP_MOUSE = {
+    [MOUSE_LEFT]   = ImGuiMouseButton.Left,
+    [MOUSE_RIGHT]  = ImGuiMouseButton.Right,
+    [MOUSE_MIDDLE] = ImGuiMouseButton.Middle
 }
 
 --- - Single-viewport mode: mouse position in GMod Derma window coordinates
@@ -161,19 +139,9 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
     if key_code then -- Mouse button or keyboard key
         if key_code >= MOUSE_FIRST and key_code <= MOUSE_LAST then
             io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
-
-            local mouse_button
-            if key_code == MOUSE_LEFT then
-                mouse_button = ImGuiMouseButton.Left
-            elseif key_code == MOUSE_RIGHT then
-                mouse_button = ImGuiMouseButton.Right
-            elseif key_code == MOUSE_MIDDLE then
-                mouse_button = ImGuiMouseButton.Middle
-            end
-
-            io:AddMouseButtonEvent(mouse_button, is_down)
+            io:AddMouseButtonEvent(MAP_MOUSE[key_code], is_down)
         elseif key_code >= KEY_FIRST and key_code <= KEY_LAST then
-            -- FIXME: rework this whole function
+            io:AddKeyEvent(MAP_KEY[key_code], is_down)
         end
     elseif x and y then -- cursor position update
         io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
