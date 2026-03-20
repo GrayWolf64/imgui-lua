@@ -4069,7 +4069,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         line_count = ImGui.InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1), buf_display_end and nil or buf_display_end)
     end
     line_index.EndOffset = buf_display_end - 1
-    line_visible_n1 = ImMin(line_visible_n1, line_count)
+    line_visible_n1 = ImMin(line_visible_n1, line_count + 1)
 
     local text_size_y = line_count * g.FontSize
 
@@ -4174,8 +4174,9 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         g.Font:RenderText(draw_window.DrawList, g.FontSize,
         draw_pos - draw_scroll + ImVec2(0.0, line_visible_n0 * g.FontSize),
         text_col, clip_rect:AsVec4(),
-        line_index:get_line_begin(buf_display, line_visible_n0),
-        line_index:get_line_end(buf_display, line_visible_n1 - 1),
+        buf_display,
+        line_index:get_line_begin(1, line_visible_n0),
+        line_index:get_line_end(1, line_visible_n1 - 1),
         wrap_width, bit.bor(ImDrawTextFlags.WrapKeepBlanks, ImDrawTextFlags.CpuFineClip))
     end
 

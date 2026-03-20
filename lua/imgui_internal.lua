@@ -608,6 +608,9 @@ end
 
 function MT.ImRect:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
 
+--- @nodiscard
+function MT.ImRect:AsVec4() return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+
 --- @param dest ImRect
 --- @param src  ImRect
 function ImRect_Copy(dest, src)

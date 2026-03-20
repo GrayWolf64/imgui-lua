@@ -17,7 +17,8 @@ local col2 = ImVec4(0, 0, 0, 1)
 
 local counter = 0
 
-local str0 = {}
+local str0 = {string.byte("Hello, World!")}
+table.insert(str0, 0)
 
 function DemoWindowWidgetsBasic()
     ImGui.SeparatorText("General")
