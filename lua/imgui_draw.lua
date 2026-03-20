@@ -4229,8 +4229,9 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         return
     end
 
-    --- @type int
-    text_end = (text_end ~= nil) and text_end or (#text + 1)
+    if not text_end then
+        text_end = text_begin + ImStd.ImStrlen(text, text_end)
+    end
 
     local line_height = size
     local baked = self:GetFontBaked(size)
@@ -4303,7 +4304,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
             end
         end
 
-        local c = string.byte(text, s)
+        local c = ImStrByte(text, s)
         if c < 0x80 then
             s = s + 1
         else

@@ -3665,7 +3665,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             end
         elseif io.MouseDown[0] and not state.SelectedAllMouseLock and (io.MouseDelta.x ~= 0.0 or io.MouseDelta.y ~= 0.0) then
             stbte.drag(state, state.Stb, mouse_x, mouse_y)
-            state.CursorAnimReset()
+            state:CursorAnimReset()
             state.CursorFollow = true
         end
         if state.SelectedAllMouseLock and not io.MouseDown[0] then
@@ -4051,7 +4051,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         elseif is_multiline and not is_wordwrap then
             buf_display_end = nil -- Inactive multi-line: end of buffer will be output by InputTextLineIndexBuild() special strchr() path
         else
-            buf_display_end = ImStd.ImStrlen(buf_display)
+            buf_display_end = ImStd.ImStrlen(buf_display) + 1
         end
     end
 
@@ -4152,7 +4152,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 end
 
                 local rect = ImRect()
-                rect.Min.x = draw_pos.x - draw_scroll.x + ImGui.CalcTextSizeEx(p, line_selected_begin).x
+                rect.Min.x = draw_pos.x - draw_scroll.x + ImGui.CalcTextSizeEx(buf_display, p, line_selected_begin).x
                 rect.Min.y = draw_pos.y - draw_scroll.y + line_n * g.FontSize
                 rect.Max.x = rect.Min.x + rect_width
                 rect.Max.y = rect.Min.y + bg_offy_dn + g.FontSize
@@ -4169,7 +4169,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         draw_pos.x = ImMin(draw_pos.x, frame_bb.Max.x - ImGui.CalcTextSize(buf_display, nil).x - style.FramePadding.x)
     end
 
-    -- FIXME: ImRect:AsVec4
     if (is_multiline or (buf_display_end - 1) < buf_display_max_length) and bit.band(text_col, IM_COL32_A_MASK) ~= 0 and line_visible_n0 < line_visible_n1 then
         g.Font:RenderText(draw_window.DrawList, g.FontSize,
         draw_pos - draw_scroll + ImVec2(0.0, line_visible_n0 * g.FontSize),

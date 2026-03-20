@@ -24,7 +24,7 @@ local g_TextEntry = vgui.Create("TextEntry")
 
 -- This disables drawing of the TextEntry entirely while keeping the IME related ui
 -- which currently can only show when a game/engine text entry panel is activated and is typing?
--- g_TextEntry.Paint = function() return true end
+g_TextEntry.Paint = function() return true end
 
 local function GMOD_StartTextInput(window)
     g_TextEntry:RequestFocus()

@@ -276,12 +276,20 @@ function ImMul(lhs, rhs)
     return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
 end
 
---- @param str char[]
-function ImStd.ImStrlen(str)
+--- @param str    ImString
+--- @param begin? int
+function ImStd.ImStrlen(str, begin)
+    if begin == nil then begin = 1 end
+
     local l = #str
-    for i = 1, l do
+
+    if type(str) == "string" then -- FIXME: don't do this slow
+        return l
+    end
+
+    for i = begin, l do
         if str[i] == 0 then
-            return i - 1
+            return i - begin
         end
     end
     return l
