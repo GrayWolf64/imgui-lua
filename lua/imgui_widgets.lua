@@ -416,6 +416,15 @@ function ImGui.ButtonBehavior(bb, id, flags)
                         ImGui.FocusWindow(window, ImGuiFocusRequestFlags.RestoreFocusedChild)
                     end
                 end
+
+                if bit.band(flags, ImGuiButtonFlags.PressedOnRelease) ~= 0 then
+                    -- FIXME: Traditionally ImGuiButtonFlags.PressedOnRelease never took ActiveId. Adding it in 2026-03-20 since ImGuiButtonFlags_NoHoldingActiveId can always be added.
+                    -- We don't yet perform an explicit ClearActiveID() to reduce scope of change, but this possibility could be investigated.
+                    if bit.band(flags, ImGuiButtonFlags.NoHoldingActiveId) == 0 then
+                        ImGui.SetActiveID(id, window) -- Hold on ID
+                    end
+                    g.ActiveIdMouseButton = mouse_button_clicked
+                end
             end
 
             if bit.band(flags, ImGuiButtonFlags.PressedOnRelease) ~= 0 then
