@@ -2931,9 +2931,9 @@ end
 function MT.ImGuiInputTextState:CursorAnimReset() self.CursorAnim = -0.30 end
 
 function MT.ImGuiInputTextState:CursorClamp()
-    self.Stb.cursor = ImMin(self.Stb.cursor, self.TextLen)
-    self.Stb.select_start = ImMin(self.Stb.select_start, self.TextLen)
-    self.Stb.select_end = ImMin(self.Stb.select_end, self.TextLen)
+    self.Stb.cursor = ImMin(self.Stb.cursor, self.TextLen + 1)
+    self.Stb.select_start = ImMin(self.Stb.select_start, self.TextLen + 1)
+    self.Stb.select_end = ImMin(self.Stb.select_end, self.TextLen + 1)
 end
 
 function MT.ImGuiInputTextState:HasSelection() return self.Stb.select_start ~= self.Stb.select_end end
@@ -3442,14 +3442,14 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local init_make_active = (user_clicked or user_scroll_finish or input_requested_by_nav or input_requested_by_reactivate)
     local init_state = (init_make_active or user_scroll_active)
     if init_reload_from_user_buf then
-        local new_len = #buf
-        -- IM_ASSERT(new_len + 1 <= buf_size && "Is your input buffer properly zero-terminated?")
+        local new_len = ImStd.ImStrlen(buf)
+        IM_ASSERT(new_len + 1 <= buf_size, "Is your input buffer properly zero-terminated?")
         state.WantReloadUserBuf = false
         --- @cast state ImGuiInputTextState
         InputTextReconcileUndoState(state, state.TextA.Data, state.TextLen, buf, new_len)
         state.TextA:resize(buf_size + 1)
         state.TextLen = new_len
-        ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen)
+        ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen + 1)
         state.Stb.select_start = state.ReloadSelectionStart
         state.Stb.cursor = state.ReloadSelectionEnd
         state.Stb.select_end = state.ReloadSelectionEnd -- will be clamped to bounds below
@@ -3463,10 +3463,10 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
         -- Take a copy of the initial buffer value.
         -- From the moment we focused we are normally ignoring the content of 'buf' (unless we are in read-only mode)
-        local buf_len = #buf
-        -- IM_ASSERT(((buf_len + 1 <= buf_size) or (buf_len == 0 and buf_size == 0)), "Is your input buffer properly zero-terminated?")
-        state.TextToRevertTo:resize(buf_len)
-        ImStd.memmove(state.TextToRevertTo.Data, 1, buf, 1, buf_len)
+        local buf_len = ImStd.ImStrlen(buf)
+        IM_ASSERT(((buf_len + 1 <= buf_size) or (buf_len == 0 and buf_size == 0)), "Is your input buffer properly zero-terminated?")
+        state.TextToRevertTo:resize(buf_len + 1)
+        ImStd.memmove(state.TextToRevertTo.Data, 1, buf, 1, buf_len + 1)
 
         -- Preserve cursor position and undo/redo stack if we come back to same widget
         -- FIXME: Since we reworked this on 2022/06, may want to differentiate recycle_cursor vs recycle_undostate?
@@ -3479,8 +3479,8 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state.ID = id
         state.TextLen = buf_len
         if not is_readonly then
-            state.TextA:resize(buf_size)
-            ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen)
+            state.TextA:resize(buf_size + 1)
+            ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen + 1)
         end
 
         -- Find initial scroll position for right alignment
@@ -3555,7 +3555,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
         -- Read-only mode always ever read from source buffer. Refresh TextLen when active.
         if is_readonly and state ~= nil then
-            state.TextLen = #buf
+            state.TextLen = ImStd.ImStrlen(buf)
         end
         if state ~= nil then
             state:CursorClamp()

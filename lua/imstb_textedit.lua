@@ -306,7 +306,7 @@ function stb_textedit_click(str, state, x, y)
     state.select_start = state.cursor
     state.select_end = state.cursor
     state.has_preferred_x = false
-    str.LastMoveDirectionLR = (side_on_line ~= false) and ImGuiDir.Right or ImGuiDir.Left
+    str.LastMoveDirectionLR = side_on_line and ImGuiDir.Right or ImGuiDir.Left
 end
 
 end
