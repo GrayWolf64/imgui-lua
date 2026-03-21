@@ -638,7 +638,6 @@ function ImFontBaked()
     this.Descent              = 0
     this.MetricsTotalSurface  = 0
     this.WantDestroy          = false
-    this.LoadNoFallback       = false
     this.LoadNoRenderOnLayout = false
     this.LastUsedFrame        = 0
     this.BakedId              = 0

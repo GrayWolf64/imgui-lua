@@ -129,11 +129,11 @@ g_TextEntry.OnTextChanged = function(self)
 end
 
 g_TextEntry.OnKeyCodeTyped = function(self, key_code)
-    print("Press", input.GetKeyName(key_code))
+
 end
 
 g_TextEntry.OnKeyCodeReleased = function(self, key_code)
-    print("Release", input.GetKeyName(key_code))
+
 end
 
 local GMOD_StartTextInput
