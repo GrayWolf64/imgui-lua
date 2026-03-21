@@ -646,6 +646,14 @@ function IM_BITARRAY_CLEARBIT(_ARRAY, _N)
     _ARRAY[idx] = bit.band(_ARRAY[idx], bit.bnot(bit.lshift(1, bit.band(_N - 1, 31))))
 end
 
+--- @param arr ImU32[]
+--- @param n   int
+function ImBitArraySetBit(arr, n)
+    local mask = bit.lshift(1, bit.band(n - 1, 31))
+    local idx = bit.rshift(n - 1, 5) + 1
+    arr[idx] = bit.bor(arr[idx], mask)
+end
+
 --- @alias ImBitArrayForNamedKeys ImBitArray
 
 --- @class ImBitArray<BITCOUNT, OFFSET>
@@ -676,6 +684,9 @@ end
 --- @param n int
 --- @return boolean
 function _ImBitArray:TestBit(n) n = n + self[3]; IM_ASSERT(n >= 1 and n <= self[2]); return IM_BITARRAY_TESTBIT(self[1], n); end
+
+--- @param n int
+function _ImBitArray:SetBit(n) IM_ASSERT(n >= 1 and n <= self[2]); ImBitArraySetBit(self[1], n); end
 
 function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?

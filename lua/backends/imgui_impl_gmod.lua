@@ -8,106 +8,7 @@ local render  = render
 local surface = surface
 local mesh    = mesh
 
--- One backend instance only needs one engine material, make it `error` initially
-local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", SysTime()), "UnlitGeneric", {
-    ["$basetexture"] = "error",
-    ["$translucent"] = 1,
-    ["$vertexcolor"] = 1,
-    ["$vertexalpha"] = 1,
-    ["$ignorez"] = 1,
-    ["$nofog"  ] = 1,
-    ["$linearwrite"   ] = 1, -- Disables SRGB conversion of shader results
-    ["$gammacolorread"] = 1  -- Disables SRGB conversion of color texture read
-})
-
-local g_TextEntry = vgui.Create("TextEntry")
-
--- This disables drawing of the TextEntry entirely while keeping the IME related ui
--- which currently can only show when a game/engine text entry panel is activated and is typing?
-g_TextEntry.Paint = function() return true end
-
-local function GMOD_StartTextInput(window)
-    g_TextEntry:RequestFocus()
-end
-
-local function GMOD_StopTextInput(window)
-
-end
-
---- @param window Panel
---- @param x      int
---- @param y      int
---- @param w      int
---- @param h      int
-local function GMOD_SetTextInputArea(window, x, y, w, h)
-    g_TextEntry:SetParent(window)
-    g_TextEntry:SetPos(x, y)
-    g_TextEntry:SetSize(w, h)
-end
-
-local function GMOD_TextInputActive(window)
-
-end
-
-local ImGui_ImplGMOD_UpdateTexture
-local ImGui_ImplGMOD_RenderDrawData
-local ImGui_ImplGMOD_ProcessEvent
-local ImGui_ImplGMOD_Shutdown
-local ImGui_ImplGMOD_InvalidateEngineObjects
-
-local function ImGui_ImplGMOD_GetBackendData()
-    return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
-end
-
-local function ImGui_ImplGMOD_FindViewportByPlatformHandle(derma_window)
-    local g = ImGui.GetCurrentContext()
-
-    for _, viewport in g.Viewports:iter() do
-        if (viewport.PlatformHandle == derma_window) then
-            return viewport
-        end
-    end
-
-    return nil
-end
-
---- @param panel     Panel
---- @param func_name string
---- @param hook_func function
-local function VGUI_Hook(panel, func_name, hook_func)
-    local old_func = panel[func_name]
-    if old_func then
-        panel[func_name] = function(self, a1, a2, a3, a4) local ret = old_func(self, a1, a2, a3, a4); hook_func(self, a1, a2, a3, a4); return ret; end
-    else
-        panel[func_name] = function(self, a1, a2, a3, a4) hook_func(self, a1, a2, a3, a4); end
-    end
-end
-
---- @param panel             Panel
---- @param is_main_viewport? bool
-local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
-    VGUI_Hook(panel, "OnCursorMoved", function(a0, a1, a2) a1, a2 = input.GetCursorPos(); ImGui_ImplGMOD_ProcessEvent(nil, nil, a1, a2); end)
-    VGUI_Hook(panel, "OnMousePressed", function(a0, a1) a0:MouseCapture(true); ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil); end)
-    VGUI_Hook(panel, "OnMouseReleased", function(a0, a1) a0:MouseCapture(false); ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil); end)
-    VGUI_Hook(panel, "OnMouseWheeled", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, a1); end)
-    VGUI_Hook(panel, "OnKeyCodePressed", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil, nil); end)
-    VGUI_Hook(panel, "OnKeyCodeReleased", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil, nil); end)
-
-    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
-
-    if is_main_viewport then
-        VGUI_Hook(panel, "OnRemove", function() ImGui_ImplGMOD_Shutdown(); end)
-    end
-end
-
-local function ImGui_ImplGMOD_UpdateMouseData(io)
-    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
-    local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(hovered_panel)
-    if vp then
-        io:AddMouseViewportEvent(vp.ID)
-    end
-end
-
+-- TODO: BUTTON_MAP instead, BUTTON_CODE
 local MAP_KEY = {
     [KEY_NONE] = ImGuiKey.None,
 
@@ -161,8 +62,148 @@ local MAP_MOUSE = {
     [MOUSE_MIDDLE] = ImGuiMouseButton.Middle
 }
 
---- - Single-viewport mode: mouse position in GMod Derma window coordinates
---- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
+local function ImGui_ImplGMOD_UpdateKeyModifiers()
+    local io = ImGui.GetIO()
+
+    io:AddKeyEvent(ImGuiMod_Ctrl, input.IsKeyDown(KEY_LCONTROL) or input.IsKeyDown(KEY_RCONTROL))
+    io:AddKeyEvent(ImGuiMod_Shift, input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT))
+    io:AddKeyEvent(ImGuiMod_Alt, input.IsKeyDown(KEY_LALT) or input.IsKeyDown(KEY_RALT))
+    io:AddKeyEvent(ImGuiMod_Super, input.IsKeyDown(KEY_LWIN) or input.IsKeyDown(KEY_RWIN))
+end
+
+local ImGui_ImplGMOD_UpdateTexture
+local ImGui_ImplGMOD_RenderDrawData
+local ImGui_ImplGMOD_ProcessEvent
+local ImGui_ImplGMOD_Shutdown
+local ImGui_ImplGMOD_InvalidateEngineObjects
+
+-- One backend instance only needs one engine material, make it `error` initially
+local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", SysTime()), "UnlitGeneric", {
+    ["$basetexture"] = "error",
+    ["$translucent"] = 1,
+    ["$vertexcolor"] = 1,
+    ["$vertexalpha"] = 1,
+    ["$ignorez"] = 1,
+    ["$nofog"  ] = 1,
+    ["$linearwrite"   ] = 1, -- Disables SRGB conversion of shader results
+    ["$gammacolorread"] = 1  -- Disables SRGB conversion of color texture read
+})
+
+--- @param panel     Panel
+--- @param func_name string
+--- @param hook_func function
+local function VGUI_Hook(panel, func_name, hook_func)
+    local old_func = panel[func_name]
+    if old_func then
+        panel[func_name] = function(self, a1, a2, a3, a4) local ret = old_func(self, a1, a2, a3, a4); hook_func(self, a1, a2, a3, a4); return ret; end
+    else
+        panel[func_name] = function(self, a1, a2, a3, a4) hook_func(self, a1, a2, a3, a4); end
+    end
+end
+
+local g_TextEntryActive = false
+local g_TextEntry = vgui.Create("TextEntry")
+
+g_TextEntry:SetMouseInputEnabled(false)
+g_TextEntry:SetAllowNonAsciiCharacters(true)
+g_TextEntry:SetPos(0, 0)
+g_TextEntry:SetSize(1, 1)
+
+-- This disables drawing of the TextEntry entirely while keeping the IME related ui
+-- which currently can only show when a game/engine text entry panel is activated and is typing?
+g_TextEntry.Paint = function() return true end
+
+g_TextEntry.OnTextChanged = function(self)
+
+end
+
+g_TextEntry.OnKeyCodeTyped = function(self, key_code)
+
+end
+
+local GMOD_StartTextInput
+local GMOD_StopTextInput
+local GMOD_SetTextInputArea
+local GMOD_TextInputActive
+
+function GMOD_StartTextInput(window)
+    g_TextEntry:SetKeyboardInputEnabled(true)
+    g_TextEntry:RequestFocus()
+    g_TextEntryActive = true
+end
+
+function GMOD_StopTextInput(window)
+    g_TextEntry:SetKeyboardInputEnabled(false)
+    g_TextEntry:KillFocus()
+    g_TextEntry:SetParent(vgui.GetWorldPanel())
+    g_TextEntry:SetPos(0, 0)
+    g_TextEntry:SetSize(1, 1)
+    g_TextEntryActive = false
+end
+
+--- @param window Panel
+--- @param x      int
+--- @param y      int
+--- @param w      int
+--- @param h      int
+function GMOD_SetTextInputArea(window, x, y, w, h)
+    g_TextEntry:SetParent(window)
+    g_TextEntry:SetPos(x, y)
+    g_TextEntry:SetSize(w, h)
+end
+
+function GMOD_TextInputActive(window)
+    return g_TextEntryActive
+end
+
+local function ImGui_ImplGMOD_GetBackendData()
+    return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
+end
+
+local function ImGui_ImplGMOD_FindViewportByPlatformHandle(derma_window)
+    local g = ImGui.GetCurrentContext()
+
+    for _, viewport in g.Viewports:iter() do
+        if (viewport.PlatformHandle == derma_window) then
+            return viewport
+        end
+    end
+
+    return nil
+end
+
+--- @param panel             Panel
+--- @param is_main_viewport? bool
+local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
+    VGUI_Hook(panel, "OnCursorMoved", function(a0, a1, a2) a1, a2 = input.GetCursorPos(); ImGui_ImplGMOD_ProcessEvent(nil, nil, a1, a2); end)
+    VGUI_Hook(panel, "OnMousePressed", function(a0, a1) a0:MouseCapture(true); ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil); end)
+    VGUI_Hook(panel, "OnMouseReleased", function(a0, a1) a0:MouseCapture(false); ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil); end)
+    VGUI_Hook(panel, "OnMouseWheeled", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, a1); end)
+    VGUI_Hook(panel, "OnKeyCodePressed", function(a0, a1) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil, nil); end)
+    VGUI_Hook(panel, "OnKeyCodeReleased", function(a0, a1) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil, nil); end)
+
+    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
+
+    if is_main_viewport then
+        VGUI_Hook(panel, "OnRemove", function() ImGui_ImplGMOD_Shutdown(); end)
+    end
+end
+
+local function ImGui_ImplGMOD_UpdateMouseData(io)
+    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
+    local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(hovered_panel)
+    if vp then
+        io:AddMouseViewportEvent(vp.ID)
+    end
+end
+
+-- - Single-viewport mode: mouse position in GMod Derma window coordinates
+-- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
+--- @param key_code?     MOUSE|KEY
+--- @param is_down?      bool
+--- @param x?            number
+--- @param y?            number
+--- @param scroll_delta? number
 function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
     local bd = ImGui_ImplGMOD_GetBackendData()
     local io = ImGui.GetIO()
@@ -172,6 +213,7 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
             io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
             io:AddMouseButtonEvent(MAP_MOUSE[key_code], is_down)
         elseif key_code >= KEY_FIRST and key_code <= KEY_LAST then
+            ImGui_ImplGMOD_UpdateKeyModifiers()
             io:AddKeyEvent(MAP_KEY[key_code], is_down)
         end
     elseif x and y then -- cursor position update

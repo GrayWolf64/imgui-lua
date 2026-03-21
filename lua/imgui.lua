@@ -2252,7 +2252,7 @@ end
 
 --- @param ctx? ImGuiContext
 --- @param key  ImGuiKey
---- @return ImGuiKeyData
+--- @return ImGuiKeyData, int
 function ImGui.GetKeyData(ctx, key)
     if ctx == nil then ctx = GImGui end
 
@@ -2261,7 +2261,8 @@ function ImGui.GetKeyData(ctx, key)
     end
 
     IM_ASSERT(ImGui.IsNamedKey(key), "Support for user key indices was dropped in favor of ImGuiKey. Please update backend & user code.")
-    return ctx.IO.KeysData[key - ImGuiKey.NamedKey_BEGIN]
+    local idx = key - ImGuiKey.NamedKey_BEGIN
+    return ctx.IO.KeysData[idx], idx
 end
 
 --- @param key      ImGuiKey
@@ -2529,7 +2530,7 @@ local function IsKeyChordPotentiallyCharInput(key_chord)
     if key == ImGuiKey.None then
         return false
     end
-    return g.KeysMayBeCharInput:TestBit(key)
+    return g.KeysMayBeCharInput:TestBit(key + 1) -- TestBit requires 1-based index
 end
 
 --- @param key_chord ImGuiKeyChord
@@ -2704,6 +2705,8 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
     local text_inputted        = false
     local mouse_button_changed = 0x00
 
+    local key_changed_mask = ImBitArray(ImGuiKey.NamedKey_COUNT)
+
     local event_n = 1
     while event_n <= g.InputEventsQueue.Size do
         local e = g.InputEventsQueue.Data[event_n]
@@ -2743,7 +2746,36 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         elseif e.Type == ImGuiInputEventType.MouseViewport then
             io.MouseHoveredViewport = e.MouseViewport.HoveredViewportID
         elseif e.Type == ImGuiInputEventType.Key then
-            -- TODO:
+            -- Trickling Rule: Stop processing queued events if we got multiple action on the same button
+            if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) ~= 0 then
+                goto CONTINUE
+            end
+
+            local key = e.Key.Key
+            IM_ASSERT(key ~= ImGuiKey.None)
+
+            -- TODO: Also gets 0-based index here, consider making key_data storage 1-based
+            local key_data, key_data_index = ImGui.GetKeyData(g, key)
+
+            if trickle_fast_inputs and key_data.Down ~= e.Key.Down and (key_changed_mask:TestBit(key_data_index + 1) or mouse_button_changed ~= 0) then
+                break
+            end
+
+            local key_is_potentially_for_char_input = IsKeyChordPotentiallyCharInput(bit.bor(ImGui.GetMergedModsFromKeys(), key))
+            if trickle_interleaved_nonchar_keys_and_text and (text_inputted and not key_is_potentially_for_char_input) then
+                break
+            end
+
+            if key_data.Down ~= e.Key.Down then
+                key_changed = true
+                key_changed_mask:SetBit(key_data_index)
+                if trickle_interleaved_nonchar_keys_and_text and not key_is_potentially_for_char_input then
+                    key_changed_nonchar = true
+                end
+            end
+
+            key_data.Down = e.Key.Down
+            key_data.AnalogValue = e.Key.AnalogValue
         elseif e.Type == ImGuiInputEventType.Text then
             if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) ~= 0 then
                 goto CONTINUE
