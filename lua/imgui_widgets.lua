@@ -3433,8 +3433,9 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     local input_requested_by_reactivate = (g.InputTextReactivateId == id) -- for io.ConfigInputTextEnterKeepActive
     local user_clicked = hovered and io.MouseClicked[0]
-    local user_scroll_finish = is_multiline and state ~= nil and g.ActiveId == 0 and g.ActiveIdPreviousFrame == ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y)
-    local user_scroll_active = is_multiline and state ~= nil and g.ActiveId == ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y)
+    local scrollbar_id = (is_multiline and state ~= nil) and ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y) or 0
+    local user_scroll_finish = is_multiline and state ~= nil and g.ActiveId == 0 and g.ActiveIdPreviousFrame == scrollbar_id
+    local user_scroll_active = is_multiline and state ~= nil and g.ActiveId == scrollbar_id
     local clear_active_id = false
     local select_all = false
 
@@ -3443,7 +3444,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local init_reload_from_user_buf = (state ~= nil and state.WantReloadUserBuf)
     local init_changed_specs = (state ~= nil and state.Stb.single_line ~= (not is_multiline)) -- state ~= nil means its our state
     local init_make_active = (user_clicked or user_scroll_finish or input_requested_by_nav or input_requested_by_reactivate)
-    local init_state = (init_make_active or user_scroll_active)
     if init_reload_from_user_buf then
         local new_len = ImStd.ImStrlen(buf)
         IM_ASSERT(new_len + 1 <= buf_size, "Is your input buffer properly zero-terminated?")
@@ -3456,7 +3456,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state.Stb.select_start = state.ReloadSelectionStart
         state.Stb.cursor = state.ReloadSelectionEnd
         state.Stb.select_end = state.ReloadSelectionEnd -- will be clamped to bounds below
-    elseif (init_state and g.ActiveId ~= id) or init_changed_specs then
+    elseif (init_make_active and g.ActiveId ~= id) or init_changed_specs then
         -- Access state even if we don't own it yet
         state = g.InputTextState
         state:CursorAnimReset()
@@ -3577,7 +3577,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     -- Release focus when we click outside
-    if g.ActiveId == id and io.MouseClicked[0] and not init_state and not init_make_active then
+    if g.ActiveId == id and io.MouseClicked[0] and not init_make_active then
         clear_active_id = true
     end
 
