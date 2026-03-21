@@ -113,12 +113,27 @@ g_TextEntry:SetSize(1, 1)
 -- which currently can only show when a game/engine text entry panel is activated and is typing?
 g_TextEntry.Paint = function() return true end
 
-g_TextEntry.OnTextChanged = function(self)
+local g_TextEntryTextPrev = ""
+local g_TextEntryTextCur
 
+-- Submit new characters
+g_TextEntry.OnTextChanged = function(self)
+    local io = ImGui.GetIO()
+
+    g_TextEntryTextCur = self:GetText()
+    if #g_TextEntryTextCur > #g_TextEntryTextPrev then
+        io:AddInputCharacter(utf8.codepoint(g_TextEntryTextCur, #g_TextEntryTextPrev + 1, #g_TextEntryTextCur))
+    end
+
+    g_TextEntryTextPrev = g_TextEntryTextCur
 end
 
 g_TextEntry.OnKeyCodeTyped = function(self, key_code)
+    print("Press", input.GetKeyName(key_code))
+end
 
+g_TextEntry.OnKeyCodeReleased = function(self, key_code)
+    print("Release", input.GetKeyName(key_code))
 end
 
 local GMOD_StartTextInput

@@ -632,6 +632,7 @@ function ImFontBaked()
     this.IndexLookup        = ImVector()
     this.Glyphs             = ImVector()
     this.FallbackGlyphIndex = -1
+    this.LoadNoFallback     = false
 
     this.Ascent               = 0
     this.Descent              = 0
@@ -1008,7 +1009,8 @@ function ImGuiIO()
 
         InputQueueCharacters = ImVector(),
 
-        AppAcceptingEvents = true
+        AppAcceptingEvents = true,
+        InputQueueSurrogate = 0
     }
 
     for i = 0, ImGuiKey.NamedKey_COUNT - 1 do

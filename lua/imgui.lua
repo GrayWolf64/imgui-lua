@@ -1943,6 +1943,35 @@ function MT.ImGuiIO:AddInputCharacter(c)
     g.InputEventsQueue:push_back(e)
 end
 
+--- @param c ImWchar16
+function MT.ImGuiIO:AddInputCharacterUTF16(c)
+    if (c == 0 and self.InputQueueSurrogate == 0) or not self.AppAcceptingEvents then
+        return
+    end
+
+    if bit.band(c, 0xFC00) == 0xD800 then -- High surrogate, must save
+        if self.InputQueueSurrogate ~= 0 then
+            self:AddInputCharacter(IM_UNICODE_CODEPOINT_INVALID)
+        end
+        self.InputQueueSurrogate = c
+        return
+    end
+
+    local cp = c
+    if self.InputQueueSurrogate ~= 0 then
+        if bit.band(c, 0xFC00) ~= 0xDC00 then  -- Invalid low surrogate
+            self:AddInputCharacter(IM_UNICODE_CODEPOINT_INVALID)
+        else
+            -- #if IM_UNICODE_CODEPOINT_MAX == 0xFFFF
+            cp = IM_UNICODE_CODEPOINT_INVALID
+            -- #endif
+        end
+
+        self.InputQueueSurrogate = 0
+    end
+    self:AddInputCharacter(cp)
+end
+
 function MT.ImGuiIO:ClearEventsQueue()
     IM_ASSERT(self.Ctx ~= nil)
     local g = GImGui
