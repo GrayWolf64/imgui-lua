@@ -910,7 +910,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     end
     window.DrawList:AddRectFilled(bb_frame.Min, bb_frame.Max, bg_col, window.WindowRounding, draw_rounding_flags)
     local grab_rect
-    if axis == ImGuiAxis_X then
+    if axis == ImGuiAxis.X then
         local x1 = ImLerp(bb.Min.x, bb.Max.x, grab_v_norm)
         grab_rect = ImRect(x1, bb.Min.y, x1 + grab_h_pixels, bb.Max.y)
     else
@@ -4224,7 +4224,20 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     if is_multiline then
-        -- TODO:
+        -- For focus requests to work on our multiline we need to ensure our child ItemAdd() call specifies the ImGuiItemFlags.Inputable (see #4761, #7870)...
+        ImGui.Dummy(ImVec2(0.0, text_size_y + style.FramePadding.y))
+        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.Inputable, ImGuiItemFlags.NoTabStop)
+        ImGui.EndChild()
+        item_data_backup.StatusFlags = bit.bor(item_data_backup.StatusFlags, bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredWindow))
+
+        -- ...and then we need to undo the group overriding last item data, which gets a bit messy as EndGroup() tries to forward scrollbar being active...
+        -- FIXME: This quite messy/tricky, should attempt to get rid of the child window.
+        ImGui.EndGroup()
+        if g.LastItemData.ID == 0 or g.LastItemData.ID ~= ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y) then
+            g.LastItemData.ID = id
+            g.LastItemData.ItemFlags = item_data_backup.ItemFlags
+            g.LastItemData.StatusFlags = item_data_backup.StatusFlags
+        end
     end
 
     if state and is_readonly then
