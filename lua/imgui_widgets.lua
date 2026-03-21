@@ -828,7 +828,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     IM_ASSERT(ImMax(size_contents_v, size_visible_v) > 0.0)
     local win_size_v = ImMax(ImMax(size_contents_v, size_visible_v), 1)
     local grab_h_minsize = ImMin(bb:GetSize()[axis], style.GrabMinSize)
-    local grab_h_pixels = ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v)
+    local grab_h_pixels = ImTrunc(ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v))
     local grab_h_norm = grab_h_pixels / scrollbar_size_v
 
     -- As a special thing, we allow scrollbar near the edge of a screen/viewport to be reachable with mouse at the extreme edge (#9276)
