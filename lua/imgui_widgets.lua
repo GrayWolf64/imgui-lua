@@ -3239,9 +3239,12 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
         line_index.Offsets:push_back(0)
         size = size + 1
     end
-    if s > 1 and buf[s - 1] == 10 and size <= max_output_buffer_size and not trailing_line_already_counted then
-        line_index.Offsets:push_back(s - 1)
+    if s > 1 and buf[s - 1] == 10 and not trailing_line_already_counted then
+        local old_size = size
         size = size + 1
+        if old_size <= max_output_buffer_size then
+            line_index.Offsets:push_back(s - 1)
+        end
     end
     return size, out_buf_end
 end

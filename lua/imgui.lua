@@ -5974,7 +5974,7 @@ function ImGui.NewFrame()
     g.HoveredIdIsDisabled = false
 
     if (g.ActiveId ~= 0 and g.ActiveIdIsAlive ~= g.ActiveId and g.ActiveIdPreviousFrame == g.ActiveId) then
-        print("NewFrame(): ClearActiveID() because it isn't marked alive anymore!")
+        IMGUI_DEBUG_LOG_ACTIVEID("NewFrame(): ClearActiveID() 0x%08X because it isn't marked alive anymore!", g.ActiveId)
 
         ImGui.ClearActiveID()
     end

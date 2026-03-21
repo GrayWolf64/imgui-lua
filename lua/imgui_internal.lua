@@ -340,6 +340,7 @@ function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCo
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
+function IMGUI_DEBUG_LOG_ACTIVEID(_str, ...) local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventActiveId) ~= 0 then print(string.format(_str, ...)) end end
 function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
 function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = GImGui if g2 and bit.band(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
 function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end

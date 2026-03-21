@@ -127,6 +127,9 @@ local GMOD_SetTextInputArea
 local GMOD_TextInputActive
 
 function GMOD_StartTextInput(window)
+    -- Everytime TextInput is started, clear the string content of it
+    g_TextEntry:SetText("")
+
     g_TextEntry:SetKeyboardInputEnabled(true)
     g_TextEntry:RequestFocus()
     g_TextEntryActive = true
