@@ -128,12 +128,21 @@ g_TextEntry.OnTextChanged = function(self)
     g_TextEntryTextPrev = g_TextEntryTextCur
 end
 
+-- FIXME: temporary hardcoded oops
 g_TextEntry.OnKeyCodeTyped = function(self, key_code)
+    local io = ImGui.GetIO()
 
+    if key_code == KEY_BACKSPACE then
+        io:AddKeyEvent(ImGuiKey.Backspace, true)
+    end
 end
 
 g_TextEntry.OnKeyCodeReleased = function(self, key_code)
+    local io = ImGui.GetIO()
 
+    if key_code == KEY_BACKSPACE then
+        io:AddKeyEvent(ImGuiKey.Backspace, false)
+    end
 end
 
 local GMOD_StartTextInput
