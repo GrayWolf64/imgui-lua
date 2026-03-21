@@ -3387,6 +3387,11 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         draw_window.DC.NavLayersActiveMaskNext = bit.bor(draw_window.DC.NavLayersActiveMaskNext, bit.lshift(1, draw_window.DC.NavLayerCurrent)) -- This is to ensure that EndChild() will display a navigation highlight so we can "enter" into it
         ImVec2_Copy(draw_window.DC.CursorPos, draw_window.DC.CursorPos + style.FramePadding)
         inner_size.x = inner_size.x - draw_window.ScrollbarSizes.x
+
+        -- FIXME: Could this be a ImGuiChildFlags to affect the SetLastItemDataForWindow() call?
+        g.LastItemData.ID = id
+        g.LastItemData.ItemFlags = item_data_backup.ItemFlags
+        g.LastItemData.StatusFlags = item_data_backup.StatusFlags
     else
         -- Support for internal ImGuiInputTextFlags.MergedItem flag, which could be redesigned as an ItemFlags if needed (with test performed in ItemAdd)
         ImGui.ItemSize(total_bb, style.FramePadding.y)
