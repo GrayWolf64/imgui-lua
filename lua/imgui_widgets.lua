@@ -3468,8 +3468,10 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         -- From the moment we focused we are normally ignoring the content of 'buf' (unless we are in read-only mode)
         local buf_len = ImStd.ImStrlen(buf)
         IM_ASSERT(((buf_len + 1 <= buf_size) or (buf_len == 0 and buf_size == 0)), "Is your input buffer properly zero-terminated?")
-        state.TextToRevertTo:resize(buf_len + 1)
-        ImStd.memmove(state.TextToRevertTo.Data, 1, buf, 1, buf_len + 1)
+        if not user_scroll_finish then
+            state.TextToRevertTo:resize(buf_len + 1)
+            ImStd.memmove(state.TextToRevertTo.Data, 1, buf, 1, buf_len + 1)
+        end
 
         -- Preserve cursor position and undo/redo stack if we come back to same widget
         -- FIXME: Since we reworked this on 2022/06, may want to differentiate recycle_cursor vs recycle_undostate?
