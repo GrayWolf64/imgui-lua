@@ -6304,7 +6304,10 @@ end
 function ImGui.GetIO() return GImGui.IO end
 
 --- @return ImGuiPlatformIO
-function ImGui.GetPlatformIO() return GImGui.PlatformIO end
+function ImGui.GetPlatformIO()
+    IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui.CreateContext() and ImGui.SetCurrentContext()?")
+    return GImGui.PlatformIO
+end
 
 function ImGui.GetMouseCursor()
     local g = GImGui

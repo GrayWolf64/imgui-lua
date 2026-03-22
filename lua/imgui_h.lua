@@ -632,12 +632,12 @@ function ImFontBaked()
     this.IndexLookup        = ImVector()
     this.Glyphs             = ImVector()
     this.FallbackGlyphIndex = -1
-    this.LoadNoFallback     = false
 
     this.Ascent               = 0
     this.Descent              = 0
     this.MetricsTotalSurface  = 0
     this.WantDestroy          = false
+    this.LoadNoFallback       = false
     this.LoadNoRenderOnLayout = false
     this.LastUsedFrame        = 0
     this.BakedId              = 0

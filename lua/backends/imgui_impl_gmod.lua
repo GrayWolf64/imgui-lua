@@ -19,6 +19,21 @@ local ImGui_ImplGMOD_ProcessEvent
 local ImGui_ImplGMOD_Shutdown
 local ImGui_ImplGMOD_InvalidateEngineObjects
 
+local CURSOR_MAP = {
+    [ImGuiMouseCursor.None]       = "blank",
+    [ImGuiMouseCursor.Arrow]      = "arrow",
+    [ImGuiMouseCursor.TextInput]  = "beam",
+    [ImGuiMouseCursor.ResizeAll]  = "sizeall",
+    [ImGuiMouseCursor.ResizeNS]   = "sizens",
+    [ImGuiMouseCursor.ResizeEW]   = "sizewe",
+    [ImGuiMouseCursor.ResizeNESW] = "sizenesw",
+    [ImGuiMouseCursor.ResizeNWSE] = "sizenwse",
+    [ImGuiMouseCursor.Hand]       = "hand",
+    [ImGuiMouseCursor.Wait]       = "hourglass",
+    [ImGuiMouseCursor.Progress]   = "waitarrow",
+    [ImGuiMouseCursor.NotAllowed] = "no",
+}
+
 local BUTTON_MAP = {
     [KEY_NONE] = ImGuiKey.None,
 
@@ -90,6 +105,11 @@ local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", S
     ["$linearwrite"   ] = 1, -- Disables SRGB conversion of shader results
     ["$gammacolorread"] = 1  -- Disables SRGB conversion of color texture read
 })
+
+-- We don't have a game-level cursor setter in GMod, so just set cursor for the hovered panel that happens to be our viewport
+local function GMOD_VGuiSetCursor(panel, cursor_type)
+    panel:SetCursor(cursor_type)
+end
 
 --- @param panel     Panel
 --- @param func_name string
@@ -184,11 +204,12 @@ local function ImGui_ImplGMOD_GetBackendData()
     return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
 end
 
-local function ImGui_ImplGMOD_FindViewportByPlatformHandle(derma_window)
-    local g = ImGui.GetCurrentContext()
-
-    for _, viewport in g.Viewports:iter() do
-        if (viewport.PlatformHandle == derma_window) then
+--- @param platform_io ImGuiPlatformIO
+--- @param window      Panel
+--- @return ImGuiViewport?
+local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, window)
+    for _, viewport in platform_io.Viewports:iter() do
+        if (viewport.PlatformHandle == window) then
             return viewport
         end
     end
@@ -206,16 +227,18 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
     VGUI_Hook(panel, "OnKeyCodePressed", function(a0, a1) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil, nil); end)
     VGUI_Hook(panel, "OnKeyCodeReleased", function(a0, a1) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil, nil); end)
 
-    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_FindViewportByPlatformHandle(a0).PlatformRequestResize = true; ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
+    VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
 
     if is_main_viewport then
         VGUI_Hook(panel, "OnRemove", function() ImGui_ImplGMOD_Shutdown(); end)
     end
 end
 
-local function ImGui_ImplGMOD_UpdateMouseData(io)
+--- @param io          ImGuiIO
+--- @param platform_io ImGuiPlatformIO
+local function ImGui_ImplGMOD_UpdateMouseData(io, platform_io)
     local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
-    local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(hovered_panel)
+    local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, hovered_panel)
     if vp then
         io:AddMouseViewportEvent(vp.ID)
     end
@@ -404,7 +427,7 @@ local function ImGui_ImplGMOD_RenderWindow(viewport)
 end
 
 local function ImGui_ImplGMOD_SwapBuffers()
-    return
+    render.Spin()
 end
 
 local function ImGui_ImplGMOD_UpdateIme()
@@ -425,7 +448,7 @@ local function ImGui_ImplGMOD_UpdateIme()
     bd.ImeDirty = false
     if data.WantVisible then
         local viewport_pos = ImVec2()
-        local viewport = ImGui_ImplGMOD_FindViewportByPlatformHandle(window)
+        local viewport = ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), window)
         if viewport then
             ImVec2_Copy(viewport_pos, viewport.Pos)
         end
@@ -529,57 +552,17 @@ local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
 end
 
--- We don't have a game-level cursor setter in GMod, so just set cursor for the hovered panel that happens to be our viewport
-local function ImGui_ImplGMOD_DermaSetCursor(cursor_type)
-    local io = ImGui.GetPlatformIO()
-    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
-    if hovered_panel and ImGui_ImplGMOD_FindViewportByPlatformHandle(hovered_panel) then
-        hovered_panel:SetCursor(cursor_type)
-    end
-end
-
 --- @param io           ImGuiIO
---- @param imgui_cursor ImGuiMouseCursor
-local function ImGui_ImplGMOD_UpdateMouseCursor(io, imgui_cursor)
+--- @param platform_io  ImGuiPlatformIO
+local function ImGui_ImplGMOD_UpdateMouseCursor(io, platform_io)
     if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoMouseCursorChange) ~= 0 then
-        return false
+        return
     end
 
-    local bd = ImGui_ImplGMOD_GetBackendData()
-
-    if imgui_cursor == ImGuiMouseCursor.None or io.MouseDrawCursor then
-        ImGui_ImplGMOD_DermaSetCursor("blank")
-    else
-        local gmod_cursor = "arrow"
-
-        if imgui_cursor == ImGuiMouseCursor.Arrow then
-            gmod_cursor = "arrow"
-        elseif imgui_cursor == ImGuiMouseCursor.TextInput then
-            gmod_cursor = "beam"
-        elseif imgui_cursor == ImGuiMouseCursor.ResizeAll then
-            gmod_cursor = "sizeall"
-        elseif imgui_cursor == ImGuiMouseCursor.ResizeEW then
-            gmod_cursor = "sizewe"
-        elseif imgui_cursor == ImGuiMouseCursor.ResizeNS then
-            gmod_cursor = "sizens"
-        elseif imgui_cursor == ImGuiMouseCursor.ResizeNESW then
-            gmod_cursor = "sizenesw"
-        elseif imgui_cursor == ImGuiMouseCursor.ResizeNWSE then
-            gmod_cursor = "sizenwse"
-        elseif imgui_cursor == ImGuiMouseCursor.Hand then
-            gmod_cursor = "hand"
-        elseif imgui_cursor == ImGuiMouseCursor.Wait then
-            gmod_cursor = "hourglass"
-        elseif imgui_cursor == ImGuiMouseCursor.Progress then
-            gmod_cursor = "waitarrow"
-        elseif imgui_cursor == ImGuiMouseCursor.NotAllowed then
-            gmod_cursor = "no"
-        end
-
-        ImGui_ImplGMOD_DermaSetCursor(gmod_cursor)
+    local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
+    if hovered_panel and ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, hovered_panel) then
+        GMOD_VGuiSetCursor(hovered_panel, io.MouseDrawCursor and "blank" or CURSOR_MAP[ImGui.GetMouseCursor()])
     end
-
-    return true
 end
 
 function ImGui_ImplGMOD_InvalidateEngineObjects()
@@ -615,6 +598,7 @@ end
 
 local function ImGui_ImplGMOD_NewFrame()
     local io = ImGui.GetIO()
+    local platform_io = ImGui.GetPlatformIO()
     local bd = ImGui_ImplGMOD_GetBackendData()
 
     io.DisplaySize = ImVec2(bd.Window:GetSize())
@@ -629,8 +613,8 @@ local function ImGui_ImplGMOD_NewFrame()
     io.DeltaTime = (bd.Time > 0.0) and (current_time - bd.Time) or (1.0 / 60.0)
     bd.Time = current_time
 
-    ImGui_ImplGMOD_UpdateMouseData(io)
-    ImGui_ImplGMOD_UpdateMouseCursor(io, ImGui.GetMouseCursor())
+    ImGui_ImplGMOD_UpdateMouseData(io, platform_io)
+    ImGui_ImplGMOD_UpdateMouseCursor(io, platform_io)
 end
 
 local function ImGui_ImplGMOD_SetupRenderState()
