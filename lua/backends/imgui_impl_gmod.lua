@@ -427,7 +427,8 @@ local function ImGui_ImplGMOD_RenderWindow(viewport)
 end
 
 local function ImGui_ImplGMOD_SwapBuffers()
-    render.Spin()
+    -- this make screen flashes...?
+    -- render.Spin()
 end
 
 local function ImGui_ImplGMOD_UpdateIme()
