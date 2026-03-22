@@ -4212,7 +4212,7 @@ end
 --- @param pos        ImVec2
 --- @param col        ImU32
 --- @param clip_rect  ImVec4
---- @param text       string
+--- @param text       ImString
 --- @param text_begin int
 --- @param text_end   int?
 --- @param wrap_width float

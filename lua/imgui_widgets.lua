@@ -2788,7 +2788,7 @@ function ImStb.TEXTEDIT_MOVELINESTART(obj, state, cursor)
     -- Regular handler, same as stb_textedit_move_line_start()
     while cursor > 1 do
         local prev_cursor = ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, cursor)
-        if (ImStb.TEXTEDIT_GETCHAR(obj, prev_cursor) == ImStb.TEXTEDIT_NEWLINE) then
+        if (ImStb.TEXTEDIT_GETCHAR(obj, prev_cursor) == STB_TEXTEDIT_NEWLINE) then
             break
         end
         cursor = prev_cursor
@@ -2823,7 +2823,7 @@ function ImStb.TEXTEDIT_MOVELINEEND(obj, state, cursor)
     end
 
     -- Regular handler, same as stb_textedit_move_line_end()
-    while (cursor < n and ImStb.TEXTEDIT_GETCHAR(obj, cursor) ~= ImStb.TEXTEDIT_NEWLINE) do
+    while (cursor < n and ImStb.TEXTEDIT_GETCHAR(obj, cursor) ~= STB_TEXTEDIT_NEWLINE) do
         cursor = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, cursor)
     end
     return cursor
@@ -3035,7 +3035,6 @@ local function InputTextFilterCharacter(ctx, state, char, callback, user_data, i
 
     -- Generic named filters
     if apply_named_filters and (bit.band(flags, bit.bor(ImGuiInputTextFlags.CharsDecimal, ImGuiInputTextFlags.CharsHexadecimal, ImGuiInputTextFlags.CharsUppercase, ImGuiInputTextFlags.CharsNoBlank, ImGuiInputTextFlags.CharsScientific, ImGuiInputTextFlags.LocalizeDecimalPoint))) ~= 0 then
-        -- The libc allows overriding locale, with e.g. 'setlocale(LC_NUMERIC, "de_DE.UTF-8");' which affect the output/input of printf/scanf to use e.g. ',' instead of '.'.
         -- The standard mandate that programs starts in the "C" locale where the decimal point is '.'.
         -- We don't really intend to provide widespread support for it, but out of empathy for people stuck with using odd API, we support the bare minimum aka overriding the decimal point.
         -- Change the default decimal_point with:
