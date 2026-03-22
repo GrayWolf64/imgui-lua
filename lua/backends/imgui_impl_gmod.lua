@@ -8,8 +8,18 @@ local render  = render
 local surface = surface
 local mesh    = mesh
 
--- TODO: BUTTON_MAP instead, BUTTON_CODE
-local MAP_KEY = {
+local GMOD_StartTextInput
+local GMOD_StopTextInput
+local GMOD_SetTextInputArea
+local GMOD_TextInputActive
+
+local ImGui_ImplGMOD_UpdateTexture
+local ImGui_ImplGMOD_RenderDrawData
+local ImGui_ImplGMOD_ProcessEvent
+local ImGui_ImplGMOD_Shutdown
+local ImGui_ImplGMOD_InvalidateEngineObjects
+
+local BUTTON_MAP = {
     [KEY_NONE] = ImGuiKey.None,
 
     [KEY_PAD_DIVIDE] = ImGuiKey.KeypadDivide,   [KEY_PAD_MULTIPLY] = ImGuiKey.KeypadMultiply,
@@ -37,6 +47,10 @@ local MAP_KEY = {
     [KEY_UP]         = ImGuiKey.UpArrow,        [KEY_LEFT]         = ImGuiKey.LeftArrow,
     [KEY_DOWN]       = ImGuiKey.DownArrow,      [KEY_RIGHT]        = ImGuiKey.RightArrow,
 
+    [MOUSE_LEFT]   = ImGuiMouseButton.Left,
+    [MOUSE_RIGHT]  = ImGuiMouseButton.Right,
+    [MOUSE_MIDDLE] = ImGuiMouseButton.Middle,
+
     [KEY_XBUTTON_A]             = ImGuiKey.GamepadFaceDown,    [KEY_XBUTTON_B]              = ImGuiKey.GamepadFaceRight,
     [KEY_XBUTTON_X]             = ImGuiKey.GamepadFaceLeft,    [KEY_XBUTTON_Y]              = ImGuiKey.GamepadFaceUp,
     [KEY_XBUTTON_LEFT_SHOULDER] = ImGuiKey.GamepadL1,          [KEY_XBUTTON_RIGHT_SHOULDER] = ImGuiKey.GamepadR1,
@@ -51,16 +65,10 @@ local MAP_KEY = {
     [KEY_XSTICK2_DOWN]          = ImGuiKey.GamepadRStickDown,  [KEY_XSTICK2_UP]             = ImGuiKey.GamepadRStickUp
 }
 
-for k = KEY_0,     KEY_9     do MAP_KEY[k] = k - KEY_0 + ImGuiKey.K0 end
-for k = KEY_A,     KEY_Z     do MAP_KEY[k] = k - KEY_A + ImGuiKey.A end
-for k = KEY_PAD_0, KEY_PAD_9 do MAP_KEY[k] = k - KEY_PAD_0 + ImGuiKey.Keypad0 end
-for k = KEY_F1,    KEY_F12   do MAP_KEY[k] = k - KEY_F1 + ImGuiKey.F1 end
-
-local MAP_MOUSE = {
-    [MOUSE_LEFT]   = ImGuiMouseButton.Left,
-    [MOUSE_RIGHT]  = ImGuiMouseButton.Right,
-    [MOUSE_MIDDLE] = ImGuiMouseButton.Middle
-}
+for k = KEY_0,     KEY_9     do BUTTON_MAP[k] = k - KEY_0 + ImGuiKey.K0 end
+for k = KEY_A,     KEY_Z     do BUTTON_MAP[k] = k - KEY_A + ImGuiKey.A end
+for k = KEY_PAD_0, KEY_PAD_9 do BUTTON_MAP[k] = k - KEY_PAD_0 + ImGuiKey.Keypad0 end
+for k = KEY_F1,    KEY_F12   do BUTTON_MAP[k] = k - KEY_F1 + ImGuiKey.F1 end
 
 local function ImGui_ImplGMOD_UpdateKeyModifiers()
     local io = ImGui.GetIO()
@@ -70,12 +78,6 @@ local function ImGui_ImplGMOD_UpdateKeyModifiers()
     io:AddKeyEvent(ImGuiMod_Alt, input.IsKeyDown(KEY_LALT) or input.IsKeyDown(KEY_RALT))
     io:AddKeyEvent(ImGuiMod_Super, input.IsKeyDown(KEY_LWIN) or input.IsKeyDown(KEY_RWIN))
 end
-
-local ImGui_ImplGMOD_UpdateTexture
-local ImGui_ImplGMOD_RenderDrawData
-local ImGui_ImplGMOD_ProcessEvent
-local ImGui_ImplGMOD_Shutdown
-local ImGui_ImplGMOD_InvalidateEngineObjects
 
 -- One backend instance only needs one engine material, make it `error` initially
 local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", SysTime()), "UnlitGeneric", {
@@ -144,11 +146,6 @@ g_TextEntry.OnKeyCodeReleased = function(self, key_code)
         io:AddKeyEvent(ImGuiKey.Backspace, false)
     end
 end
-
-local GMOD_StartTextInput
-local GMOD_StopTextInput
-local GMOD_SetTextInputArea
-local GMOD_TextInputActive
 
 function GMOD_StartTextInput(window)
     -- Everytime TextInput is started, clear the string content of it
@@ -238,10 +235,10 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
     if key_code then -- Mouse button or keyboard key
         if key_code >= MOUSE_FIRST and key_code <= MOUSE_LAST then
             io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
-            io:AddMouseButtonEvent(MAP_MOUSE[key_code], is_down)
+            io:AddMouseButtonEvent(BUTTON_MAP[key_code], is_down)
         elseif key_code >= KEY_FIRST and key_code <= KEY_LAST then
             ImGui_ImplGMOD_UpdateKeyModifiers()
-            io:AddKeyEvent(MAP_KEY[key_code], is_down)
+            io:AddKeyEvent(BUTTON_MAP[key_code], is_down)
         end
     elseif x and y then -- cursor position update
         io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
@@ -252,6 +249,10 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
 end
 
 --- @class ImGui_ImplGMOD_Texture
+--- @field RenderTarget ITexture
+--- @field Handle       int
+--- @field Width        int
+--- @field Height       int
 
 --- @return ImGui_ImplGMOD_Texture
 --- @nodiscard
@@ -265,16 +266,17 @@ local function ImGui_ImplGMOD_Texture()
 end
 
 --- @class ImGui_ImplGMOD_Data
---- @field RT_List         table<ITexture> # All the `ITexture` we created
---- @field RT_LockedStatus table<bool>     # Keep the in-use status of RTs
---- @field Window Panel
+--- @field Textures            table<ITexture> # All the `ITexture` we created
+--- @field TextureInUseMarkers table<bool>     # Keep the in-use status of textures
+--- @field Window              Panel
 
 --- @return ImGui_ImplGMOD_Data
 --- @nodiscard
 local function ImGui_ImplGMOD_Data()
     return {
-        RT_List = {},
-        RT_LockedStatus = {},
+        Textures = {},
+        TextureInUseMarkers = {},
+
         NumFramesInFlight = 2,
         Time = 0,
         Window = nil,
@@ -285,17 +287,17 @@ local function ImGui_ImplGMOD_Data()
 end
 
 --- @class ImGui_ImplGMOD_ViewportData
---- @field DermaWindow        Panel
---- @field DermaWindowParent? Panel
---- @field DermaWindowOwned   bool
+--- @field VGuiWindow        Panel
+--- @field VGuiWindowParent? Panel
+--- @field VGuiWindowOwned   bool
 
 --- @return ImGui_ImplGMOD_ViewportData
 --- @nodiscard
 local function ImGui_ImplGMOD_ViewportData()
     return {
-        DermaWindow       = nil,
-        DermaWindowParent = nil,
-        DermaWindowOwned  = false
+        VGuiWindow       = nil,
+        VGuiWindowParent = nil,
+        VGuiWindowOwned  = false
     }
 end
 
@@ -314,32 +316,32 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
 
     -- VGUI treats child windows as "inside" the parent
     -- - Disable panel clipping entirely: https://wiki.facepunch.com/gmod/Global.DisableClipping
-    -- vd.DermaWindowParent = ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport.ParentViewport)
-    vd.DermaWindow = vgui.Create("EditablePanel", nil, "ImGui Platform")
+    -- vd.VGuiWindowParent = ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport.ParentViewport)
+    vd.VGuiWindow = vgui.Create("EditablePanel", nil, "ImGui Platform")
 
-    vd.DermaWindow:SetPos(viewport.Pos.x, viewport.Pos.y)
-    vd.DermaWindow:SetSize(viewport.Size.x, viewport.Size.y)
-    vd.DermaWindowOwned = true
+    vd.VGuiWindow:SetPos(viewport.Pos.x, viewport.Pos.y)
+    vd.VGuiWindow:SetSize(viewport.Size.x, viewport.Size.y)
+    vd.VGuiWindowOwned = true
 
-    ImGui_ImplGMOD_SetupPanelHooks(vd.DermaWindow)
+    ImGui_ImplGMOD_SetupPanelHooks(vd.VGuiWindow)
 
-    vd.DermaWindow.Paint = function(self, w, h) -- FIXME: other means? this looks bad
+    vd.VGuiWindow.Paint = function(self, w, h) -- FIXME: other means? this looks bad
         ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
     end
 
     viewport.PlatformRequestResize = false
 
-    viewport.PlatformHandle    = vd.DermaWindow
-    viewport.PlatformHandleRaw = vd.DermaWindow
+    viewport.PlatformHandle    = vd.VGuiWindow
+    viewport.PlatformHandleRaw = vd.VGuiWindow
 end
 
 local function ImGui_ImplGMOD_DestroyWindow(viewport)
     local vd = viewport.PlatformUserData
     if vd then
-        if IsValid(vd.DermaWindow) and vd.DermaWindowOwned then
-            vd.DermaWindow:Remove()
+        if IsValid(vd.VGuiWindow) and vd.VGuiWindowOwned then
+            vd.VGuiWindow:Remove()
         end
-        vd.DermaWindow = nil
+        vd.VGuiWindow = nil
     end
     viewport.PlatformUserData = nil
 
@@ -352,14 +354,14 @@ end
 
 local function ImGui_ImplGMOD_ShowWindow(viewport)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.DermaWindow))
-    vd.DermaWindow:MakePopup()
+    IM_ASSERT(IsValid(vd.VGuiWindow))
+    vd.VGuiWindow:MakePopup()
 end
 
 local function ImGui_ImplGMOD_SetWindowPos(viewport, pos)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.DermaWindow))
-    vd.DermaWindow:SetPos(pos.x, pos.y)
+    IM_ASSERT(IsValid(vd.VGuiWindow))
+    vd.VGuiWindow:SetPos(pos.x, pos.y)
 end
 
 --- @param viewport ImGuiViewport
@@ -367,33 +369,33 @@ end
 --- @nodiscard
 local function ImGui_ImplGMOD_GetWindowPos(viewport)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.DermaWindow))
+    IM_ASSERT(IsValid(vd.VGuiWindow))
 
-    return ImVec2(vd.DermaWindow:GetPos())
+    return ImVec2(vd.VGuiWindow:GetPos())
 end
 
 local function ImGui_ImplGMOD_SetWindowSize(viewport, size)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.DermaWindow))
-    vd.DermaWindow:SetSize(size.x, size.y)
+    IM_ASSERT(IsValid(vd.VGuiWindow))
+    vd.VGuiWindow:SetSize(size.x, size.y)
 end
 
 local function ImGui_ImplGMOD_GetWindowSize(viewport)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.DermaWindow))
-    return ImVec2(vd.DermaWindow:GetSize())
+    IM_ASSERT(IsValid(vd.VGuiWindow))
+    return ImVec2(vd.VGuiWindow:GetSize())
 end
 
 local function ImGui_ImplGMOD_SetWindowFocus(viewport)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.DermaWindow))
-    vd.DermaWindow:MakePopup()
+    IM_ASSERT(IsValid(vd.VGuiWindow))
+    vd.VGuiWindow:MakePopup()
 end
 
 local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.DermaWindow))
-    vd.DermaWindow:SetName(title)
+    IM_ASSERT(IsValid(vd.VGuiWindow))
+    vd.VGuiWindow:SetName(title)
 end
 
 local function ImGui_ImplGMOD_RenderWindow(viewport)
@@ -479,8 +481,8 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     local main_viewport = ImGui.GetMainViewport()
     local bd = ImGui_ImplGMOD_GetBackendData()
     local vd = ImGui_ImplGMOD_ViewportData()
-    vd.DermaWindow = bd.Window
-    vd.DermaWindowOwned = false
+    vd.VGuiWindow = bd.Window
+    vd.VGuiWindowOwned = false
     main_viewport.PlatformUserData = vd
 end
 
@@ -686,7 +688,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 render.SetScissorRect(pcmd.ClipRect.x, pcmd.ClipRect.y, pcmd.ClipRect.z, pcmd.ClipRect.w, true)
 
                 local tex_id = pcmd:GetTexID()
-                g_EngineMaterial:SetTexture("$basetexture", bd.RT_List[tex_id])
+                g_EngineMaterial:SetTexture("$basetexture", bd.Textures[tex_id])
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
@@ -737,7 +739,7 @@ function ImGui_ImplGMOD_DestroyTexture(tex)
         IM_ASSERT(backend_tex.Handle == tex.TexID)
 
         local bd = ImGui_ImplGMOD_GetBackendData()
-        bd.RT_LockedStatus[tex.TexID] = false -- Mark the `ITexture` as not in-use
+        bd.TextureInUseMarkers[tex.TexID] = false -- Mark the `ITexture` as not in-use
 
         tex:SetTexID(ImTextureID_Invalid)
         tex.BackendUserData = nil
@@ -754,19 +756,19 @@ local function CreateEngineResource(bd, backend_tex, tex)
     backend_tex.Height = tex.Height
 
     local rt
-    for idx = #bd.RT_LockedStatus, 1, -1 do
-        rt = bd.RT_List[idx]
-        if bd.RT_LockedStatus[idx] == false and rt:Width() == backend_tex.Width and rt:Height() == backend_tex.Height then
-            bd.RT_LockedStatus[idx] = true
+    for idx = #bd.TextureInUseMarkers, 1, -1 do
+        rt = bd.Textures[idx]
+        if bd.TextureInUseMarkers[idx] == false and rt:Width() == backend_tex.Width and rt:Height() == backend_tex.Height then
+            bd.TextureInUseMarkers[idx] = true
             backend_tex.Handle = idx
             return rt
         end
     end
 
-    local i = #bd.RT_List + 1
+    local i = #bd.Textures + 1
     rt = GetRenderTargetEx(string.format("imgui_implgmod_rt#%d", i), backend_tex.Width, backend_tex.Height, RT_SIZE_LITERAL, MATERIAL_RT_DEPTH_NONE, 0, 0, IMAGE_FORMAT_RGBA8888)
-    bd.RT_List[i] = rt
-    bd.RT_LockedStatus[i] = true
+    bd.Textures[i] = rt
+    bd.TextureInUseMarkers[i] = true
     backend_tex.Handle = i
 
     return rt
