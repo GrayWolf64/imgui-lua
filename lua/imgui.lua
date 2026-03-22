@@ -3417,9 +3417,11 @@ end
 
 --- @param pos                  ImVec2
 --- @param text                 string
+--- @param text_begin           int?
 --- @param text_end             int?
 --- @param hide_text_after_hash bool?  # true by default
-function ImGui.RenderText(pos, text, text_end, hide_text_after_hash)
+function ImGui.RenderText(pos, text, text_begin, text_end, hide_text_after_hash)
+    if text_begin           == nil then text_begin = 1 end
     if hide_text_after_hash == nil then hide_text_after_hash = true end
 
     local g = GImGui
@@ -3437,9 +3439,9 @@ function ImGui.RenderText(pos, text, text_end, hide_text_after_hash)
     end
 
     if text ~= "" and text_display_end > 1 then
-        window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, 1, text_display_end, 0.0)
+        window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0)
         if g.LogEnabled then
-            -- LogRenderedText(&pos, text, text_display_end);
+            -- ImGui.LogRenderedText(&pos, text, text_display_end);
         end
     end
 end
@@ -3518,7 +3520,7 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_
     local window = g.CurrentWindow
     ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, 1, text_display_end, text_size_if_known, align, clip_rect)
     -- if (g.LogEnabled)
-    --     LogRenderedText(&pos_min, text, text_display_end);
+    --     ImGui.LogRenderedText(&pos_min, text, text_display_end);
 end
 
 function ImGui.RenderNavCursor(bb, id, flags)

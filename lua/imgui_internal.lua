@@ -276,36 +276,35 @@ function ImMul(lhs, rhs)
     return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
 end
 
---- @param str    ImString
+--- @param str    char[]
 --- @param begin? int
 function ImStd.ImStrlen(str, begin)
     if begin == nil then begin = 1 end
 
     local l = #str
 
-    if type(str) == "string" then -- FIXME: don't do this slow
-        return l
-    end
-
     for i = begin, l do
         if str[i] == 0 then
             return i - begin
         end
     end
-    return l
+
+    IM_ASSERT(false)
 end
 
+-- FIXME: should also accept count?
+-- FIXME: avoid dynamic type checking?
 -- string.find with patterns disabled
 --- @param str        string|char[]
 --- @param s          string|char
 --- @param start_pos? int
 --- @return int?
-function ImMemchr(str, s, start_pos) -- FIXME: should accept count instead
+function ImMemchr(str, s, start_pos)
     local start = start_pos or 1
     if start < 1 then start = 1 end
 
-    if type(str) == "table" then -- FIXME: slow path
-        for i = start_pos, #str do
+    if type(str) == "table" then
+        for i = start, #str do
             if str[i] == 0 then break end
 
             if str[i] == s then

@@ -4207,6 +4207,7 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
     end
 end
 
+-- Not recommended to call this directly!
 --- @param draw_list  ImDrawList
 --- @param size       float
 --- @param pos        ImVec2
@@ -4214,7 +4215,7 @@ end
 --- @param clip_rect  ImVec4
 --- @param text       ImString
 --- @param text_begin int
---- @param text_end   int?
+--- @param text_end   int
 --- @param wrap_width float
 --- @param flags      ImDrawTextFlags
 function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, flags)
@@ -4224,9 +4225,8 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         return
     end
 
-    if not text_end then
-        text_end = text_begin + ImStd.ImStrlen(text, text_end)
-    end
+    -- if not text_end then
+    -- end
 
     local line_height = size
     local baked = self:GetFontBaked(size)

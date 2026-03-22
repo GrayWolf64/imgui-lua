@@ -83,8 +83,7 @@ function ImGui.TextEx(text, text_end, flags)
                         line_end = text_end
                     end
                     if bit.band(flags, ImGuiTextFlags.NoWidthForLargeClippedText) == 0 then
-                        local line_text = string.sub(text, line, line_end - 1)
-                        local line_size = ImGui.CalcTextSize(line_text)
+                        local line_size = ImGui.CalcTextSizeEx(text, line, line_end)
                         text_size.x = ImMax(text_size.x, line_size.x)
                     end
                     line = line_end + 1
@@ -105,10 +104,10 @@ function ImGui.TextEx(text, text_end, flags)
                 if not line_end then
                     line_end = text_end
                 end
-                local line_text = string.sub(text, line, line_end - 1)
-                local line_size = ImGui.CalcTextSize(line_text)
+
+                local line_size = ImGui.CalcTextSizeEx(text, line, line_end)
                 text_size.x = ImMax(text_size.x, line_size.x)
-                ImGui.RenderText(pos, line_text, nil, false)
+                ImGui.RenderText(pos, text, line, nil, false)
                 line = line_end + 1
                 line_rect.Min.y = line_rect.Min.y + line_height
                 line_rect.Max.y = line_rect.Max.y + line_height
@@ -122,8 +121,7 @@ function ImGui.TextEx(text, text_end, flags)
                     line_end = text_end
                 end
                 if bit.band(flags, ImGuiTextFlags.NoWidthForLargeClippedText) == 0 then
-                    local line_text = string.sub(text, line, line_end - 1)
-                    local line_size = ImGui.CalcTextSize(line_text)
+                    local line_size = ImGui.CalcTextSizeEx(text, line, line_end)
                     text_size.x = ImMax(text_size.x, line_size.x)
                 end
                 line = line_end + 1
@@ -300,7 +298,7 @@ function ImGui.BulletText(fmt, ...)
     -- Render
     local text_col = ImGui.GetColorU32(ImGuiCol.Text)
     ImGui.RenderBullet(window.DrawList, bb.Min + ImVec2(style.FramePadding.x + g.FontSize * 0.5, g.FontSize * 0.5), text_col)
-    ImGui.RenderText(bb.Min + ImVec2(g.FontSize + style.FramePadding.x * 2, 0.0), text, text_end, false)
+    ImGui.RenderText(bb.Min + ImVec2(g.FontSize + style.FramePadding.x * 2, 0.0), text, 1, text_end, false)
 end
 
 ----------------------------------------------------------------
@@ -1400,7 +1398,7 @@ function ImGui.TextLink(label)
     window.DrawList:AddLine(ImVec2(bb.Min.x, line_y), ImVec2(bb.Max.x, line_y), ImGui.GetColorU32(line_colf)) -- FIXME-TEXT: Underline mode -- FIXME-DPI
 
     ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(text_colf))
-    ImGui.RenderText(bb.Min, label, label_end)
+    ImGui.RenderText(bb.Min, label, 1, label_end)
     ImGui.PopStyleColor()
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags)
