@@ -2834,7 +2834,7 @@ end
 --- @param n   int
 function ImStb.TEXTEDIT_DELETECHARS(obj, pos, n)
     IM_ASSERT(obj.TextSrc == obj.TextA.Data)
-    ImStd.memmove(obj.TextA.Data, pos, obj.TextA.Data, pos + n - 1, n)
+    ImStd.memmove(obj.TextA.Data, pos, obj.TextA.Data, pos + n, obj.TextLen - n - pos + 2)
     obj.Edited = true
     obj.TextLen = obj.TextLen - n
 end
