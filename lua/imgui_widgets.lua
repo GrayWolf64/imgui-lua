@@ -4241,6 +4241,10 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state.TextSrc = nil
     end
 
+    if label_size.x > 0.0 then
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label)
+    end
+
     if value_changed then
         ImGui.MarkItemEdited(id)
     end
