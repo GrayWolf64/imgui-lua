@@ -1,6 +1,12 @@
 --- ImGui Sincerely WIP
 -- (Draw Code)
 
+FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
+FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
+
+IM_FONTGLYPH_INDEX_UNUSED    = 0xFFFF
+IM_FONTGLYPH_INDEX_NOT_FOUND = 0xFFFE
+
 --- @param str string
 --- @return table
 --- @nodiscard
@@ -8,17 +14,6 @@
 local function str_to_table(str)
     local t = {} for i = 1, #str do t[i] = string.sub(str, i, i) end return t
 end
-
---- @param _c string
---- @return char
---- @package
-local function chr(_c) return string.byte(_c) end
-
-FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
-FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
-
-IM_FONTGLYPH_INDEX_UNUSED    = 0xFFFF
-IM_FONTGLYPH_INDEX_NOT_FOUND = 0xFFFE
 
 --- Original ImGui pixel art!
 FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS = IM_SLICE(str_to_table(
@@ -1214,14 +1209,14 @@ end
 --- @param atlas ImFontAtlas
 --- @param baked ImFontBaked
 function ImFontAtlasBuildSetupFontBakedBlanks(atlas, baked)
-    local space_glyph = baked:FindGlyphNoFallback(chr' ')
+    local space_glyph = baked:FindGlyphNoFallback(32)
     if space_glyph ~= nil then
         space_glyph.Visible = false
     end
 
-    if baked:FindGlyphNoFallback(chr'\t') == nil and space_glyph ~= nil then
+    if baked:FindGlyphNoFallback(9) == nil and space_glyph ~= nil then
         local tab_glyph = ImFontGlyph()
-        tab_glyph.Codepoint = chr'\t'
+        tab_glyph.Codepoint = 9
         tab_glyph.AdvanceX = space_glyph.AdvanceX * IM_TABSIZE
         ImFontAtlasBakedAddFontGlyph(atlas, baked, nil, tab_glyph)
     end
@@ -1421,7 +1416,7 @@ function ImFontAtlasBuildSetupFontSpecialGlyphs(atlas, font, src)
     IM_ASSERT(font.Sources:contains(src))
 
     --- @type ImWchar[]
-    local fallback_chars = {font.FallbackChar, IM_UNICODE_CODEPOINT_INVALID, chr'?', chr' '}
+    local fallback_chars = {font.FallbackChar, IM_UNICODE_CODEPOINT_INVALID, 63, 32}
     if font.FallbackChar == 0 then
         for _, candidate_char in ipairs(fallback_chars) do
             if candidate_char ~= 0 and font:IsGlyphInFont(candidate_char) then
@@ -1457,7 +1452,7 @@ function ImFontAtlasBuildSetupFontBakedEllipsis(atlas, baked)
     local font = baked.OwnerFont
     IM_ASSERT(font.EllipsisChar ~= 0)
 
-    local dot_glyph = baked:FindGlyphNoFallback(chr'.')
+    local dot_glyph = baked:FindGlyphNoFallback(46) -- '.'
     if (dot_glyph == nil) then
         dot_glyph = baked:FindGlyphNoFallback(0xFF0E)
     end
@@ -1504,7 +1499,7 @@ function ImFontAtlasBuildSetupFontBakedFallback(baked)
         fallback_glyph = baked:FindGlyphNoFallback(font.FallbackChar)
     end
     if (fallback_glyph == nil) then
-        local space_glyph = baked:FindGlyphNoFallback(chr' ')
+        local space_glyph = baked:FindGlyphNoFallback(32) -- ' '
         local glyph = ImFontGlyph()
         glyph.Codepoint = 0
         glyph.AdvanceX = space_glyph and space_glyph.AdvanceX or IM_ROUND(baked.Size * 0.40)
@@ -2389,7 +2384,7 @@ local g_CharClassifierIsSeparator_0000_007f = {} for i = 1, 128 / 16 do g_CharCl
 local g_CharClassifierIsSeparator_3000_300f = {} for i = 1, 16 / 16 do g_CharClassifierIsSeparator_3000_300f[i] = 0 end
 
 function ImTextInitClassifiers()
-    if (ImTextClassifierGet(g_CharClassifierIsSeparator_0000_007f, chr',') ~= 0) then
+    if (ImTextClassifierGet(g_CharClassifierIsSeparator_0000_007f, 44) ~= 0) then
         return
     end
 
@@ -2441,10 +2436,10 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
         end
 
         if c < 32 then
-            if c == chr'\n' then
+            if c == 10 then -- '\n'
                 return s
             end
-            if c == chr'\r' then
+            if c == 13 then -- '\r'
                 s = next_s
 
                 goto CONTINUE
@@ -2474,7 +2469,7 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
 
             blank_width = blank_width + char_width
         else
-            if (prev_type == ImWcharClass.Punct and curr_type ~= ImWcharClass.Punct and not (c >= chr'0' and c <= chr'9')) then
+            if (prev_type == ImWcharClass.Punct and curr_type ~= ImWcharClass.Punct and not (c >= 48 and c <= 57)) then
                 span_end = s
                 line_width = line_width + (span_width + blank_width)
                 blank_width = 0.0
@@ -4309,7 +4304,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         end
 
         if c < 32 then
-            if c == chr'\n' then
+            if c == 10 then -- '\n'
                 x = origin_x
                 y = y + line_height
                 if y > clip_rect.w then
@@ -4319,7 +4314,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                 goto CONTINUE
             end
 
-            if c == chr'\r' then
+            if c == 13 then -- '\r'
                 goto CONTINUE
             end
         end
