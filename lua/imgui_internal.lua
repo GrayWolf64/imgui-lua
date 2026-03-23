@@ -4,14 +4,23 @@
 
 --- @meta
 
+-- TODO: Implement actual ImString type
 --- @alias ImString char[]|string
 --- @alias ImStringBuffer char[]
+
+--- @type ImGuiContext?
+local GImGui
+
+-- Sets local `GImGui` in this file(imgui_internal.lua).
+-- This is currently only used in main code `ImGui.SetCurrentContext()`
+--- @param ctx ImGuiContext?
+function ImGui._SetCurrentContext_Internal(ctx)
+    GImGui = ctx
+end
 
 local setmetatable = setmetatable
 
 local MT = ImGui.GetMetatables()
-
-local stbrp_context = IM_INCLUDE"imstb_rectpack.lua".context
 
 IM_TABSIZE = 4
 
@@ -24,12 +33,12 @@ UINT_MAX = 0x7fffffff * 2 + 1
 LLONG_MIN = -9223372036854775807 - 1
 LLONG_MAX = 9223372036854775807
 
-IM_PI   = math.pi
-ImPow   = math.pow
-ImLog   = math.log
-ImAbs   = math.abs
-ImFabs  = math.abs
-ImFmod  = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
+IM_PI  = math.pi
+ImPow  = math.pow
+ImLog  = math.log
+ImAbs  = math.abs
+ImFabs = math.abs
+ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
 ImMin = math.min
 
@@ -94,7 +103,7 @@ function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 function ImClampV2(v, min, max) return ImVec2(ImMin(ImMax(v.x, min.x), max.x), ImMin(ImMax(v.y, min.y), max.y)) end
 
 --- @param f number
-function ImTrunc(f) return f >= 0 and math.floor(f) or math.ceil(f) end
+function ImTrunc(f) if f >= 0 then return math.floor(f) else return math.ceil(f) end end
 
 --- @param v ImVec2
 --- @nodiscard
@@ -137,6 +146,74 @@ function ImStd.ImExponentialMovingAverage(avg, sample, n)
     avg = avg - avg / n
     avg = avg + sample / n
     return avg
+end
+
+do
+
+local _memmove
+
+if table.move then
+    _memmove = function(dest, dest_start, src, src_start, count)
+        table.move(src, src_start, src_start + count - 1, dest_start, dest)
+    end
+else
+    _memmove = function(dest, dest_start, src, src_start, count)
+        if count <= 0 then return end
+
+        if dest == src then
+            if dest_start < src_start then
+                for i = 0, count - 1 do dest[dest_start + i] = src[src_start + i] end
+            else
+                for i = count - 1, 0, -1 do dest[dest_start + i] = src[src_start + i] end
+            end
+        else
+            for i = 0, count - 1 do dest[dest_start + i] = src[src_start + i] end
+        end
+    end
+end
+
+--- @type fun(dest: table, dest_start: int, src: table, src_start: int, count: int)
+ImStd.memmove = _memmove
+
+end
+
+--- @param str1 ImStringBuffer
+--- @param str2 ImStringBuffer
+function ImStd.strcmp(str1, str2)
+    local i = 1
+    while true do
+        local c1 = str1[i] or 0
+        local c2 = str2[i] or 0
+
+        if c1 ~= c2 then
+            return c1 - c2
+        end
+
+        if c1 == 0 then
+            return 0
+        end
+
+        i = i + 1
+    end
+end
+
+--- @param str1      ImStringBuffer
+--- @param str2      ImStringBuffer
+--- @param max_count int
+function ImStd.strncmp(str1, str2, max_count)
+    for i = 1, max_count do
+        local c1 = str1[i] or 0
+        local c2 = str2[i] or 0
+
+        if c1 ~= c2 then
+            return c1 - c2
+        end
+
+        if c1 == 0 then
+            return 0
+        end
+    end
+    return 0
 end
 
 function ImSaturate(f) return ((f < 0.0 and 0.0) or (f > 1.0 and 1.0) or f) end
@@ -199,12 +276,47 @@ function ImMul(lhs, rhs)
     return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
 end
 
+--- @param str    char[]
+--- @param begin? int
+function ImStd.ImStrlen(str, begin)
+    if begin == nil then begin = 1 end
+
+    local l = #str
+
+    for i = begin, l do
+        if str[i] == 0 then
+            return i - begin
+        end
+    end
+
+    IM_ASSERT(false)
+end
+
+-- FIXME: should also accept count?
+-- FIXME: avoid dynamic type checking?
+-- string.find with patterns disabled
+--- @param str        string|char[]
+--- @param s          string|char
+--- @param start_pos? int
 --- @return int?
-function ImMemchr(str, char, start_pos)
+function ImMemchr(str, s, start_pos)
     local start = start_pos or 1
     if start < 1 then start = 1 end
 
-    local pos = string.find(str, char, start, true)
+    if type(str) == "table" then
+        for i = start, #str do
+            if str[i] == 0 then break end
+
+            if str[i] == s then
+                return i
+            end
+        end
+
+        return nil
+    end
+
+    --- @cast str string
+    local pos = string.find(str, s, start, true)
 
     return pos
 end
@@ -227,9 +339,10 @@ function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCo
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
-function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = ImGui.GetCurrentContext() if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
-function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = ImGui.GetCurrentContext() if g2 and bit.band(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
-function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = ImGui.GetCurrentContext() if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_ACTIVEID(_str, ...) local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventActiveId) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = GImGui if g2 and bit.band(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
 
 ImGuiKeyOwner_Any     = 0
 ImGuiKeyOwner_NoOwner = 4294967295
@@ -261,6 +374,11 @@ end
 --- @param key ImGuiKey
 function ImGui.IsAliasKey(key)
     return key >= ImGuiKey_Aliases_BEGIN and key < ImGuiKey_Aliases_END
+end
+
+--- @param key ImGuiKey
+function ImGui.IsLRModKey(key)
+    return key >= ImGuiKey.LeftCtrl and key <= ImGuiKey.RightSuper
 end
 
 --- @param key ImGuiKey
@@ -419,10 +537,12 @@ end
 function MT.ImRect:Overlaps(other)
     local min_x, min_y, max_x, max_y
 
-    if other.Min then -- ImRect
+    if other.Min then
+        --- @cast other ImRect
         min_x = other.Min.x; min_y = other.Min.y
         max_x = other.Max.x; max_y = other.Max.y
-    elseif other.z then -- ImVec4
+    elseif other.z then
+        --- @cast other ImVec4
         min_x = other.x; min_y = other.y
         max_x = other.z; max_y = other.w
     else
@@ -437,11 +557,14 @@ function MT.ImRect:GetHeight() return self.Max.y - self.Min.y end
 function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
 function MT.ImRect:GetBL() return ImVec2(self.Min.x, self.Max.y) end
 
+--- @param r ImRect|ImVec4
 function MT.ImRect:ClipWith(r)
-    if r.Min then -- ImRect
+    if r.Min then
+        --- @cast r ImRect
         self.Min.x = ImMax(self.Min.x, r.Min.x) self.Min.y = ImMax(self.Min.y, r.Min.y)
         self.Max.x = ImMin(self.Max.x, r.Max.x) self.Max.y = ImMin(self.Max.y, r.Max.y)
-    elseif r.z then -- ImVec4
+    elseif r.z then
+        --- @cast r ImVec4
         self.Min.x = ImMax(self.Min.x, r.x) self.Min.y = ImMax(self.Min.y, r.y)
         self.Max.x = ImMin(self.Max.x, r.z) self.Max.y = ImMin(self.Max.y, r.w)
     else
@@ -457,9 +580,11 @@ end
 --- @param p ImRect|ImVec2
 function MT.ImRect:Add(p)
     if p.Min then
+        --- @cast p ImRect
         self:Add(p.Min)
         self:Add(p.Max)
     else
+        --- @cast p ImVec2
         if p.x < self.Min.x then self.Min.x = p.x end
         if p.y < self.Min.y then self.Min.y = p.y end
         if p.x > self.Max.x then self.Max.x = p.x end
@@ -491,6 +616,9 @@ end
 
 function MT.ImRect:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
 
+--- @nodiscard
+function MT.ImRect:AsVec4() return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+
 --- @param dest ImRect
 --- @param src  ImRect
 function ImRect_Copy(dest, src)
@@ -504,6 +632,61 @@ function ImRect_CopyFromV4(dest, src)
     dest.Min.x = src.x; dest.Min.y = src.y
     dest.Max.x = src.z; dest.Max.y = src.w
 end
+
+--- @param _ARRAY ImU32[]
+--- @param _N     int
+function IM_BITARRAY_TESTBIT(_ARRAY, _N)
+    return bit.band(_ARRAY[bit.rshift(_N - 1, 5) + 1], bit.lshift(1, bit.band(_N - 1, 31))) ~= 0
+end
+
+--- @param _ARRAY ImU32[]
+--- @param _N     int
+function IM_BITARRAY_CLEARBIT(_ARRAY, _N)
+    local idx = bit.rshift(_N - 1, 5) + 1
+    _ARRAY[idx] = bit.band(_ARRAY[idx], bit.bnot(bit.lshift(1, bit.band(_N - 1, 31))))
+end
+
+--- @param arr ImU32[]
+--- @param n   int
+function ImBitArraySetBit(arr, n)
+    local mask = bit.lshift(1, bit.band(n - 1, 31))
+    local idx = bit.rshift(n - 1, 5) + 1
+    arr[idx] = bit.bor(arr[idx], mask)
+end
+
+--- @alias ImBitArrayForNamedKeys ImBitArray
+
+--- @class ImBitArray<BITCOUNT, OFFSET>
+--- @field [1] ImU32[] # Data
+--- @field [2] int     # BITCOUNT
+--- @field [3] int     # OFFSET
+--- @field [4] int     # Pre-calculated size of Data
+local _ImBitArray = {}
+_ImBitArray.__index = _ImBitArray
+
+--- @param bitcount int
+--- @param offset?  int
+--- @return ImBitArray
+function ImBitArray(bitcount, offset)
+    local this = setmetatable({ {}, bitcount, offset or 0, bit.rshift(bitcount + 31, 5) }, _ImBitArray)
+    this:ClearAllBits()
+    return this
+end
+
+function _ImBitArray:ClearAllBits()
+    for i = 1, self[4] do self[1][i] = 0 end
+end
+
+function _ImBitArray:SetAllBits()
+    for i = 1, self[4] do self[1][i] = 0xFFFFFFFF end
+end
+
+--- @param n int
+--- @return boolean
+function _ImBitArray:TestBit(n) n = n + self[3]; IM_ASSERT(n >= 1 and n <= self[2]); return IM_BITARRAY_TESTBIT(self[1], n); end
+
+--- @param n int
+function _ImBitArray:SetBit(n) IM_ASSERT(n >= 1 and n <= self[2]); ImBitArraySetBit(self[1], n); end
 
 function MT.ImDrawList:PathClear()
     self._Path:clear_delete() -- TODO: is clear() fine?
@@ -535,7 +718,7 @@ end
 
 --- @param col ImU32
 function ImGui.SetNextItemColorMarker(col)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     g.NextItemData.HasFlags = bit.bor(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker)
     g.NextItemData.ColorMarker = col
 end
@@ -628,7 +811,7 @@ function ImFontAtlasBuilder()
     --- @type ImFontAtlasBuilder
     local this = setmetatable({}, MT.ImFontAtlasBuilder)
 
-    this.PackContext              = stbrp_context() -- struct stbrp_context_opaque { char data[80]; };
+    this.PackContext              = nil -- struct stbrp_context_opaque { char data[80]; };
     this.PackNodes                = ImVector()
     this.Rects                    = ImVector()
     this.RectsIndex               = ImVector()
@@ -655,14 +838,15 @@ function ImFontAtlasBuilder()
 end
 
 --- @class ImFontStackData
---- @field Font ImFont
+--- @field Font                  ImFont
 --- @field FontSizeBeforeScaling float
---- @field FontSizeAfterScaling float
+--- @field FontSizeAfterScaling  float
 
 --- @return ImFontStackData
---- @param font ImFont
+--- @param font                     ImFont
 --- @param font_size_before_scaling float
---- @param font_size_after_scaling float
+--- @param font_size_after_scaling  float
+--- @nodiscard
 function ImFontStackData(font, font_size_before_scaling, font_size_after_scaling)
     return {
         Font                  = font,
@@ -985,6 +1169,170 @@ function ImGuiWindowStackData()
     }
 end
 
+--- @class ImGuiComboPreviewData
+--- @field PreviewRect                  ImRect
+--- @field BackupCursorPos              ImVec2
+--- @field BackupCursorMaxPos           ImVec2
+--- @field BackupCursorPosPrevLine      ImVec2
+--- @field BackupPrevLineTextBaseOffset float
+--- @field BackupLayout                 ImGuiLayoutType
+
+--- @return ImGuiComboPreviewData
+--- @nodiscard
+local function ImGuiComboPreviewData()
+    return {
+        PreviewRect                  = ImRect(),
+        BackupCursorPos              = ImVec2(),
+        BackupCursorMaxPos           = ImVec2(),
+        BackupCursorPosPrevLine      = ImVec2(),
+        BackupPrevLineTextBaseOffset = 0.0,
+        BackupLayout                 = 0
+    }
+end
+
+--- @alias IMSTB_TEXTEDIT_STRING ImGuiInputTextState
+
+--- @alias ImStbTexteditState STB_TexteditState
+
+--- @class ImGuiInputTextState
+--- @field Ctx                  ImGuiContext        # parent UI context (needs to be set explicitly by parent)
+--- @field Stb                  ImStbTexteditState  # State for stb_textedit.lua
+--- @field Flags                ImGuiInputTextFlags
+--- @field ID                   ImGuiID             # widget id owning the text state
+--- @field TextLen              int                 # UTF-8 length of the string in TextA (in bytes)
+--- @field TextSrc              ImStringBuffer      # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
+--- @field TextA                ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
+--- @field TextToRevertTo       ImVector<char>      # value to revert to when pressing Escape = backup of end-user buffer at the time of focus (in UTF-8, unaltered)
+--- @field CallbackTextBackup   ImVector<char>      # temporary storage for callback to support automatic reconcile of undo-stack
+--- @field BufCapacity          int                 # end-user buffer capacity (include zero terminator)
+--- @field Scroll               ImVec2              # horizontal offset (managed manually) + vertical scrolling (pulled from child window's own Scroll.y)
+--- @field LineCount            int                 # last line count (solely for debugging)
+--- @field WrapWidth            float               # word-wrapping width
+--- @field CursorAnim           float               # timer for cursor blink, reset on every user action so the cursor reappears immediately
+--- @field CursorFollow         bool                # set when we want scrolling to follow the current cursor position (not always!)
+--- @field CursorCenterY        bool                # set when we want scrolling to be centered over the cursor position (while resizing a word-wrapping field)
+--- @field SelectedAllMouseLock bool                # after a double-click to select all, we ignore further mouse drags to update selection
+MT.ImGuiInputTextState = {}
+MT.ImGuiInputTextState.__index = MT.ImGuiInputTextState
+
+local function ImGuiInputTextState()
+    local this = {
+        Ctx   = nil,
+        Stb   = STB_TexteditState(), -- FIXME: no global!
+        Flags = 0,
+        ID    = 0,
+
+        TextLen            = 0,
+        TextSrc            = nil,
+        TextA              = ImVector(),
+        TextToRevertTo     = ImVector(),
+        CallbackTextBackup = ImVector(),
+
+        BufCapacity = 0,
+        Scroll      = ImVec2(),
+        LineCount   = 0,
+        WrapWidth   = 0.0,
+
+        CursorAnim    = 0.0,
+        CursorFollow  = false,
+        CursorCenterY = false,
+        SelectedAllMouseLock = false,
+    }
+
+    return setmetatable(this, MT.ImGuiInputTextState)
+end
+
+--- @class ImGuiInputTextDeactivatedState
+--- @field ID    ImGuiID        # widget id owning the text state (which just got deactivated)
+--- @field TextA ImVector<char> # text buffer
+MT.ImGuiInputTextDeactivatedState = {}
+MT.ImGuiInputTextDeactivatedState.__index = MT.ImGuiInputTextDeactivatedState
+
+function MT.ImGuiInputTextDeactivatedState:ClearFreeMemory()
+    self.ID = 0
+    self.TextA:clear()
+end
+
+--- @return ImGuiInputTextDeactivatedState
+--- @nodiscard
+local function ImGuiInputTextDeactivatedState()
+    return setmetatable({
+        ID    = 0,
+        TextA = ImVector()
+    }, MT.ImGuiInputTextDeactivatedState)
+end
+
+--- @alias ImGuiKeyRoutingIndex ImS16
+
+--- @class ImGuiKeyRoutingData
+--- @field NextEntryIndex   ImGuiKeyRoutingIndex
+--- @field Mods             ImU16
+--- @field RoutingCurrScore ImU16
+--- @field RoutingNextScore ImU16
+--- @field RoutingCurr      ImGuiID
+--- @field RoutingNext      ImGuiID
+
+--- @return ImGuiKeyRoutingData
+--- @nodiscard
+function ImGuiKeyRoutingData()
+    return {
+        NextEntryIndex = -1,
+        Mods = 0,
+        RoutingCurrScore = 0,
+        RoutingNextScore = 0,
+        RoutingCurr = ImGuiKeyOwner_NoOwner,
+        RoutingNext = ImGuiKeyOwner_NoOwner
+    }
+end
+
+--- @class ImGuiKeyRoutingTable
+--- @field Index       ImGuiKeyRoutingIndex[]
+--- @field Entries     ImVector<ImGuiKeyRoutingData>
+--- @field EntriesNext ImVector<ImGuiKeyRoutingData>
+local _ImGuiKeyRoutingTable = {}
+_ImGuiKeyRoutingTable.__index = _ImGuiKeyRoutingTable
+
+function _ImGuiKeyRoutingTable:Clear()
+    for n = 1, ImGuiKey.NamedKey_COUNT do self.Index[n] = -1 end
+    self.Entries:clear()
+    self.EntriesNext:clear()
+end
+
+--- @return ImGuiKeyRoutingTable
+local function ImGuiKeyRoutingTable()
+    local this = setmetatable({
+        Index       = {},
+        Entries     = ImVector(),
+        EntriesNext = ImVector()
+    }, _ImGuiKeyRoutingTable)
+
+    this:Clear()
+
+    return this
+end
+
+--- @class ImGuiTextIndex
+--- @field Offsets   ImVector<int>
+--- @field EndOffset int
+local _ImGuiTextIndex = {}
+_ImGuiTextIndex.__index = _ImGuiTextIndex
+
+function _ImGuiTextIndex:get_line_begin(base, n)
+    return base + (self.Offsets.Size ~= 0 and self.Offsets[n] or 0)
+end
+
+function _ImGuiTextIndex:get_line_end(base, n)
+    return base + ((n + 1 < self.Offsets.Size) and (self.Offsets[n + 1] - 1) or self.EndOffset)
+end
+
+--- @return ImGuiTextIndex
+local function ImGuiTextIndex()
+    return setmetatable({
+        Offsets = ImVector(),
+        EndOffset = 0
+    }, _ImGuiTextIndex)
+end
+
 --- @class ImGuiContext
 --- @field Initialized                        bool
 --- @field WithinFrameScope                   bool
@@ -1014,6 +1362,16 @@ end
 --- @field ColorEditSavedSat                  float                          # Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
 --- @field ColorEditSavedColor                ImU32                          # RGB value with alpha set to 0
 --- @field ColorPickerRef                     ImVec4                         # Initial/reference color at the time of opening the color picker
+--- @field InputTextState                     ImGuiInputTextState
+--- @field InputTextLineIndex                 ImGuiTextIndex
+--- @field InputTextDeactivatedState          ImGuiInputTextDeactivatedState
+--- @field InputTextPasswordFontBackupBaked   ImFontBaked
+--- @field KeysMayBeCharInput                 ImBitArrayForNamedKeys
+--- @field KeysOwnerData                      ImGuiKeyOwnerData[]
+--- @field KeysRoutingTable                   ImGuiKeyRoutingTable
+--- @field NavFocusRoute                      ImVector<ImGuiFocusScopeData>
+--- @field PlatformImeData                    ImGuiPlatformImeData
+--- @field PlatformImeDataPrev                ImGuiPlatformImeData
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1049,7 +1407,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         MouseLastValidPos = ImVec2(),
 
+        KeysMayBeCharInput = ImBitArray(ImGuiKey.NamedKey_COUNT, -ImGuiKey.NamedKey_BEGIN),
         KeysOwnerData = {}, -- size = ImGuiKey.NamedKey_COUNT
+        KeysRoutingTable = ImGuiKeyRoutingTable(),
 
         InputEventsQueue = ImVector(),
 
@@ -1120,6 +1480,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         NavHighlightItemUnderNav = false,
         NavIdIsAlive = false,
 
+        NavFocusRoute = ImVector(),
+
         FrameCount = -1,
 
         FrameCountEnded = -1,
@@ -1184,6 +1546,11 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         MouseCursor = ImGuiMouseCursor.Arrow,
         MouseStationaryTimer = 0.0,
 
+        InputTextState = ImGuiInputTextState(),
+        InputTextLineIndex = ImGuiTextIndex(),
+        InputTextDeactivatedState = ImGuiInputTextDeactivatedState(),
+        InputTextPasswordFontBackupBaked = ImFontBaked(),
+
         ComboPreviewData = ImGuiComboPreviewData(),
 
         WindowResizeBorderExpectedRect = ImRect(),
@@ -1209,6 +1576,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ItemFlagsStack = ImVector(),
         GroupStack = ImVector(),
 
+        PlatformImeData = ImGuiPlatformImeData(),
+        PlatformImeDataPrev = ImGuiPlatformImeData(),
+
         -- Extensions
         UserTextures = ImVector(),
 
@@ -1229,6 +1599,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         DebugFlashStyleColorIdx = nil,
     }
 
+    for i = 0, 59 do this.FramerateSecPerFrame[i] = 0 end
+
     this.IO.Fonts = (shared_font_atlas ~= nil) and shared_font_atlas or ImFontAtlas()
     if shared_font_atlas == nil then
         this.IO.Fonts.OwnerContext = this
@@ -1239,6 +1611,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
     end
 
     this.IO.Ctx = this
+    this.InputTextState.Ctx = this
+
+    ImVec2_Copy(this.PlatformImeDataPrev.InputPos, ImVec2(-1.0, -1.0))
 
     return this
 end
@@ -1550,28 +1925,28 @@ local function ImDrawDataBuilder()
 end
 
 --- @class ImGuiViewportP : ImGuiViewport
---- @field Window?                 ImGuiWindow
---- @field Idx                     int               # Initial value = -1, then becomes 1-based index
---- @field LastFrameActive         int
---- @field LastFocusedStampCount   int
---- @field LastNameHash            ImGuiID
---- @field LastPos                 ImVec2
---- @field LastSize                ImVec2
---- @field Alpha                   float
---- @field LastAlpha               float
---- @field LastFocusedHadNavWindow bool
---- @field PlatformMonitor         short
---- @field BgFgDrawListsLastFrame  table<int>        # 1-based, size = 2
---- @field BgFgDrawLists           table<ImDrawList> # 1-based, size = 2
---- @field DrawDataP               ImDrawData
---- @field DrawDataBuilder         ImDrawDataBuilder
---- @field LastPlatformPos         ImVec2
---- @field LastPlatformSize        ImVec2
---- @field LastRendererSize        ImVec2
---- @field WorkInsetMin            ImVec2
---- @field WorkInsetMax            ImVec2
---- @field BuildWorkInsetMin       ImVec2
---- @field BuildWorkInsetMax       ImVec2
+--- @field Window?                     ImGuiWindow
+--- @field Idx                         int                      # Initial value = -1, then becomes 1-based index
+--- @field LastFrameActive             int
+--- @field LastFocusedStampCount       int
+--- @field LastNameHash                ImGuiID
+--- @field LastPos                     ImVec2
+--- @field LastSize                    ImVec2
+--- @field Alpha                       float
+--- @field LastAlpha                   float
+--- @field LastFocusedHadNavWindow     bool
+--- @field PlatformMonitor             short
+--- @field BgFgDrawListsLastTimeActive [int, int]               # 1-based
+--- @field BgFgDrawLists               [ImDrawList, ImDrawList] # 1-based
+--- @field DrawDataP                   ImDrawData
+--- @field DrawDataBuilder             ImDrawDataBuilder
+--- @field LastPlatformPos             ImVec2
+--- @field LastPlatformSize            ImVec2
+--- @field LastRendererSize            ImVec2
+--- @field WorkInsetMin                ImVec2
+--- @field WorkInsetMax                ImVec2
+--- @field BuildWorkInsetMin           ImVec2
+--- @field BuildWorkInsetMax           ImVec2
 MT.ImGuiViewportP = {}
 MT.ImGuiViewportP.__index = MT.ImGuiViewportP
 
@@ -1637,7 +2012,7 @@ function ImGuiViewportP()
     this.LastFocusedHadNavWindow = false
     this.PlatformMonitor = -1
 
-    this.BgFgDrawListsLastFrame = {-1, -1}
+    this.BgFgDrawListsLastTimeActive = {-1, -1}
     this.BgFgDrawLists = {nil, nil}
     this.DrawDataP = ImDrawData()
     this.DrawDataBuilder = ImDrawDataBuilder()
@@ -1817,6 +2192,15 @@ function ImGuiInputEventKey()
     return { Key = 0, Down = false, AnalogValue = 0 }
 end
 
+--- @class ImGuiInputEventText
+--- @field Char unsigned_int
+
+--- @return ImGuiInputEventText
+--- @nodiscard
+function ImGuiInputEventText()
+    return { Char = nil }
+end
+
 --- @class ImGuiInputEventMouseViewport
 --- @field HoveredViewportID ImGuiID
 
@@ -1923,27 +2307,6 @@ ImGuiActivateFlags = {
     FromShortcut       = bit.lshift(1, 4), -- Activation requested by an item shortcut via SetNextItemShortcut() function
     FromFocusApi       = bit.lshift(1, 5)  -- Activation requested by an api request (ImGuiNavMoveFlags_FocusApi)
 }
-
---- @class ImGuiComboPreviewData
---- @field PreviewRect                  ImRect
---- @field BackupCursorPos              ImVec2
---- @field BackupCursorMaxPos           ImVec2
---- @field BackupCursorPosPrevLine      ImVec2
---- @field BackupPrevLineTextBaseOffset float
---- @field BackupLayout                 ImGuiLayoutType
-
---- @return ImGuiComboPreviewData
---- @nodiscard
-function ImGuiComboPreviewData()
-    return {
-        PreviewRect                  = ImRect(),
-        BackupCursorPos              = ImVec2(),
-        BackupCursorMaxPos           = ImVec2(),
-        BackupCursorPosPrevLine      = ImVec2(),
-        BackupPrevLineTextBaseOffset = 0.0,
-        BackupLayout                 = 0
-    }
-end
 
 --- @class ImGuiGroupData
 --- @field WindowID                             ImGuiID
@@ -2098,24 +2461,32 @@ ImGuiLocKey = {
 --- @param key ImGuiLocKey
 --- @return string
 function ImGui.LocalizeGetMsg(key)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local msg = g.LocalizationTable[key]
     if msg then return msg else return "*Missing Text*" end
 end
 
 --- @param id ImGuiID
 function ImGui.TempInputIsActive(id)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     return g.ActiveId == id and g.TempInputId == id
 end
 
---- @alias ImStbTexteditState STB_TexteditState
+--- @param id ImGuiID
+--- @return ImGuiInputTextState?
+function ImGui.GetInputTextState(id)
+    local g = GImGui
+    if id ~= 0 and g.InputTextState.ID == id then
+        return g.InputTextState
+    end
+    return nil
+end
 
---- @class ImGuiInputTextState
---- @field Ctx     ImGuiContext        # parent UI context (needs to be set explicitly by parent)
---- @field Stb     ImStbTexteditState  # State for stb_textedit.lua
---- @field Flags   ImGuiInputTextFlags
---- @field ID      ImGuiID             # widget id owning the text state
---- @field TextLen int                 # UTF-8 length of the string in TextA (in bytes)
---- @field TextSrc char[]              # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
---- @field TextA   ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
+-- Storage for PushFocusScope(), g.FocusScopeStack[], g.NavFocusRoute[]
+--- @class ImGuiFocusScopeData
+--- @field ID       ImGuiID
+--- @field WindowID ImGuiID
+
+--- @return ImGuiFocusScopeData
+--- @nodiscard
+function ImGuiFocusScopeData() return { ID = nil, WindowID = nil } end

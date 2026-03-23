@@ -5,6 +5,7 @@
 
 --- @alias ImU8           integer
 --- @alias ImU16          integer
+--- @alias ImS16          integer
 --- @alias ImU32          integer
 --- @alias ImU64          integer
 --- @alias ImS8           integer
@@ -101,7 +102,7 @@ function IM_SLICE_FILL(_dst, _val, _cnt)
 end
 
 IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
-ImTextureID_Invalid             = 0
+ImTextureID_Invalid = -1
 
 --- @enum ImTextureFormat
 ImTextureFormat = {
@@ -150,6 +151,9 @@ end
 --- @field x number
 --- @field y number
 MT.ImVec2 = {}
+
+--- @param t ImVec2
+--- @param k int
 MT.ImVec2.__index = function(t, k)
     if k == ImGuiAxis.X then
         return rawget(t, "x")
@@ -158,6 +162,9 @@ MT.ImVec2.__index = function(t, k)
     end
 end
 
+--- @param t ImVec2
+--- @param k int
+--- @param v number
 MT.ImVec2.__newindex = function(t, k, v)
     if k == ImGuiAxis.X then
         rawset(t, "x", v)
@@ -192,6 +199,9 @@ end
 --- @field z number
 --- @field w number
 MT.ImVec4 = {}
+
+--- @param t ImVec4
+--- @param k int
 MT.ImVec4.__index = function(t, k)
     if k == 1 then
         return rawget(t, "x")
@@ -204,6 +214,9 @@ MT.ImVec4.__index = function(t, k)
     end
 end
 
+--- @param t ImVec4
+--- @param k int
+--- @param v number
 MT.ImVec4.__newindex = function(t, k, v)
     if k == 1 then
         rawset(t, "x", v)
@@ -236,14 +249,30 @@ end
 --- @class ImVector<T>
 --- @field Data          T[] # 1-based table
 --- @field Size          int # >= 0
---- @field _Constructor? function
+--- @field _Constructor  function
 MT.ImVector = {}
-MT.ImVector.__index = MT.ImVector
+
+-- Support 1-based number key indexing while keep method accessing speed
+--- @param t ImVector
+--- @param k string|int
+--- @return any
+MT.ImVector.__index = function(t, k)
+    return MT.ImVector[k] or t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] -- if the mt access turns out nil, the k must be int index into Data
+end
+
+--- @param t ImVector
+--- @param k int
+--- @param v any
+MT.ImVector.__newindex = function(t, k, v)
+    t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] = v
+end
+
+local _default_constructor = function() return nil end
 
 --- @param T? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T) return setmetatable({Data = {}, Size = 0, _Constructor = T}, MT.ImVector) end
+function ImVector(T) return setmetatable({Data = {}, Size = 0, _Constructor = T or _default_constructor}, MT.ImVector) end
 
 function MT.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value return value end
 function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0) local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
@@ -269,7 +298,7 @@ function MT.ImVector:resize(new_size, v)
             for i = old_size + 1, new_size do self.Data[i] = v end
         else
             local new = self._Constructor
-            if new then
+            if new ~= _default_constructor then
                 for i = old_size + 1, new_size do self.Data[i] = new() end
             end
         end
@@ -738,7 +767,7 @@ end
 --- @field TexData             ImTextureData
 --- @field TexList             ImVector<ImTextureData>
 --- @field Locked              bool
---- @field RenderHasTextures   bool
+--- @field RendererHasTextures bool
 --- @field TexPixelsUseColors  bool
 --- @field TexUvScale          ImVec2
 --- @field TexUvWhitePixel     ImVec2
@@ -979,7 +1008,8 @@ function ImGuiIO()
 
         InputQueueCharacters = ImVector(),
 
-        AppAcceptingEvents = true
+        AppAcceptingEvents = true,
+        InputQueueSurrogate = 0
     }
 
     for i = 0, ImGuiKey.NamedKey_COUNT - 1 do
@@ -987,6 +1017,49 @@ function ImGuiIO()
     end
 
     return setmetatable(this, MT.ImGuiIO)
+end
+
+--- @class ImGuiPlatformImeData
+--- @field WantVisible     bool
+--- @field WantTextInput   bool
+--- @field InputPos        ImVec2
+--- @field InputLineHeight float
+--- @field ViewportId      ImGuiID
+
+--- @return ImGuiPlatformImeData
+--- @nodiscard
+function ImGuiPlatformImeData()
+    return {
+        WantVisible     = false,
+        WantTextInput   = false,
+        InputPos        = ImVec2(),
+        InputLineHeight = 0.0,
+        ViewportId      = 0
+    }
+end
+
+--- @param dest ImGuiPlatformImeData
+--- @param src  ImGuiPlatformImeData
+function ImGuiPlatformImeData_Copy(dest, src)
+    dest.WantVisible = src.WantVisible
+    dest.WantTextInput = src.WantTextInput
+    ImVec2_Copy(dest.InputPos, src.InputPos)
+    dest.InputLineHeight = src.InputLineHeight
+    dest.ViewportId = src.ViewportId
+end
+
+--- @param data1 ImGuiPlatformImeData
+--- @param data2 ImGuiPlatformImeData
+function ImGuiPlatformImeData_Compare(data1, data2)
+    if data1.WantVisible ~= data2.WantVisible or
+        data1.WantTextInput ~= data2.WantTextInput or
+        data1.InputPos ~= data2.InputPos or
+        data1.InputLineHeight ~= data2.InputLineHeight or
+        data1.ViewportId ~= data2.ViewportId then
+        return false
+    end
+
+    return true
 end
 
 --- @enum ImGuiMouseCursor
@@ -1700,7 +1773,7 @@ ImGuiSelectableFlags = {
     SpanAllColumns    = bit.lshift(1, 1), -- Frame will span all columns of its container table (text will still fit in current column)
     AllowDoubleClick  = bit.lshift(1, 2), -- Generate press events on double clicks too
     Disabled          = bit.lshift(1, 3), -- Cannot be selected, display grayed out text
-    AllowOverlap      = bit.lshift(1, 4), -- (WIP) Hit testing to allow subsequent widgets to overlap this one
+    AllowOverlap      = bit.lshift(1, 4), -- Hit testing will allow subsequent widgets to overlap this one. Require previous frame HoveredId to match before being usable. Shortcut to calling SetNextItemAllowOverlap()
     Highlight         = bit.lshift(1, 5), -- Make the item be displayed as if it is hovered
     SelectOnNav       = bit.lshift(1, 6), -- Auto-select when moved into, unless Ctrl is held. Automatic when in a BeginMultiSelect() block
 
@@ -1874,5 +1947,10 @@ ImGuiInputTextFlags = {
 }
 
 --- @class ImGuiInputTextCallbackData
+
+--- @return ImGuiInputTextCallbackData
+function ImGuiInputTextCallbackData()
+    return {}
+end
 
 --- @alias ImGuiInputTextCallback fun(data: ImGuiInputTextCallbackData)

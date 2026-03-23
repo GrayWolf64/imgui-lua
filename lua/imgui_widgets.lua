@@ -1,6 +1,16 @@
 --- ImGui Sincerely WIP
 -- (Widgets Code)
 
+--- @type ImGuiContext?
+local GImGui
+
+-- Sets local `GImGui` in this file(imgui_widgets.lua).
+-- This is currently only used in main code `ImGui.SetCurrentContext()`
+--- @param ctx ImGuiContext?
+function ImGui._SetCurrentContext_Widgets(ctx)
+    GImGui = ctx
+end
+
 local DRAG_MOUSE_THRESHOLD_FACTOR = 0.50 -- Multiplier for the default value of io.MouseDragThreshold to make DragFloat/DragInt react faster to mouse drags
 
 local IM_S8_MIN = -128
@@ -28,7 +38,7 @@ local IM_S64_MAX = LLONG_MAX
 function ImGui.TextEx(text, text_end, flags)
     if not flags then flags = 0 end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     if window.SkipItems then
         return
@@ -73,8 +83,7 @@ function ImGui.TextEx(text, text_end, flags)
                         line_end = text_end
                     end
                     if bit.band(flags, ImGuiTextFlags.NoWidthForLargeClippedText) == 0 then
-                        local line_text = string.sub(text, line, line_end - 1)
-                        local line_size = ImGui.CalcTextSize(line_text)
+                        local line_size = ImGui.CalcTextSizeEx(text, line, line_end)
                         text_size.x = ImMax(text_size.x, line_size.x)
                     end
                     line = line_end + 1
@@ -95,10 +104,10 @@ function ImGui.TextEx(text, text_end, flags)
                 if not line_end then
                     line_end = text_end
                 end
-                local line_text = string.sub(text, line, line_end - 1)
-                local line_size = ImGui.CalcTextSize(line_text)
+
+                local line_size = ImGui.CalcTextSizeEx(text, line, line_end)
                 text_size.x = ImMax(text_size.x, line_size.x)
-                ImGui.RenderText(pos, line_text, nil, false)
+                ImGui.RenderText(pos, text, line, nil, false)
                 line = line_end + 1
                 line_rect.Min.y = line_rect.Min.y + line_height
                 line_rect.Max.y = line_rect.Max.y + line_height
@@ -112,8 +121,7 @@ function ImGui.TextEx(text, text_end, flags)
                     line_end = text_end
                 end
                 if bit.band(flags, ImGuiTextFlags.NoWidthForLargeClippedText) == 0 then
-                    local line_text = string.sub(text, line, line_end - 1)
-                    local line_size = ImGui.CalcTextSize(line_text)
+                    local line_size = ImGui.CalcTextSizeEx(text, line, line_end)
                     text_size.x = ImMax(text_size.x, line_size.x)
                 end
                 line = line_end + 1
@@ -169,7 +177,7 @@ end
 --- @param fmt string
 --- @param ... any
 function ImGui.TextDisabled(fmt, ...)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextDisabled])
     ImGui.TextV(fmt, ...)
     ImGui.PopStyleColor()
@@ -178,7 +186,7 @@ end
 --- @param fmt string
 --- @param ... any
 function ImGui.TextWrapped(fmt, ...)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local need_backup = (g.CurrentWindow.DC.TextWrapPos < 0.0)
     if need_backup then
         ImGui.PushTextWrapPos(0.0)
@@ -238,7 +246,7 @@ function ImGui.LabelText(label, fmt, ...)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local w = ImGui.CalcItemWidth()
 
@@ -251,7 +259,7 @@ function ImGui.LabelText(label, fmt, ...)
     ImVec2_Copy(pos, window.DC.CursorPos)
     local value_bb = ImRect(pos, pos + ImVec2(w, value_size.y + style.FramePadding.y * 2))
     local total_bb = ImRect(pos, pos + ImVec2(w + ((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0), ImMax(value_size.y, label_size.y) + style.FramePadding.y * 2))
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, 0) then
         return
     end
@@ -271,7 +279,7 @@ function ImGui.BulletText(fmt, ...)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
 
     local text = ImFormatString(fmt, ...)
@@ -290,7 +298,7 @@ function ImGui.BulletText(fmt, ...)
     -- Render
     local text_col = ImGui.GetColorU32(ImGuiCol.Text)
     ImGui.RenderBullet(window.DrawList, bb.Min + ImVec2(style.FramePadding.x + g.FontSize * 0.5, g.FontSize * 0.5), text_col)
-    ImGui.RenderText(bb.Min + ImVec2(g.FontSize + style.FramePadding.x * 2, 0.0), text, text_end, false)
+    ImGui.RenderText(bb.Min + ImVec2(g.FontSize + style.FramePadding.x * 2, 0.0), text, 1, text_end, false)
 end
 
 ----------------------------------------------------------------
@@ -303,7 +311,7 @@ end
 function ImGui.ButtonBehavior(bb, id, flags)
     if flags == nil then flags = 0 end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     local window = g.CurrentWindow
 
@@ -406,6 +414,15 @@ function ImGui.ButtonBehavior(bb, id, flags)
                         ImGui.FocusWindow(window, ImGuiFocusRequestFlags.RestoreFocusedChild)
                     end
                 end
+
+                if bit.band(flags, ImGuiButtonFlags.PressedOnRelease) ~= 0 then
+                    -- FIXME: Traditionally ImGuiButtonFlags.PressedOnRelease never took ActiveId. Adding it in 2026-03-20 since ImGuiButtonFlags_NoHoldingActiveId can always be added.
+                    -- We don't yet perform an explicit ClearActiveID() to reduce scope of change, but this possibility could be investigated.
+                    if bit.band(flags, ImGuiButtonFlags.NoHoldingActiveId) == 0 then
+                        ImGui.SetActiveID(id, window) -- Hold on ID
+                    end
+                    g.ActiveIdMouseButton = mouse_button_clicked
+                end
             end
 
             if bit.band(flags, ImGuiButtonFlags.PressedOnRelease) ~= 0 then
@@ -424,6 +441,8 @@ function ImGui.ButtonBehavior(bb, id, flags)
                 end
             end
 
+            -- 'Repeat' mode acts when held regardless of _PressedOn flags (see table above).
+            -- Relies on repeat logic of IsMouseClicked() but we may as well do it ourselves if we end up exposing finer RepeatDelay/RepeatRate settings.
             if g.ActiveId == id and (bit.band(item_flags, ImGuiItemFlags.ButtonRepeat) ~= 0) then
                 if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClickedEx(g.ActiveIdMouseButton, ImGuiInputFlags.Repeat, test_owner_id) then
                     pressed = true
@@ -508,7 +527,7 @@ function ImGui.ButtonEx(label, size_arg, flags)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
@@ -562,7 +581,7 @@ end
 --- @param label string
 --- @return bool
 function ImGui.SmallButton(label)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local backup_padding_y = g.Style.FramePadding.y
     g.Style.FramePadding.y = 0.0
     local pressed = ImGui.ButtonEx(label, ImVec2(0, 0), ImGuiButtonFlags.AlignTextBaseLine)
@@ -612,7 +631,7 @@ function ImGui.ArrowButtonEx(str_id, dir, size, flags)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local id = window:GetID(str_id)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
     local default_size = ImGui.GetFrameHeight()
@@ -645,7 +664,7 @@ end
 --- @param pos ImVec2
 --- @return bool
 function ImGui.CloseButton(id, pos)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     local window = g.CurrentWindow
 
@@ -676,8 +695,6 @@ function ImGui.CloseButton(id, pos)
         window.DrawList:AddRectFilled(bb.Min, bb.Max, bg_col)
     end
 
-    --- DrawLine draws lines of different thickness, why? Antialiasing
-    -- AddText(window.DrawList, "X", "ImCloseButtonCross", x + w * 0.25, y, ImGui.GetColorU32(ImGuiCol.Text))
     local cross_center = bb:GetCenter() - ImVec2(0.5, 0.5)
     local cross_extent = g.FontSize * 0.5 * 0.7071 - 1
     local cross_col = ImGui.GetColorU32(ImGuiCol.Text)
@@ -690,7 +707,7 @@ end
 
 --- @return bool
 function ImGui.CollapseButton(id, pos)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     local window = g.CurrentWindow
 
@@ -774,7 +791,7 @@ end
 --- @return bool  is_held
 --- @return ImS64 scroll_v # Updated p_scroll_v
 function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_contents_v, draw_rounding_flags)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     if window.SkipItems then
         return false, p_scroll_v
@@ -818,7 +835,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     IM_ASSERT(ImMax(size_contents_v, size_visible_v) > 0.0)
     local win_size_v = ImMax(ImMax(size_contents_v, size_visible_v), 1)
     local grab_h_minsize = ImMin(bb:GetSize()[axis], style.GrabMinSize)
-    local grab_h_pixels = ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v)
+    local grab_h_pixels = ImTrunc(ImClamp(scrollbar_size_v * (size_visible_v / win_size_v), grab_h_minsize, scrollbar_size_v))
     local grab_h_norm = grab_h_pixels / scrollbar_size_v
 
     -- As a special thing, we allow scrollbar near the edge of a screen/viewport to be reachable with mouse at the extreme edge (#9276)
@@ -891,7 +908,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     end
     window.DrawList:AddRectFilled(bb_frame.Min, bb_frame.Max, bg_col, window.WindowRounding, draw_rounding_flags)
     local grab_rect
-    if axis == ImGuiAxis_X then
+    if axis == ImGuiAxis.X then
         local x1 = ImLerp(bb.Min.x, bb.Max.x, grab_v_norm)
         grab_rect = ImRect(x1, bb.Min.y, x1 + grab_h_pixels, bb.Max.y)
     else
@@ -906,7 +923,7 @@ end
 
 --- @param axis ImGuiAxis
 function ImGui.Scrollbar(axis)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     local id = ImGui.GetWindowScrollbarID(window, axis)
 
@@ -939,10 +956,10 @@ function ImGui.ImageWithBg(tex_ref, image_size, uv0, uv1, bg_col, tint_col)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local padding = ImVec2(g.Style.ImageBorderSize, g.Style.ImageBorderSize)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + image_size + padding * 2.0)
-    ImGui.ItemSizeR(bb)
+    ImGui.ItemSize(bb)
     if not ImGui.ItemAdd(bb, 0) then
         return
     end
@@ -986,10 +1003,10 @@ function ImGui.ImageButtonEx(id, tex_ref, image_size, uv0, uv1, bg_col, tint_col
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local padding = g.Style.FramePadding
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + image_size + padding * 2.0)
-    ImGui.ItemSizeR(bb)
+    ImGui.ItemSize(bb)
     if not ImGui.ItemAdd(bb, id) then
         return false
     end
@@ -1023,7 +1040,7 @@ end
 --- @param bg_col     ImVec4
 --- @param tint_col   ImVec4
 function ImGui.ImageButton(str_id, tex_ref, image_size, uv0, uv1, bg_col, tint_col)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     if window.SkipItems then
         return false
@@ -1042,7 +1059,7 @@ function ImGui.Checkbox(label, v)
         return false, v
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
@@ -1058,7 +1075,7 @@ function ImGui.Checkbox(label, v)
         total_width = square_sz
     end
     local total_bb = ImRect(pos, pos + ImVec2(total_width, label_size.y + style.FramePadding.y * 2.0))
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     local is_visible = ImGui.ItemAdd(total_bb, id)
     local is_multi_select = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.IsMultiSelect) ~= 0)
     if not is_visible then
@@ -1148,7 +1165,7 @@ function ImGui.CheckboxFlags(label, flags, flags_value)
     local any_on = bit.band(flags, flags_value) ~= 0
     local pressed
     if not all_on and any_on then
-        local g = ImGui.GetCurrentContext()
+        local g = GImGui
         g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.MixedValue)
         pressed, all_on = ImGui.Checkbox(label, all_on)
     else
@@ -1174,7 +1191,7 @@ function ImGui.RadioButtonEx(label, active)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
     local label_size = ImGui.CalcTextSize(label, nil, true)
@@ -1184,7 +1201,7 @@ function ImGui.RadioButtonEx(label, active)
     ImVec2_Copy(pos, window.DC.CursorPos)
     local check_bb = ImRect(pos, pos + ImVec2(square_sz, square_sz))
     local total_bb = ImRect(pos, pos + ImVec2(square_sz + (label_size.x > 0.0 and style.ItemInnerSpacing.x + label_size.x or 0.0), label_size.y + style.FramePadding.y * 2.0))
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, id) then
         return false
     end
@@ -1257,7 +1274,7 @@ function ImGui.ProgressBar(fraction, size_arg, overlay)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
 
     local pos = ImVec2()
@@ -1318,11 +1335,11 @@ function ImGui.Bullet()
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local line_height = ImMax(ImMin(window.DC.CurrLineSize.y, g.FontSize + style.FramePadding.y * 2), g.FontSize)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(g.FontSize, line_height))
-    ImGui.ItemSizeR(bb)
+    ImGui.ItemSize(bb)
     if not ImGui.ItemAdd(bb, 0) then
         ImGui.SameLine(0, style.FramePadding.x * 2)
         return
@@ -1341,7 +1358,7 @@ function ImGui.TextLink(label)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local id = window:GetID(label)
     local label_end = ImGui.FindRenderedTextEnd(label)
 
@@ -1381,7 +1398,7 @@ function ImGui.TextLink(label)
     window.DrawList:AddLine(ImVec2(bb.Min.x, line_y), ImVec2(bb.Max.x, line_y), ImGui.GetColorU32(line_colf)) -- FIXME-TEXT: Underline mode -- FIXME-DPI
 
     ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(text_colf))
-    ImGui.RenderText(bb.Min, label, label_end)
+    ImGui.RenderText(bb.Min, label, 1, label_end)
     ImGui.PopStyleColor()
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags)
@@ -1391,7 +1408,7 @@ end
 --- @param label string
 --- @param url   string
 function ImGui.TextLinkOpenURL(label, url)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if url == nil then
         url = label
     end
@@ -1443,7 +1460,7 @@ function ImGui.NewLine()
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local backup_layout_type = window.DC.LayoutType
     window.DC.LayoutType = ImGuiLayoutType.Vertical
     window.DC.IsSameLine = false
@@ -1464,7 +1481,7 @@ function ImGui.AlignTextToFramePadding()
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     window.DC.CurrLineSize.y = ImMax(window.DC.CurrLineSize.y, g.FontSize + g.Style.FramePadding.y * 2)
     window.DC.CurrLineTextBaseOffset = ImMax(window.DC.CurrLineTextBaseOffset, g.Style.FramePadding.y)
 end
@@ -1479,7 +1496,7 @@ function ImGui.SeparatorEx(flags, thickness)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, bit.bor(ImGuiSeparatorFlags.Horizontal, ImGuiSeparatorFlags.Vertical)))) -- Check that only 1 option is selected
     IM_ASSERT(thickness > 0.0)
 
@@ -1522,7 +1539,7 @@ function ImGui.SeparatorEx(flags, thickness)
             -- Draw
             window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Separator))
             if g.LogEnabled then
-                ImGui.LogRenderedText(bb.Min, "--------------------------------\n")
+                ImGui.LogRenderedText(bb.Min, "--------------------------------")
             end
         end
 
@@ -1534,7 +1551,7 @@ function ImGui.SeparatorEx(flags, thickness)
 end
 
 function ImGui.Separator()
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     if window.SkipItems then
         return
@@ -1561,7 +1578,7 @@ end
 --- @param label_end? int
 --- @param extra_w    float
 function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     local style = g.Style
 
@@ -1637,7 +1654,7 @@ end
 --- @param items_count float
 --- @return float
 local function CalcMaxPopupHeightFromItemCount(items_count)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if items_count <= 0 then
         return FLT_MAX
     end
@@ -1650,7 +1667,7 @@ end
 function ImGui.BeginCombo(label, preview_value, flags)
     if flags == nil then flags = 0 end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = ImGui.GetCurrentWindow()
 
     local backup_next_window_data_flags = g.NextWindowData.HasFlags
@@ -1695,13 +1712,13 @@ function ImGui.BeginCombo(label, preview_value, flags)
     local label_offset = (label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0
     local total_bb = ImRect(bb.Min, bb.Max + ImVec2(label_offset, 0.0))
 
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, id, bb) then
         return false
     end
 
     local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
-    local popup_id = ImHashStr("##ComboPopup", id)
+    local popup_id = ImHashStr("##ComboPopup", nil, id)
     local popup_open = ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags.None)
     if pressed and not popup_open then
         ImGui.OpenPopupEx(popup_id, ImGuiPopupFlags.None)
@@ -1762,7 +1779,7 @@ end
 --- @param bb       ImRect
 --- @param flags    ImGuiComboFlags
 function ImGui.BeginComboPopup(popup_id, bb, flags)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if not ImGui.IsPopupOpen(popup_id, ImGuiPopupFlags.None) then
         g.NextWindowData:ClearFlags()
         return false
@@ -1834,7 +1851,7 @@ function ImGui.BeginComboPopup(popup_id, bb, flags)
 end
 
 function ImGui.EndCombo()
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     g.BeginComboDepth = g.BeginComboDepth - 1
 
     local name = ImFormatString("##Combo_%02d", g.BeginComboDepth) -- FIXME: Move those to helpers?
@@ -1849,7 +1866,7 @@ end
 -- Call directly after the BeginCombo/EndCombo block. The preview is designed to only host non-interactive elements
 -- (Experimental, see GitHub issues: #1658, #4168)
 function ImGui.BeginComboPreview()
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     local preview_data = g.ComboPreviewData
 
@@ -1881,7 +1898,7 @@ function ImGui.BeginComboPreview()
 end
 
 function ImGui.EndComboPreview()
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = g.CurrentWindow
     local preview_data = g.ComboPreviewData
 
@@ -2093,7 +2110,7 @@ end
 --- @return number new_v   # Updated `v`
 --- @return bool   changed
 function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local axis = (bit.band(flags, ImGuiSliderFlags.Vertical) ~= 0) and ImGuiAxis.Y or ImGuiAxis.X
     local is_bounded = (v_min < v_max) or ((v_min == v_max) and (v_min ~= 0.0 or (bit.band(flags, ImGuiSliderFlags.ClampZeroRange) ~= 0)))
     local is_wrapped = is_bounded and (bit.band(flags, ImGuiSliderFlags.WrapAround) ~= 0)
@@ -2245,7 +2262,7 @@ end
 function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
     IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     if g.ActiveId == id then
         if g.ActiveIdSource == ImGuiInputSource.Mouse and not g.IO.MouseDown[0] then
             ImGui.ClearActiveID()
@@ -2290,7 +2307,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
         return data, false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
     local w = ImGui.CalcItemWidth()
@@ -2301,7 +2318,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     local total_bb = ImRect(frame_bb.Min, frame_bb.Max + ImVec2((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0, 0.0))
 
     local temp_input_allowed = (bit.band(flags, ImGuiSliderFlags.NoInput) == 0)
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, id, frame_bb, temp_input_allowed and ImGuiItemFlags.Inputable or 0) then
         return data, false
     end
@@ -2552,33 +2569,27 @@ end
 -- [SECTION] INPUT TEXT
 ----------------------------------------------------------------
 
+--- @param label     string
+--- @param buf       char[]
+--- @param buf_size  int
+--- @param flags?    ImGuiInputTextFlags
+--- @param callback? ImGuiInputTextCallback
+--- @param user_data any
+function ImGui.InputText(label, buf, buf_size, flags, callback, user_data)
+    if flags == nil then flags = 0 end
+
+    IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.Multiline) == 0)
+    return ImGui.InputTextEx(label, nil, buf, buf_size, ImVec2(0, 0), flags, callback, user_data)
+end
+
 ImStb = {}
 
-ImStb.TEXTEDIT_K_LEFT      = 0x200000 -- keyboard input to move cursor left
-ImStb.TEXTEDIT_K_RIGHT     = 0x200001 -- keyboard input to move cursor right
-ImStb.TEXTEDIT_K_UP        = 0x200002 -- keyboard input to move cursor up
-ImStb.TEXTEDIT_K_DOWN      = 0x200003 -- keyboard input to move cursor down
-ImStb.TEXTEDIT_K_LINESTART = 0x200004 -- keyboard input to move cursor to start of line
-ImStb.TEXTEDIT_K_LINEEND   = 0x200005 -- keyboard input to move cursor to end of line
-ImStb.TEXTEDIT_K_TEXTSTART = 0x200006 -- keyboard input to move cursor to start of text
-ImStb.TEXTEDIT_K_TEXTEND   = 0x200007 -- keyboard input to move cursor to end of text
-ImStb.TEXTEDIT_K_DELETE    = 0x200008 -- keyboard input to delete selection or character under cursor
-ImStb.TEXTEDIT_K_BACKSPACE = 0x200009 -- keyboard input to delete selection or character left of cursor
-ImStb.TEXTEDIT_K_UNDO      = 0x20000A -- keyboard input to perform undo
-ImStb.TEXTEDIT_K_REDO      = 0x20000B -- keyboard input to perform redo
-ImStb.TEXTEDIT_K_WORDLEFT  = 0x20000C -- keyboard input to move cursor left one word
-ImStb.TEXTEDIT_K_WORDRIGHT = 0x20000D -- keyboard input to move cursor right one word
-ImStb.TEXTEDIT_K_PGUP      = 0x20000E -- keyboard input to move cursor up a page
-ImStb.TEXTEDIT_K_PGDOWN    = 0x20000F -- keyboard input to move cursor down a page
-ImStb.TEXTEDIT_K_SHIFT     = 0x400000
+--- @module "imstb_textedit"
+local stbte
 
-ImStb.TEXTEDIT_NEWLINE = 10 -- '\n'
+local IMSTB_TEXTEDIT_GETWIDTH_NEWLINE = -1.0
 
-ImStb.TEXTEDIT_UNDOSTATECOUNT   = 99
-ImStb.TEXTEDIT_UNDOCHARCOUNT    = 999
-ImStb.TEXTEDIT_GETWIDTH_NEWLINE = -1.0
-
-IM_INCLUDE"imstb_textedit.lua"
+ImStb.TEXTEDIT_memmove = ImStd.memmove
 
 --- @param ctx  ImGuiContext
 --- @param text             ImString
@@ -2626,7 +2637,7 @@ end
 
 --- @param obj ImGuiInputTextState
 --- @param idx int
-function ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+function ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     if idx >= obj.TextLen then
         return obj.TextLen + 1
     end
@@ -2635,7 +2646,7 @@ end
 
 --- @param obj ImGuiInputTextState
 --- @param idx int
-function ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+function ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, idx)
     if idx <= 1 then
         return -1
     end
@@ -2666,7 +2677,7 @@ end
 --- @param obj ImGuiInputTextState
 --- @param idx int
 function ImStb.is_word_boundary_from_right(obj, idx)
-    -- When ImGuiInputTextFlags_Password is set, we don't want actions such as Ctrl+Arrow to leak the fact that underlying data are blanks or separators
+    -- When ImGuiInputTextFlags.Password is set, we don't want actions such as Ctrl+Arrow to leak the fact that underlying data are blanks or separators
     if bit.band(obj.Flags, ImGuiInputTextFlags.Password) ~= 0 or idx <= 1 then
         return false
     end
@@ -2702,10 +2713,10 @@ end
 
 --- @param obj ImGuiInputTextState
 --- @param idx int
-function ImStb.TEXTEDIT_MOVEWORDLEFT_IMPL(obj, idx)
-    idx = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+function ImStb.TEXTEDIT_MOVEWORDLEFT(obj, idx)
+    idx = ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, idx)
     while idx >= 1 and not ImStb.is_word_boundary_from_right(obj, idx) do
-        idx = ImStb.TEXTEDIT_GETPREVCHARINDEX_IMPL(obj, idx)
+        idx = ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, idx)
     end
     return (idx < 1) and 1 or idx
 end
@@ -2714,9 +2725,9 @@ end
 --- @param idx int
 local function STB_TEXTEDIT_MOVEWORDRIGHT_MAC(obj, idx)
     local len = obj.TextLen
-    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     while idx <= len and not ImStb.is_word_boundary_from_left(obj, idx) do
-        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     end
     return (idx > len + 1) and len + 1 or idx
 end
@@ -2724,17 +2735,17 @@ end
 --- @param obj ImGuiInputTextState
 --- @param idx int
 local function STB_TEXTEDIT_MOVEWORDRIGHT_WIN(obj, idx)
-    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+    idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     local len = obj.TextLen
     while idx <= len and not ImStb.is_word_boundary_from_right(obj, idx) do
-        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX_IMPL(obj, idx)
+        idx = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, idx)
     end
     return (idx > len + 1) and len + 1 or idx
 end
 
 --- @param obj ImGuiInputTextState
 --- @param idx int
-function ImStb.TEXTEDIT_MOVEWORDRIGHT_IMPL(obj, idx)
+function ImStb.TEXTEDIT_MOVEWORDRIGHT(obj, idx)
     local g = obj.Ctx
     if g.IO.ConfigMacOSXBehaviors then
         return STB_TEXTEDIT_MOVEWORDRIGHT_MAC(obj, idx)
@@ -2747,46 +2758,1502 @@ end
 --- @param obj    ImGuiInputTextState
 --- @param state  STB_TexteditState
 --- @param cursor int
-function ImStb.TEXTEDIT_MOVELINESTART_IMPL(obj, state, cursor)
+function ImStb.TEXTEDIT_MOVELINESTART(obj, state, cursor)
     if state.single_line then
         return 1
     end
 
     if obj.WrapWidth > 0.0 then
         local g = obj.Ctx
-        -- TODO:
+        local bol = ImStd.ImStrbol(obj.TextSrc, cursor, 1)
+        local p = bol
+        local text_end = obj.TextLen + 1 -- End of line would be enough
+        while p >= bol do
+            local eol = ImFontCalcWordWrapPositionEx(g.Font, g.FontSize, obj.TextSrc, p, text_end, obj.WrapWidth, ImDrawTextFlags.WrapKeepBlanks)
+            if p == cursor then -- If we are already on a visible beginning-of-line, return real beginning-of-line (would be same as regular handler below)
+                return bol
+            end
+            if eol == cursor and obj.TextA[cursor] ~= 10 and obj.LastMoveDirectionLR == ImGuiDir.Left then
+                return bol
+            end
+            if eol >= cursor then
+                return p
+            end
+            p = (obj.TextSrc[eol] == 10) and eol + 1 or eol
+        end
     end
+
+    -- Regular handler, same as stb_textedit_move_line_start()
+    while cursor > 1 do
+        local prev_cursor = ImStb.TEXTEDIT_GETPREVCHARINDEX(obj, cursor)
+        if (ImStb.TEXTEDIT_GETCHAR(obj, prev_cursor) == STB_TEXTEDIT_NEWLINE) then
+            break
+        end
+        cursor = prev_cursor
+    end
+    return cursor
+end
+
+--- @param obj    ImGuiInputTextState
+--- @param state  STB_TexteditState
+--- @param cursor int
+function ImStb.TEXTEDIT_MOVELINEEND(obj, state, cursor)
+    local n = ImStb.TEXTEDIT_STRINGLEN(obj)
+    if state.single_line then
+        return n + 1
+    end
+
+    if obj.WrapWidth > 0.0 then
+        local g = obj.Ctx
+        local p = ImStd.ImStrbol(obj.TextSrc, cursor, 1)
+        local text_end = obj.TextLen + 1 -- End of line would be enough
+        while p < text_end do
+            local eol = ImFontCalcWordWrapPositionEx(g.Font, g.FontSize, obj.TextSrc, p, text_end, obj.WrapWidth, ImDrawTextFlags.WrapKeepBlanks)
+            cursor = eol
+            if eol == cursor and obj.LastMoveDirectionLR ~= ImGuiDir.Left then -- If we are already on a visible end-of-line, switch to regular handle
+                break
+            end
+            if eol > cursor then
+                return cursor
+            end
+            p = (obj.TextSrc[eol] == 10) and eol + 1 or eol
+        end
+    end
+
+    -- Regular handler, same as stb_textedit_move_line_end()
+    while (cursor < n and ImStb.TEXTEDIT_GETCHAR(obj, cursor) ~= STB_TEXTEDIT_NEWLINE) do
+        cursor = ImStb.TEXTEDIT_GETNEXTCHARINDEX(obj, cursor)
+    end
+    return cursor
+end
+
+--- @param obj ImGuiInputTextState
+--- @param pos int
+--- @param n   int
+function ImStb.TEXTEDIT_DELETECHARS(obj, pos, n)
+    IM_ASSERT(obj.TextSrc == obj.TextA.Data)
+    ImStd.memmove(obj.TextA.Data, pos, obj.TextA.Data, pos + n, obj.TextLen - n - pos + 2)
+    obj.Edited = true
+    obj.TextLen = obj.TextLen - n
+end
+
+--- @param obj          ImGuiInputTextState
+--- @param pos          int
+--- @param new_text     ImStringBuffer
+--- @param new_text_pos int
+--- @param new_text_len int
+function ImStb.TEXTEDIT_INSERTCHARS(obj, pos, new_text, new_text_pos, new_text_len)
+    local is_resizable = bit.band(obj.Flags, ImGuiInputTextFlags.CallbackResize) ~= 0
+    local text_len = obj.TextLen
+    IM_ASSERT(pos <= text_len + 1)
+
+    -- We support partial insertion (with a mod in stb_textedit)
+    local avail = obj.BufCapacity - 1 - obj.TextLen
+    if not is_resizable and new_text_len > avail then
+        new_text_len = math.floor(ImStd.ImTextFindValidUtf8CodepointEnd(new_text, new_text_pos, new_text_len + 1, avail) - new_text_pos) -- Truncate to closest UTF-8 codepoint. Alternative: return 0 to cancel insertion
+    end
+    if new_text_len == 0 then
+        return 0
+    end
+
+    -- Grow internal buffer if needed
+    IM_ASSERT(obj.TextSrc == obj.TextA.Data)
+    if text_len + new_text_len + 1 > obj.TextA.Size and is_resizable then
+        obj.TextA:resize(text_len + ImClamp(new_text_len, 32, ImMax(256, new_text_len)) + 1)
+        obj.TextSrc = obj.TextA.Data
+    end
+
+    local text = obj.TextA.Data
+    if pos ~= text_len + 1 then
+        ImStd.memmove(text, pos + new_text_len, text, pos, text_len - pos + 1)
+    end
+    ImStd.memmove(text, pos, new_text, new_text_pos, new_text_len)
+
+    obj.Edited = true
+    obj.TextLen = obj.TextLen + new_text_len
+    obj.TextA[obj.TextLen + 1] = 0
+
+    return new_text_len
+end
+
+stbte = IM_INCLUDE"imstb_textedit.lua"
+
+--- @param str      ImGuiInputTextState
+--- @param state    STB_TexteditState
+--- @param text     IMSTB_TEXTEDIT_CHARTYPE[]
+--- @param text_len int
+function ImStb.stb_textedit_replace(str, state, text, text_len)
+    stbte.makeundo_replace(str, state, 1, str.TextLen, text_len)
+    ImStb.TEXTEDIT_DELETECHARS(str, 1, str.TextLen)
+    state.cursor = 1
+    state.select_start = 1
+    state.select_end = 1
+    if text_len <= 0 then
+        return
+    end
+
+    local text_len_inserted = ImStb.TEXTEDIT_INSERTCHARS(str, 1, text, 1, text_len)
+    if text_len_inserted > 0 then
+        state.cursor = text_len + 1
+        state.select_start = text_len + 1
+        state.select_end = text_len + 1
+        state.has_preferred_x = false
+
+        return
+    end
+
+    IM_ASSERT(false) -- Failed to insert character, normally shouldn't happen because of how we currently use stb_textedit_replace()
+end
+
+do
+
+local MT = ImGui.GetMetatables()
+
+--- @param key int
+function MT.ImGuiInputTextState:OnKeyPressed(key)
+    stbte.key(self, self.Stb, key)
+    self.CursorFollow = true
+    self:CursorAnimReset()
+    local key_u = bit.band(key, bit.bnot(STB_TEXTEDIT_K_SHIFT))
+    if key_u == STB_TEXTEDIT_K_LEFT or key_u == STB_TEXTEDIT_K_LINESTART or key_u == STB_TEXTEDIT_K_TEXTSTART or key_u == STB_TEXTEDIT_K_BACKSPACE or key_u == STB_TEXTEDIT_K_WORDLEFT then
+        self.LastMoveDirectionLR = ImGuiDir.Left
+    elseif key_u == STB_TEXTEDIT_K_RIGHT or key_u == STB_TEXTEDIT_K_LINEEND or key_u == STB_TEXTEDIT_K_TEXTEND or key_u == STB_TEXTEDIT_K_DELETE or key_u == STB_TEXTEDIT_K_WORDRIGHT then
+        self.LastMoveDirectionLR = ImGuiDir.Right
+    end
+end
+
+local utf8 = {0, 0, 0, 0, 0}
+
+--- @param c unsigned_int
+function MT.ImGuiInputTextState:OnCharPressed(c)
+    -- Convert the key to a UTF8 byte sequence.
+    -- The changes we had to make to stb_textedit_key made it very much UTF-8 specific which is not too great.
+    ImStd.ImTextCharToUtf8(utf8, c)
+    stbte.text(self, self.Stb, utf8, ImStd.ImStrlen(utf8))
+    self.CursorFollow = true
+    self:CursorAnimReset()
+end
+
+-- After a user-input the cursor stays on for a while without blinking
+function MT.ImGuiInputTextState:CursorAnimReset() self.CursorAnim = -0.30 end
+
+function MT.ImGuiInputTextState:CursorClamp()
+    self.Stb.cursor = ImMin(self.Stb.cursor, self.TextLen + 1)
+    self.Stb.select_start = ImMin(self.Stb.select_start, self.TextLen + 1)
+    self.Stb.select_end = ImMin(self.Stb.select_end, self.TextLen + 1)
+end
+
+function MT.ImGuiInputTextState:HasSelection() return self.Stb.select_start ~= self.Stb.select_end end
+
+function MT.ImGuiInputTextState:SelectAll()
+    self.Stb.select_start = 1
+    self.Stb.cursor = self.TextLen + 1
+    self.Stb.select_end = self.TextLen + 1
+    self.Stb.has_preferred_x = false
+end
+
+end
+
+function ImGui.PushPasswordFont()
+    local g = GImGui
+    local backup = g.InputTextPasswordFontBackupBaked
+    IM_ASSERT(backup.IndexAdvanceX.Size == 0 and backup.IndexLookup.Size == 0)
+    local glyph = g.FontBaked:FindGlyph(42) -- '*'
+    g.InputTextPasswordFontBackupFlags = g.Font.Flags
+    backup.FallbackGlyphIndex = g.FontBaked.FallbackGlyphIndex
+    backup.FallbackAdvanceX = g.FontBaked.FallbackAdvanceX
+    backup.IndexLookup:swap(g.FontBaked.IndexLookup)
+    backup.IndexAdvanceX:swap(g.FontBaked.IndexAdvanceX)
+    g.Font.Flags = bit.bor(g.Font.Flags, ImFontFlags.NoLoadGlyphs)
+    g.FontBaked.FallbackGlyphIndex = g.FontBaked.Glyphs:index_from_ptr(glyph) + 1
+    g.FontBaked.FallbackAdvanceX = glyph.AdvanceX
+end
+
+function ImGui.PopPasswordFont()
+    local g = GImGui
+    local backup = g.InputTextPasswordFontBackupBaked
+    g.Font.Flags = g.InputTextPasswordFontBackupFlags
+    g.FontBaked.FallbackGlyphIndex = backup.FallbackGlyphIndex
+    g.FontBaked.FallbackAdvanceX = backup.FallbackAdvanceX
+    g.FontBaked.IndexLookup:swap(backup.IndexLookup)
+    g.FontBaked.IndexAdvanceX:swap(backup.IndexAdvanceX)
+    IM_ASSERT(backup.IndexAdvanceX.Size == 0 and backup.IndexLookup.Size == 0)
+end
+
+--- @param ctx                        ImGuiContext
+--- @param state                      ImGuiInputTextState
+--- @param char                       unsigned_int
+--- @param callback?                  ImGuiInputTextCallback
+--- @param user_data                  any
+--- @param input_source_is_clipboard? bool
+--- @return unsigned_int out_char
+--- @return bool
+local function InputTextFilterCharacter(ctx, state, char, callback, user_data, input_source_is_clipboard)
+    if input_source_is_clipboard == nil then input_source_is_clipboard = false end
+
+    IM_ASSERT(state ~= nil)
+
+    local c = char
+    local flags = state.Flags
+
+    -- Filter non-printable (NB: isprint is unreliable! see #2467)
+    local apply_named_filters = true
+    if c < 0x20 then
+        local pass = false
+        pass = pass or (c == 10) and (bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0) -- Note that an Enter KEY will emit \r and be ignored (we poll for KEY in InputText() code)
+        if c == 10 and input_source_is_clipboard and (bit.band(flags, ImGuiInputTextFlags.Multiline) == 0) then -- In single line mode, replace \n with a space
+            char = 32
+            c = 32
+            pass = true
+        end
+        pass = pass or (c == 10) and (bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0)
+        pass = pass or (c == 9) and (bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0) -- tab
+        if not pass then
+            return char, false
+        end
+        apply_named_filters = false -- Override named filters below so newline and tabs can still be inserted.
+    end
+
+    if not input_source_is_clipboard then
+        -- We ignore Ascii representation of delete (emitted from Backspace on OSX, see #2578, #2817)
+        if c == 127 then
+            return char, false
+        end
+
+        -- Filter private Unicode range. GLFW on OSX seems to send private characters for special keys like arrow keys (FIXME)
+        if c >= 0xE000 and c <= 0xF8FF then
+            return char, false
+        end
+    end
+
+    -- Filter Unicode ranges we are not handling in this build
+    if c > IM_UNICODE_CODEPOINT_MAX then
+        return char, false
+    end
+
+    -- Generic named filters
+    if apply_named_filters and (bit.band(flags, bit.bor(ImGuiInputTextFlags.CharsDecimal, ImGuiInputTextFlags.CharsHexadecimal, ImGuiInputTextFlags.CharsUppercase, ImGuiInputTextFlags.CharsNoBlank, ImGuiInputTextFlags.CharsScientific, ImGuiInputTextFlags.LocalizeDecimalPoint))) ~= 0 then
+        -- The standard mandate that programs starts in the "C" locale where the decimal point is '.'.
+        -- We don't really intend to provide widespread support for it, but out of empathy for people stuck with using odd API, we support the bare minimum aka overriding the decimal point.
+        -- Change the default decimal_point with:
+        --   ImGui::GetPlatformIO()->Platform_LocaleDecimalPoint = *localeconv()->decimal_point;
+        -- Users of non-default decimal point (in particular ',') may be affected by word-selection logic (is_word_boundary_from_right/is_word_boundary_from_left) functions.
+        local g = ctx
+        local c_decimal_point = g.PlatformIO.Platform_LocaleDecimalPoint
+        if bit.band(flags, bit.bor(ImGuiInputTextFlags.CharsDecimal, ImGuiInputTextFlags.CharsScientific, ImGuiInputTextFlags.LocalizeDecimalPoint)) ~= 0 then
+            if c == 46 or c == 44 then -- '.' or ','
+                c = c_decimal_point
+            end
+        end
+
+        -- Full-width -> half-width conversion for numeric fields: https://en.wikipedia.org/wiki/Halfwidth_and_Fullwidth_Forms_(Unicode_block)
+        -- While this is mostly convenient, this has the side-effect for uninformed users accidentally inputting full-width characters that they may
+        -- scratch their head as to why it works in numerical fields vs in generic text fields it would require support in the font.
+        if bit.band(flags, bit.bor(ImGuiInputTextFlags.CharsDecimal, ImGuiInputTextFlags.CharsScientific, ImGuiInputTextFlags.CharsHexadecimal)) ~= 0 then
+            if c >= 0xFF01 and c <= 0xFF5E then
+                c = c - 0xFF01 + 0x21
+            end
+        end
+
+        -- Allow 0-9 . - + * /
+        if bit.band(flags, ImGuiInputTextFlags.CharsDecimal) ~= 0 then
+            if not (c >= 48 and c <= 57) and (c ~= c_decimal_point) and (c ~= 45) and (c ~= 43) and (c ~= 42) and (c ~= 47) then -- 0-9 . - + * /
+                return char, false
+            end
+        end
+
+        -- Allow 0-9 . - + * / e E
+        if bit.band(flags, ImGuiInputTextFlags.CharsScientific) ~= 0 then
+            if not (c >= 48 and c <= 57) and (c ~= c_decimal_point) and (c ~= 45) and (c ~= 43) and (c ~= 42) and (c ~= 47) and (c ~= 101) and (c ~= 69) then -- 0-9 . - + * / e E
+                return char, false
+            end
+        end
+
+        -- Allow 0-9 a-F A-F
+        if bit.band(flags, ImGuiInputTextFlags.CharsHexadecimal) ~= 0 then
+            if not (c >= 48 and c <= 57) and not (c >= 97 and c <= 102) and not (c >= 65 and c <= 70) then -- 0-9 a-f A-F
+                return char, false
+            end
+        end
+
+        -- Turn a-z into A-Z
+        if bit.band(flags, ImGuiInputTextFlags.CharsUppercase) ~= 0 then
+            if c >= 97 and c <= 122 then -- a-z
+                c = c + (65 - 97) -- 'A' - 'a'
+            end
+        end
+
+        if bit.band(flags, ImGuiInputTextFlags.CharsNoBlank) ~= 0 then
+            if ImStd.ImCharIsBlankW(c) then
+                return char, false
+            end
+        end
+
+        char = c
+    end
+
+    -- Custom callback filter
+    if bit.band(flags, ImGuiInputTextFlags.CallbackCharFilter) ~= 0 then
+        local g = GImGui
+        local callback_data = ImGuiInputTextCallbackData()
+        callback_data.Ctx = g
+        callback_data.ID = state.ID
+        callback_data.Flags = flags
+        callback_data.EventFlag = ImGuiInputTextFlags.CallbackCharFilter
+        callback_data.EventChar = c
+        callback_data.EventActivated = (state ~= nil and g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
+        callback_data.UserData = user_data
+        if callback(callback_data) ~= 0 then
+            return char, false
+        end
+        char = callback_data.EventChar
+        if not callback_data.EventChar then
+            return char, false
+        end
+    end
+
+    return char, true
+end
+
+-- Find the shortest single replacement we can make to get from old_buf to new_buf
+-- Note that this doesn't directly alter state->TextA, state->TextLen. They are expected to be made valid separately.
+-- FIXME: Ideally we should transition toward (1) making InsertChars()/DeleteChars() update undo-stack (2) discourage (and keep reconcile) or obsolete (and remove reconcile) accessing buffer directly
+--- @param state      ImGuiInputTextState
+--- @param old_buf    ImStringBuffer
+--- @param old_length int
+--- @param new_buf    ImStringBuffer
+--- @param new_length int
+local function InputTextReconcileUndoState(state, old_buf, old_length, new_buf, new_length)
+    local shorter_length = ImMin(old_length, new_length)
+    local first_diff
+    for i = 1, shorter_length do
+        first_diff = i
+        if old_buf[first_diff] ~= new_buf[first_diff] then
+            break
+        end
+    end
+    if first_diff == old_length + 1 and first_diff == new_length + 1 then
+        return
+    end
+
+    local old_last_diff = old_length
+    local new_last_diff = new_length
+    while old_last_diff >= first_diff and new_last_diff >= first_diff do
+        if old_buf[old_last_diff] ~= new_buf[new_last_diff] then
+            break
+        end
+
+        old_last_diff = old_last_diff - 1
+        new_last_diff = new_last_diff - 1
+    end
+
+    local insert_len = new_last_diff - first_diff + 1
+    local delete_len = old_last_diff - first_diff + 1
+    if insert_len > 0 or delete_len > 0 then
+        local undostate = state.Stb.undostate
+        local p = stbte.createundo(undostate, first_diff, delete_len, insert_len)
+        if p then
+            for i = 0, delete_len - 1 do
+                undostate.undo_char[p + i] = old_buf[first_diff + i]
+            end
+        end
+    end
+end
+
+--- @param id ImGuiID
+function ImGui.InputTextDeactivateHook(id)
+    local g = GImGui
+    local state = g.InputTextState
+    if id == 0 or state.ID ~= id then
+        return
+    end
+    g.InputTextDeactivatedState.ID = state.ID
+    if bit.band(state.Flags, ImGuiInputTextFlags.ReadOnly) ~= 0 then
+        g.InputTextDeactivatedState.TextA:resize(0) -- In theory this data won't be used, but clear to be neat
+    else
+        IM_ASSERT(state.TextA.Data ~= nil)
+        -- IM_ASSERT(state.TextA[state.TextLen + 1] == 0)
+        g.InputTextDeactivatedState.TextA:resize(state.TextLen + 1)
+        ImStd.memmove(g.InputTextDeactivatedState.TextA.Data, 1, state.TextA.Data, 1, state.TextLen) -- state.TextLen + 1
+    end
+end
+
+--- @param flags                  ImGuiInputTextFlags
+--- @param line_index             ImGuiTextIndex
+--- @param buf                    char[]
+--- @param buf_end                int
+--- @param wrap_width             float
+--- @param max_output_buffer_size int
+--- @return int  size
+--- @return int? out_buf_end
+local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_width, max_output_buffer_size)
+    local g = GImGui
+    local size = 0
+    local s = 1
+    local trailing_line_already_counted = false
+    if bit.band(flags, ImGuiInputTextFlags.WordWrap) ~= 0 then
+        while s < buf_end do
+            if size <= max_output_buffer_size then
+                line_index.Offsets:push_back(s - 1)
+            end
+            size = size + 1
+            s = ImFontCalcWordWrapPositionEx(g.Font, g.FontSize, buf, s, buf_end, wrap_width, ImDrawTextFlags.WrapKeepBlanks)
+
+            if buf[s] == 10 then s = s + 1 end
+        end
+    elseif buf_end ~= nil then
+        while s < buf_end do
+            if size <= max_output_buffer_size then
+                line_index.Offsets:push_back(s - 1)
+            end
+            size = size + 1
+            s = ImMemchr(buf, 10, s) --[[@as int]] -- FIXME:
+
+            if s then s = s + 1 else s = buf_end end
+        end
+    else
+        -- Inactive path: we don't know buf_end ahead of time.
+        local s_eol
+        s = 1
+        while true do
+            if size <= max_output_buffer_size then
+                line_index.Offsets:push_back(s - 1)
+            end
+            size = size + 1
+
+            s_eol = ImMemchr(buf, 10, s)
+            if s_eol ~= nil then
+                goto CONTINUE
+            end
+            s = s + ImStd.ImStrlen(buf) - s -- FIXME:
+            trailing_line_already_counted = true
+
+            do break end
+
+            :: CONTINUE ::
+
+            s = s_eol + 1
+        end
+    end
+
+    local out_buf_end
+    if out_buf_end ~= nil then
+        out_buf_end = s
+        buf_end = s
+    end
+    if size == 0 then
+        line_index.Offsets:push_back(0)
+        size = size + 1
+    end
+    if s > 1 and buf[s - 1] == 10 and not trailing_line_already_counted then
+        local old_size = size
+        size = size + 1
+        if old_size <= max_output_buffer_size then
+            line_index.Offsets:push_back(s - 1)
+        end
+    end
+    return size, out_buf_end
+end
+
+--- @param t        table
+--- @param in_begin int
+--- @param in_end   int
+--- @param v        int
+local function ImLowerBound(t, in_begin, in_end, v)
+    local in_p = in_begin
+    local count = in_end - in_begin
+
+    local floor = math.floor
+    local rshift = bit.rshift
+    while count > 0 do
+        local count2 = floor(rshift(count, 1))
+        local mid = in_p + count2
+
+        if t[mid] < v then
+            in_p = mid + 1
+            count = count - count2 - 1
+        else
+            count = count2
+        end
+    end
+
+    return in_p
+end
+
+--- @param g          ImGuiContext
+--- @param state      ImGuiInputTextState
+--- @param line_index ImGuiTextIndex
+--- @param buf        char[]
+--- @param buf_end    int
+--- @param cursor_n   int
+--- @return ImVec2
+local function InputTextLineIndexGetPosOffset(g, state, line_index, buf, buf_end, cursor_n)
+    local cursor_ptr = cursor_n
+
+    local it = ImLowerBound(line_index.Offsets, 1, line_index.Offsets.Size + 1, cursor_ptr)
+
+    if it > 1 then
+        if it > line_index.Offsets.Size or line_index.Offsets[it] ~= cursor_ptr or (state ~= nil and state.WrapWidth > 0.0 and state.LastMoveDirectionLR == ImGuiDir.Right and
+            buf[cursor_ptr - 1] ~= 10 and buf[cursor_ptr - 1] ~= 0) then
+            it = it - 1
+        end
+    end
+
+    local line_no = it
+    local line_start = (line_no == 1) and 1 or line_index.Offsets[line_no] + 1
+
+    local offset = ImVec2()
+    offset.x = InputTextCalcTextSize(g, buf, line_start, cursor_ptr, buf_end, nil, ImDrawTextFlags.WrapKeepBlanks).x
+    offset.y = line_no * g.FontSize
+
+    return offset
 end
 
 -- Edit a string of text
 --- @param label              string
---- @param hint               string
+--- @param hint?              ImStringBuffer
 --- @param buf                ImStringBuffer
+--- @param buf_size           int
 --- @param size_arg           ImVec2
 --- @param flags              ImGuiInputTextFlags
 --- @param callback?          ImGuiInputTextCallback
 --- @param callback_user_data any
-function ImGui.InputTextEx(label, hint, buf, size_arg, flags, callback, callback_user_data)
+function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback, callback_user_data)
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return false
     end
 
-    IM_ASSERT(buf ~= nil)
+    IM_ASSERT(buf ~= nil and buf_size >= 0)
     IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0))        -- Can't use both together (they both use up/down keys)
     IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.CallbackCompletion) ~= 0 and bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0)) -- Can't use both together (they both use tab key)
     IM_ASSERT(not (bit.band(flags, ImGuiInputTextFlags.ElideLeft) ~= 0 and bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0))              -- Multiline does not not work with left-trimming
     IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Password) == 0)  -- WordWrap does not work with Password mode
     IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.WordWrap) == 0 or bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0) -- WordWrap does not work in single-line mode
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui --[[@as ImGuiContext]]
     local io = g.IO
     local style = g.Style
 
     local RENDER_SELECTION_WHEN_INACTIVE = false
     local is_multiline = bit.band(flags, ImGuiInputTextFlags.Multiline) ~= 0
 
-    -- TODO:
+    if is_multiline then -- Open group before calling GetID() because groups tracks id created within their scope (including the scrollbar)
+        ImGui.BeginGroup()
+    end
+    local id = window:GetID(label)
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local frame_size = ImGui.CalcItemSize(size_arg, ImGui.CalcItemWidth(), (is_multiline and g.FontSize * 8.0 or label_size.y) + style.FramePadding.y * 2.0)  -- Arbitrary default of 8 lines high for multi-line
+    local total_size = ImVec2(frame_size.x + ((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0), frame_size.y)
+
+    local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + frame_size)
+    local total_bb = ImRect(frame_bb.Min, frame_bb.Min + total_size)
+
+    local draw_window = window
+    local inner_size = ImVec2()
+    ImVec2_Copy(inner_size, frame_size)
+    local item_data_backup = ImGuiLastItemData()
+    if is_multiline then
+        local backup_pos = ImVec2()
+        ImVec2_Copy(backup_pos, window.DC.CursorPos)
+        ImGui.ItemSize(total_bb, style.FramePadding.y)
+        if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.Inputable) then
+            ImGui.EndGroup()
+            return false
+        end
+        ImGuiLastItemData_Copy(item_data_backup, g.LastItemData)
+        ImVec2_Copy(window.DC.CursorPos, backup_pos)
+
+        -- Prevent NavActivation from explicit Tabbing when our widget accepts Tab inputs: this allows cycling through widgets without stopping
+        if g.NavActivateId == id and (bit.band(g.NavActivateFlags, ImGuiActivateFlags.FromTabbing) ~= 0) and (bit.band(g.NavActivateFlags, ImGuiActivateFlags.FromFocusApi) == 0) and (bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0) then
+            g.NavActivateId = 0
+        end
+
+        -- Prevent NavActivate reactivating in BeginChild() when we are already active
+        local backup_activate_id = g.NavActivateId
+        if g.ActiveId == id then -- Prevent reactivation
+            g.NavActivateId = 0
+        end
+
+        -- We reproduce the contents of BeginChildFrame() in order to provide 'label' so our window internal data are easier to read/debug
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, style.Colors[ImGuiCol.FrameBg])
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, style.FrameRounding)
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildBorderSize, style.FrameBorderSize)
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, ImVec2(0, 0)) -- Ensure no clip rect so mouse hover can reach FramePadding edges
+        local child_visible = ImGui.BeginChildEx(label, id, frame_bb:GetSize(), ImGuiChildFlags.Borders, ImGuiWindowFlags.NoMove)
+        g.NavActivateId = backup_activate_id
+        ImGui.PopStyleVar(3)
+        ImGui.PopStyleColor()
+        if not child_visible then
+            ImGui.EndChild()
+            ImGui.EndGroup()
+            return false
+        end
+        draw_window = g.CurrentWindow -- Child window
+        draw_window.DC.NavLayersActiveMaskNext = bit.bor(draw_window.DC.NavLayersActiveMaskNext, bit.lshift(1, draw_window.DC.NavLayerCurrent)) -- This is to ensure that EndChild() will display a navigation highlight so we can "enter" into it
+        ImVec2_Copy(draw_window.DC.CursorPos, draw_window.DC.CursorPos + style.FramePadding)
+        inner_size.x = inner_size.x - draw_window.ScrollbarSizes.x
+
+        -- FIXME: Could this be a ImGuiChildFlags to affect the SetLastItemDataForWindow() call?
+        g.LastItemData.ID = id
+        g.LastItemData.ItemFlags = item_data_backup.ItemFlags
+        g.LastItemData.StatusFlags = item_data_backup.StatusFlags
+    else
+        -- Support for internal ImGuiInputTextFlags.MergedItem flag, which could be redesigned as an ItemFlags if needed (with test performed in ItemAdd)
+        ImGui.ItemSize(total_bb, style.FramePadding.y)
+
+        if bit.band(flags, ImGuiInputTextFlags.MergedItem) == 0 then
+            if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.Inputable) then
+                return false
+            end
+        end
+    end
+
+    -- Ensure mouse cursor is set even after switching to keyboard/gamepad mode. May generalize further? (#6417)
+    local hovered = ImGui.ItemHoverable(frame_bb, id, bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.NoNavDisableMouseHover))
+    if hovered then
+        ImGui.SetMouseCursor(ImGuiMouseCursor.TextInput)
+    end
+    if hovered and g.NavHighlightItemUnderNav then
+        hovered = false
+    end
+
+    -- We are only allowed to access the state if we are already the active widget
+    local state = ImGui.GetInputTextState(id)
+
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.ReadOnly) ~= 0 then
+        flags = bit.bor(flags, ImGuiInputTextFlags.ReadOnly)
+    end
+    local is_readonly = bit.band(flags, ImGuiInputTextFlags.ReadOnly) ~= 0
+    local is_password = bit.band(flags, ImGuiInputTextFlags.Password) ~= 0
+    local is_undoable = bit.band(flags, ImGuiInputTextFlags.NoUndoRedo) == 0
+    local is_resizable = bit.band(flags, ImGuiInputTextFlags.CallbackResize) ~= 0
+    if is_resizable then
+        IM_ASSERT(callback ~= nil) -- Must provide a callback if you set the ImGuiInputTextFlags.CallbackResize flag!
+    end
+
+    -- Word-wrapping: enforcing a fixed width not altered by vertical scrollbar makes things easier, notably to track cursor reliably and avoid one-frame glitches.
+    -- Instead of using ImGuiWindowFlags_AlwaysVerticalScrollbar we account for that space if the scrollbar is not visible.
+    local is_wordwrap = bit.band(flags, ImGuiInputTextFlags.WordWrap) ~= 0
+    local wrap_width = 0.0
+    if is_wordwrap then
+        wrap_width = ImMax(1.0, ImGui.GetContentRegionAvail().x + (draw_window.ScrollbarY and 0.0 or -g.Style.ScrollbarSize))
+    end
+
+    local input_requested_by_nav = (g.ActiveId ~= id) and (g.NavActivateId == id) and ((bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) or (g.NavInputSource == ImGuiInputSource.Keyboard))
+
+    local input_requested_by_reactivate = (g.InputTextReactivateId == id) -- for io.ConfigInputTextEnterKeepActive
+    local user_clicked = hovered and io.MouseClicked[0]
+    local scrollbar_id = (is_multiline and state ~= nil) and ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y) or 0
+    local user_scroll_finish = is_multiline and state ~= nil and g.ActiveId == 0 and g.ActiveIdPreviousFrame == scrollbar_id
+    local user_scroll_active = is_multiline and state ~= nil and g.ActiveId == scrollbar_id
+    local clear_active_id = false
+    local select_all = false
+
+    local scroll_y = is_multiline and draw_window.Scroll.y or FLT_MAX
+
+    local init_reload_from_user_buf = (state ~= nil and state.WantReloadUserBuf)
+    local init_changed_specs = (state ~= nil and state.Stb.single_line ~= (not is_multiline)) -- state ~= nil means its our state
+    local init_make_active = (user_clicked or user_scroll_finish or input_requested_by_nav or input_requested_by_reactivate)
+    if init_reload_from_user_buf then
+        local new_len = ImStd.ImStrlen(buf)
+        IM_ASSERT(new_len + 1 <= buf_size, "Is your input buffer properly zero-terminated?")
+        state.WantReloadUserBuf = false
+        --- @cast state ImGuiInputTextState
+        InputTextReconcileUndoState(state, state.TextA.Data, state.TextLen, buf, new_len)
+        state.TextA:resize(buf_size + 1)
+        state.TextLen = new_len
+        ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen + 1)
+        state.Stb.select_start = state.ReloadSelectionStart
+        state.Stb.cursor = state.ReloadSelectionEnd
+        state.Stb.select_end = state.ReloadSelectionEnd -- will be clamped to bounds below
+    elseif (init_make_active and g.ActiveId ~= id) or init_changed_specs then
+        -- Access state even if we don't own it yet
+        state = g.InputTextState
+        state:CursorAnimReset()
+
+        -- Backup state of deactivating item so they'll have a chance to do a write to output buffer on the same frame they report IsItemDeactivatedAfterEdit (#4714)
+        ImGui.InputTextDeactivateHook(state.ID)
+
+        -- Take a copy of the initial buffer value.
+        -- From the moment we focused we are normally ignoring the content of 'buf' (unless we are in read-only mode)
+        local buf_len = ImStd.ImStrlen(buf)
+        IM_ASSERT(((buf_len + 1 <= buf_size) or (buf_len == 0 and buf_size == 0)), "Is your input buffer properly zero-terminated?")
+        if not user_scroll_finish then
+            state.TextToRevertTo:resize(buf_len + 1)
+            ImStd.memmove(state.TextToRevertTo.Data, 1, buf, 1, buf_len + 1)
+        end
+
+        -- Preserve cursor position and undo/redo stack if we come back to same widget
+        -- FIXME: Since we reworked this on 2022/06, may want to differentiate recycle_cursor vs recycle_undostate?
+        local recycle_state = (state.ID == id and not init_changed_specs)
+        if (recycle_state and (state.TextLen ~= buf_len or (state.TextA.Data == nil or ImStd.strncmp(state.TextA.Data, buf, buf_len) ~= 0))) then
+            recycle_state = false
+        end
+
+        -- Start edition
+        state.ID = id
+        state.TextLen = buf_len
+        if not is_readonly then
+            state.TextA:resize(buf_size + 1)
+            ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen + 1)
+        end
+
+        -- Find initial scroll position for right alignment
+        ImVec2_Copy(state.Scroll, ImVec2(0.0, 0.0))
+        if bit.band(flags, ImGuiInputTextFlags.ElideLeft) ~= 0 then
+            state.Scroll.x = state.Scroll.x + ImMax(0.0, ImGui.CalcTextSize(table.concat(buf)).x - frame_size.x + style.FramePadding.x * 2.0) -- FIXME: no table.concat here
+        end
+
+        -- Recycle existing cursor/selection/undo stack but clamp position
+        -- Note a single mouse click will override the cursor/position immediately by calling stb_textedit_click handler
+        if not recycle_state then
+            stbte.initialize_state(state.Stb, not is_multiline)
+        end
+
+        if not is_multiline then
+            if bit.band(flags, ImGuiInputTextFlags.AutoSelectAll) ~= 0 then
+                select_all = true
+            end
+            if input_requested_by_nav and (not recycle_state or (bit.band(g.NavActivateFlags, ImGuiActivateFlags.TryToPreserveState) == 0)) then
+                select_all = true
+            end
+            if user_clicked and io.KeyCtrl then
+                select_all = true
+            end
+        end
+
+        if bit.band(flags, ImGuiInputTextFlags.AlwaysOverwrite) ~= 0 then
+            state.Stb.insert_mode = true -- stb field name is indeed incorrect (see #2863)
+        end
+    end
+
+    local is_osx = io.ConfigMacOSXBehaviors
+
+    if g.ActiveId ~= id and init_make_active then
+        IM_ASSERT(state ~= nil and state.ID == id)
+        ImGui.SetActiveID(id, window)
+        ImGui.SetFocusID(id, window)
+        ImGui.FocusWindow(window)
+        if input_requested_by_nav then
+            ImGui.SetNavCursorVisibleAfterMove()
+        end
+    end
+    if g.ActiveId == id then
+        -- Declare some inputs, the other are registered and polled via Shortcut() routing system
+        -- FIXME: The reason we don't use Shortcut() is we would need a routing flag to specify multiple mods, or to all mods combination into individual shortcuts
+        local always_owned_keys = { ImGuiKey.LeftArrow, ImGuiKey.RightArrow, ImGuiKey.Delete, ImGuiKey.Backspace, ImGuiKey.Home, ImGuiKey.End }
+        for _, key in ipairs(always_owned_keys) do
+            ImGui.SetKeyOwner(key, id)
+        end
+        if user_clicked then
+            ImGui.SetKeyOwner(ImGuiKey.MouseLeft, id)
+        end
+        g.ActiveIdUsingNavDirMask = bit.bor(g.ActiveIdUsingNavDirMask, bit.lshift(1, ImGuiDir.Left), bit.lshift(1, ImGuiDir.Right))
+        if is_multiline or (bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0) then
+            g.ActiveIdUsingNavDirMask = bit.bor(g.ActiveIdUsingNavDirMask, bit.lshift(1, ImGuiDir.Up), bit.lshift(1, ImGuiDir.Down))
+            ImGui.SetKeyOwner(ImGuiKey.UpArrow, id)
+            ImGui.SetKeyOwner(ImGuiKey.DownArrow, id)
+        end
+        if is_multiline then
+            ImGui.SetKeyOwner(ImGuiKey.PageUp, id)
+            ImGui.SetKeyOwner(ImGuiKey.PageDown, id)
+        end
+        -- FIXME: May be a problem to always steal Alt on OSX, would ideally still allow an uninterrupted Alt down-up to toggle menu
+        if is_osx then
+            ImGui.SetKeyOwner(ImGuiMod.Alt, id)
+        end
+
+        -- Expose scroll in a manner that is agnostic to us using a child window
+        if is_multiline and state ~= nil then
+            state.Scroll.y = draw_window.Scroll.y
+        end
+
+        -- Read-only mode always ever read from source buffer. Refresh TextLen when active.
+        if is_readonly and state ~= nil then
+            state.TextLen = ImStd.ImStrlen(buf)
+        end
+        if state ~= nil then
+            state:CursorClamp()
+        end
+        -- if is_readonly and state ~= nil then
+        --     state.TextA:clear() -- Uncomment to facilitate debugging, but we otherwise prefer to keep/amortize th allocation.
+        -- end
+    end
+    if state ~= nil then
+        state.TextSrc = is_readonly and buf or state.TextA.Data
+    end
+
+    -- We have an edge case if ActiveId was set through another widget (e.g. widget being swapped), clear id immediately (don't wait until the end of the function)
+    if g.ActiveId == id and state == nil then
+        ImGui.ClearActiveID()
+    end
+
+    -- Release focus when we click outside
+    if g.ActiveId == id and io.MouseClicked[0] and not init_make_active then
+        clear_active_id = true
+    end
+
+    -- Lock the decision of whether we are going to take the path displaying the cursor or selection
+    local render_cursor = (g.ActiveId == id) or (state and user_scroll_active) --[[@as bool]]
+    local render_selection = state and (state:HasSelection() or select_all) and (RENDER_SELECTION_WHEN_INACTIVE or render_cursor)
+    local value_changed = false
+    local validated = false
+
+    -- Select the buffer to render
+    local buf_display_from_state = (render_cursor or render_selection or g.ActiveId == id) and not is_readonly and state ~= nil
+    local is_displaying_hint = (hint ~= nil and (buf_display_from_state and state.TextA.Data or buf)[1] == 0)
+
+    -- Password pushes a temporary font with only a fallback glyph
+    if is_password and not is_displaying_hint then
+        ImGui.PushPasswordFont()
+    end
+
+    -- Word-wrapping: attempt to keep cursor in view while resizing frame/parent
+    -- FIXME-WORDWRAP: It would be better to preserve same relative offset.
+    if is_wordwrap and state ~= nil and state.ID == id and state.WrapWidth ~= wrap_width then
+        state.CursorCenterY = true
+        state.WrapWidth = wrap_width
+        render_cursor = true
+    end
+
+    -- Process mouse inputs and character inputs
+    if g.ActiveId == id then
+        --- @cast state ImGuiInputTextState
+        IM_ASSERT(state ~= nil)
+        state.Edited = false
+        state.BufCapacity = buf_size
+        state.Flags = flags
+        state.WrapWidth = wrap_width
+
+        -- Although we are active we don't prevent mouse from hovering other elements unless we are interacting right now with the widget.
+        -- Down the line we should have a cleaner library-wide concept of Selected vs Active
+        g.ActiveIdAllowOverlap = not io.MouseDown[0]
+
+        -- Edit in progress
+        local mouse_x = (io.MousePos.x - frame_bb.Min.x - style.FramePadding.x) + state.Scroll.x
+        local mouse_y = (is_multiline and (io.MousePos.y - draw_window.DC.CursorPos.y) or (g.FontSize * 0.5))
+
+        if select_all then
+            state:SelectAll()
+            state.SelectedAllMouseLock = true
+        elseif hovered and io.MouseClickedCount[0] >= 2 and not io.KeyShift then
+            stbte.click(state, state.Stb, mouse_x, mouse_y)
+            local multiclick_count = (io.MouseClickedCount[0] - 2)
+            if multiclick_count % 2 == 0 then
+                -- Double-click: Select word
+                -- We always use the "Mac" word advance for double-click select vs Ctrl+Right which use the platform dependent variant:
+                -- FIXME: There are likely many ways to improve this behavior, but there's no "right" behavior (depends on use-case, software, OS)
+                local is_bol = (state.Stb.cursor == 1) or ImStb.TEXTEDIT_GETCHAR(state, state.Stb.cursor - 1) == 10
+                if stbte.HAS_SELECTION(state.Stb) or not is_bol then
+                    state:OnKeyPressed(STB_TEXTEDIT_K_WORDLEFT)
+                end
+                -- state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_WORDRIGHT, STB_TEXTEDIT_K_SHIFT))
+                if not stbte.HAS_SELECTION(state.Stb) then
+                    stbte.prep_selection_at_cursor(state.Stb)
+                end
+                state.Stb.cursor = STB_TEXTEDIT_MOVEWORDRIGHT_MAC(state, state.Stb.cursor)
+                state.Stb.select_end = state.Stb.cursor
+                stbte.clamp(state, state.Stb)
+            else
+                -- Triple-click: Select line
+                local is_eol = ImStb.TEXTEDIT_GETCHAR(state, state.Stb.cursor) == 10
+                state.WrapWidth = 0.0 -- Temporarily disable wrapping so we use real line start
+                state:OnKeyPressed(STB_TEXTEDIT_K_LINESTART)
+                state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_LINEEND, STB_TEXTEDIT_K_SHIFT))
+                state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_RIGHT, STB_TEXTEDIT_K_SHIFT))
+                state.WrapWidth = wrap_width
+                if not is_eol and is_multiline then
+                    state.Stb.select_start, state.Stb.select_end = state.Stb.select_end, state.Stb.select_start
+                    state.Stb.cursor = state.Stb.select_end
+                end
+                state.CursorFollow = false
+            end
+            state:CursorAnimReset()
+        elseif io.MouseClicked[0] and not state.SelectedAllMouseLock then
+            if hovered then
+                if io.KeyShift then
+                    stbte.drag(state, state.Stb, mouse_x, mouse_y)
+                else
+                    stbte.click(state, state.Stb, mouse_x, mouse_y)
+                end
+                state:CursorAnimReset()
+            end
+        elseif io.MouseDown[0] and not state.SelectedAllMouseLock and (io.MouseDelta.x ~= 0.0 or io.MouseDelta.y ~= 0.0) then
+            stbte.drag(state, state.Stb, mouse_x, mouse_y)
+            state:CursorAnimReset()
+            state.CursorFollow = true
+        end
+        if state.SelectedAllMouseLock and not io.MouseDown[0] then
+            state.SelectedAllMouseLock = false
+        end
+
+        if bit.band(flags, ImGuiInputTextFlags.AllowTabInput) ~= 0 and not is_readonly then
+            if ImGui.Shortcut(ImGuiKey.Tab, ImGuiInputFlags.Repeat, id) then
+                local c = 9 -- Insert TAB
+                local ret2
+                c, ret2 = InputTextFilterCharacter(g, state, c, callback, callback_user_data)
+                if ret2 then
+                    state:OnCharPressed(c)
+                end
+            end
+
+            -- FIXME: Implement Shift+Tab
+        end
+
+        -- Process regular text input
+        local ignore_char_inputs = io.KeyCtrl and not io.KeyAlt
+        if io.InputQueueCharacters.Size > 0 then
+            if not ignore_char_inputs and not is_readonly and not input_requested_by_nav then
+                for n = 1, io.InputQueueCharacters.Size do
+                    -- Insert character if they pass filtering
+                    local c = io.InputQueueCharacters[n]
+                    if c == 9 then -- Skip Tab, see above
+                        goto CONTINUE
+                    end
+                    local ret2
+                    c, ret2 = InputTextFilterCharacter(g, state, c, callback, callback_user_data)
+                    if ret2 then
+                        state:OnCharPressed(c)
+                    end
+
+                    :: CONTINUE ::
+                end
+            end
+
+            -- Consume characters
+            io.InputQueueCharacters:resize(0)
+        end
+    end
+
+    -- Process other shortcuts/key-presses
+    local revert_edit = false
+    if g.ActiveId == id and not g.ActiveIdIsJustActivated and not clear_active_id then
+        IM_ASSERT(state ~= nil)
+        --- @cast state ImGuiInputTextState
+
+        local row_count_per_page = ImMax(ImTrunc((inner_size.y - style.FramePadding.y) / g.FontSize), 1)
+        state.Stb.row_count_per_page = row_count_per_page
+
+        local k_mask = (io.KeyShift and STB_TEXTEDIT_K_SHIFT or 0)
+        local is_wordmove_key_down = is_osx and io.KeyAlt or io.KeyCtrl
+        local is_startend_key_down = is_osx and io.KeyCtrl and not io.KeySuper and not io.KeyAlt
+
+        local f_repeat = ImGuiInputFlags.Repeat
+        local is_cut   = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.X), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.Delete), f_repeat, id)) and not is_readonly and not is_password and (not is_multiline or state:HasSelection())
+        local is_copy  = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.C), 0,        id) or ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl,  ImGuiKey.Insert), 0,        id)) and not is_password and (not is_multiline or state:HasSelection())
+        local is_paste = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.V), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.Insert), f_repeat, id)) and not is_readonly
+        local is_undo  = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.Z), f_repeat, id)) and not is_readonly and is_undoable
+        local is_redo  = (ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.Y), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiMod_Shift, ImGuiKey.Z), f_repeat, id)) and not is_readonly and is_undoable
+        local is_select_all = ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.A), 0, id)
+
+        local nav_gamepad_active  = (bit.band(io.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0) and (bit.band(io.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0)
+        local is_enter            = ImGui.Shortcut(ImGuiKey.Enter, f_repeat, id) or ImGui.Shortcut(ImGuiKey.KeypadEnter, f_repeat, id)
+        local is_ctrl_enter       = ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.Enter), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.KeypadEnter), f_repeat, id)
+        local is_shift_enter      = ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.Enter), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.KeypadEnter), f_repeat, id)
+        local is_gamepad_validate = nav_gamepad_active and ImGui.IsKeyPressed(ImGuiKey.NavGamepadActivate, false)
+        local is_cancel           = ImGui.Shortcut(ImGuiKey.Escape, f_repeat, id) or (nav_gamepad_active and ImGui.Shortcut(ImGuiKey.NavGamepadCancel, f_repeat, id))
+
+        if ImGui.IsKeyPressed(ImGuiKey.LeftArrow) then
+            state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_LINESTART or (is_wordmove_key_down and STB_TEXTEDIT_K_WORDLEFT or STB_TEXTEDIT_K_LEFT), k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.RightArrow) then
+            state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_LINEEND or (is_wordmove_key_down and STB_TEXTEDIT_K_WORDRIGHT or STB_TEXTEDIT_K_RIGHT), k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.UpArrow) and is_multiline then
+            if io.KeyCtrl then
+                ImGui.SetScrollY(draw_window, ImMax(draw_window.Scroll.y - g.FontSize, 0.0))
+            else
+                state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_TEXTSTART or STB_TEXTEDIT_K_UP, k_mask))
+            end
+        elseif ImGui.IsKeyPressed(ImGuiKey.DownArrow) and is_multiline then
+            if io.KeyCtrl then
+                ImGui.SetScrollY(draw_window, ImMin(draw_window.Scroll.y + g.FontSize, ImGui.GetScrollMaxY()))
+            else
+                state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_TEXTEND or STB_TEXTEDIT_K_DOWN, k_mask))
+            end
+        elseif ImGui.IsKeyPressed(ImGuiKey.PageUp) and is_multiline then
+            state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_PGUP, k_mask))
+            scroll_y = scroll_y - row_count_per_page * g.FontSize
+        elseif ImGui.IsKeyPressed(ImGuiKey.PageDown) and is_multiline then
+            state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_PGDOWN, k_mask))
+            scroll_y = scroll_y + row_count_per_page * g.FontSize
+        elseif ImGui.IsKeyPressed(ImGuiKey.Home) then
+            state:OnKeyPressed(io.KeyCtrl and bit.bor(STB_TEXTEDIT_K_TEXTSTART, k_mask) or bit.bor(STB_TEXTEDIT_K_LINESTART, k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.End) then
+            state:OnKeyPressed(io.KeyCtrl and bit.bor(STB_TEXTEDIT_K_TEXTEND, k_mask) or bit.bor(STB_TEXTEDIT_K_LINEEND, k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.Delete) and not is_readonly and not is_cut then
+            if not state:HasSelection() then
+                if is_wordmove_key_down then
+                    state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_WORDRIGHT, STB_TEXTEDIT_K_SHIFT))
+                end
+            end
+            state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_DELETE, k_mask))
+        elseif ImGui.IsKeyPressed(ImGuiKey.Backspace) and not is_readonly then
+            if not state:HasSelection() then
+                if is_wordmove_key_down then
+                    state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_WORDLEFT, STB_TEXTEDIT_K_SHIFT))
+                elseif is_osx and io.KeyCtrl and not io.KeyAlt and not io.KeySuper then
+                    state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_LINESTART, STB_TEXTEDIT_K_SHIFT))
+                end
+            end
+            state:OnKeyPressed(bit.bor(STB_TEXTEDIT_K_BACKSPACE, k_mask))
+        elseif is_enter or is_ctrl_enter or is_shift_enter or is_gamepad_validate then
+            local ctrl_enter_for_new_line = bit.band(flags, ImGuiInputTextFlags.CtrlEnterForNewLine) ~= 0
+            local is_new_line = is_multiline and not is_gamepad_validate and (is_shift_enter or (is_enter and not ctrl_enter_for_new_line) or (is_ctrl_enter and ctrl_enter_for_new_line))
+            if not is_new_line then
+                validated = true
+                clear_active_id = true
+                if io.ConfigInputTextEnterKeepActive and not is_multiline then
+                    state:SelectAll()
+                    g.InputTextReactivateId = id
+                end
+            elseif not is_readonly then
+                local c = 10 -- Insert new line
+                local ret2
+                c, ret2 = InputTextFilterCharacter(g, state, c, callback, callback_user_data)
+                if ret2 then
+                    state:OnCharPressed(c)
+                end
+            end
+        elseif is_cancel then
+            if bit.band(flags, ImGuiInputTextFlags.EscapeClearsAll) ~= 0 then
+                if state.TextA.Data[1] ~= 0 then
+                    revert_edit = true
+                else
+                    render_cursor = false
+                    render_selection = false
+                    clear_active_id = true
+                end
+            else
+                clear_active_id = true
+                revert_edit = true
+                render_cursor = false
+                render_selection = false
+            end
+        elseif is_undo or is_redo then
+            state:OnKeyPressed(is_undo and STB_TEXTEDIT_K_UNDO or STB_TEXTEDIT_K_REDO)
+            state:ClearSelection()
+        elseif is_select_all then
+            state:SelectAll()
+            state.CursorFollow = true
+        elseif is_cut or is_copy then
+            if g.IO.PlatformIO.Platform_SetClipboardTextFn ~= nil then
+                local ib = state:HasSelection() and ImMin(state.Stb.select_start, state.Stb.select_end) or 1
+                local ie = state:HasSelection() and ImMax(state.Stb.select_start, state.Stb.select_end) or state.TextLen + 1
+                g.TempBuffer:reserve(ie - ib + 1)
+                ImStd.memmove(g.TempBuffer.Data, 1, state.TextSrc, ib, ie - ib)
+                g.TempBuffer.Data[ie - ib + 1] = 0
+                ImGui.SetClipboardText(g.TempBuffer.Data) -- FIXME: to lua string
+            end
+            if is_cut then
+                if not state:HasSelection() then
+                    state:SelectAll()
+                end
+                state.CursorFollow = true
+                stbte.cut(state, state.Stb)
+            end
+        elseif is_paste then
+            local clipboard = ImGui.GetClipboardText()
+            if clipboard then
+                local clipboard_len = #clipboard
+                local clipboard_end = clipboard_len + 1
+                local clipboard_filtered = ImVector()
+                clipboard_filtered:reserve(clipboard_len + 1)
+                local s
+                local i = 1
+                while i <= clipboard_len do
+                    s = string.byte(clipboard, i)
+                    local c, ret2
+                    local in_len
+                    in_len, c = ImStd.ImTextCharFromUtf8(clipboard, i, clipboard_end)
+                    i = i + in_len
+                    c, ret2 = InputTextFilterCharacter(g, state, c, callback, callback_user_data, true)
+                    if ret2 then
+                        goto CONTINUE
+                    end
+
+                    local c_utf8 = {0, 0, 0, 0, 0}
+                    ImStd.ImTextCharToUtf8(c_utf8, c)
+                    local out_len = ImStd.ImStrlen(c_utf8)
+                    clipboard_filtered:resize(clipboard_filtered.Size + out_len)
+                    ImStd.memmove(clipboard_filtered.Data, clipboard_filtered.Size - out_len, c_utf8, 1, out_len)
+
+                    :: CONTINUE ::
+                end
+                if clipboard_filtered.Size > 0 then
+                    clipboard_filtered:push_back(0)
+                    stbte.paste(state, state.Stb, clipboard_filtered.Data, clipboard_filtered.Size - 1)
+                    state.CursorFollow = true
+                end
+            end
+        end
+
+        render_selection = render_selection or (state:HasSelection() and (RENDER_SELECTION_WHEN_INACTIVE or render_cursor))
+    end
+
+    -- Process revert and user callbacks
+    local apply_new_text = nil
+    local apply_new_text_length = 0
+    if g.ActiveId == id then
+        IM_ASSERT(state ~= nil)
+        --- @cast state ImGuiInputTextState
+
+        if revert_edit and not is_readonly then
+            if bit.band(flags, ImGuiInputTextFlags.EscapeClearsAll) ~= 0 then
+                IM_ASSERT(state.TextA.Data[1] ~= 0)
+                apply_new_text = {0}
+                apply_new_text_length = 0
+                value_changed = true
+                local empty_string = {0}
+                ImStb.stb_textedit_replace(state, state.Stb, empty_string, 0)
+            elseif ImStd.strcmp(state.TextA.Data, state.TextToRevertTo.Data) ~= 0 then
+                apply_new_text = state.TextToRevertTo.Data
+                apply_new_text_length = state.TextToRevertTo.Size - 1
+
+                value_changed = true
+                ImStd.stb_textedit_replace(state, state.Stb, state.TextToRevertTo.Data, state.TextToRevertTo.Size - 1)
+            end
+        end
+
+        if bit.band(flags, bit.bor(ImGuiInputTextFlags.CallbackCompletion, ImGuiInputTextFlags.CallbackHistory, ImGuiInputTextFlags.CallbackEdit, ImGuiInputTextFlags.CallbackAlways)) ~= 0 then
+            IM_ASSERT(callback ~= nil)
+
+            local event_flag = 0
+            local event_key = ImGuiKey.None
+            if bit.band(flags, ImGuiInputTextFlags.CallbackCompletion) ~= 0 and ImGui.Shortcut(ImGuiKey.Tab, 0, id) then
+                event_flag = ImGuiInputTextFlags.CallbackCompletion
+                event_key = ImGuiKey.Tab
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and ImGui.IsKeyPressed(ImGuiKey.UpArrow) then
+                event_flag = ImGuiInputTextFlags.CallbackHistory
+                event_key = ImGuiKey.UpArrow
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and ImGui.IsKeyPressed(ImGuiKey.DownArrow) then
+                event_flag = ImGuiInputTextFlags.CallbackHistory
+                event_key = ImGuiKey.DownArrow
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackEdit) ~= 0 and state.Edited then
+                event_flag = ImGuiInputTextFlags.CallbackEdit
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackAlways) ~= 0 then
+                event_flag = ImGuiInputTextFlags.CallbackAlways
+            end
+
+            if event_flag ~= 0 then
+                local callback_data = ImGuiInputTextCallbackData()
+                callback_data.Ctx = g
+                callback_data.ID = id
+                callback_data.Flags = flags
+                callback_data.EventFlag = event_flag
+                callback_data.EventActivated = (g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
+                callback_data.UserData = callback_user_data
+
+                local callback_buf = is_readonly and buf or state.TextA.Data
+                IM_ASSERT(callback_buf == state.TextSrc)
+                state.CallbackTextBackup:resize(state.TextLen + 1)
+                ImStd.memmove(state.CallbackTextBackup.Data, 1, callback_buf, 1, state.TextLen + 1)
+
+                callback_data.EventKey = event_key
+                callback_data.Buf = callback_buf
+                callback_data.BufTextLen = state.TextLen
+                callback_data.BufSize = state.BufCapacity
+                callback_data.BufDirty = false
+                callback_data.CursorPos = state.Stb.cursor
+                callback_data.SelectionStart = state.Stb.select_start
+                callback_data.SelectionEnd = state.Stb.select_end
+
+                callback(callback_data)
+
+                callback_buf = is_readonly and buf or state.TextA.Data
+                IM_ASSERT(callback_data.Buf == callback_buf)
+                IM_ASSERT(callback_data.BufSize == state.BufCapacity)
+                IM_ASSERT(callback_data.Flags == flags)
+                if callback_data.BufDirty or callback_data.CursorPos ~= state.Stb.cursor then
+                    state.CursorFollow = true
+                end
+                state.Stb.cursor = ImClamp(callback_data.CursorPos, 0, callback_data.BufTextLen)
+                state.Stb.select_start = ImClamp(callback_data.SelectionStart, 0, callback_data.BufTextLen)
+                state.Stb.select_end = ImClamp(callback_data.SelectionEnd, 0, callback_data.BufTextLen)
+                if callback_data.BufDirty then
+                    IM_ASSERT(callback_data.BufTextLen == ImStd.ImStrlen(callback_data.Buf))
+                    InputTextReconcileUndoState(state, state.CallbackTextBackup.Data, state.CallbackTextBackup.Size - 1, callback_data.Buf, callback_data.BufTextLen)
+                    state.TextLen = callback_data.BufTextLen
+                    state:CursorAnimReset()
+                end
+            end
+        end
+
+        if not is_readonly and ImStd.strcmp(state.TextSrc, buf) ~= 0 then
+            apply_new_text = state.TextSrc
+            apply_new_text_length = state.TextLen
+            value_changed = true
+        end
+    end
+
+    if g.InputTextDeactivatedState.ID == id then
+        if g.ActiveId ~= id and ImGui.IsItemDeactivatedAfterEdit() and not is_readonly and ImStd.strcmp(g.InputTextDeactivatedState.TextA.Data, buf) ~= 0 then
+            apply_new_text = g.InputTextDeactivatedState.TextA.Data
+            apply_new_text_length = g.InputTextDeactivatedState.TextA.Size - 1
+            value_changed = true
+        end
+        g.InputTextDeactivatedState.ID = 0
+    end
+
+    if apply_new_text ~= nil then
+        IM_ASSERT(apply_new_text_length >= 0)
+        if is_resizable then
+            local callback_data = ImGuiInputTextCallbackData()
+            callback_data.Ctx = g
+            callback_data.ID = id
+            callback_data.Flags = flags
+            callback_data.EventFlag = ImGuiInputTextFlags_CallbackResize
+            callback_data.EventActivated = (g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
+            callback_data.Buf = buf
+            callback_data.BufTextLen = apply_new_text_length
+            callback_data.BufSize = ImMax(buf_size, apply_new_text_length + 1)
+            callback_data.UserData = callback_user_data
+
+            callback(callback_data)
+
+            buf = callback_data.Buf
+            buf_size = callback_data.BufSize
+            apply_new_text_length = ImMin(callback_data.BufTextLen, buf_size - 1)
+            IM_ASSERT(apply_new_text_length <= buf_size)
+        end
+
+        ImStd.ImStrncpy(buf, 1, apply_new_text, 1, ImMin(apply_new_text_length + 1, buf_size))
+    end
+
+    -- Release active ID at the end of the function (so e.g. pressing Return still does a final application of the value)
+    -- Otherwise request text input ahead for next frame.
+    if g.ActiveId == id and clear_active_id then
+        ImGui.ClearActiveID()
+    end
+
+    -- Render frame
+    if not is_multiline then
+        ImGui.RenderNavCursor(frame_bb, id)
+        ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), true, style.FrameRounding)
+    end
+
+    local draw_pos = ImVec2()
+    ImVec2_Copy(draw_pos, is_multiline and draw_window.DC.CursorPos or (frame_bb.Min + style.FramePadding))
+    local clip_rect = ImRect(frame_bb.Min.x, frame_bb.Min.y, frame_bb.Min.x + inner_size.x, frame_bb.Min.y + inner_size.y) -- Not using frame_bb.Max because we have adjusted size
+    if is_multiline then
+        clip_rect:ClipWith(draw_window.ClipRect)
+    end
+
+    -- Set upper limit of single-line InputTextEx() at 2 million characters strings. The current pathological worst case is a long line
+    -- without any carriage return, which would makes ImFont::RenderText() reserve too many vertices and probably crash. Avoid it altogether.
+    -- Note that we only use this limit on single-line InputText(), so a pathologically large line on a InputTextMultiline() would still crash.
+    local buf_display_max_length = 2 * 1024 * 1024
+    local buf_display = buf_display_from_state and state.TextA.Data or buf
+    local buf_display_end = nil -- We have specialized paths below for setting the length
+
+    -- Display hint when contents is empty
+    -- At this point we need to handle the possibility that a callback could have modified the underlying buffer (#8368)
+    local new_is_displaying_hint = (hint ~= nil and (buf_display_from_state and state.TextA.Data or buf)[1] == 0)
+    if new_is_displaying_hint ~= is_displaying_hint then
+        if is_password and not is_displaying_hint then
+            ImGui.PopPasswordFont()
+        end
+        is_displaying_hint = new_is_displaying_hint
+        if is_password and not is_displaying_hint then
+            ImGui.PushPasswordFont()
+        end
+    end
+    if is_displaying_hint then
+        --- @cast hint char[]
+        buf_display = hint
+        buf_display_end = ImStd.ImStrlen(hint) + 1
+    else
+        if render_cursor or render_selection or g.ActiveId == id then
+            buf_display_end = state.TextLen + 1
+        elseif is_multiline and not is_wordwrap then
+            buf_display_end = nil -- Inactive multi-line: end of buffer will be output by InputTextLineIndexBuild() special strchr() path
+        else
+            buf_display_end = ImStd.ImStrlen(buf_display) + 1
+        end
+    end
+
+    -- Calculate visibility
+    local line_visible_n0, line_visible_n1 = 1, 2
+    if is_multiline then
+        line_visible_n0, line_visible_n1 = ImGui.CalcClipRectVisibleItemsY(clip_rect, draw_pos, g.FontSize)
+    end
+
+    local line_index = g.InputTextLineIndex
+    line_index.Offsets:resize(0)
+    local line_count = 1
+    if is_multiline then
+        local will_scroll_y = state and ((state.CursorFollow and render_cursor) or (state.CursorCenterY and (render_cursor or render_selection)))
+        line_count = ImGui.InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1), buf_display_end and nil or buf_display_end)
+    end
+    line_index.EndOffset = buf_display_end - 1
+    line_visible_n1 = ImMin(line_visible_n1, line_count + 1)
+
+    local text_size_y = line_count * g.FontSize
+
+    --- @cast buf_display_end int
+    local cursor_offset = (render_cursor and state) and InputTextLineIndexGetPosOffset(g, state, line_index, buf_display, buf_display_end, state.Stb.cursor) or ImVec2(0.0, 0.0)
+    local draw_scroll = ImVec2()
+
+    local text_col = ImGui.GetColorU32(is_displaying_hint and ImGuiCol.TextDisabled or ImGuiCol.Text)
+    if render_cursor or render_selection then
+        IM_ASSERT(state ~= nil)
+        state.LineCount = line_count
+
+        local new_scroll_y = scroll_y
+        if render_cursor and state.CursorFollow then
+            if bit.band(flags, ImGuiInputTextFlags.NoHorizontalScroll) == 0 then
+                local scroll_increment_x = inner_size.x * 0.25
+                local visible_width = inner_size.x - style.FramePadding.x
+                if cursor_offset.x < state.Scroll.x then
+                    state.Scroll.x = IM_TRUNC(ImMax(0.0, cursor_offset.x - scroll_increment_x))
+                elseif cursor_offset.x - visible_width >= state.Scroll.x then
+                    state.Scroll.x = IM_TRUNC(cursor_offset.x - visible_width + scroll_increment_x)
+                end
+            else
+                state.Scroll.x = 0.0
+            end
+
+            if is_multiline then
+                if cursor_offset.y - g.FontSize < scroll_y then
+                    new_scroll_y = ImMax(0.0, cursor_offset.y - g.FontSize)
+                elseif cursor_offset.y - (inner_size.y - style.FramePadding.y * 2.0) >= scroll_y then
+                    new_scroll_y = cursor_offset.y - inner_size.y + style.FramePadding.y * 2.0
+                end
+            end
+            state.CursorFollow = false
+        end
+        if state.CursorCenterY then
+            if is_multiline then
+                new_scroll_y = cursor_offset.y - g.FontSize - (inner_size.y * 0.5 - style.FramePadding.y)
+            end
+            state.CursorCenterY = false
+            render_cursor = false
+        end
+        if new_scroll_y ~= scroll_y then
+            local scroll_max_y = ImMax((text_size_y + style.FramePadding.y * 2.0) - inner_size.y, 0.0)
+            scroll_y = ImClamp(new_scroll_y, 0.0, scroll_max_y)
+            draw_pos.y = draw_pos.y + (draw_window.Scroll.y - scroll_y)
+            draw_window.Scroll.y = scroll_y
+            line_visible_n0, line_visible_n1 = ImGui.CalcClipRectVisibleItemsY(clip_rect, draw_pos, g.FontSize)
+            line_visible_n1 = ImMin(line_visible_n1, line_count)
+        end
+
+        draw_scroll.x = state.Scroll.x
+        if render_selection then
+            local bg_color = ImGui.GetColorU32(ImGuiCol.TextSelectedBg, render_cursor and 1.0 or 0.6)
+            local bg_offy_up = is_multiline and 0.0 or -1.0
+            local bg_offy_dn = is_multiline and 0.0 or 2.0
+            local bg_eol_width = IM_TRUNC(g.FontBaked:GetCharAdvance(32) * 0.50)
+
+            local text_selected_begin = ImMin(state.Stb.select_start, state.Stb.select_end)
+            local text_selected_end = ImMax(state.Stb.select_start, state.Stb.select_end)
+            for line_n = line_visible_n0, line_visible_n1 - 1 do
+                local p = line_index:get_line_begin(1, line_n)
+                local p_eol = line_index:get_line_end(1, line_n)
+                local p_eol_is_wrap = (p_eol < buf_display_end and buf_display[p_eol] ~= 10)
+                if p_eol_is_wrap then
+                    p_eol = p_eol + 1
+                end
+                local line_selected_begin = (text_selected_begin > p) and text_selected_begin or p
+                local line_selected_end = (text_selected_end < p_eol) and text_selected_end or p_eol
+
+                local rect_width = 0.0
+                if line_selected_begin < line_selected_end then
+                    rect_width = rect_width + ImGui.CalcTextSizeEx(buf_display, line_selected_begin, line_selected_end).x
+                end
+                if text_selected_begin <= p_eol and text_selected_end > p_eol and not p_eol_is_wrap then
+                    rect_width = rect_width + bg_eol_width
+                end
+                if rect_width == 0.0 then
+                    goto CONTINUE
+                end
+
+                local rect = ImRect()
+                rect.Min.x = draw_pos.x - draw_scroll.x + ImGui.CalcTextSizeEx(buf_display, p, line_selected_begin).x
+                rect.Min.y = draw_pos.y - draw_scroll.y + (line_n - 1) * g.FontSize
+                rect.Max.x = rect.Min.x + rect_width
+                rect.Max.y = rect.Min.y + bg_offy_dn + g.FontSize
+                rect.Min.y = rect.Min.y + bg_offy_up
+                rect:ClipWith(clip_rect)
+                draw_window.DrawList:AddRectFilled(rect.Min, rect.Max, bg_color)
+
+                :: CONTINUE ::
+            end
+        end
+    end
+
+    if g.ActiveId ~= id and bit.band(flags, ImGuiInputTextFlags.ElideLeft) ~= 0 and not render_cursor and not render_selection then
+        draw_pos.x = ImMin(draw_pos.x, frame_bb.Max.x - ImGui.CalcTextSize(buf_display, nil).x - style.FramePadding.x)
+    end
+
+    if (is_multiline or (buf_display_end - 1) < buf_display_max_length) and bit.band(text_col, IM_COL32_A_MASK) ~= 0 and line_visible_n0 < line_visible_n1 then
+        g.Font:RenderText(draw_window.DrawList, g.FontSize,
+        draw_pos - draw_scroll + ImVec2(0.0, (line_visible_n0 - 1) * g.FontSize),
+        text_col, clip_rect:AsVec4(),
+        buf_display,
+        line_index:get_line_begin(1, line_visible_n0),
+        line_index:get_line_end(1, line_visible_n1 - 1),
+        wrap_width, bit.bor(ImDrawTextFlags.WrapKeepBlanks, ImDrawTextFlags.CpuFineClip))
+    end
+
+    if render_cursor then
+        state.CursorAnim = state.CursorAnim + io.DeltaTime
+        local cursor_is_visible = (not g.IO.ConfigInputTextCursorBlink) or (state.CursorAnim <= 0.0) or (ImFmod(state.CursorAnim, 1.20) <= 0.80)
+
+        local cursor_screen_pos = ImTruncV2(draw_pos + cursor_offset - draw_scroll)
+        local cursor_screen_rect = ImRect(cursor_screen_pos.x, cursor_screen_pos.y - g.FontSize + 0.5, cursor_screen_pos.x + 1.0, cursor_screen_pos.y - 1.5)
+
+        if cursor_is_visible and cursor_screen_rect:Overlaps(clip_rect) then
+            draw_window.DrawList:AddLine(cursor_screen_rect.Min, cursor_screen_rect:GetBL(), ImGui.GetColorU32(ImGuiCol.InputTextCursor), 1.0 * style._MainScale)
+        end
+
+        if not is_readonly and g.ActiveId == id then
+            local ime_data = g.PlatformImeData
+            ime_data.WantVisible = true
+            ime_data.WantTextInput = true
+            ImVec2_Copy(ime_data.InputPos, ImVec2(cursor_screen_pos.x - 1.0, cursor_screen_pos.y - g.FontSize))
+            ime_data.InputLineHeight = g.FontSize
+            ime_data.ViewportId = window.Viewport.ID
+        end
+    end
+
+    if is_password and not is_displaying_hint then
+        ImGui.PopPasswordFont()
+    end
+
+    if is_multiline then
+        -- For focus requests to work on our multiline we need to ensure our child ItemAdd() call specifies the ImGuiItemFlags.Inputable (see #4761, #7870)...
+        ImGui.Dummy(ImVec2(0.0, text_size_y + style.FramePadding.y))
+        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.Inputable, ImGuiItemFlags.NoTabStop)
+        ImGui.EndChild()
+        item_data_backup.StatusFlags = bit.bor(item_data_backup.StatusFlags, bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredWindow))
+
+        -- ...and then we need to undo the group overriding last item data, which gets a bit messy as EndGroup() tries to forward scrollbar being active...
+        -- FIXME: This quite messy/tricky, should attempt to get rid of the child window.
+        ImGui.EndGroup()
+        if g.LastItemData.ID == 0 or g.LastItemData.ID ~= ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y) then
+            g.LastItemData.ID = id
+            g.LastItemData.ItemFlags = item_data_backup.ItemFlags
+            g.LastItemData.StatusFlags = item_data_backup.StatusFlags
+        end
+    end
+
+    if state and is_readonly then
+        state.TextSrc = nil
+    end
+
+    if label_size.x > 0.0 then
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label)
+    end
+
+    if value_changed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    if bit.band(flags, ImGuiInputTextFlags.EnterReturnsTrue) ~= 0 then
+        return validated
+    else
+        return value_changed
+    end
 end
 
 ----------------------------------------------------------------
@@ -2797,7 +4264,7 @@ end
 --- @param H   float
 --- @return float
 local function ColorEditRestoreH(col, H)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     IM_ASSERT(g.ColorEditCurrentID ~= 0)
     if g.ColorEditSavedID ~= g.ColorEditCurrentID or g.ColorEditSavedColor ~= ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0)) then
         return H
@@ -2812,7 +4279,7 @@ end
 --- @param V float
 --- @return float, float, float
 local function ColorEditRestoreHS(col, H, S, V)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     IM_ASSERT(g.ColorEditCurrentID ~= 0)
 
     if g.ColorEditSavedID ~= g.ColorEditCurrentID or g.ColorEditSavedColor ~= ImGui.ColorConvertFloat4ToU32(ImVec4(col[1], col[2], col[3], 0)) then
@@ -2856,7 +4323,7 @@ function ImGui.ColorEdit4(label, col, flags)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local square_sz = ImGui.GetFrameHeight()
     local label_display_end = ImGui.FindRenderedTextEnd(label)
@@ -3098,7 +4565,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     end
 
     local draw_list = window.DrawList
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
     local io = g.IO
 
@@ -3514,12 +4981,12 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
         return false
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local id = window:GetID(desc_id)
     local default_size = ImGui.GetFrameHeight()
     local size = ImVec2(size_arg.x == 0.0 and default_size or size_arg.x, size_arg.y == 0.0 and default_size or size_arg.y)
     local bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
-    ImGui.ItemSizeR(bb, (size.y >= default_size) and g.Style.FramePadding.y or 0.0)
+    ImGui.ItemSize(bb, (size.y >= default_size) and g.Style.FramePadding.y or 0.0)
     if not ImGui.ItemAdd(bb, id) then
         return false
     end
@@ -3594,7 +5061,7 @@ end
 --- @param col   ImVec4
 --- @param flags ImGuiColorEditFlags
 function ImGui.ColorTooltip(text, col, flags)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     if not ImGui.BeginTooltipEx(ImGuiTooltipFlags.OverridePrevious, ImGuiWindowFlags.None) then
         return
@@ -3645,7 +5112,7 @@ function ImGui.ColorEditOptionsPopup(col, flags)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     ImGui.PushItemFlag(ImGuiItemFlags.NoMarkEdited, true)
     local opts = g.ColorEditOptions
     if allow_opt_inputs then
@@ -3721,7 +5188,7 @@ function ImGui.ColorPickerOptionsPopup(ref_col, flags)
         return
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     ImGui.PushItemFlag(ImGuiItemFlags.NoMarkEdited, true)
     if allow_opt_picker then
         local picker_size = ImVec2(g.FontSize * 8, ImMax(g.FontSize * 8 - (ImGui.GetFrameHeight() + g.Style.ItemInnerSpacing.x), 1.0)) -- FIXME: Picker size copied from main picker function
@@ -3789,7 +5256,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         return false, selected
     end
 
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local style = g.Style
 
     local id = window:GetID(label)
@@ -4000,7 +5467,7 @@ end
 --- @param size_arg      ImVec2
 --- @return int
 function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, size_arg)
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return -1
@@ -4015,7 +5482,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
     local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + frame_size)
     local inner_bb = ImRect(frame_bb.Min + style.FramePadding, frame_bb.Max - style.FramePadding)
     local total_bb = ImRect(frame_bb.Min, frame_bb.Max + ImVec2(label_size.x > 0.0 and style.ItemInnerSpacing.x + label_size.x or 0.0, 0))
-    ImGui.ItemSizeR(total_bb, style.FramePadding.y)
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
     if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.NoNav) then
         return -1
     end
@@ -4234,7 +5701,7 @@ function ImGui.EndMenuBar()
     if window.SkipItems then
         return false
     end
-    local g = ImGui.GetCurrentContext()
+    local g = GImGui
 
     IM_ASSERT(bit.band(window.Flags, ImGuiWindowFlags.MenuBar) ~= 0)
     IM_ASSERT(window.DC.MenuBarAppending)

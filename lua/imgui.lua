@@ -30,6 +30,8 @@ IM_INCLUDE"imgui_draw.lua"
 
 IM_INCLUDE"imgui_widgets.lua"
 
+IM_INCLUDE"imgui_tables.lua"
+
 local FONT_DEFAULT_SIZE_BASE = 20
 
 local WINDOWS_RESIZE_FROM_EDGES_FEEDBACK_TIMER = 0.04
@@ -219,10 +221,10 @@ end
 
 -- Use FNV1a, as one ImGui FIXME suggested
 --- @param str  string
---- @param seed int?
 --- @param size int?
+--- @param seed int?
 --- @return int
-function ImHashStr(str, seed, size)
+function ImHashStr(str, size, seed)
     if size == nil then size = #str end
     if seed == nil then seed = 0    end
 
@@ -308,6 +310,54 @@ end
 
 end
 
+--- @param buf      char[]
+--- @param buf_size int
+--- @param c        unsigned_int
+local function ImTextCharToUtf8_inline(buf, buf_size, c)
+    if c < 0x80 then
+        buf[1] = c
+        return 1
+    end
+    if c < 0x800 then
+        if buf_size < 2 then
+            return 0
+        end
+        buf[1] = (0xc0 + bit.rshift(c, 6))
+        buf[2] = (0x80 + bit.band(c, 0x3f))
+        return 2
+    end
+    if c < 0x10000 then
+        if buf_size < 3 then
+            return 0
+        end
+        buf[1] = (0xe0 + bit.rshift(c, 12))
+        buf[2] = (0x80 + bit.band(bit.rshift(c, 6), 0x3f))
+        buf[3] = (0x80 + bit.band(c, 0x3f))
+        return 3
+    end
+    if c <= 0x10FFFF then
+        if buf_size < 4 then
+            return 0
+        end
+        buf[1] = (0xf0 + bit.rshift(c, 18))
+        buf[2] = (0x80 + bit.band(bit.rshift(c, 12), 0x3f))
+        buf[3] = (0x80 + bit.band(bit.rshift(c, 6), 0x3f))
+        buf[4] = (0x80 + bit.band(c, 0x3f))
+        return 4
+    end
+
+    -- Invalid code point, the max unicode is 0x10FFFF
+    return 0
+end
+
+--- @param out_buf [char, char, char, char, char]
+--- @param c       unsigned_int
+function ImStd.ImTextCharToUtf8(out_buf, c)
+    local count = ImTextCharToUtf8_inline(out_buf, 5, c)
+    out_buf[count + 1] = 0
+    return count
+end
+
 --- @param in_text     ImString
 --- @param pos         int
 --- @param in_text_end int
@@ -328,6 +378,26 @@ function ImStd.ImTextFindPreviousUtf8Codepoint(text, in_text_start, in_p)
         end
     end
     return in_text_start
+end
+
+--- @param text          ImString
+--- @param in_text_start int
+--- @param in_text_end   int
+--- @param in_p          int
+--- @return int
+function ImStd.ImTextFindValidUtf8CodepointEnd(text, in_text_start, in_text_end, in_p)
+    if in_text_start == in_p then
+        return in_text_start
+    end
+
+    local prev = ImStd.ImTextFindPreviousUtf8Codepoint(text, in_text_start, in_p)
+    local prev_c_len, prev_c = ImStd.ImTextCharFromUtf8(text, prev, in_text_end)
+
+    -- Check if the previous character is valid and fits within the range
+    if prev_c ~= IM_UNICODE_CODEPOINT_INVALID and prev_c_len <= (in_p - prev) then
+        return in_p
+    end
+    return prev
 end
 
 --- @param a ImVec2
@@ -404,7 +474,32 @@ function ImStd.ImTriangleClosestPoint(a, b, c, p)
     end
 end
 
---- void ImGui::UpdateCurrentFontSize
+--- @param dst     char[]
+--- @param dst_pos int
+--- @param src     char[]
+--- @param src_pos int
+--- @param count   size_t
+function ImStd.ImStrncpy(dst, dst_pos, src, src_pos, count)
+    if count < 1 then
+        return
+    end
+    if count > 1 then
+        ImStd.memmove(dst, dst_pos, src, src_pos, count - 1)
+    end
+    dst[dst_pos + (count - 1)] = 0
+end
+
+--- @param str      char[]
+--- @param mid_line int
+--- @param begin    int
+function ImStd.ImStrbol(str, mid_line, begin)
+    IM_ASSERT_PARANOID(mid_line >= begin and mid_line <= #str)
+    while mid_line > begin and str[mid_line - 1] ~= 10 do
+        mid_line = mid_line - 1
+    end
+    return mid_line
+end
+
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     local g = GImGui
     local window = g.CurrentWindow
@@ -441,7 +536,6 @@ function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     g.DrawListSharedData.FontScale = g.FontBakedScale
 end
 
---- void ImGui::SetCurrentFont
 function ImGui.SetCurrentFont(font, font_size_before_scaling, font_size_after_scaling)
     local g = GImGui
 
@@ -471,11 +565,7 @@ function ImGui.PushFont(font, font_size_base)
     IM_ASSERT(font ~= nil)
     IM_ASSERT(font_size_base >= 0.0)
 
-    g.FontStack:push_back({
-        Font = font,
-        FontSizeBeforeScaling = g.FontSizeBase,
-        FontSizeAfterScaling = g.FontSize
-    }) -- TODO: ImFontStackData
+    g.FontStack:push_back(ImFontStackData(font, g.FontSizeBase, g.FontSize))
 
     if font_size_base == 0.0 then
         font_size_base = g.FontSizeBase
@@ -565,7 +655,7 @@ function ImGui.GetDefaultFont()
     if (atlas.Builder == nil or atlas.Fonts.Size == 0) then
         ImFontAtlasBuildMain(atlas)
     end
-    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts:at(1)
+    return g.IO.FontDefault and g.IO.FontDefault or atlas.Fonts[1]
 end
 
 --- @param atlas ImFontAtlas
@@ -589,6 +679,10 @@ end
 --- @param ctx ImGuiContext?
 function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
+
+    ImGui._SetCurrentContext_Internal(ctx)
+    ImGui._SetCurrentContext_Widgets(ctx)
+    ImGui._SetCurrentContext_Tables(ctx)
 end
 
 --- @param key  ImGuiLocKey
@@ -640,13 +734,14 @@ end
 
 --- @param shared_font_atlas? ImFontAtlas
 function ImGui.CreateContext(shared_font_atlas)
-    GImGui = ImGuiContext(shared_font_atlas)
-
-    for i = 0, 59 do GImGui.FramerateSecPerFrame[i] = 0 end
-
+    local prev_ctx = ImGui.GetCurrentContext()
+    local ctx = ImGuiContext(shared_font_atlas)
+    ImGui.SetCurrentContext(ctx)
     ImGui.Initialize()
-
-    return GImGui
+    if prev_ctx ~= nil then
+        ImGui.SetCurrentContext(prev_ctx) -- Restore previous context if any, else keep new one
+    end
+    return ctx
 end
 
 --- @param ctx? ImGuiContext
@@ -901,10 +996,19 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     return true
 end
 
---- @param size             ImVec2
+--- @param size_or_bb       ImVec2|ImRect
 --- @param text_baseline_y? float
-function ImGui.ItemSize(size, text_baseline_y)
+function ImGui.ItemSize(size_or_bb, text_baseline_y)
     if text_baseline_y == nil then text_baseline_y = -1.0 end
+
+    local size
+    if size_or_bb.Min then
+        --- @cast size_or_bb ImRect
+        size = size_or_bb:GetSize()
+    else
+        --- @cast size_or_bb ImVec2
+        size = size_or_bb
+    end
 
     local g = GImGui
     local window = g.CurrentWindow
@@ -947,12 +1051,6 @@ function ImGui.ItemSize(size, text_baseline_y)
     if (window.DC.LayoutType == ImGuiLayoutType.Horizontal) then
         ImGui.SameLine()
     end
-end
-
---- @param bb               ImRect
---- @param text_baseline_y? float
-function ImGui.ItemSizeR(bb, text_baseline_y)
-    ImGui.ItemSize(bb:GetSize(), text_baseline_y)
 end
 
 --- @param offset_from_start_x float?
@@ -1240,10 +1338,18 @@ function ImGui.IsItemActive()
     return false
 end
 
---- void ImGuiStyle::ScaleAllSizes
--- local function ScaleAllSizes(scale_factor)
+function ImGui.IsItemDeactivated()
+    local g = GImGui
+    if bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasDeactivated) ~= 0 then
+        return bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Deactivated) ~= 0
+    end
+    return g.DeactivatedItemData.ID == g.LastItemData.ID and g.LastItemData.ID ~= 0 and g.DeactivatedItemData.ElapseFrame >= g.FrameCount
+end
 
--- end
+function ImGui.IsItemDeactivatedAfterEdit()
+    local g = GImGui
+    return ImGui.IsItemDeactivated() and g.DeactivatedItemData.HasBeenEditedBefore
+end
 
 ---------------------------------------------------------------------------------------
 -- [SECTION] WINDOW FOCUS
@@ -1503,7 +1609,7 @@ function MT.ImGuiWindow:GetID(id)
     local seed = self.IDStack:back()
 
     if type(id) == "string" then
-        return ImHashStr(id, seed)
+        return ImHashStr(id, nil, seed)
     else --- @cast id int
         return ImHashData(id, -1, seed)
     end
@@ -1818,6 +1924,54 @@ function ImGui.SetLastItemDataForWindow(window, rect)
     end
 end
 
+--- @param c unsigned_int
+function MT.ImGuiIO:AddInputCharacter(c)
+    IM_ASSERT(self.Ctx ~= nil)
+    local g = self.Ctx
+    if c == 0 or not self.AppAcceptingEvents then
+        return
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType.Text
+    e.Source = ImGuiInputSource.Keyboard
+    e.EventId = g.InputEventsNextEventId
+    g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.Text = ImGuiInputEventText()
+    e.Text.Char = c
+
+    g.InputEventsQueue:push_back(e)
+end
+
+--- @param c ImWchar16
+function MT.ImGuiIO:AddInputCharacterUTF16(c)
+    if (c == 0 and self.InputQueueSurrogate == 0) or not self.AppAcceptingEvents then
+        return
+    end
+
+    if bit.band(c, 0xFC00) == 0xD800 then -- High surrogate, must save
+        if self.InputQueueSurrogate ~= 0 then
+            self:AddInputCharacter(IM_UNICODE_CODEPOINT_INVALID)
+        end
+        self.InputQueueSurrogate = c
+        return
+    end
+
+    local cp = c
+    if self.InputQueueSurrogate ~= 0 then
+        if bit.band(c, 0xFC00) ~= 0xDC00 then  -- Invalid low surrogate
+            self:AddInputCharacter(IM_UNICODE_CODEPOINT_INVALID)
+        else
+            -- #if IM_UNICODE_CODEPOINT_MAX == 0xFFFF
+            cp = IM_UNICODE_CODEPOINT_INVALID
+            -- #endif
+        end
+
+        self.InputQueueSurrogate = 0
+    end
+    self:AddInputCharacter(cp)
+end
+
 function MT.ImGuiIO:ClearEventsQueue()
     IM_ASSERT(self.Ctx ~= nil)
     local g = GImGui
@@ -2099,9 +2253,35 @@ function MT.ImGuiIO:AddMouseWheelEvent(wheel_x, wheel_y)
     g.InputEventsQueue:push_back(e)
 end
 
+--- @param key ImGuiKey
+local function GetModForLRModKey(key)
+    if key == ImGuiKey.LeftCtrl or key == ImGuiKey.RightCtrl then
+        return ImGuiMod_Ctrl
+    end
+    if key == ImGuiKey.LeftShift or key == ImGuiKey.RightShift then
+        return ImGuiMod_Shift
+    end
+    if key == ImGuiKey.LeftAlt or key == ImGuiKey.RightAlt then
+        return ImGuiMod_Alt
+    end
+    if key == ImGuiKey.LeftSuper or key == ImGuiKey.RightSuper then
+        return ImGuiMod_Super
+    end
+    return ImGuiMod_None
+end
+
+--- @param key_chord ImGuiKeyChord
+function ImGui.FixupKeyChord(key_chord)
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    if ImGui.IsLRModKey(key) then
+        key_chord = bit.bor(key_chord, GetModForLRModKey(key))
+    end
+    return key_chord
+end
+
 --- @param ctx? ImGuiContext
 --- @param key  ImGuiKey
---- @return ImGuiKeyData
+--- @return ImGuiKeyData, int
 function ImGui.GetKeyData(ctx, key)
     if ctx == nil then ctx = GImGui end
 
@@ -2110,25 +2290,8 @@ function ImGui.GetKeyData(ctx, key)
     end
 
     IM_ASSERT(ImGui.IsNamedKey(key), "Support for user key indices was dropped in favor of ImGuiKey. Please update backend & user code.")
-    return ctx.IO.KeysData[key - ImGuiKey.NamedKey_BEGIN]
-end
-
---- @param key      ImGuiKey
---- @param owner_id ImGuiID
---- @param flags?   ImGuiInputFlags
-function ImGui.SetKeyOwner(key, owner_id, flags)
-    if flags == nil then flags = 0 end
-
-    local g = GImGui --- @cast g ImGuiContext
-    IM_ASSERT(ImGui.IsNamedKeyOrMod(key) and (owner_id ~= ImGuiKeyOwner_Any or (bit.band(flags, bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)) ~= 0)), "Can only use _Any with _LockXXX flags (to eat a key away without an ID to retrieve it)")
-    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedBySetKeyOwner)) == 0, "Passing flags not supported by this function!")
-
-    local owner_data = ImGui.GetKeyOwnerData(g, key)
-    owner_data.OwnerCurr = owner_id
-    owner_data.OwnerNext = owner_id
-
-    owner_data.LockUntilRelease = (bit.band(flags, ImGuiInputFlags.LockUntilRelease) ~= 0)
-    owner_data.LockThisFrame = (bit.band(flags, ImGuiInputFlags.LockThisFrame) ~= 0) or owner_data.LockUntilRelease
+    local idx = key - ImGuiKey.NamedKey_BEGIN
+    return ctx.IO.KeysData[idx], idx
 end
 
 --- @param key      ImGuiKey
@@ -2174,6 +2337,66 @@ function ImGui.IsKeyDown(key, owner_id)
     if not ImGui.TestKeyOwner(key, owner_id) then
         return false
     end
+    return true
+end
+
+--- @param key        ImGuiKey
+--- @param is_repeat? bool
+function ImGui.IsKeyPressed(key, is_repeat)
+    if is_repeat == nil then is_repeat = true end
+
+    return ImGui.IsKeyPressedEx(key, is_repeat and ImGuiInputFlags.Repeat or ImGuiInputFlags.None, ImGuiKeyOwner_Any)
+end
+
+--- @param key       ImGuiKey
+--- @param flags     ImGuiInputFlags
+--- @param owner_id? ImGuiID
+function ImGui.IsKeyPressedEx(key, flags, owner_id)
+    if owner_id == nil then owner_id = 0 end
+
+    local g = GImGui
+    local key_data = ImGui.GetKeyData(g, key)
+
+    -- In theory this should already be encoded as (DownDuration < 0.0), but testing this facilitates eating mechanism (until we finish work on key ownership)
+    if not key_data.Down then
+        return false
+    end
+    local t = key_data.DownDuration
+    if t < 0.0 then
+        return false
+    end
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedByIsKeyPressed)) == 0) -- Passing flags not supported by this function!
+    if bit.band(flags, bit.bor(ImGuiInputFlags.RepeatRateMask_, ImGuiInputFlags.RepeatUntilMask_)) ~= 0 then -- Setting any _RepeatXXX option enables _Repeat
+        flags = bit.bor(flags, ImGuiInputFlags.Repeat)
+    end
+
+    local pressed = (t == 0.0)
+    if not pressed and bit.band(flags, ImGuiInputFlags.Repeat) ~= 0 then
+        local repeat_delay, repeat_rate = ImGui.GetTypematicRepeatRate(flags)
+        pressed = (t > repeat_delay) and (ImGui.GetKeyPressedAmount(key, repeat_delay, repeat_rate) > 0)
+        if pressed and bit.band(flags, ImGuiInputFlags.RepeatUntilMask_) ~= 0 then
+            -- Slightly bias 'key_pressed_time' as DownDuration is an accumulation of DeltaTime which we compare to an absolute time value.
+            -- Ideally we'd replace DownDuration with KeyPressedTime but it would break user's code.
+            local key_pressed_time = g.Time - t + 0.00001
+            if bit.band(flags, ImGuiInputFlags.RepeatUntilKeyModsChange) ~= 0 and g.LastKeyModsChangeTime > key_pressed_time then
+                pressed = false
+            end
+            if bit.band(flags, ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone) ~= 0 and g.LastKeyModsChangeFromNoneTime > key_pressed_time then
+                pressed = false
+            end
+            if bit.band(flags, ImGuiInputFlags.RepeatUntilOtherKeyPress) ~= 0 and g.LastKeyboardKeyPressTime > key_pressed_time then
+                pressed = false
+            end
+        end
+    end
+
+    if not pressed then
+        return false
+    end
+    if not ImGui.TestKeyOwner(key, owner_id) then
+        return false
+    end
+
     return true
 end
 
@@ -2223,6 +2446,200 @@ function ImGui.GetTypematicRepeatRate(flags)
     if     flags == ImGuiInputFlags.RepeatRateNavMove  then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.80; return repeat_delay, repeat_rate
     elseif flags == ImGuiInputFlags.RepeatRateNavTweak then repeat_delay = g.IO.KeyRepeatDelay * 0.72; repeat_rate = g.IO.KeyRepeatRate * 0.30; return repeat_delay, repeat_rate
     else                                                    repeat_delay = g.IO.KeyRepeatDelay * 1.00; repeat_rate = g.IO.KeyRepeatRate * 1.00; return repeat_delay, repeat_rate end
+end
+
+--- @param key          ImGuiKey
+--- @param repeat_delay float
+--- @param repeat_rate  float
+function ImGui.GetKeyPressedAmount(key, repeat_delay, repeat_rate)
+    local g = GImGui
+    local key_data = ImGui.GetKeyData(g, key)
+    if not key_data.Down then -- In theory this should already be encoded as (DownDuration < 0.0f), but testing this facilitates eating mechanism (until we finish work on key ownership)
+        return 0
+    end
+    local t = key_data.DownDuration
+    return ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, repeat_delay, repeat_rate)
+end
+
+-- owner_id may be None/Any, but routing_id needs to be always be set, so we default to GetCurrentFocusScope()
+--- @param owner_id ImGuiID
+local function GetRoutingIdFromOwnerId(owner_id)
+    local g = GImGui
+    return (owner_id ~= ImGuiKeyOwner_NoOwner and owner_id ~= ImGuiKeyOwner_Any) and owner_id or g.CurrentFocusScopeId
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @return ImGuiKeyRoutingData
+function ImGui.GetShortcutRoutingData(key_chord)
+    local g = GImGui
+    local rt = g.KeysRoutingTable
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    local mods = bit.band(key_chord, ImGuiMod_Mask_)
+    if key == ImGuiKey.None then
+        key = ImGui.ConvertSingleModFlagToKey(mods)
+    end
+    IM_ASSERT(ImGui.IsNamedKey(key))
+
+    local routing_data
+    local idx = rt.Index[key - ImGuiKey.NamedKey_BEGIN + 1]
+    while idx ~= -1 do
+        routing_data = rt.Entries.Data[idx]
+        if routing_data.Mods == mods then
+            return routing_data
+        end
+
+        idx = routing_data.NextEntryIndex
+    end
+
+    local routing_data_idx = rt.Entries.Size + 1
+    rt.Entries:push_back(ImGuiKeyRoutingData())
+    routing_data = rt.Entries[routing_data_idx]
+    routing_data.Mods = mods
+    routing_data.NextEntryIndex = rt.Index[key - ImGuiKey.NamedKey_BEGIN + 1]
+    rt.Index[key - ImGuiKey.NamedKey_BEGIN + 1] = routing_data_idx
+
+    return routing_data
+end
+
+--- @param focus_scope_id ImGuiID
+--- @param owner_id       ImGuiID
+--- @param flags          ImGuiInputFlags
+local function CalcRoutingScore(focus_scope_id, owner_id, flags)
+    local g = GImGui
+    if bit.band(flags, ImGuiInputFlags.RouteFocused) ~= 0 then
+        if owner_id ~= 0 and g.ActiveId == owner_id then
+            return 300
+        end
+
+        if focus_scope_id == 0 then
+            return 0
+        end
+        for index_in_focus_path = 1, g.NavFocusRoute.Size do
+            if g.NavFocusRoute.Data[index_in_focus_path].ID == focus_scope_id then
+                if bit.band(flags, ImGuiInputFlags.RouteOverActive) ~= 0 then
+                    return 599 - (index_in_focus_path - 1)
+                else
+                    return 199 - (index_in_focus_path - 1)
+                end
+            end
+        end
+        return 0
+    elseif bit.band(flags, ImGuiInputFlags.RouteActive) ~= 0 then
+        if owner_id ~= 0 and g.ActiveId == owner_id then
+            return 300
+        end
+        return 0
+    elseif bit.band(flags, ImGuiInputFlags.RouteGlobal) ~= 0 then
+        if bit.band(flags, ImGuiInputFlags.RouteOverActive) ~= 0 then
+            return 400
+        end
+        if owner_id ~= 0 and g.ActiveId == owner_id then
+            return 300
+        end
+        if bit.band(flags, ImGuiInputFlags.RouteOverFocused) ~= 0 then
+            return 200
+        end
+        return 1
+    end
+    IM_ASSERT(false)
+    return 0
+end
+
+--- @param key_chord ImGuiKeyChord
+local function IsKeyChordPotentiallyCharInput(key_chord)
+    local g = GImGui
+
+    local mods = bit.band(key_chord, ImGuiMod_Mask_)
+    local ignore_char_inputs = ((bit.band(mods, ImGuiMod_Ctrl) ~= 0) and (bit.band(mods, ImGuiMod_Alt) == 0)) or (g.IO.ConfigMacOSXBehaviors and (bit.band(mods, ImGuiMod_Ctrl) ~= 0))
+    if ignore_char_inputs then
+        return false
+    end
+
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    if key == ImGuiKey.None then
+        return false
+    end
+    return g.KeysMayBeCharInput:TestBit(key + 1) -- TestBit requires 1-based index
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @param flags     ImGuiInputFlags
+--- @param owner_id  ImGuiID
+function ImGui.SetShortcutRouting(key_chord, flags, owner_id)
+    local g = GImGui
+
+    if bit.band(flags, ImGuiInputFlags.RouteTypeMask_) == 0 then
+        flags = bit.bor(flags, ImGuiInputFlags.RouteGlobal, ImGuiInputFlags.RouteOverFocused, ImGuiInputFlags.RouteOverActive) -- IMPORTANT: This is the default for SetShortcutRouting() but NOT Shortcut()
+    else
+        IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiInputFlags.RouteTypeMask_))) -- Check that only 1 routing flag is used
+    end
+    IM_ASSERT(owner_id ~= ImGuiKeyOwner_Any and owner_id ~= ImGuiKeyOwner_NoOwner)
+    if bit.band(flags, bit.bor(ImGuiInputFlags.RouteOverFocused, ImGuiInputFlags.RouteUnlessBgFocused)) ~= 0 then
+        IM_ASSERT(bit.band(flags, ImGuiInputFlags.RouteGlobal) ~= 0)
+    end
+    if bit.band(flags, ImGuiInputFlags.RouteOverActive) ~= 0 then
+        IM_ASSERT(bit.band(flags, bit.bor(ImGuiInputFlags.RouteGlobal, ImGuiInputFlags.RouteFocused)) ~= 0)
+    end
+
+    key_chord = ImGui.FixupKeyChord(key_chord)
+
+    if g.DebugBreakInShortcutRouting == key_chord then
+        -- IM_DEBUG_BREAK()
+    end
+
+    if bit.band(flags, ImGuiInputFlags.RouteUnlessBgFocused) ~= 0 then
+        if g.NavWindow == nil then
+            return false
+        end
+    end
+
+    if bit.band(flags, ImGuiInputFlags.RouteAlways) ~= 0 then
+        -- IMGUI_DEBUG_LOG_INPUTROUTING("SetShortcutRouting(%s, flags=%04X, owner_id=0x%08X) -> always, no register", ImGui.GetKeyChordName(key_chord), flags, owner_id)
+        return true
+    end
+
+    if g.ActiveId ~= 0 and g.ActiveId ~= owner_id then
+        if bit.band(flags, ImGuiInputFlags.RouteActive) ~= 0 then
+            return false
+        end
+
+        if g.IO.WantTextInput and IsKeyChordPotentiallyCharInput(key_chord) then
+            -- IMGUI_DEBUG_LOG_INPUTROUTING("SetShortcutRouting(%s, flags=%04X, owner_id=0x%08X) -> filtered as potential char input", ImGui.GetKeyChordName(key_chord), flags, owner_id)
+            return false
+        end
+
+        if bit.band(flags, ImGuiInputFlags.RouteOverActive) == 0 and g.ActiveIdUsingAllKeyboardKeys then
+            local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+            if key == ImGuiKey.None then
+                key = ImGui.ConvertSingleModFlagToKey(bit.band(key_chord, ImGuiMod_Mask_))
+            end
+            if key >= ImGuiKey_Keyboard_BEGIN and key < ImGuiKey_Keyboard_END then
+                return false
+            end
+        end
+    end
+
+    local focus_scope_id = g.CurrentFocusScopeId
+    if bit.band(flags, ImGuiInputFlags.RouteFromRootWindow) ~= 0 then
+        focus_scope_id = g.CurrentWindow.RootWindow.ID
+    end
+
+    local score = CalcRoutingScore(focus_scope_id, owner_id, flags)
+    -- IMGUI_DEBUG_LOG_INPUTROUTING("SetShortcutRouting(%s, flags=%04X, owner_id=0x%08X) -> score %d", ImGui.GetKeyChordName(key_chord), flags, owner_id, score)
+    if score == 0 then
+        return false
+    end
+
+    local routing_data = ImGui.GetShortcutRoutingData(key_chord)
+    if score > routing_data.RoutingNextScore then
+        routing_data.RoutingNext = owner_id
+        routing_data.RoutingNextScore = score
+    end
+
+    if routing_data.RoutingCurr == owner_id then
+        -- IMGUI_DEBUG_LOG_INPUTROUTING("--> granting current route")
+    end
+    return routing_data.RoutingCurr == owner_id
 end
 
 --- @param mouse_pos? ImVec2
@@ -2279,8 +2696,8 @@ function ImGui.IsMouseClickedEx(button, flags, owner_id)
     end
     IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedByIsMouseClicked)) == 0)
 
-    local repeat_flag = (bit.band(flags, ImGuiInputFlags.Repeat) ~= 0)
-    local pressed = (t == 0.0) or (repeat_flag and t > g.IO.KeyRepeatDelay and ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0)
+    local is_repeat = (bit.band(flags, ImGuiInputFlags.Repeat) ~= 0)
+    local pressed = (t == 0.0) or (is_repeat and t > g.IO.KeyRepeatDelay and ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0)
 
     if not pressed then
         return false
@@ -2316,6 +2733,8 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
     local key_changed_nonchar  = false
     local text_inputted        = false
     local mouse_button_changed = 0x00
+
+    local key_changed_mask = ImBitArray(ImGuiKey.NamedKey_COUNT)
 
     local event_n = 1
     while event_n <= g.InputEventsQueue.Size do
@@ -2356,9 +2775,51 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         elseif e.Type == ImGuiInputEventType.MouseViewport then
             io.MouseHoveredViewport = e.MouseViewport.HoveredViewportID
         elseif e.Type == ImGuiInputEventType.Key then
-            -- TODO:
+            -- Trickling Rule: Stop processing queued events if we got multiple action on the same button
+            if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) ~= 0 then
+                goto CONTINUE
+            end
+
+            local key = e.Key.Key
+            IM_ASSERT(key ~= ImGuiKey.None)
+
+            -- TODO: Also gets 0-based index here, consider making key_data storage 1-based
+            local key_data, key_data_index = ImGui.GetKeyData(g, key)
+
+            if trickle_fast_inputs and key_data.Down ~= e.Key.Down and (key_changed_mask:TestBit(key_data_index + 1) or mouse_button_changed ~= 0) then
+                break
+            end
+
+            local key_is_potentially_for_char_input = IsKeyChordPotentiallyCharInput(bit.bor(ImGui.GetMergedModsFromKeys(), key))
+            if trickle_interleaved_nonchar_keys_and_text and (text_inputted and not key_is_potentially_for_char_input) then
+                break
+            end
+
+            if key_data.Down ~= e.Key.Down then
+                key_changed = true
+                key_changed_mask:SetBit(key_data_index)
+                if trickle_interleaved_nonchar_keys_and_text and not key_is_potentially_for_char_input then
+                    key_changed_nonchar = true
+                end
+            end
+
+            key_data.Down = e.Key.Down
+            key_data.AnalogValue = e.Key.AnalogValue
         elseif e.Type == ImGuiInputEventType.Text then
-            -- TODO:
+            if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) ~= 0 then
+                goto CONTINUE
+            end
+            if trickle_fast_inputs and (mouse_button_changed ~= 0 or mouse_moved or mouse_wheeled) then
+                break
+            end
+            if trickle_interleaved_nonchar_keys_and_text and key_changed_nonchar then
+                break
+            end
+            local c = e.Text.Char
+            io.InputQueueCharacters:push_back((c <= IM_UNICODE_CODEPOINT_MAX) and c or IM_UNICODE_CODEPOINT_INVALID)
+            if trickle_interleaved_nonchar_keys_and_text then
+                text_inputted = true
+            end
         elseif e.Type == ImGuiInputEventType.Focus then
             -- TODO:
         else
@@ -2377,6 +2838,114 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             g.InputEventsQueue:erase(1)
         end
     end
+end
+
+--- @param key      ImGuiKey
+--- @param owner_id ImGuiID
+--- @param flags?   ImGuiInputFlags
+function ImGui.SetKeyOwner(key, owner_id, flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui --- @cast g ImGuiContext
+    IM_ASSERT(ImGui.IsNamedKeyOrMod(key) and (owner_id ~= ImGuiKeyOwner_Any or (bit.band(flags, bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)) ~= 0)), "Can only use _Any with _LockXXX flags (to eat a key away without an ID to retrieve it)")
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedBySetKeyOwner)) == 0, "Passing flags not supported by this function!")
+
+    local owner_data = ImGui.GetKeyOwnerData(g, key)
+    owner_data.OwnerCurr = owner_id
+    owner_data.OwnerNext = owner_id
+
+    owner_data.LockUntilRelease = (bit.band(flags, ImGuiInputFlags.LockUntilRelease) ~= 0)
+    owner_data.LockThisFrame = (bit.band(flags, ImGuiInputFlags.LockThisFrame) ~= 0) or owner_data.LockUntilRelease
+end
+
+-- Rarely used helper
+--- @param key_chord ImGuiKeyChord
+--- @param owner_id  ImGuiID
+--- @param flags?    ImGuiInputFlags
+function ImGui.SetKeyOwnersForKeyChord(key_chord, owner_id, flags)
+    if flags == nil then flags = 0 end
+
+    if bit.band(key_chord, ImGuiMod_Ctrl) ~= 0 then
+        ImGui.SetKeyOwner(ImGuiMod_Ctrl, owner_id, flags)
+    end
+    if bit.band(key_chord, ImGuiMod_Shift) ~= 0 then
+        ImGui.SetKeyOwner(ImGuiMod_Shift, owner_id, flags)
+    end
+    if bit.band(key_chord, ImGuiMod_Alt) ~= 0 then
+        ImGui.SetKeyOwner(ImGuiMod_Alt, owner_id, flags)
+    end
+    if bit.band(key_chord, ImGuiMod_Super) ~= 0 then
+        ImGui.SetKeyOwner(ImGuiMod_Super, owner_id, flags)
+    end
+    if bit.band(key_chord, bit.bnot(ImGuiMod_Mask_)) ~= 0 then
+        ImGui.SetKeyOwner(bit.band(key_chord, bit.bnot(ImGuiMod_Mask_)), owner_id, flags)
+    end
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @param flags     ImGuiInputFlags
+--- @param owner_id  ImGuiID
+function ImGui.IsKeyChordPressed(key_chord, flags, owner_id)
+    local g = GImGui
+    key_chord = ImGui.FixupKeyChord(key_chord)
+    local mods = bit.band(key_chord, ImGuiMod_Mask_)
+    if g.IO.KeyMods ~= mods then
+        return false
+    end
+
+    -- Special storage location for mods
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    if key == ImGuiKey.None then
+        key = ImGui.ConvertSingleModFlagToKey(mods)
+    end
+    if not ImGui.IsKeyPressedEx(key, bit.band(flags, ImGuiInputFlags.RepeatMask_), owner_id) then
+        return false
+    end
+    return true
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @param flags     ImGuiInputFlags
+--- @param owner_id  ImGuiID
+function ImGui.Shortcut(key_chord, flags, owner_id)
+    local g = GImGui
+    -- IMGUI_DEBUG_LOG("Shortcut(%s, flags=%X, owner_id=0x%08X)", ImGui.GetKeyChordName(key_chord, g.TempBuffer.Data, g.TempBuffer.Size), flags, owner_id)
+
+    -- When using (owner_id == 0/Any): SetShortcutRouting() will use CurrentFocusScopeId and filter with this, so IsKeyPressed() is fine with he 0/Any.
+    if bit.band(flags, ImGuiInputFlags.RouteTypeMask_) == 0 then
+        flags = bit.bor(flags, ImGuiInputFlags.RouteFocused)
+    end
+
+    -- Using 'owner_id == ImGuiKeyOwner_Any/0': auto-assign an owner based on current focus scope (each window has its focus scope by default)
+    -- Effectively makes Shortcut() always input-owner aware.
+    if owner_id == ImGuiKeyOwner_Any or owner_id == ImGuiKeyOwner_NoOwner then
+        owner_id = GetRoutingIdFromOwnerId(owner_id)
+    end
+
+    if bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0 then
+        return false
+    end
+
+    -- Submit route
+    if not ImGui.SetShortcutRouting(key_chord, flags, owner_id) then
+        return false
+    end
+
+    -- Default repeat behavior for Shortcut()
+    -- So e.g. pressing Ctrl+W and releasing Ctrl while holding W will not trigger the W shortcut.
+    if bit.band(flags, ImGuiInputFlags.Repeat) ~= 0 and bit.band(flags, ImGuiInputFlags.RepeatUntilMask_) == 0 then
+        flags = bit.bor(flags, ImGuiInputFlags.RepeatUntilKeyModsChange)
+    end
+
+    if not ImGui.IsKeyChordPressed(key_chord, flags, owner_id) then
+        return false
+    end
+
+    -- Claim mods during the press
+    ImGui.SetKeyOwnersForKeyChord(bit.band(key_chord, ImGuiMod_Mask_), owner_id)
+
+    IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedByShortcut)) == 0) -- Passing flags not supported by this function!
+    return true
 end
 
 --- @param window ImGuiWindow
@@ -2830,26 +3399,29 @@ function ImGui.CalcWrapWidthForPos(pos, wrap_pos_x)
     return ImMax(wrap_pos_x - pos.x, 1.0)
 end
 
---- @param text string
+--- @param text     ImString
 --- @param text_end int?
 --- @return int # Exclusive upper bound
 function ImGui.FindRenderedTextEnd(text, text_end)
     local text_display_end = 1
+    local text_len = #text
     if not text_end then
-        text_end = #text + 1
+        text_end = text_len + 1
     end
-    while (text_display_end < text_end and text_display_end <= #text and (string.sub(text, text_display_end, text_display_end) ~= "#" or string.sub(text, text_display_end + 1, text_display_end + 1) ~= "#")) do
-        text_display_end = text_display_end + 1
-    end
+
+    text_display_end = ImMemchr(text, "##", 1) or text_end
+    text_display_end = ImMin(text_display_end, text_end)
 
     return text_display_end
 end
 
 --- @param pos                  ImVec2
 --- @param text                 string
+--- @param text_begin           int?
 --- @param text_end             int?
 --- @param hide_text_after_hash bool?  # true by default
-function ImGui.RenderText(pos, text, text_end, hide_text_after_hash)
+function ImGui.RenderText(pos, text, text_begin, text_end, hide_text_after_hash)
+    if text_begin           == nil then text_begin = 1 end
     if hide_text_after_hash == nil then hide_text_after_hash = true end
 
     local g = GImGui
@@ -2867,9 +3439,9 @@ function ImGui.RenderText(pos, text, text_end, hide_text_after_hash)
     end
 
     if text ~= "" and text_display_end > 1 then
-        window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, 1, text_display_end, 0.0)
+        window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0)
         if g.LogEnabled then
-            -- LogRenderedText(&pos, text, text_display_end);
+            -- ImGui.LogRenderedText(&pos, text, text_display_end);
         end
     end
 end
@@ -2948,7 +3520,7 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_
     local window = g.CurrentWindow
     ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, 1, text_display_end, text_size_if_known, align, clip_rect)
     -- if (g.LogEnabled)
-    --     LogRenderedText(&pos_min, text, text_display_end);
+    --     ImGui.LogRenderedText(&pos_min, text, text_display_end);
 end
 
 function ImGui.RenderNavCursor(bb, id, flags)
@@ -3565,6 +4137,134 @@ function ImGui.SetActiveIdUsingAllKeyboardKeys()
     g.ActiveIdUsingNavDirMask = (bit.lshift(1, ImGuiDir.COUNT) - 1)
     g.ActiveIdUsingAllKeyboardKeys = true
     ImGui.NavMoveRequestCancel()
+end
+
+--- @param name         string
+--- @param id           ImGuiID
+--- @param size_arg     ImVec2
+--- @param child_flags  ImGuiChildFlags
+--- @param window_flags ImGuiWindowFlags
+function ImGui.BeginChildEx(name, id, size_arg, child_flags, window_flags)
+    local g = GImGui
+    local parent_window = g.CurrentWindow
+    IM_ASSERT(id ~= 0)
+
+    -- Sanity check as it is likely that some user will accidentally pass ImGuiWindowFlags into the ImGuiChildFlags argument
+    local ImGuiChildFlags_SupportedMask_ = bit.bor(ImGuiChildFlags.Borders, ImGuiChildFlags.AlwaysUseWindowPadding, ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY, ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize, ImGuiChildFlags.FrameStyle, ImGuiChildFlags.NavFlattened)
+    -- IM_UNUSED(ImGuiChildFlags_SupportedMask_)
+    IM_ASSERT(bit.band(child_flags, bit.bnot(ImGuiChildFlags_SupportedMask_)) == 0, "Illegal ImGuiChildFlags value. Did you pass ImGuiWindowFlags values instead of ImGuiChildFlags?")
+    IM_ASSERT(bit.band(window_flags, ImGuiWindowFlags.AlwaysAutoResize) == 0, "Cannot specify ImGuiWindowFlags.AlwaysAutoResize for BeginChild(). Use ImGuiChildFlags.AlwaysAutoResize!")
+    if bit.band(child_flags, ImGuiChildFlags.AlwaysAutoResize) ~= 0 then
+        IM_ASSERT(bit.band(child_flags, bit.bor(ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY)) == 0, "Cannot use ImGuiChildFlags.ResizeX or ImGuiChildFlags.ResizeY with ImGuiChildFlags.AlwaysAutoResize!")
+        IM_ASSERT(bit.band(child_flags, bit.bor(ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AutoResizeY)) ~= 0, "Must use ImGuiChildFlags.AutoResizeX or ImGuiChildFlags.AutoResizeY with ImGuiChildFlags.AlwaysAutoResize!")
+    end
+    if bit.band(child_flags, ImGuiChildFlags.AutoResizeX) ~= 0 then
+        child_flags = bit.band(child_flags, bit.bnot(ImGuiChildFlags.ResizeX))
+    end
+    if bit.band(child_flags, ImGuiChildFlags.AutoResizeY) ~= 0 then
+        child_flags = bit.band(child_flags, bit.bnot(ImGuiChildFlags.ResizeY))
+    end
+
+    -- Set window flags
+    window_flags = bit.bor(window_flags, ImGuiWindowFlags.ChildWindow, ImGuiWindowFlags.NoTitleBar)
+    window_flags = bit.bor(window_flags, bit.band(parent_window.Flags, ImGuiWindowFlags.NoMove)) -- Inherit the NoMove flag
+    if bit.band(child_flags, bit.bor(ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize)) ~= 0 then
+        window_flags = bit.bor(window_flags, ImGuiWindowFlags.AlwaysAutoResize)
+    end
+    if bit.band(child_flags, bit.bor(ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY)) == 0 then
+        window_flags = bit.bor(window_flags, ImGuiWindowFlags.NoResize, ImGuiWindowFlags.NoSavedSettings)
+    end
+
+    -- Special framed style
+    if bit.band(child_flags, ImGuiChildFlags.FrameStyle) ~= 0 then
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, g.Style.Colors[ImGuiCol.FrameBg])
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, g.Style.FrameRounding)
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildBorderSize, g.Style.FrameBorderSize)
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, g.Style.FramePadding)
+        child_flags = bit.bor(child_flags, ImGuiChildFlags.Borders, ImGuiChildFlags.AlwaysUseWindowPadding)
+        window_flags = bit.bor(window_flags, ImGuiWindowFlags.NoMove)
+    end
+
+    -- Forward size
+    -- Important: Begin() has special processing to switch condition to ImGuiCond_FirstUseEver for a given axis when ImGuiChildFlags.ResizeXXX is set.
+    -- (the alternative would to store conditional flags per axis, which is possible but more code)
+    local size_avail = ImGui.GetContentRegionAvail()
+    local size_default = ImVec2((bit.band(child_flags, ImGuiChildFlags.AutoResizeX) ~= 0) and 0.0 or size_avail.x, (bit.band(child_flags, ImGuiChildFlags.AutoResizeY) ~= 0) and 0.0 or size_avail.y)
+    local size = ImGui.CalcItemSize(size_arg, size_default.x, size_default.y)
+
+    -- A SetNextWindowSize() call always has priority (#8020)
+    -- (since the code in Begin() never supported SizeVal==0.0f aka auto-resize via SetNextWindowSize() call, we don't support it here for now)
+    -- FIXME: We only support ImGuiCond_Always in this path. Supporting other paths would requires to obtain window pointer.
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasSize) ~= 0 and bit.band(g.NextWindowData.SizeCond, ImGuiCond.Always) ~= 0 then
+        if g.NextWindowData.SizeVal.x > 0.0 then
+            size.x = g.NextWindowData.SizeVal.x
+            child_flags = bit.band(child_flags, bit.bnot(ImGuiChildFlags.ResizeX))
+        end
+        if g.NextWindowData.SizeVal.y > 0.0 then
+            size.y = g.NextWindowData.SizeVal.y
+            child_flags = bit.band(child_flags, bit.bnot(ImGuiChildFlags.ResizeY))
+        end
+    end
+    ImGui.SetNextWindowSize(size)
+
+    -- Forward child flags (we allow prior settings to merge but it'll only work for adding flags)
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags) ~= 0 then
+        g.NextWindowData.ChildFlags = bit.bor(g.NextWindowData.ChildFlags, child_flags)
+    else
+        g.NextWindowData.ChildFlags = child_flags
+    end
+    g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags)
+
+    -- Build up name. If you need to append to a same child from multiple location in the ID stack, use BeginChild(ImGuiID id) with a stable value.
+    -- FIXME: 2023/11/14: commented out shorted version. We had an issue with multiple ### in child window path names, which the trailing hash helped workaround.
+    -- e.g. "ParentName###ParentIdentifier/ChildName###ChildIdentifier" would get hashed incorrectly by ImHashStr(), trailing _%08X somehow fixes it.
+    local temp_window_name
+    if name then
+        temp_window_name = ImFormatString("%s/%s_%08X", parent_window.Name, name, id)
+    else
+        temp_window_name = ImFormatString("%s/%08X", parent_window.Name, id)
+    end
+
+    -- Set style
+    local backup_border_size = g.Style.ChildBorderSize
+    if bit.band(child_flags, ImGuiChildFlags.Borders) == 0 then
+        g.Style.ChildBorderSize = 0.0
+    end
+
+    -- Begin into window
+    local _, ret = ImGui.Begin(temp_window_name, nil, window_flags)
+
+    -- Restore style
+    g.Style.ChildBorderSize = backup_border_size
+
+    if bit.band(child_flags, ImGuiChildFlags.FrameStyle) ~= 0 then
+        ImGui.PopStyleVar(3)
+        ImGui.PopStyleColor()
+    end
+
+    local child_window = g.CurrentWindow
+    child_window.ChildId = id
+
+    -- Set the cursor to handle case where the user called SetNextWindowPos()+BeginChild() manually.
+    -- While this is not really documented/defined, it seems that the expected thing to do.
+    if child_window.BeginCount == 1 then
+        ImVec2_Copy(parent_window.DC.CursorPos, child_window.Pos)
+    end
+
+    -- Process navigation-in immediately so NavInit can run on first frame
+    -- Can enter a child if (A) it has navigable items or (B) it can be scrolled.
+    local temp_id_for_activation = ImHashStr("##Child", nil, id)
+    if g.ActiveId == temp_id_for_activation then
+        ImGui.ClearActiveID()
+    end
+    if g.NavActivateId == id and bit.band(child_flags, ImGuiChildFlags.NavFlattened) == 0 and (child_window.DC.NavLayersActiveMask ~= 0 or child_window.DC.NavWindowHasScrollY) then
+        ImGui.FocusWindow(child_window)
+        ImGui.NavInitWindow(child_window, false)
+        ImGui.SetActiveID(temp_id_for_activation, child_window) -- Steal ActiveId with another arbitrary id so that key-press won't activate child item
+        g.ActiveIdSource = g.NavInputSource
+    end
+
+    return ret
 end
 
 --- @param window ImGuiWindow
@@ -4797,6 +5497,9 @@ function ImGui.UpdateMouseInputs()
     local g = GImGui
     local io = g.IO
 
+    -- Mouse Wheel swapping flag
+    -- As a standard behavior holding Shift while using Vertical Mouse Wheel triggers Horizontal scroll instead
+    -- - We avoid doing it on OSX as it the OS input layer handles this already
     io.MouseWheelRequestAxisSwap = io.KeyShift and not io.ConfigMacOSXBehaviors
 
     -- Round mouse position to avoid spreading non-rounded position (e.g. UpdateManualResize doesn't support them well)
@@ -4815,23 +5518,30 @@ function ImGui.UpdateMouseInputs()
         io.MouseDelta = ImVec2(0.0, 0.0)
     end
 
+    -- Update stationary timer
+    -- FIXME: May need to rework again to have some tolerance for occasional small movement, while being functional on high-framerates
     local mouse_stationary_threshold = (io.MouseSource == ImGuiMouseSource.Mouse) and 2.0 or 3.0
     local mouse_stationary = (ImLengthSqr(io.MouseDelta) <= mouse_stationary_threshold * mouse_stationary_threshold)
     g.MouseStationaryTimer = mouse_stationary and (g.MouseStationaryTimer + io.DeltaTime) or 0.0
 
+    -- If mouse moved we re-enable mouse hovering in case it was disabled by keyboard/gamepad. In theory should use a >0.0 threshold but would need to reset in everywhere we set this to true.
+    if io.MouseDelta.x ~= 0.0 or io.MouseDelta.y ~= 0.0 then
+        g.NavHighlightItemUnderNav = false
+    end
+
     for i = 0, 2 do -- IM_COUNTOF(io.MouseDown)
-        io.MouseClicked[i] = io.MouseDown[i] and (io.MouseDownDuration[i] < 0)
-        io.MouseClickedCount[i] = 0
-        io.MouseReleased[i] = not io.MouseDown[i] and (io.MouseDownDuration[i] >= 0)
+        io.MouseClicked[i] = io.MouseDown[i] and (io.MouseDownDuration[i] < 0.0)
+        io.MouseClickedCount[i] = 0 -- Will be filled below
+        io.MouseReleased[i] = not io.MouseDown[i] and (io.MouseDownDuration[i] >= 0.0)
         if (io.MouseReleased[i]) then
             io.MouseReleasedTime[i] = g.Time
         end
         io.MouseDownDurationPrev[i] = io.MouseDownDuration[i]
         if io.MouseDown[i] then
-            if io.MouseDownDuration[i] < 0 then
-                io.MouseDownDuration[i] = 0
+            if io.MouseDownDuration[i] < 0.0 then
+                io.MouseDownDuration[i] = 0.0
             else
-                io.MouseDownDuration[i] = io.MouseDownDuration[i] + 1
+                io.MouseDownDuration[i] = io.MouseDownDuration[i] + io.DeltaTime
             end
         else
             io.MouseDownDuration[i] = -1.0
@@ -5149,11 +5859,11 @@ local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
         viewport.BgFgDrawLists[drawlist_no] = draw_list
     end
 
-    if viewport.BgFgDrawListsLastFrame[drawlist_no] ~= g.FrameCount then
+    if viewport.BgFgDrawListsLastTimeActive[drawlist_no] ~= g.Time then
         draw_list:_ResetForNewFrame()
         draw_list:PushTexture(g.IO.Fonts.TexRef)
         draw_list:PushClipRect(viewport.Pos, viewport.Pos + viewport.Size, false)
-        viewport.BgFgDrawListsLastFrame[drawlist_no] = g.FrameCount
+        viewport.BgFgDrawListsLastTimeActive[drawlist_no] = g.Time
     end
 
     return draw_list
@@ -5295,7 +6005,7 @@ function ImGui.NewFrame()
     g.HoveredIdIsDisabled = false
 
     if (g.ActiveId ~= 0 and g.ActiveIdIsAlive ~= g.ActiveId and g.ActiveIdPreviousFrame == g.ActiveId) then
-        print("NewFrame(): ClearActiveID() because it isn't marked alive anymore!")
+        IMGUI_DEBUG_LOG_ACTIVEID("NewFrame(): ClearActiveID() 0x%08X because it isn't marked alive anymore!", g.ActiveId)
 
         ImGui.ClearActiveID()
     end
@@ -5377,6 +6087,11 @@ function ImGui.NewFrame()
     g.WantCaptureKeyboardNextFrame = -1
     g.WantTextInputNextFrame = -1
 
+    -- Platform IME data: reset for the frame
+    ImGuiPlatformImeData_Copy(g.PlatformImeDataPrev, g.PlatformImeData)
+    g.PlatformImeData.WantVisible = false
+    g.PlatformImeData.WantTextInput = false
+
     ImGui.UpdateMouseWheel()
 
     g.CurrentWindowStack:resize(0)
@@ -5398,11 +6113,19 @@ function ImGui.EndFrame()
     if g.FrameCountEnded == g.FrameCount then
         return
     end
-    if not g.WithinFrameScope then
-        IM_ASSERT_USER_ERROR(g.WithinFrameScope, "Forgot to call ImGui::NewFrame()?")
+    IM_ASSERT_USER_ERROR(g.WithinFrameScope, "Forgot to call ImGui::NewFrame()?")
 
-        return
+    -- Notify Platform when our Input Method Editor cursor has moved
+    local ime_data = g.PlatformImeData
+    if g.PlatformIO.Platform_SetImeDataFn ~= nil and not ImGuiPlatformImeData_Compare(ime_data, g.PlatformImeDataPrev) then
+        local viewport = ImGui.FindViewportByID(ime_data.ViewportId)
+        if viewport == nil then
+            viewport = ImGui.GetMainViewport()
+        end
+        -- IMGUI_DEBUG_LOG_IO("[io] Calling Platform_SetImeDataFn(): WantVisible: %d, InputPos (%.2f,%.2f) for Viewport 0x%08X", ime_data.WantVisible, ime_data.InputPos.x, ime_data.InputPos.y, viewport.ID)
+        g.PlatformIO.Platform_SetImeDataFn(g, viewport, ime_data)
     end
+    g.WantTextInputNextFrame = ime_data.WantTextInput
 
     g.WithinFrameScopeWithImplicitWindow = false
     if (g.CurrentWindow and g.CurrentWindow.IsFallbackWindow and g.CurrentWindow.WriteAccessed == false) then
@@ -5459,7 +6182,7 @@ function ImGui.Render()
 
     for _, viewport in g.Viewports:iter() do
         InitViewportDrawData(viewport)
-        if viewport.BgFgDrawLists[1] ~= nil then
+        if viewport.BgFgDrawLists[1] ~= nil and viewport.BgFgDrawListsLastTimeActive[1] == g.Time then
             ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], ImGui.GetBackgroundDrawList(viewport))
         end
     end
@@ -5490,7 +6213,7 @@ function ImGui.Render()
     for _, viewport in g.Viewports:iter() do
         FlattenDrawDataIntoSingleLayer(viewport.DrawDataBuilder)
 
-        if viewport.BgFgDrawLists[2] ~= nil then
+        if viewport.BgFgDrawLists[2] ~= nil and viewport.BgFgDrawListsLastTimeActive[2] == g.Time then
             ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], ImGui.GetForegroundDrawList(viewport))
         end
 
@@ -5505,12 +6228,22 @@ function ImGui.Render()
     end
 end
 
---- @param text                         string
+--- @param text                         ImString
 --- @param text_end?                    int    # Exclusive upper bound
 --- @param hide_text_after_double_hash? bool
 --- @param wrap_width?                  float
 --- @return ImVec2
 function ImGui.CalcTextSize(text, text_end, hide_text_after_double_hash, wrap_width)
+    return ImGui.CalcTextSizeEx(text, 1, text_end, hide_text_after_double_hash, wrap_width)
+end
+
+--- @param text                         ImString
+--- @param text_begin                   int
+--- @param text_end?                    int    # Exclusive upper bound
+--- @param hide_text_after_double_hash? bool
+--- @param wrap_width?                  float
+--- @return ImVec2
+function ImGui.CalcTextSizeEx(text, text_begin, text_end, hide_text_after_double_hash, wrap_width)
     if hide_text_after_double_hash == nil then hide_text_after_double_hash = false end
     if wrap_width                  == nil then wrap_width                  = -1.0  end
 
@@ -5525,10 +6258,10 @@ function ImGui.CalcTextSize(text, text_end, hide_text_after_double_hash, wrap_wi
 
     local font = g.Font
     local font_size = g.FontSize
-    if text == "" or (text_end and text_end <= 1) then
+    if text == "" or (text_end and text_end <= text_begin) then
         return ImVec2(0.0, font_size)
     end
-    local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, 1, text_display_end, nil)
+    local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, text_begin, text_display_end, nil)
 
     text_size.x = IM_TRUNC(text_size.x + 0.99999)
 
@@ -5537,7 +6270,7 @@ end
 
 function ImGui.GetDrawData()
     local g = GImGui
-    local viewport = g.Viewports:at(1)
+    local viewport = g.Viewports[1]
     return viewport.DrawDataP.Valid and viewport.DrawDataP or nil
 end
 
@@ -5556,10 +6289,27 @@ function ImGui.Shutdown()
     -- TODO:
 end
 
+--- @return string?
+function ImGui.GetClipboardText()
+    local g = GImGui
+    return g.IO.PlatformIO.Platform_GetClipboardTextFn and g.IO.PlatformIO.Platform_GetClipboardTextFn(g) or nil
+end
+
+--- @param text string
+function ImGui.SetClipboardText(text)
+    local g = GImGui
+    if g.IO.PlatformIO.Platform_SetClipboardTextFn ~= nil then
+        g.IO.PlatformIO.Platform_SetClipboardTextFn(g, text)
+    end
+end
+
 function ImGui.GetIO() return GImGui.IO end
 
 --- @return ImGuiPlatformIO
-function ImGui.GetPlatformIO() return GImGui.PlatformIO end
+function ImGui.GetPlatformIO()
+    IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui.CreateContext() and ImGui.SetCurrentContext()?")
+    return GImGui.PlatformIO
+end
 
 function ImGui.GetMouseCursor()
     local g = GImGui
@@ -5575,7 +6325,7 @@ end
 --- @param col_a ImU32
 --- @param col_b ImU32
 --- @return ImU32
-function ImAlphaBlendColors(col_a, col_b)
+function ImStd.ImAlphaBlendColors(col_a, col_b)
     local t = bit.band(bit.rshift(col_b, IM_COL32_A_SHIFT), 0xFF) / 255.0
     local r = ImLerp(bit.band(bit.rshift(col_a, IM_COL32_R_SHIFT), 0xFF), bit.band(bit.rshift(col_b, IM_COL32_R_SHIFT), 0xFF), t)
     local g = ImLerp(bit.band(bit.rshift(col_a, IM_COL32_G_SHIFT), 0xFF), bit.band(bit.rshift(col_b, IM_COL32_G_SHIFT), 0xFF), t)
@@ -5667,6 +6417,15 @@ function ImGui.ColorConvertHSVtoRGB(h, s, v)
     else -- i == 5 or default
         return v, p, q
     end
+end
+
+--- @param clip_rect    ImRect
+--- @param pos          ImVec2
+--- @param items_height float
+function ImGui.CalcClipRectVisibleItemsY(clip_rect, pos, items_height)
+    local visible_start = ImMax(ImTrunc((clip_rect.Min.y - pos.y) / items_height), 0)
+    local visible_end = ImMax(ImTrunc(ImCeil((clip_rect.Max.y - pos.y) / items_height)), visible_start)
+    return visible_start + 1, visible_end + 1
 end
 
 ---------------------------------------------------------------------------------------
@@ -6030,6 +6789,12 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
             scroll[axis] = ImMin(scroll[axis], window.ScrollMax[axis])
         end
     end
+end
+
+--- @return float
+function ImGui.GetScrollMaxY()
+    local window = GImGui.CurrentWindow
+    return window.ScrollMax.y
 end
 
 --- @param window   ImGuiWindow
@@ -6654,6 +7419,21 @@ end
 -- [SECTION] NAVIGATION
 ---------------------------------------------------------------------------------------
 
+function ImGui.SetNavCursorVisibleAfterMove()
+    local g = GImGui
+    if g.NavWindow and (bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) ~= 0) then
+        g.NavCursorVisible = false
+    elseif g.NavInputSource == ImGuiInputSource.Keyboard and (bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) == 0) then
+        g.NavCursorVisible = false
+    elseif g.NavInputSource == ImGuiInputSource.Gamepad and (bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) == 0) then
+        g.NavCursorVisible = false
+    elseif g.IO.ConfigNavCursorVisibleAuto then
+        g.NavCursorVisible = true
+    end
+    g.NavHighlightItemUnderNav = true
+    g.NavMousePosDirty = true
+end
+
 --- @param window? ImGuiWindow
 function ImGui.SetNavWindow(window)
     local g = GImGui
@@ -6664,6 +7444,11 @@ function ImGui.SetNavWindow(window)
 end
 
 function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
+
+end
+
+function ImGui.NavInitWindow(window, force_reinit)
+
 end
 
 --- @param window_type ImGuiWindowFlags
@@ -6787,15 +7572,17 @@ end
 ---------------------------------------------------------------------------------------
 
 function MT.ImGuiPlatformIO:ClearPlatformHandlers()
-    self.Platform_GetClipboardTextFn = nil; self.Platform_SetClipboardTextFn      = nil; self.Platform_OpenInShellFn             = nil; self.Platform_SetImeDataFn = nil
-    self.Platform_ClipboardUserData  = nil; self.Platform_OpenInShellUserData     = nil; self.Platform_ImeUserData               = nil
-    self.Platform_CreateWindow       = nil; self.Platform_DestroyWindow           = nil; self.Platform_ShowWindow                = nil
-    self.Platform_SetWindowPos       = nil; self.Platform_SetWindowSize           = nil
-    self.Platform_GetWindowPos       = nil; self.Platform_GetWindowSize           = nil; self.Platform_GetWindowFramebufferScale = nil
-    self.Platform_SetWindowFocus     = nil; self.Platform_GetWindowFocus          = nil; self.Platform_GetWindowMinimized        = nil
-    self.Platform_SetWindowTitle     = nil; self.Platform_SetWindowAlpha          = nil; self.Platform_UpdateWindow              = nil
-    self.Platform_RenderWindow       = nil; self.Platform_SwapBuffers             = nil; self.Platform_GetWindowDpiScale         = nil
-    self.Platform_OnChangedViewport  = nil; self.Platform_GetWindowWorkAreaInsets = nil; self.Platform_CreateVkSurface           = nil
+    self.Platform_GetClipboardTextFn = nil; self.Platform_SetClipboardTextFn = nil
+    self.Platform_ClipboardUserData  = nil
+    self.Platform_OpenInShellFn = nil; self.Platform_OpenInShellUserData = nil
+    self.Platform_SetImeDataFn = nil; self.Platform_ImeUserData = nil
+    self.Platform_CreateWindow = nil; self.Platform_DestroyWindow = nil; self.Platform_ShowWindow = nil
+    self.Platform_SetWindowPos   = nil; self.Platform_SetWindowSize  = nil
+    self.Platform_GetWindowPos   = nil; self.Platform_GetWindowSize  = nil; self.Platform_GetWindowFramebufferScale = nil
+    self.Platform_SetWindowFocus = nil; self.Platform_GetWindowFocus = nil; self.Platform_GetWindowMinimized        = nil
+    self.Platform_SetWindowTitle = nil; self.Platform_SetWindowAlpha = nil; self.Platform_UpdateWindow              = nil
+    self.Platform_RenderWindow   = nil; self.Platform_SwapBuffers    = nil; self.Platform_GetWindowDpiScale         = nil
+    self.Platform_OnChangedViewport = nil; self.Platform_GetWindowWorkAreaInsets = nil; self.Platform_CreateVkSurface = nil
 end
 
 function MT.ImGuiPlatformIO:ClearRendererHandlers()
@@ -6810,7 +7597,7 @@ end
 function ImGui.GetMainViewport()
     local g = GImGui
 
-    return g.Viewports:at(1)
+    return g.Viewports[1]
 end
 
 --- @param viewport_id ImGuiID
@@ -7027,6 +7814,7 @@ function ImGui.FindHoveredViewportFromPlatformWindowStack(mouse_platform_pos)
     return best_candidate
 end
 
+-- TODO: GC?
 function ImGui.UpdateViewportsNewFrame()
     local g = GImGui
     IM_ASSERT(g.PlatformIO.Viewports.Size <= g.Viewports.Size)
@@ -7739,7 +8527,7 @@ function ImGui.UpdatePlatformWindows()
             local title = window_for_title.Name
             local title_begin = 1
             local title_end = ImGui.FindRenderedTextEnd(title)
-            local title_hash = ImHashStr(title, nil, title_end - title_begin)
+            local title_hash = ImHashStr(title, title_end - title_begin)
             if viewport.LastNameHash ~= title_hash then
                 -- This still creates new strings
                 g.PlatformIO.Platform_SetWindowTitle(viewport, string.sub(title, title_begin, title_end - 1))
