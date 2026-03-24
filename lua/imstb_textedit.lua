@@ -42,7 +42,7 @@ STB_TEXTEDIT_K_PGDOWN    = 0x20000F -- keyboard input to move cursor down a page
 STB_TEXTEDIT_K_SHIFT     = 0x400000
 
 IMSTB_TEXTEDIT_UNDOSTATECOUNT = 99
-IMSTB_TEXTEDIT_UNDOCHARCOUNT  = 999
+local IMSTB_TEXTEDIT_UNDOCHARCOUNT  = 999
 local IMSTB_TEXTEDIT_memmove = ImStb.TEXTEDIT_memmove
 
 local stb_text_undo

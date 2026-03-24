@@ -6335,7 +6335,7 @@ end
 
 --- @param in_col  ImU32
 --- @param out_col ImVec4?
---- @return ImVec4
+--- @return ImVec4?
 function ImGui.ColorConvertU32ToFloat4(in_col, out_col)
     local s = 1.0 / 255.0
     local r = bit.band(bit.rshift(in_col, IM_COL32_R_SHIFT), 0xFF) * s
@@ -6348,7 +6348,6 @@ function ImGui.ColorConvertU32ToFloat4(in_col, out_col)
         out_col.y = g
         out_col.z = b
         out_col.w = a
-        return out_col
     else
         return ImVec4(r, g, b, a)
     end

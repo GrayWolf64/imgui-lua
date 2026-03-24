@@ -57,6 +57,10 @@ else
         ImGui_ImplGMOD.Init(viewport, true)
 
         local show_demo_window = true
+        local show_another_window = false
+
+        local f = 0.0
+        local counter = 0
 
         function viewport.PaintOver(self, w, h)
             ImGui_ImplGMOD.NewFrame()
@@ -65,6 +69,25 @@ else
 
             if show_demo_window then
                 show_demo_window = ImGui.ShowDemoWindow(show_demo_window)
+            end
+
+            -- Show a simple window that we create ourselves
+            do
+                ImGui.Begin("Hello, world!")
+
+                ImGui.Text("This is some useful text.")
+                _, show_demo_window = ImGui.Checkbox("Demo Window", show_demo_window)
+                _, show_another_window = ImGui.Checkbox("Another Window", show_another_window)
+
+                if ImGui.Button("Button") then
+                    counter = counter + 1
+                end
+                ImGui.SameLine()
+                ImGui.Text("counter = %d", counter)
+
+                ImGui.Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0 / io.Framerate, io.Framerate)
+
+                ImGui.End()
             end
 
             ImGui.EndFrame()
