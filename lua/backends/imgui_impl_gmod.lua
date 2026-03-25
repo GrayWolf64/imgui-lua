@@ -127,6 +127,7 @@ local g_TextEntryActive = false
 local g_TextEntry = vgui.Create("TextEntry")
 
 g_TextEntry:SetMouseInputEnabled(false)
+g_TextEntry:SetKeyboardInputEnabled(false)
 g_TextEntry:SetAllowNonAsciiCharacters(true)
 g_TextEntry:SetPos(0, 0)
 g_TextEntry:SetSize(1, 1)
