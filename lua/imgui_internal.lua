@@ -446,6 +446,29 @@ function ImCharIsBlankA(c) return c == 32 or c == 9 end
 --- @param c char
 function ImCharIsBlankW(c) return c == 32 or c == 9 or c == 0x3000 end
 
+--- @enum ImGuiNavMoveFlags
+ImGuiNavMoveFlags = {
+    None                  = 0,
+    LoopX                 = bit.lshift(1, 0),
+    LoopY                 = bit.lshift(1, 1),
+    WrapX                 = bit.lshift(1, 2),
+    WrapY                 = bit.lshift(1, 3),
+    AllowCurrentNavId     = bit.lshift(1, 4),
+    AlsoScoreVisibleSet   = bit.lshift(1, 5),
+    ScrollToEdgeY         = bit.lshift(1, 6),
+    Forwarded             = bit.lshift(1, 7),
+    DebugNoResult         = bit.lshift(1, 8),
+    FocusApi              = bit.lshift(1, 9),
+    IsTabbing             = bit.lshift(1, 10),
+    IsPageMove            = bit.lshift(1, 11),
+    Activate              = bit.lshift(1, 12),
+    NoSelect              = bit.lshift(1, 13),
+    NoSetNavCursorVisible = bit.lshift(1, 14),
+    NoClearActiveId       = bit.lshift(1, 15),
+}
+
+ImGuiNavMoveFlags.WrapMask_ = bit.bor(ImGuiNavMoveFlags.LoopX, ImGuiNavMoveFlags.LoopY, ImGuiNavMoveFlags.WrapX, ImGuiNavMoveFlags.WrapY)
+
 --- @enum ImGuiNavLayer
 ImGuiNavLayer = {
     Main  = 0,
@@ -1482,6 +1505,17 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         NavFocusRoute = ImVector(),
 
+        NavAnyRequest = false,
+        NavInitRequest = false,
+        NavInitRequestFromMove = false,
+        NavMoveSubmitted = false,
+        NavMoveScoringItems = false,
+        NavMoveForwardToNextFrame = false,
+        NavMoveFlags = ImGuiNavMoveFlags.None,
+        NavMoveScrollFlags = ImGuiScrollFlags.None,
+        NavMoveKeyMods = ImGuiMod_None,
+        NavMoveDir = ImGuiDir.None, NavMoveDirForDebug = ImGuiDir.None, NavMoveClipDir = ImGuiDir.None,
+
         FrameCount = -1,
 
         FrameCountEnded = -1,
@@ -1894,7 +1928,13 @@ function ImGuiWindow(ctx, name)
         FontWindowScale = 1.0,
         FontWindowScaleParents = 1.0,
 
-        HitTestHoleSize = ImVec2()
+        HitTestHoleSize = ImVec2(),
+
+        NavLastChildNavWindow = nil,
+        NavLastIds = {[0] = 0, [1] = 0}, -- FIXME: 1-based instead
+        NavRectRel = {[0] = ImRect(), [1] = ImRect()},
+        NavPreferredScoringPosRel = {[0] = ImVec2(), [1] = ImVec2()},
+        NavRootFocusScopeId = 0
     }
 
     this.DrawList = this.DrawListInst
@@ -2307,6 +2347,21 @@ ImGuiActivateFlags = {
     FromShortcut       = bit.lshift(1, 4), -- Activation requested by an item shortcut via SetNextItemShortcut() function
     FromFocusApi       = bit.lshift(1, 5)  -- Activation requested by an api request (ImGuiNavMoveFlags_FocusApi)
 }
+
+--- @enum ImGuiScrollFlags
+ImGuiScrollFlags = {
+    None               = 0,
+    KeepVisibleEdgeX   = bit.lshift(1, 0),
+    KeepVisibleEdgeY   = bit.lshift(1, 1),
+    KeepVisibleCenterX = bit.lshift(1, 2),
+    KeepVisibleCenterY = bit.lshift(1, 3),
+    AlwaysCenterX      = bit.lshift(1, 4),
+    AlwaysCenterY      = bit.lshift(1, 5),
+    NoScrollParent     = bit.lshift(1, 6),
+}
+
+ImGuiScrollFlags.MaskX_ = bit.bor(ImGuiScrollFlags.KeepVisibleEdgeX, ImGuiScrollFlags.KeepVisibleCenterX, ImGuiScrollFlags.AlwaysCenterX)
+ImGuiScrollFlags.MaskY_ = bit.bor(ImGuiScrollFlags.KeepVisibleEdgeY, ImGuiScrollFlags.KeepVisibleCenterY, ImGuiScrollFlags.AlwaysCenterY)
 
 --- @class ImGuiGroupData
 --- @field WindowID                             ImGuiID

@@ -32,6 +32,9 @@ IM_INCLUDE"imgui_widgets.lua"
 
 IM_INCLUDE"imgui_tables.lua"
 
+local IMGUI_DEBUG_NAV_SCORING = false
+local IMGUI_DEBUG_NAV_RECTS = false
+
 local FONT_DEFAULT_SIZE_BASE = 20
 
 local WINDOWS_RESIZE_FROM_EDGES_FEEDBACK_TIMER = 0.04
@@ -7446,6 +7449,14 @@ function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
 
 end
 
+function ImGui.NavUpdateAnyRequestFlag()
+    local g = GImGui
+    g.NavAnyRequest = g.NavMoveScoringItems or g.NavInitRequest or (IMGUI_DEBUG_NAV_SCORING and g.NavWindow ~= nil)
+    if g.NavAnyRequest then
+        IM_ASSERT(g.NavWindow ~= nil)
+    end
+end
+
 function ImGui.NavInitWindow(window, force_reinit)
 
 end
@@ -7541,7 +7552,36 @@ function ImGui.NavMoveRequestButNoResultYet()
 end
 
 function ImGui.NavMoveRequestCancel()
-    -- TODO:
+    local g = GImGui
+    g.NavMoveSubmitted = false
+    g.NavMoveScoringItems = false
+    ImGui.NavUpdateAnyRequestFlag()
+end
+
+--- @param move_dir     ImGuiDir
+--- @param clip_dir     ImGuiDir
+--- @param move_flags   ImGuiNavMoveFlags
+--- @param scroll_flags ImGuiScrollFlags
+function ImGui.NavMoveRequestForward(move_dir, clip_dir, move_flags, scroll_flags)
+    local g = GImGui
+    IM_ASSERT(g.NavMoveForwardToNextFrame == false)
+    ImGui.NavMoveRequestCancel()
+    g.NavMoveForwardToNextFrame = true
+    g.NavMoveDir = move_dir
+    g.NavMoveClipDir = clip_dir
+    g.NavMoveFlags = bit.bor(move_flags, ImGuiNavMoveFlags.Forwarded)
+    g.NavMoveScrollFlags = scroll_flags
+end
+
+--- @param window     ImGuiWindow
+--- @param wrap_flags ImGuiNavMoveFlags
+function ImGui.NavMoveRequestTryWrapping(window, wrap_flags)
+    local g = GImGui
+    IM_ASSERT(bit.band(wrap_flags, ImGuiNavMoveFlags.WrapMask_) ~= 0 and bit.band(wrap_flags, bit.bnot(ImGuiNavMoveFlags.WrapMask_)) == 0)
+
+    if g.NavWindow == window and g.NavMoveScoringItems and g.NavLayer == window.DC.NavLayerCurrent then
+        g.NavMoveFlags = bit.bor(bit.band(g.NavMoveFlags, bit.bnot(ImGuiNavMoveFlags.WrapMask_)), wrap_flags)
+    end
 end
 
 ---------------------------------------------------------------------------------------

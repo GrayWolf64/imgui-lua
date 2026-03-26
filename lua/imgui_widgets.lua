@@ -5708,9 +5708,25 @@ function ImGui.EndMenuBar()
 
     -- Nav: When a move request within one of our child menu failed, capture the request to navigate among our siblings
     if ImGui.NavMoveRequestButNoResultYet() and (g.NavMoveDir == ImGuiDir.Left or g.NavMoveDir == ImGuiDir.Right) and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.ChildMenu) ~= 0 then
-        -- TODO:
+        local nav_earliest_child = g.NavWindow
+        while nav_earliest_child.ParentWindow and bit.band(nav_earliest_child.ParentWindow.Flags, ImGuiWindowFlags.ChildMenu) ~= 0 do
+            nav_earliest_child = nav_earliest_child.ParentWindow
+        end
+        if nav_earliest_child.ParentWindow == window and nav_earliest_child.DC.ParentLayoutType == ImGuiLayoutType.Horizontal and bit.band(g.NavMoveFlags, ImGuiNavMoveFlags.Forwarded) == 0 then
+            local layer = ImGuiNavLayer.Menu
+            IM_ASSERT(bit.band(window.DC.NavLayersActiveMaskNext, bit.lshift(1, layer)) ~= 0)
+            ImGui.FocusWindow(window)
+            ImGui.SetNavID(window.NavLastIds[layer], layer, 0, window.NavRectRel[layer])
+            if g.NavCursorVisible then
+                g.NavCursorVisible = false
+                g.NavCursorHideFrames = 2
+            end
+            g.NavHighlightItemUnderNav = true
+            g.NavMousePosDirty = true
+            ImGui.NavMoveRequestForward(g.NavMoveDir, g.NavMoveClipDir, g.NavMoveFlags, g.NavMoveScrollFlags)
+        end
     else
-
+        ImGui.NavMoveRequestTryWrapping(window, ImGuiNavMoveFlags.WrapX)
     end
 
     ImGui.PopClipRect()
