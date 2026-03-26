@@ -7611,6 +7611,11 @@ end
 -- [SECTION] VIEWPORTS, PLATFORM WINDOWS
 ---------------------------------------------------------------------------------------
 
+function MT.ImGuiViewport:GetDebugName()
+    local viewport = self
+    return viewport.Window and viewport.Window.Name or "n/a"
+end
+
 function MT.ImGuiPlatformIO:ClearPlatformHandlers()
     self.Platform_GetClipboardTextFn = nil; self.Platform_SetClipboardTextFn = nil
     self.Platform_ClipboardUserData  = nil

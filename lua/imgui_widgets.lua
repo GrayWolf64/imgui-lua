@@ -3442,7 +3442,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local user_clicked = hovered and io.MouseClicked[0]
     local input_requested_by_nav = (g.ActiveId ~= id) and (g.NavActivateId == id) and ((bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) or (g.NavInputSource == ImGuiInputSource.Keyboard))
     local input_requested_by_reactivate = (g.InputTextReactivateId == id) -- for io.ConfigInputTextEnterKeepActive
-    local const bool input_requested_by_user = (user_clicked) or (g.ActiveId == 0 and bit.band(flags, ImGuiInputTextFlags.TempInput) ~= 0)
+    local input_requested_by_user = (user_clicked) or (g.ActiveId == 0 and bit.band(flags, ImGuiInputTextFlags.TempInput) ~= 0)
     local scrollbar_id = (is_multiline and state ~= nil) and ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y) or 0
     local user_scroll_finish = is_multiline and state ~= nil and g.ActiveId == 0 and g.ActiveIdPreviousFrame == scrollbar_id
     local user_scroll_active = is_multiline and state ~= nil and g.ActiveId == scrollbar_id
