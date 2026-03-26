@@ -5413,12 +5413,13 @@ function ImGui.UpdateAliasKey(key, v, analog_value)
 end
 
 function ImGui.GetMergedModsFromKeys()
+    local g = GImGui
     local mods = 0
 
-    if ImGui.IsKeyDown(ImGuiMod_Ctrl) then mods  = bit.bor(mods, ImGuiMod_Ctrl) end
-    if ImGui.IsKeyDown(ImGuiMod_Shift) then mods = bit.bor(mods, ImGuiMod_Shift) end
-    if ImGui.IsKeyDown(ImGuiMod_Alt) then mods   = bit.bor(mods, ImGuiMod_Alt) end
-    if ImGui.IsKeyDown(ImGuiMod_Super) then mods = bit.bor(mods, ImGuiMod_Super) end
+    if ImGui.GetKeyData(g, ImGuiMod_Ctrl).Down then mods  = bit.bor(mods, ImGuiMod_Ctrl) end
+    if ImGui.GetKeyData(g, ImGuiMod_Shift).Down then mods = bit.bor(mods, ImGuiMod_Shift) end
+    if ImGui.GetKeyData(g, ImGuiMod_Alt).Down then mods   = bit.bor(mods, ImGuiMod_Alt) end
+    if ImGui.GetKeyData(g, ImGuiMod_Super).Down then mods = bit.bor(mods, ImGuiMod_Super) end
 
     return mods
 end

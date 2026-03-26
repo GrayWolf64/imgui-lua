@@ -1942,7 +1942,7 @@ ImGuiInputTextFlags = {
 
     -- [Internal]
     Multiline            = bit.lshift(1, 26), -- For internal use by InputTextMultiline()
-    MergedItem           = bit.lshift(1, 27), -- For internal use by TempInputText(), will skip calling ItemAdd(). Require bounding-box to strictly match
+    TempInput            = bit.lshift(1, 27), -- For internal use by TempInputText(), will skip calling ItemAdd(). Require bounding-box to strictly match
     LocalizeDecimalPoint = bit.lshift(1, 28), -- For internal use by InputScalar() and TempInputScalar()
 }
 

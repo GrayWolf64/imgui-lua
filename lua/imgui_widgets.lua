@@ -3399,10 +3399,9 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         g.LastItemData.ItemFlags = item_data_backup.ItemFlags
         g.LastItemData.StatusFlags = item_data_backup.StatusFlags
     else
-        -- Support for internal ImGuiInputTextFlags.MergedItem flag, which could be redesigned as an ItemFlags if needed (with test performed in ItemAdd)
         ImGui.ItemSize(total_bb, style.FramePadding.y)
 
-        if bit.band(flags, ImGuiInputTextFlags.MergedItem) == 0 then
+        if bit.band(flags, ImGuiInputTextFlags.TempInput) == 0 then
             if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.Inputable) then
                 return false
             end
@@ -3440,10 +3439,10 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         wrap_width = ImMax(1.0, ImGui.GetContentRegionAvail().x + (draw_window.ScrollbarY and 0.0 or -g.Style.ScrollbarSize))
     end
 
-    local input_requested_by_nav = (g.ActiveId ~= id) and (g.NavActivateId == id) and ((bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) or (g.NavInputSource == ImGuiInputSource.Keyboard))
-
-    local input_requested_by_reactivate = (g.InputTextReactivateId == id) -- for io.ConfigInputTextEnterKeepActive
     local user_clicked = hovered and io.MouseClicked[0]
+    local input_requested_by_nav = (g.ActiveId ~= id) and (g.NavActivateId == id) and ((bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) or (g.NavInputSource == ImGuiInputSource.Keyboard))
+    local input_requested_by_reactivate = (g.InputTextReactivateId == id) -- for io.ConfigInputTextEnterKeepActive
+    local const bool input_requested_by_user = (user_clicked) or (g.ActiveId == 0 and bit.band(flags, ImGuiInputTextFlags.TempInput) ~= 0)
     local scrollbar_id = (is_multiline and state ~= nil) and ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y) or 0
     local user_scroll_finish = is_multiline and state ~= nil and g.ActiveId == 0 and g.ActiveIdPreviousFrame == scrollbar_id
     local user_scroll_active = is_multiline and state ~= nil and g.ActiveId == scrollbar_id
@@ -3454,7 +3453,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     local init_reload_from_user_buf = (state ~= nil and state.WantReloadUserBuf)
     local init_changed_specs = (state ~= nil and state.Stb.single_line ~= (not is_multiline)) -- state ~= nil means its our state
-    local init_make_active = (user_clicked or user_scroll_finish or input_requested_by_nav or input_requested_by_reactivate)
+    local init_make_active = (input_requested_by_user or input_requested_by_nav or input_requested_by_reactivate or user_scroll_finish)
     if init_reload_from_user_buf then
         local new_len = ImStd.ImStrlen(buf)
         IM_ASSERT(new_len + 1 <= buf_size, "Is your input buffer properly zero-terminated?")
