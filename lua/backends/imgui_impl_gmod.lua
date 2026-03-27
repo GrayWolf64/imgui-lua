@@ -163,7 +163,7 @@ do
         TextEntryTextPrev = TextEntryTextCur
     end
 
-    -- FIXME: some keys, Enter, Escape don't work, cause is in core code probably!
+    -- FIXME: ctrl+c/v doesn't work
     TextEntry.OnKeyCodeTyped = function(self, key_code)
         local io = ImGui.GetIO()
 

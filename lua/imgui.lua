@@ -2464,6 +2464,44 @@ function ImGui.GetKeyPressedAmount(key, repeat_delay, repeat_rate)
     return ImGui.CalcTypematicRepeatAmount(t - g.IO.DeltaTime, t, repeat_delay, repeat_rate)
 end
 
+--- @param rt ImGuiKeyRoutingTable
+function ImGui.UpdateKeyRoutingTable(rt)
+    local g = GImGui --[[@as ImGuiContext]]
+    rt.EntriesNext:resize(0)
+    for key = ImGuiKey.NamedKey_BEGIN, ImGuiKey.NamedKey_END - 1 do
+        local new_routing_start_idx = rt.EntriesNext.Size + 1
+        local routing_entry
+        local old_routing_idx = rt.Index[key - ImGuiKey.NamedKey_BEGIN + 1]
+        while old_routing_idx ~= -1 do
+            routing_entry = rt.Entries[old_routing_idx]
+            routing_entry.RoutingCurrScore = routing_entry.RoutingNextScore
+            routing_entry.RoutingCurr = routing_entry.RoutingNext
+            routing_entry.RoutingNext = ImGuiKeyOwner_NoOwner
+            routing_entry.RoutingNextScore = 0
+            if routing_entry.RoutingCurr == ImGuiKeyOwner_NoOwner then
+                goto CONTINUE
+            end
+            rt.EntriesNext:push_back(routing_entry)
+
+            if routing_entry.Mods == g.IO.KeyMods then
+                local owner_data = ImGui.GetKeyOwnerData(g, key)
+                if owner_data.OwnerCurr == ImGuiKeyOwner_NoOwner then
+                    owner_data.OwnerCurr = routing_entry.RoutingCurr
+                end
+            end
+
+            :: CONTINUE ::
+            old_routing_idx = routing_entry.NextEntryIndex
+        end
+
+        rt.Index[key - ImGuiKey.NamedKey_BEGIN + 1] = (new_routing_start_idx <= rt.EntriesNext.Size and new_routing_start_idx or -1)
+        for n = new_routing_start_idx, rt.EntriesNext.Size do
+            rt.EntriesNext[n].NextEntryIndex = (n + 1 <= rt.EntriesNext.Size) and (n + 1) or -1
+        end
+    end
+    rt.Entries:swap(rt.EntriesNext)
+end
+
 -- owner_id may be None/Any, but routing_id needs to be always be set, so we default to GetCurrentFocusScope()
 --- @param owner_id ImGuiID
 local function GetRoutingIdFromOwnerId(owner_id)
@@ -5496,7 +5534,7 @@ function ImGui.UpdateKeyboardInputs()
         owner_data.LockUntilRelease = owner_data.LockUntilRelease and key_data.Down  -- Clear LockUntilRelease when key is not Down anymore
     end
 
-    -- TODO: UpdateKeyRoutingTable(g.KeysRoutingTable)
+    ImGui.UpdateKeyRoutingTable(g.KeysRoutingTable)
 end
 
 function ImGui.UpdateMouseInputs()
