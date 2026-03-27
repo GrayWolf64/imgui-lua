@@ -5745,3 +5745,34 @@ function ImGui.EndMenuBar()
     window.DC.MenuBarAppending = false
     ImVec2_Copy(window.DC.CursorMaxPos, restore_cursor_max_pos)
 end
+
+--- @param label   string
+--- @param icon    string
+--- @param enabled bool
+function ImGui.BeginMenuEx(label, icon, enabled)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = GImGui
+    local style = g.Style
+    local id = window:GetID(label)
+    local menu_is_open = ImGui.IsPopupOpen(id, ImGuiPopupFlags.None)
+
+    local window_flags = bit.bor(ImGuiWindowFlags.ChildMenu, ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoMove, ImGuiWindowFlags.NoTitleBar, ImGuiWindowFlags.NoSavedSettings, ImGuiWindowFlags.NoNavFocus)
+    if bit.band(window.Flags, ImGuiWindowFlags.ChildMenu) ~= 0 then
+        window_flags = bit.bor(window_flags, ImGuiWindowFlags.ChildWindow)
+    end
+
+    if g.MenusIdSubmittedThisFrame:contains(id) then
+        if menu_is_open then
+            menu_is_open = ImGui.BeginPopupMenuEx(id, label, window_flags)
+        else
+            g.NextWindowData:ClearFlags()
+        end
+        return menu_is_open
+    end
+
+    -- TODO: MenusIdSubmittedThisFrame, BeginPopupMenuEx
+end

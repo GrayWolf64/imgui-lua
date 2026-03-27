@@ -13,6 +13,7 @@ local GMOD_StopTextInput
 local GMOD_SetTextInputArea
 local GMOD_TextInputActive
 
+local ImGui_ImplGMOD_GetBackendData
 local ImGui_ImplGMOD_UpdateTexture
 local ImGui_ImplGMOD_RenderDrawData
 local ImGui_ImplGMOD_ProcessEvent
@@ -214,7 +215,8 @@ do
     end
 end
 
-local function ImGui_ImplGMOD_GetBackendData()
+--- @return ImGui_ImplGMOD_Data?
+function ImGui_ImplGMOD_GetBackendData()
     return ImGui.GetCurrentContext() and ImGui.GetIO().BackendPlatformUserData or nil
 end
 
@@ -303,7 +305,7 @@ local function ImGui_ImplGMOD_Texture()
 end
 
 --- @class ImGui_ImplGMOD_Data
---- @field Textures            table<ITexture> # All the `ITexture` we created
+--- @field Textures            table<ITexture> # All the `ITexture` available
 --- @field TextureInUseMarkers table<bool>     # Keep the in-use status of textures
 --- @field Window              Panel
 
@@ -867,6 +869,7 @@ end
 return {
     SetupPanelHooks = ImGui_ImplGMOD_SetupPanelHooks,
 
+    GetBackendData = ImGui_ImplGMOD_GetBackendData,
     Init           = ImGui_ImplGMOD_Init,
     Shutdown       = ImGui_ImplGMOD_Shutdown,
     NewFrame       = ImGui_ImplGMOD_NewFrame,
