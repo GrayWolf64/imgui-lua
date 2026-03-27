@@ -5400,6 +5400,8 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags(mouse_pos)
     else
         io.WantCaptureMouse = (mouse_avail and (g.HoveredWindow ~= nil or mouse_any_down)) -- or has_open_popup
     end
+
+    io.WantTextInput = (g.WantTextInputNextFrame ~= -1) and (g.WantTextInputNextFrame ~= 0) or false
 end
 
 --- @param key          ImGuiKey

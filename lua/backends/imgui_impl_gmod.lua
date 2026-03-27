@@ -123,82 +123,95 @@ local function VGUI_Hook(panel, func_name, hook_func)
     end
 end
 
-local g_TextEntryActive = false
-local g_TextEntry = vgui.Create("TextEntry")
+do
+    -- TODO: there's probably a better way?
+    local KEY_WHITELIST = {
+        [KEY_ESCAPE] = true, [KEY_ENTER]    = true, [KEY_BACKSPACE] = true,
+        [KEY_DELETE] = true, [KEY_INSERT]   = true,
+        [KEY_HOME]   = true, [KEY_END]      = true,
+        [KEY_PAGEUP] = true, [KEY_PAGEDOWN] = true,
 
-g_TextEntry:SetMouseInputEnabled(false)
-g_TextEntry:SetKeyboardInputEnabled(false)
-g_TextEntry:SetAllowNonAsciiCharacters(true)
-g_TextEntry:SetPos(0, 0)
-g_TextEntry:SetSize(1, 1)
+        [KEY_Z]  = true, [KEY_X]    = true, [KEY_C]    = true, [KEY_Y]     = true,
+        [KEY_UP] = true, [KEY_LEFT] = true, [KEY_DOWN] = true, [KEY_RIGHT] = true
+    }
 
--- This disables drawing of the TextEntry entirely while keeping the IME related ui
--- which currently can only show when a game/engine text entry panel is activated and is typing?
-g_TextEntry.Paint = function() return true end
+    local TextEntryIsActive = false
+    local TextEntry = vgui.Create("TextEntry")
 
-local g_TextEntryTextPrev = ""
-local g_TextEntryTextCur
+    TextEntry:SetMouseInputEnabled(false)
+    TextEntry:SetKeyboardInputEnabled(false)
+    TextEntry:SetAllowNonAsciiCharacters(true)
+    TextEntry:SetPos(0, 0)
+    TextEntry:SetSize(1, 1)
 
--- Submit new characters
-g_TextEntry.OnTextChanged = function(self)
-    local io = ImGui.GetIO()
+    -- This disables drawing of the TextEntry entirely while keeping the IME related ui
+    -- which currently can only show when a game/engine text entry panel is activated and is typing?
+    TextEntry.Paint = function() return true end
 
-    g_TextEntryTextCur = self:GetText()
-    if #g_TextEntryTextCur > #g_TextEntryTextPrev then
-        io:AddInputCharacter(utf8.codepoint(g_TextEntryTextCur, #g_TextEntryTextPrev + 1, #g_TextEntryTextCur))
+    local TextEntryTextPrev = ""
+    local TextEntryTextCur
+
+    -- Submit new characters
+    TextEntry.OnTextChanged = function(self)
+        local io = ImGui.GetIO()
+
+        TextEntryTextCur = self:GetText()
+        if #TextEntryTextCur > #TextEntryTextPrev then
+            io:AddInputCharacter(utf8.codepoint(TextEntryTextCur, #TextEntryTextPrev + 1, #TextEntryTextCur))
+        end
+
+        TextEntryTextPrev = TextEntryTextCur
     end
 
-    g_TextEntryTextPrev = g_TextEntryTextCur
-end
+    -- FIXME: some keys, Enter, Escape don't work, cause is in core code probably!
+    TextEntry.OnKeyCodeTyped = function(self, key_code)
+        local io = ImGui.GetIO()
 
--- FIXME: temporary hardcoded oops
-g_TextEntry.OnKeyCodeTyped = function(self, key_code)
-    local io = ImGui.GetIO()
-
-    if key_code == KEY_BACKSPACE then
-        io:AddKeyEvent(ImGuiKey.Backspace, true)
+        if KEY_WHITELIST[key_code] then
+            io:AddKeyEvent(BUTTON_MAP[key_code], true)
+        end
     end
-end
 
-g_TextEntry.OnKeyCodeReleased = function(self, key_code)
-    local io = ImGui.GetIO()
+    TextEntry.OnKeyCodeReleased = function(self, key_code)
+        local io = ImGui.GetIO()
 
-    if key_code == KEY_BACKSPACE then
-        io:AddKeyEvent(ImGuiKey.Backspace, false)
+        if KEY_WHITELIST[key_code] then
+            io:AddKeyEvent(BUTTON_MAP[key_code], false)
+        end
     end
-end
 
-function GMOD_StartTextInput(window)
-    -- Everytime TextInput is started, clear the string content of it
-    g_TextEntry:SetText("")
+    function GMOD_StartTextInput(window)
+        -- Everytime TextInput is started, clear the string content of it
+        TextEntry:SetText("")
 
-    g_TextEntry:SetKeyboardInputEnabled(true)
-    g_TextEntry:RequestFocus()
-    g_TextEntryActive = true
-end
+        TextEntry:SetKeyboardInputEnabled(true)
+        TextEntry:RequestFocus()
+        TextEntryIsActive = true
+    end
 
-function GMOD_StopTextInput(window)
-    g_TextEntry:SetKeyboardInputEnabled(false)
-    g_TextEntry:KillFocus()
-    g_TextEntry:SetParent(vgui.GetWorldPanel())
-    g_TextEntry:SetPos(0, 0)
-    g_TextEntry:SetSize(1, 1)
-    g_TextEntryActive = false
-end
+    function GMOD_StopTextInput(window)
+        TextEntry:SetKeyboardInputEnabled(false)
+        TextEntry:KillFocus()
+        TextEntry:SetParent(vgui.GetWorldPanel())
+        TextEntry:SetPos(0, 0)
+        TextEntry:SetSize(1, 1)
+        TextEntryIsActive = false
+    end
 
---- @param window Panel
---- @param x      int
---- @param y      int
---- @param w      int
---- @param h      int
-function GMOD_SetTextInputArea(window, x, y, w, h)
-    g_TextEntry:SetParent(window)
-    g_TextEntry:SetPos(x, y)
-    g_TextEntry:SetSize(w, h)
-end
+    --- @param window Panel
+    --- @param x      int
+    --- @param y      int
+    --- @param w      int
+    --- @param h      int
+    function GMOD_SetTextInputArea(window, x, y, w, h)
+        TextEntry:SetParent(window)
+        TextEntry:SetPos(x, y)
+        TextEntry:SetSize(w, h)
+    end
 
-function GMOD_TextInputActive(window)
-    return g_TextEntryActive
+    function GMOD_TextInputActive(window)
+        return TextEntryIsActive
+    end
 end
 
 local function ImGui_ImplGMOD_GetBackendData()

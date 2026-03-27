@@ -1603,6 +1603,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         TooltipOverrideCount = 0,
         TooltipPreviousWindow = nil,
 
+        CurrentFocusScopeId = 0,
         CurrentItemFlags = ImGuiItemFlags.None,
 
         DisabledStackSize = 0,
