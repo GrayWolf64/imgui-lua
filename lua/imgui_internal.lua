@@ -1417,6 +1417,7 @@ end
 --- @field ColorEditSavedSat                  float                          # Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
 --- @field ColorEditSavedColor                ImU32                          # RGB value with alpha set to 0
 --- @field ColorPickerRef                     ImVec4                         # Initial/reference color at the time of opening the color picker
+--- @field MenusIdSubmittedThisFrame          ImVector<ImGuiID>
 --- @field InputTextState                     ImGuiInputTextState
 --- @field InputTextLineIndex                 ImGuiTextIndex
 --- @field InputTextDeactivatedState          ImGuiInputTextDeactivatedState
@@ -1596,6 +1597,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ColorEditSavedColor = 0,
         ColorPickerRef = ImVec4(),
 
+        MenusIdSubmittedThisFrame = ImVector(),
+
         DrawListSharedData = ImDrawListSharedData(),
 
         -- StackSizesInBeginForCurrentWindow = nil,
@@ -1639,6 +1642,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         CurrentFocusScopeId = 0,
         CurrentItemFlags = ImGuiItemFlags.None,
 
+        DisabledAlphaBackup = 0.0,
         DisabledStackSize = 0,
 
         ItemFlagsStack = ImVector(),

@@ -5746,6 +5746,20 @@ function ImGui.EndMenuBar()
     ImVec2_Copy(window.DC.CursorMaxPos, restore_cursor_max_pos)
 end
 
+local function IsRootOfOpenMenuSet()
+    local g = GImGui
+    local window = g.CurrentWindow
+    if (g.OpenPopupStack.Size <= g.BeginPopupStack.Size) or (bit.band(window.Flags, ImGuiWindowFlags.ChildMenu) ~= 0) then
+        return false
+    end
+
+    local upper_popup = g.OpenPopupStack.Data[g.BeginPopupStack.Size + 1]
+    if window.DC.NavLayerCurrent ~= upper_popup.ParentNavLayer then
+        return false
+    end
+    return upper_popup.Window and (bit.band(upper_popup.Window.Flags, ImGuiWindowFlags.ChildMenu) ~= 0) and ImGui.IsWindowChildOf(upper_popup.Window, window, true, false)
+end
+
 --- @param label   string
 --- @param icon    string
 --- @param enabled bool
@@ -5774,5 +5788,22 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         return menu_is_open
     end
 
-    -- TODO: MenusIdSubmittedThisFrame, BeginPopupMenuEx
+    g.MenusIdSubmittedThisFrame:push_back(id)
+
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+
+    local menuset_is_open = IsRootOfOpenMenuSet()
+    if menuset_is_open then
+        ImGui.PushItemFlag(ImGuiItemFlags.NoWindowHoverableCheck, true)
+    end
+
+    local popup_pos
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    ImGui.PushID(label)
+    if not enabled then
+        ImGui.BeginDisabled()
+    end
+
+    -- TODO:
 end

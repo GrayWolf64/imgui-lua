@@ -3412,7 +3412,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             end
             ImGui.ClearActiveID()
         elseif held then
-            local just_scrolled_manually_while_resizing = (g.WheelingWindow ~= nil and g.WheelingWindowScrolledFrame == g.FrameCount and ImGui.IsWindowChildOf(window, g.WheelingWindow, false))
+            local just_scrolled_manually_while_resizing = (g.WheelingWindow ~= nil and g.WheelingWindowScrolledFrame == g.FrameCount and ImGui.IsWindowChildOf(window, g.WheelingWindow, false, true))
             if g.ActiveIdIsJustActivated or just_scrolled_manually_while_resizing then
                 g.WindowResizeBorderExpectedRect = border_rect
                 g.WindowResizeRelativeMode = false
@@ -5383,6 +5383,35 @@ function ImGui.PopItemFlag()
     g.CurrentItemFlags = g.ItemFlagsStack:back()
 end
 
+--- @param disabled? bool
+function ImGui.BeginDisabled(disabled)
+    if disabled == nil then disabled = true end
+
+    local g = GImGui
+    local was_disabled = bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0
+    if not was_disabled and disabled then
+        g.DisabledAlphaBackup = g.Style.Alpha
+        g.Style.Alpha = g.Style.Alpha * g.Style.DisabledAlpha
+    end
+    if was_disabled or disabled then
+        g.CurrentItemFlags = bit.bor(g.CurrentItemFlags, ImGuiItemFlags.Disabled)
+    end
+    g.ItemFlagsStack:push_back(g.CurrentItemFlags)
+    g.DisabledStackSize = g.DisabledStackSize + 1
+end
+
+function ImGui.EndDisabled()
+    local g = GImGui
+    IM_ASSERT_USER_ERROR_RET(g.DisabledStackSize > 0, "Calling EndDisabled() too many times!")
+    g.DisabledStackSize = g.DisabledStackSize - 1
+    local was_disabled = bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0
+    g.ItemFlagsStack:pop_back()
+    g.CurrentItemFlags = g.ItemFlagsStack:back()
+    if was_disabled and bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) == 0 then
+        g.Style.Alpha = g.DisabledAlphaBackup
+    end
+end
+
 function ImGui.BeginDisabledOverrideReenable()
     local g = GImGui
     IM_ASSERT(bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0)
@@ -6067,6 +6096,8 @@ function ImGui.NewFrame()
 
     g.FrameCount = g.FrameCount + 1
     g.TooltipOverrideCount = 0
+    g.WindowsActiveCount = 0
+    g.MenusIdSubmittedThisFrame:resize(0)
 
     -- FIXME: are lines below correct and necessary
     g.FramerateSecPerFrameAccum = g.FramerateSecPerFrameAccum + (g.IO.DeltaTime - g.FramerateSecPerFrame[g.FramerateSecPerFrameIdx])
@@ -6398,6 +6429,8 @@ function ImGui.Shutdown()
         IM_ASSERT_USER_ERROR(viewport.RendererUserData == nil and viewport.PlatformUserData == nil and viewport.PlatformHandle == nil, "Backend or app forgot to call DestroyPlatformWindows()?")
     end
     -- TODO:
+
+    g.MenusIdSubmittedThisFrame:clear()
 end
 
 --- @return string?
@@ -6746,13 +6779,17 @@ end
 
 --- @param window          ImGuiWindow
 --- @param popup_hierarchy bool
-local function GetCombinedRootWindow(window, popup_hierarchy)
+--- @param dock_hierarchy  bool
+local function GetCombinedRootWindow(window, popup_hierarchy, dock_hierarchy)
     local last_window = nil
     while last_window ~= window do
         last_window = window
         window = window.RootWindow
         if popup_hierarchy then
             window = window.RootWindowPopupTree
+        end
+        if dock_hierarchy then
+            window = window.RootWindowDockTree
         end
     end
     return window
@@ -6761,8 +6798,9 @@ end
 --- @param window           ImGuiWindow
 --- @param potential_parent ImGuiWindow
 --- @param popup_hierarchy  bool
-function ImGui.IsWindowChildOf(window, potential_parent, popup_hierarchy)
-    local window_root = GetCombinedRootWindow(window, popup_hierarchy)
+--- @param dock_hierarchy   bool
+function ImGui.IsWindowChildOf(window, potential_parent, popup_hierarchy, dock_hierarchy)
+    local window_root = GetCombinedRootWindow(window, popup_hierarchy, dock_hierarchy)
     if window_root == potential_parent then
         return true
     end
@@ -7226,6 +7264,26 @@ function ImGui.BeginPopupEx(id, extra_window_flags)
         ImGui.EndPopup()
     end
     -- g.CurrentWindow.FocusRouteParentWindow = g.CurrentWindow.ParentWindowInBeginStack
+    return is_open
+end
+
+--- @param id                 ImGuiID
+--- @param label              any
+--- @param extra_window_flags ImGuiWindowFlags
+function ImGui.BeginPopupMenuEx(id, label, extra_window_flags)
+    local g = GImGui
+    if not ImGui.IsPopupOpen(id, ImGuiPopupFlags.None) then
+        g.NextWindowData:ClearFlags()
+        return false
+    end
+
+    IM_ASSERT(bit.band(extra_window_flags, ImGuiWindowFlags.ChildMenu) ~= 0)
+    local name = ImFormatString("%s###Menu_%02d", label, g.BeginMenuDepth)
+    local is_open
+    _, is_open = ImGui.Begin(name, nil, bit.bor(extra_window_flags, ImGuiWindowFlags.Popup))
+    if not is_open then
+        ImGui.EndPopup()
+    end
     return is_open
 end
 
