@@ -22,9 +22,10 @@ if gmod then
     IM_INCLUDE = include
 end
 
-local function LUA_TableConstructorWrapper(constructor, count, userdata)
+local function LUA_TableConstructorWrapper(T, start_idx, end_idx, userdata)
     local p = {}
-    for i = 1, count do p[i] = constructor() end
+    for i = 1, start_idx - 1 do p[i] = nil end
+    for i = start_idx, end_idx do p[i] = T() end
     return p
 end
 
@@ -32,13 +33,15 @@ local GImAllocatorAllocFunc = LUA_TableConstructorWrapper
 local GImAllocatorFreeFunc = function(p0, p1, p2) end
 local GImAllocatorUserData = nil
 
+-- `constructor` won't be called before `start_idx`
 --- @param constructor function
---- @param count       int
-function ImGui.MemAlloc(constructor, count)
-    local p = GImAllocatorAllocFunc(constructor, count, GImAllocatorUserData)
+--- @param start_idx   int
+--- @param end_idx     int
+function ImGui.MemAlloc(constructor, start_idx, end_idx)
+    local p = GImAllocatorAllocFunc(constructor, start_idx, end_idx, GImAllocatorUserData)
     local ctx = GImGui
     if ctx then
-        ImGui.DebugAllocHook(ctx.DebugAllocInfo, ctx.FrameCount, p, count)
+        ImGui.DebugAllocHook(ctx.DebugAllocInfo, ctx.FrameCount, p, end_idx - start_idx + 1)
     end
     return p
 end
