@@ -4129,6 +4129,7 @@ end
 --- @param wrap_width float
 --- @param flags      ImDrawTextFlags
 function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, flags)
+:: begin ::
     local x = IM_TRUNC(pos.x)
     local y = IM_TRUNC(pos.y)
     if y > clip_rect.w then
@@ -4185,6 +4186,8 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     local vtx_index = draw_list._VtxCurrentIdx
     local cmd_count = draw_list.CmdBuffer.Size
     local cpu_fine_clip = bit.band(flags, ImDrawTextFlags.CpuFineClip) ~= 0
+
+    local idx_data = draw_list.IdxBuffer.Data; local vtx_data = draw_list.VtxBuffer.Data
 
     local color_untinted = bit.bor(col, bit.bnot(IM_COL32_A_MASK))
 
@@ -4275,12 +4278,12 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                 local glyph_col = glyph.Colored and color_untinted or col
 
                 do
-                    draw_list.VtxBuffer.Data[vtx_write + 0][1].x = x1; draw_list.VtxBuffer.Data[vtx_write + 0][1].y = y1; draw_list.VtxBuffer.Data[vtx_write + 0][3] = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 0][2].x = u1; draw_list.VtxBuffer.Data[vtx_write + 0][2].y = v1;
-                    draw_list.VtxBuffer.Data[vtx_write + 1][1].x = x2; draw_list.VtxBuffer.Data[vtx_write + 1][1].y = y1; draw_list.VtxBuffer.Data[vtx_write + 1][3] = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 1][2].x = u2; draw_list.VtxBuffer.Data[vtx_write + 1][2].y = v1;
-                    draw_list.VtxBuffer.Data[vtx_write + 2][1].x = x2; draw_list.VtxBuffer.Data[vtx_write + 2][1].y = y2; draw_list.VtxBuffer.Data[vtx_write + 2][3] = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 2][2].x = u2; draw_list.VtxBuffer.Data[vtx_write + 2][2].y = v2;
-                    draw_list.VtxBuffer.Data[vtx_write + 3][1].x = x1; draw_list.VtxBuffer.Data[vtx_write + 3][1].y = y2; draw_list.VtxBuffer.Data[vtx_write + 3][3] = glyph_col; draw_list.VtxBuffer.Data[vtx_write + 3][2].x = u1; draw_list.VtxBuffer.Data[vtx_write + 3][2].y = v2;
-                    draw_list.IdxBuffer.Data[idx_write + 0] = vtx_index; draw_list.IdxBuffer.Data[idx_write + 1] = vtx_index + 1; draw_list.IdxBuffer.Data[idx_write + 2] = vtx_index + 2;
-                    draw_list.IdxBuffer.Data[idx_write + 3] = vtx_index; draw_list.IdxBuffer.Data[idx_write + 4] = vtx_index + 2; draw_list.IdxBuffer.Data[idx_write + 5] = vtx_index + 3;
+                    vtx_data[vtx_write + 0][1].x = x1; vtx_data[vtx_write + 0][1].y = y1; vtx_data[vtx_write + 0][3] = glyph_col; vtx_data[vtx_write + 0][2].x = u1; vtx_data[vtx_write + 0][2].y = v1;
+                    vtx_data[vtx_write + 1][1].x = x2; vtx_data[vtx_write + 1][1].y = y1; vtx_data[vtx_write + 1][3] = glyph_col; vtx_data[vtx_write + 1][2].x = u2; vtx_data[vtx_write + 1][2].y = v1;
+                    vtx_data[vtx_write + 2][1].x = x2; vtx_data[vtx_write + 2][1].y = y2; vtx_data[vtx_write + 2][3] = glyph_col; vtx_data[vtx_write + 2][2].x = u2; vtx_data[vtx_write + 2][2].y = v2;
+                    vtx_data[vtx_write + 3][1].x = x1; vtx_data[vtx_write + 3][1].y = y2; vtx_data[vtx_write + 3][3] = glyph_col; vtx_data[vtx_write + 3][2].x = u1; vtx_data[vtx_write + 3][2].y = v2;
+                    idx_data[idx_write + 0] = vtx_index; idx_data[idx_write + 1] = vtx_index + 1; idx_data[idx_write + 2] = vtx_index + 2;
+                    idx_data[idx_write + 3] = vtx_index; idx_data[idx_write + 4] = vtx_index + 2; idx_data[idx_write + 5] = vtx_index + 3;
                     vtx_write = vtx_write + 4
                     vtx_index = vtx_index + 4
                     idx_write = idx_write + 6
@@ -4291,6 +4294,15 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         x = x + char_width
 
         :: CONTINUE ::
+    end
+
+    -- Edge case: calling RenderText() with unloaded glyphs triggering texture change. It doesn't happen via ImGui.* calls because CalcTextSize() is always used
+    if cmd_count ~= draw_list.CmdBuffer.Size then
+        IM_ASSERT(draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].ElemCount == 0)
+        draw_list.CmdBuffer:pop_back()
+        draw_list:PrimUnreserve(idx_count_max, vtx_count_max)
+        draw_list:AddDrawCmd()
+        goto begin
     end
 
     draw_list.VtxBuffer.Size = vtx_write - 1
