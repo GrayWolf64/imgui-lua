@@ -39,6 +39,9 @@
 IM_UNICODE_CODEPOINT_INVALID = 0xFFFD
 IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 
+IM_ALLOC = ImGui.MemAlloc
+IM_FREE = ImGui.MemFree
+
 ---------------------------------------------------------------------------------------
 -- [SECTION] METATABLE MANAGEMENT
 ---------------------------------------------------------------------------------------
@@ -269,12 +272,14 @@ end
 
 local _default_constructor = function() return nil end
 
+local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and (v.Capacity + v.Capacity / 2) or 8; return (new_capacity > sz) and new_capacity or sz; end
+
 --- @param T? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T) return setmetatable({Data = {}, Size = 0, _Constructor = T or _default_constructor}, MT.ImVector) end
+function ImVector(T) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor}, MT.ImVector) end
 
-function MT.ImVector:push_back(value) self.Size = self.Size + 1 self.Data[self.Size] = value return value end
+function MT.ImVector:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self.Data[self.Size + 1] = value; self.Size = self.Size + 1; return value end
 function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0) local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
 function MT.ImVector:clear() self.Size = 0 end
 function MT.ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
@@ -287,28 +292,39 @@ function MT.ImVector:iter() return _iter, self, 0 end
 function MT.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end
 function MT.ImVector:erase_unsorted(index) IM_ASSERT(i >= 1 and i <= self.Size) local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
 function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx then return self:erase_unsorted(idx) end return false end
-function MT.ImVector:reserve(new_capacity) return end
-function MT.ImVector:reserve_discard(new_capacity) return end
+
+function MT.ImVector:reserve(new_capacity)
+    if new_capacity <= self.Capacity then return end
+    local new_data = IM_ALLOC(self._Constructor, new_capacity)
+    if self.Data then
+        ImStd.memmove(new_data, 1, self.Data, 1, self.Size)
+        IM_FREE(self, "Data")
+    end
+    self.Data = new_data
+    self.Capacity = new_capacity
+end
+
+function MT.ImVector:reserve_discard(new_capacity)
+    if new_capacity <= self.Capacity then return end
+    if self.Data then IM_FREE(self, "Data") end
+    self.Data = IM_ALLOC(self._Constructor, new_capacity)
+    self.Capacity = new_capacity
+end
+
 function MT.ImVector:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
 
 function MT.ImVector:resize(new_size, v)
-    local old_size = self.Size
-    if new_size > old_size then
-        if v ~= nil then
-            for i = old_size + 1, new_size do self.Data[i] = v end
-        else
-            local new = self._Constructor
-            if new ~= _default_constructor then
-                for i = old_size + 1, new_size do self.Data[i] = new() end
-            end
-        end
+    if new_size > self.Capacity then self:reserve(_grow_capacity(self, new_size)) end
+    if v ~= nil and new_size > self.Size then
+        local data = self.Data
+        for n = self.Size + 1, new_size do data[n] = v end
     end
     self.Size = new_size
 end
 
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size self.Data, other.Data = other.Data, self.Data end
 function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end end return false end
-function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1) for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
+function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1); if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
 
 --- @nodiscard
 function MT.ImVector:copy() local other = ImVector() other.Size = self.Size for i = 1, self.Size do other.Data[i] = self.Data[i] end return other end
@@ -1954,3 +1970,6 @@ function ImGuiInputTextCallbackData()
 end
 
 --- @alias ImGuiInputTextCallback fun(data: ImGuiInputTextCallbackData)
+
+--- @alias ImGuiMemAllocFunc fun(T: function, count: int, userdata: any): table
+--- @alias ImGuiMemFreeFunc fun(owner: table, field: string, userdata: any)

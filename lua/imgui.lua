@@ -22,6 +22,64 @@ if gmod then
     IM_INCLUDE = include
 end
 
+local function LUA_TableConstructorWrapper(constructor, count, userdata)
+    local p = {}
+    for i = 1, count do p[i] = constructor() end
+    return p
+end
+
+local GImAllocatorAllocFunc = LUA_TableConstructorWrapper
+local GImAllocatorFreeFunc = function(p0, p1, p2) end
+local GImAllocatorUserData = nil
+
+--- @param constructor function
+--- @param count       int
+function ImGui.MemAlloc(constructor, count)
+    local p = GImAllocatorAllocFunc(constructor, count, GImAllocatorUserData)
+    local ctx = GImGui
+    if ctx then
+        ImGui.DebugAllocHook(ctx.DebugAllocInfo, ctx.FrameCount, p, count)
+    end
+    return p
+end
+
+-- This does not set `owner[field]` to nil!
+--- @param owner table
+--- @param field string
+function ImGui.MemFree(owner, field)
+    if owner ~= nil then
+        local ctx = GImGui
+        if ctx then
+            ImGui.DebugAllocHook(ctx.DebugAllocInfo, ctx.FrameCount, owner, -1)
+        end
+    end
+    return GImAllocatorFreeFunc(owner, field, GImAllocatorUserData)
+end
+
+--- @param info        ImGuiDebugAllocInfo
+--- @param frame_count int
+--- @param ptr         table
+--- @param size        size_t
+function ImGui.DebugAllocHook(info, frame_count, ptr, size)
+    local entry = info.LastEntriesBuf[info.LastEntriesIdx]
+    if entry.FrameCount ~= frame_count then
+        info.LastEntriesIdx = info.LastEntriesIdx % (#info.LastEntriesBuf)
+        entry = info.LastEntriesBuf[info.LastEntriesIdx]
+        entry.FrameCount = frame_count
+        entry.AllocCount = 0
+        entry.FreeCount = 0
+    end
+    if size ~= -1 then
+        -- print(string.format("[%05d] MemAlloc(%d) -> %p", frame_count, size, ptr))
+        entry.AllocCount = entry.AllocCount + 1
+        info.TotalAllocCount = info.TotalAllocCount + 1
+    else
+        -- print(string.format("[%05d] MemFree(%p)", frame_count, ptr))
+        entry.FreeCount = entry.FreeCount + 1
+        info.TotalFreeCount = info.TotalFreeCount + 1
+    end
+end
+
 IM_INCLUDE"imgui_h.lua"
 
 IM_INCLUDE"imgui_internal.lua"
@@ -686,6 +744,15 @@ function ImGui.SetCurrentContext(ctx)
     ImGui._SetCurrentContext_Internal(ctx)
     ImGui._SetCurrentContext_Widgets(ctx)
     ImGui._SetCurrentContext_Tables(ctx)
+end
+
+--- @param alloc_func ImGuiMemAllocFunc
+--- @param free_func  ImGuiMemFreeFunc
+--- @param user_data  any
+function ImGui.SetAllocatorFunctions(alloc_func, free_func, user_data)
+    GImAllocatorAllocFunc = alloc_func
+    GImAllocatorFreeFunc = free_func
+    GImAllocatorUserData = user_data
 end
 
 --- @param key  ImGuiLocKey

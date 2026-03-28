@@ -3430,7 +3430,11 @@ function MT.ImDrawList:PrimRectUV(a, c, uv_a, uv_c, col)
     self._IdxWritePtr   = idx_write_ptr + 6
 end
 
--- TODO: fix this
+--- @param points       ImVec2[]
+--- @param points_count int
+--- @param col          ImU32
+--- @param flags        ImDrawFlags
+--- @param thickness    float
 function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     if points_count < 2 or bit.band(col, IM_COL32_A_MASK) == 0 then
         return
@@ -3438,7 +3442,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 
     local closed = bit.band(flags, ImDrawFlags.Closed) ~= 0
     local opaque_uv = self._Data.TexUvWhitePixel
-    local count = closed and points_count or points_count - 1  -- Number of line segments
+    local count = closed and points_count or points_count - 1 -- Number of line segments
     local thick_line = thickness > self._FringeScale
 
     if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
@@ -3454,7 +3458,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         -- Do we want to draw this line using a texture?
         local use_texture = bit.band(self.Flags, ImDrawListFlags.AntiAliasedLinesUseTex) ~= 0 and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX and fractional_thickness <= 0.00001 and AA_SIZE == 1.0
 
-        IM_ASSERT_PARANOID((not use_texture) or bit.band(self._Data.Font.OwnerAtlas.Flags, ImFontAtlasFlags_NoBakedLines) == 0)
+        IM_ASSERT_PARANOID((not use_texture) or bit.band(self._Data.Font.OwnerAtlas.Flags, ImFontAtlasFlags.NoBakedLines) == 0)
 
         local idx_count = use_texture and (count * 6) or (thick_line and count * 18 or count * 12)
         local vtx_count = use_texture and (points_count * 2) or (thick_line and points_count * 4 or points_count * 3)
@@ -3464,9 +3468,9 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local temp_buffer_size = points_count * ((use_texture or not thick_line) and 3 or 5)
         self._Data.TempBuffer:reserve_discard(temp_buffer_size)
         local temp_normals = self._Data.TempBuffer.Data
-        local temp_points = {}  -- Will be calculated
+        local temp_points = self._Data.TempBuffer.Data; local temp_points_start = points_count + 1
 
-        -- Calculate normals (tangents) for each line segment
+        -- Calculate normals for each line segment
         for i1 = 1, count do
             local i2 = (i1 == points_count) and 1 or i1 + 1
             local p1 = points[i1]
@@ -3474,7 +3478,8 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             local dx = p2.x - p1.x
             local dy = p2.y - p1.y
             dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
-            temp_normals[i1] = ImVec2(dy, -dx)
+            temp_normals[i1].x = dy
+            temp_normals[i1].y = -dx
         end
         if not closed then
             temp_normals[points_count] = temp_normals[points_count - 1]
@@ -3485,15 +3490,13 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             -- [PATH 1] Texture-based lines (thick or non-thick)
             -- [PATH 2] Non texture-based lines (non-thick)
             local half_draw_size = use_texture and (thickness * 0.5 + 1) or AA_SIZE
-            temp_points = {}
 
             -- If line is not closed, the first and last points need to be generated differently
             if not closed then
-                temp_points[1] = points[1] + temp_normals[1] * half_draw_size
-                temp_points[2] = points[1] - temp_normals[1] * half_draw_size
-                local last_idx = (points_count - 1) * 2
-                temp_points[last_idx + 1] = points[points_count] + temp_normals[points_count] * half_draw_size
-                temp_points[last_idx + 2] = points[points_count] - temp_normals[points_count] * half_draw_size
+                temp_points[temp_points_start + 0] = points[1] + temp_normals[1] * half_draw_size
+                temp_points[temp_points_start + 1] = points[1] - temp_normals[1] * half_draw_size
+                temp_points[temp_points_start + (points_count - 1) * 2 + 0] = points[points_count] + temp_normals[points_count] * half_draw_size
+                temp_points[temp_points_start + (points_count - 1) * 2 + 1] = points[points_count] - temp_normals[points_count] * half_draw_size
             end
 
             -- Generate indices and vertices
@@ -3503,44 +3506,32 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + (use_texture and 2 or 3))
 
                 -- Average normals
-                local n1 = temp_normals[i1]
-                local n2 = temp_normals[i2]
-                local dm_x = (n1.x + n2.x) * 0.5
-                local dm_y = (n1.y + n2.y) * 0.5
+                local dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5
+                local dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5
                 dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
                 dm_x = dm_x * half_draw_size
                 dm_y = dm_y * half_draw_size
 
                 -- Add temporary vertices for the outer edges
-                local out_idx = i2 * 2
-                temp_points[out_idx - 1] = ImVec2(points[i2].x + dm_x, points[i2].y + dm_y)
-                temp_points[out_idx] = ImVec2(points[i2].x - dm_x, points[i2].y - dm_y)
+                local out_off = (i2 - 1) * 2
+                temp_points[temp_points_start + out_off + 0].x = points[i2].x + dm_x
+                temp_points[temp_points_start + out_off + 0].y = points[i2].y + dm_y
+                temp_points[temp_points_start + out_off + 1].x = points[i2].x - dm_x
+                temp_points[temp_points_start + out_off + 1].y = points[i2].y - dm_y
 
                 if use_texture then
                     -- Add indices for two triangles
                     local idx_write_ptr = self._IdxWritePtr
-                    self.IdxBuffer.Data[idx_write_ptr] = idx2
-                    self.IdxBuffer.Data[idx_write_ptr + 1] = idx1
-                    self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 1
-                    self.IdxBuffer.Data[idx_write_ptr + 3] = idx2 + 1
-                    self.IdxBuffer.Data[idx_write_ptr + 4] = idx1 + 1
-                    self.IdxBuffer.Data[idx_write_ptr + 5] = idx2
+                    self.IdxBuffer.Data[idx_write_ptr + 0] = idx2 + 0; self.IdxBuffer.Data[idx_write_ptr + 1] = idx1 + 0; self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 1
+                    self.IdxBuffer.Data[idx_write_ptr + 3] = idx2 + 1; self.IdxBuffer.Data[idx_write_ptr + 4] = idx1 + 1; self.IdxBuffer.Data[idx_write_ptr + 5] = idx2 + 0
                     self._IdxWritePtr = idx_write_ptr + 6
                 else
                     -- Add indices for four triangles
                     local idx_write_ptr = self._IdxWritePtr
-                    self.IdxBuffer.Data[idx_write_ptr] = idx2
-                    self.IdxBuffer.Data[idx_write_ptr + 1] = idx1
-                    self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 2
-                    self.IdxBuffer.Data[idx_write_ptr + 3] = idx1 + 2
-                    self.IdxBuffer.Data[idx_write_ptr + 4] = idx2 + 2
-                    self.IdxBuffer.Data[idx_write_ptr + 5] = idx2
-                    self.IdxBuffer.Data[idx_write_ptr + 6] = idx2 + 1
-                    self.IdxBuffer.Data[idx_write_ptr + 7] = idx1 + 1
-                    self.IdxBuffer.Data[idx_write_ptr + 8] = idx1
-                    self.IdxBuffer.Data[idx_write_ptr + 9] = idx1
-                    self.IdxBuffer.Data[idx_write_ptr + 10] = idx2
-                    self.IdxBuffer.Data[idx_write_ptr + 11] = idx2 + 1
+                    self.IdxBuffer.Data[idx_write_ptr + 0] = idx2 + 0; self.IdxBuffer.Data[idx_write_ptr + 1] = idx1 + 0; self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 2
+                    self.IdxBuffer.Data[idx_write_ptr + 3] = idx1 + 2; self.IdxBuffer.Data[idx_write_ptr + 4] = idx2 + 2; self.IdxBuffer.Data[idx_write_ptr + 5] = idx2 + 0
+                    self.IdxBuffer.Data[idx_write_ptr + 6] = idx2 + 1; self.IdxBuffer.Data[idx_write_ptr + 7] = idx1 + 1; self.IdxBuffer.Data[idx_write_ptr + 8] = idx1 + 0
+                    self.IdxBuffer.Data[idx_write_ptr + 9] = idx1 + 0; self.IdxBuffer.Data[idx_write_ptr + 10] = idx2 + 0; self.IdxBuffer.Data[idx_write_ptr + 11] = idx2 + 1
                     self._IdxWritePtr = idx_write_ptr + 12
                 end
 
@@ -3550,64 +3541,40 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             -- Add vertices
             if use_texture then
                 -- Texture-based: need to implement TexUvLines lookup
-                local tex_uvs = self._Data.TexUvLines[integer_thickness] or ImVec4(0, 0, 1, 1)
+                local tex_uvs = self._Data.TexUvLines[integer_thickness + 1]
                 local tex_uv0 = ImVec2(tex_uvs.x, tex_uvs.y)
                 local tex_uv1 = ImVec2(tex_uvs.z, tex_uvs.w)
-                for i = 1, points_count do
+                for i = 0, points_count - 1 do
                     local vtx_write_ptr = self._VtxWritePtr
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][1], temp_points[i * 2 - 1])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], tex_uv0)
-                    self.VtxBuffer.Data[vtx_write_ptr][3] = col
-
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[i * 2])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], tex_uv1)
-                    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
-
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], temp_points[temp_points_start + i * 2 + 0]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], tex_uv0); self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[temp_points_start + i * 2 + 1]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], tex_uv1); self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
                     self._VtxWritePtr = vtx_write_ptr + 2
                 end
             else
-                -- Non-texture: center vertex plus two outer vertices
-                for i = 1, points_count do
+                -- If we're not using a texture, we need the center vertex as well
+                for i = 0, points_count - 1 do
                     local vtx_write_ptr = self._VtxWritePtr
-
-                    -- Center of line
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][1], points[i])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], opaque_uv)
-                    self.VtxBuffer.Data[vtx_write_ptr][3] = col
-
-                    -- Left outer edge
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[i * 2 - 1])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv)
-                    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col_trans
-
-                    -- Right outer edge
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], temp_points[i * 2])
-                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv)
-                    self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col_trans
-
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], points[i + 1]);                              ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[temp_points_start + i * 2 + 0]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col_trans
+                    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], temp_points[temp_points_start + i * 2 + 1]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col_trans
                     self._VtxWritePtr = vtx_write_ptr + 3
                 end
             end
         else
             -- [PATH 3] Non texture-based lines (thick)
             local half_inner_thickness = (thickness - AA_SIZE) * 0.5
-            temp_points = {}
 
             -- If line is not closed, handle first and last points
             if not closed then
-                local last_idx = (points_count - 1) * 4
-                local n1 = temp_normals[1]
-                local n_last = temp_normals[points_count]
-
-                temp_points[1] = points[1] + n1 * (half_inner_thickness + AA_SIZE)
-                temp_points[2] = points[1] + n1 * half_inner_thickness
-                temp_points[3] = points[1] - n1 * half_inner_thickness
-                temp_points[4] = points[1] - n1 * (half_inner_thickness + AA_SIZE)
-
-                temp_points[last_idx + 1] = points[points_count] + n_last * (half_inner_thickness + AA_SIZE)
-                temp_points[last_idx + 2] = points[points_count] + n_last * half_inner_thickness
-                temp_points[last_idx + 3] = points[points_count] - n_last * half_inner_thickness
-                temp_points[last_idx + 4] = points[points_count] - n_last * (half_inner_thickness + AA_SIZE)
+                local points_last = points_count - 1
+                temp_points[temp_points_start + 0] = points[1] + temp_normals[1] * (half_inner_thickness + AA_SIZE)
+                temp_points[temp_points_start + 1] = points[1] + temp_normals[1] * half_inner_thickness
+                temp_points[temp_points_start + 2] = points[1] - temp_normals[1] * half_inner_thickness
+                temp_points[temp_points_start + 3] = points[1] - temp_normals[1] * (half_inner_thickness + AA_SIZE)
+                temp_points[temp_points_start + points_last * 4 + 0] = points[points_count] + temp_normals[points_last + 1] * (half_inner_thickness + AA_SIZE)
+                temp_points[temp_points_start + points_last * 4 + 1] = points[points_count] + temp_normals[points_last + 1] * half_inner_thickness
+                temp_points[temp_points_start + points_last * 4 + 2] = points[points_count] - temp_normals[points_last + 1] * half_inner_thickness
+                temp_points[temp_points_start + points_last * 4 + 3] = points[points_count] - temp_normals[points_last + 1] * (half_inner_thickness + AA_SIZE)
             end
 
             -- Generate indices and vertices
@@ -3617,10 +3584,8 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + 4)
 
                 -- Average normals
-                local n1 = temp_normals[i1]
-                local n2 = temp_normals[i2]
-                local dm_x = (n1.x + n2.x) * 0.5
-                local dm_y = (n1.y + n2.y) * 0.5
+                local dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5
+                local dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5
                 dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
                 local dm_out_x = dm_x * (half_inner_thickness + AA_SIZE)
                 local dm_out_y = dm_y * (half_inner_thickness + AA_SIZE)
@@ -3628,16 +3593,19 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local dm_in_y = dm_y * half_inner_thickness
 
                 -- Add temporary vertices
-                local out_idx = i2 * 4 - 3
-                temp_points[out_idx] = ImVec2(points[i2].x + dm_out_x, points[i2].y + dm_out_y)
-                temp_points[out_idx + 1] = ImVec2(points[i2].x + dm_in_x, points[i2].y + dm_in_y)
-                temp_points[out_idx + 2] = ImVec2(points[i2].x - dm_in_x, points[i2].y - dm_in_y)
-                temp_points[out_idx + 3] = ImVec2(points[i2].x - dm_out_x, points[i2].y - dm_out_y)
+                local out_off = (i2 - 1) * 4
+                temp_points[temp_points_start + out_off + 0].x = points[i2].x + dm_out_x
+                temp_points[temp_points_start + out_off + 0].y = points[i2].y + dm_out_y
+                temp_points[temp_points_start + out_off + 1].x = points[i2].x + dm_in_x
+                temp_points[temp_points_start + out_off + 1].y = points[i2].y + dm_in_y
+                temp_points[temp_points_start + out_off + 2].x = points[i2].x - dm_in_x
+                temp_points[temp_points_start + out_off + 2].y = points[i2].y - dm_in_y
+                temp_points[temp_points_start + out_off + 3].x = points[i2].x - dm_out_x
+                temp_points[temp_points_start + out_off + 3].y = points[i2].y - dm_out_y
 
-                -- Add indices (18 per segment)
+                -- Add indices
                 local idx_write_ptr = self._IdxWritePtr
-                local base = 1
-                self.IdxBuffer.Data[idx_write_ptr] = idx2 + 1; self.IdxBuffer.Data[idx_write_ptr + 1] = idx1 + 1; self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 2
+                self.IdxBuffer.Data[idx_write_ptr + 0] = idx2 + 1; self.IdxBuffer.Data[idx_write_ptr + 1] = idx1 + 1; self.IdxBuffer.Data[idx_write_ptr + 2] = idx1 + 2
                 self.IdxBuffer.Data[idx_write_ptr + 3] = idx1 + 2; self.IdxBuffer.Data[idx_write_ptr + 4] = idx2 + 2; self.IdxBuffer.Data[idx_write_ptr + 5] = idx2 + 1
                 self.IdxBuffer.Data[idx_write_ptr + 6] = idx2 + 1; self.IdxBuffer.Data[idx_write_ptr + 7] = idx1 + 1; self.IdxBuffer.Data[idx_write_ptr + 8] = idx1 + 0
                 self.IdxBuffer.Data[idx_write_ptr + 9] = idx1 + 0; self.IdxBuffer.Data[idx_write_ptr + 10] = idx2 + 0; self.IdxBuffer.Data[idx_write_ptr + 11] = idx2 + 1
@@ -3649,26 +3617,12 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             end
 
             -- Add vertices
-            for i = 1, points_count do
+            for i = 0, points_count - 1 do
                 local vtx_write_ptr = self._VtxWritePtr
-                local base = i * 4 - 3
-
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][1], temp_points[base])
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], opaque_uv)
-                self.VtxBuffer.Data[vtx_write_ptr][3] = col_trans
-
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[base + 1])
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv)
-                self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
-
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], temp_points[base + 2])
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv)
-                self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
-
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], temp_points[base + 3])
-                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], opaque_uv)
-                self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col_trans
-
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], temp_points[temp_points_start + i * 4 + 0]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col_trans
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], temp_points[temp_points_start + i * 4 + 1]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], temp_points[temp_points_start + i * 4 + 2]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
+                ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], temp_points[temp_points_start + i * 4 + 3]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col_trans
                 self._VtxWritePtr = vtx_write_ptr + 4
             end
         end
@@ -3679,7 +3633,6 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
         local vtx_count = count * 4
         self:PrimReserve(idx_count, vtx_count)
 
-        local base_idx = self._VtxCurrentIdx
         for i1 = 1, count do
             local i2 = (i1 == points_count) and 1 or i1 + 1
             local p1 = points[i1]
@@ -3691,44 +3644,19 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             dx = dx * (thickness * 0.5)
             dy = dy * (thickness * 0.5)
 
-            -- Add vertices for this segment
             local vtx_write_ptr = self._VtxWritePtr
-            self.VtxBuffer.Data[vtx_write_ptr][1].x = p1.x + dy
-            self.VtxBuffer.Data[vtx_write_ptr][1].y = p1.y - dx
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], opaque_uv)
-            self.VtxBuffer.Data[vtx_write_ptr][3] = col
-
-            self.VtxBuffer.Data[vtx_write_ptr + 1][1].x = p2.x + dy
-            self.VtxBuffer.Data[vtx_write_ptr + 1][1].y = p2.y - dx
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv)
-            self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
-
-            self.VtxBuffer.Data[vtx_write_ptr + 2][1].x = p2.x - dy
-            self.VtxBuffer.Data[vtx_write_ptr + 2][1].y = p2.y + dx
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv)
-            self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
-
-            self.VtxBuffer.Data[vtx_write_ptr + 3][1].x = p1.x - dy
-            self.VtxBuffer.Data[vtx_write_ptr + 3][1].y = p1.y + dx
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], opaque_uv)
-            self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
-
+            self.VtxBuffer.Data[vtx_write_ptr + 0][1].x = p1.x + dy; self.VtxBuffer.Data[vtx_write_ptr + 0][1].y = p1.y - dx; ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
+            self.VtxBuffer.Data[vtx_write_ptr + 1][1].x = p2.x + dy; self.VtxBuffer.Data[vtx_write_ptr + 1][1].y = p2.y - dx; ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
+            self.VtxBuffer.Data[vtx_write_ptr + 2][1].x = p2.x - dy; self.VtxBuffer.Data[vtx_write_ptr + 2][1].y = p2.y + dx; ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
+            self.VtxBuffer.Data[vtx_write_ptr + 3][1].x = p1.x - dy; self.VtxBuffer.Data[vtx_write_ptr + 3][1].y = p1.y + dx; ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], opaque_uv); self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
             self._VtxWritePtr = vtx_write_ptr + 4
 
-            -- Add indices for two triangles
             local idx_write_ptr = self._IdxWritePtr
-            self.IdxBuffer.Data[idx_write_ptr] = base_idx
-            self.IdxBuffer.Data[idx_write_ptr + 1] = base_idx + 1
-            self.IdxBuffer.Data[idx_write_ptr + 2] = base_idx + 2
-            self.IdxBuffer.Data[idx_write_ptr + 3] = base_idx
-            self.IdxBuffer.Data[idx_write_ptr + 4] = base_idx + 2
-            self.IdxBuffer.Data[idx_write_ptr + 5] = base_idx + 3
+            self.IdxBuffer.Data[idx_write_ptr + 0] = self._VtxCurrentIdx + 0; self.IdxBuffer.Data[idx_write_ptr + 1] = self._VtxCurrentIdx + 1; self.IdxBuffer.Data[idx_write_ptr + 2] = self._VtxCurrentIdx + 2
+            self.IdxBuffer.Data[idx_write_ptr + 3] = self._VtxCurrentIdx + 0; self.IdxBuffer.Data[idx_write_ptr + 4] = self._VtxCurrentIdx + 2; self.IdxBuffer.Data[idx_write_ptr + 5] = self._VtxCurrentIdx + 3
             self._IdxWritePtr = idx_write_ptr + 6
-
-            base_idx = base_idx + 4
+            self._VtxCurrentIdx = self._VtxCurrentIdx + 4
         end
-
-        self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
     end
 end
 

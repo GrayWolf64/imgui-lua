@@ -785,7 +785,7 @@ function ImDrawListSharedData()
 
         InitialFlags          = 0,
         ClipRectFullscreen    = nil,
-        TempBuffer            = ImVector(),
+        TempBuffer            = ImVector(ImVec2),
         DrawLists             = ImVector(),
 
         ArcFastVtx          = {},
@@ -1356,6 +1356,38 @@ local function ImGuiTextIndex()
     }, _ImGuiTextIndex)
 end
 
+--- @class ImGuiDebugAllocEntry
+--- @field FrameCount int
+--- @field AllocCount int
+--- @field FreeCount  int
+
+--- @return ImGuiDebugAllocEntry
+local function ImGuiDebugAllocEntry()
+    return { FrameCount = 0, AllocCount = 0, FreeCount = 0 }
+end
+
+--- @class ImGuiDebugAllocInfo
+--- @field TotalAllocCount int
+--- @field TotalFreeCount  int
+--- @field LastEntriesIdx  ImS16
+--- @field LastEntriesBuf  ImGuiDebugAllocEntry[]
+
+--- @return ImGuiDebugAllocInfo
+local function ImGuiDebugAllocInfo()
+    local this = {
+        TotalAllocCount = 0,
+        TotalFreeCount = 0,
+        LastEntriesIdx = 1,
+        LastEntriesBuf = {nil, nil, nil, nil, nil, nil}
+    }
+
+    for i = 1, 6 do
+        this.LastEntriesBuf[i] = ImGuiDebugAllocEntry()
+    end
+
+    return this
+end
+
 --- @class ImGuiContext
 --- @field Initialized                        bool
 --- @field WithinFrameScope                   bool
@@ -1395,6 +1427,7 @@ end
 --- @field NavFocusRoute                      ImVector<ImGuiFocusScopeData>
 --- @field PlatformImeData                    ImGuiPlatformImeData
 --- @field PlatformImeDataPrev                ImGuiPlatformImeData
+--- @field DebugAllocInfo                     ImGuiDebugAllocInfo
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1632,6 +1665,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         DebugLogFlags = bit.bor(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
         DebugFlashStyleColorIdx = nil,
+
+        DebugAllocInfo = ImGuiDebugAllocInfo()
     }
 
     for i = 0, 59 do this.FramerateSecPerFrame[i] = 0 end
