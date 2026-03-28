@@ -578,7 +578,10 @@ function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (s
 function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
 function MT.ImRect:GetHeight() return self.Max.y - self.Min.y end
 function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
+function MT.ImRect:GetTL() return ImVec2(self.Min.x, self.Min.y) end
+function MT.ImRect:GetTR() return ImVec2(self.Max.x, self.Min.y) end
 function MT.ImRect:GetBL() return ImVec2(self.Min.x, self.Max.y) end
+function MT.ImRect:GetBR() return ImVec2(self.Max.x, self.Max.y) end
 
 --- @param r ImRect|ImVec4
 function MT.ImRect:ClipWith(r)
@@ -1147,8 +1150,6 @@ function ImGuiStyle()
         HoverDelayShort = 0.15,
         HoverDelayNormal = 0.40,
 
-        PopupBorderSize = 1.0,
-
         Colors = {},
 
         ButtonTextAlign = ImVec2(0.5, 0.5),
@@ -1157,6 +1158,10 @@ function ImGuiStyle()
         WindowMinSize = ImVec2(32, 32),
         WindowTitleAlign = ImVec2(0.0, 0.5),
         WindowMenuButtonPosition = ImGuiDir.Left,
+        ChildRounding = 0.0,
+        ChildBorderSize = 1.0,
+        PopupRounding = 0.0,
+        PopupBorderSize = 1.0,
 
         MouseCursorScale = 1.0,
 
@@ -1721,6 +1726,32 @@ function MT.ImGuiWindowSettings:GetName()
     return self.Name
 end
 
+--- @class ImGuiMenuColumns
+--- @field TotalWidth     ImU32
+--- @field NextTotalWidth ImU32
+--- @field Spacing        ImU16
+--- @field OffsetIcon     ImU16   # Always zero for now
+--- @field OffsetLabel    ImU16   # Offsets are locked in Update()
+--- @field OffsetShortcut ImU16
+--- @field OffsetMark     ImU16
+--- @field Widths         ImU16[] # Width of: Icon, Label, Shortcut, Mark (accumulators for current frame)
+MT.ImGuiMenuColumns = {}
+MT.ImGuiMenuColumns.__index = MT.ImGuiMenuColumns
+
+--- @return ImGuiMenuColumns
+local function ImGuiMenuColumns()
+    return setmetatable({
+        TotalWidth     = 0,
+        NextTotalWidth = 0,
+        Spacing        = 0,
+        OffsetIcon     = 0,
+        OffsetLabel    = 0,
+        OffsetShortcut = 0,
+        OffsetMark     = 0,
+        Widths         = {0, 0, 0, 0}
+    }, MT.ImGuiMenuColumns)
+end
+
 --- @class ImGuiWindowTempData
 --- @field CursorPos               ImVec2
 --- @field CursorPosPrevLine       ImVec2
@@ -1775,6 +1806,7 @@ local function ImGuiWindowTempData()
 
         MenuBarAppending = false, -- FIXME: Remove this
         MenuBarOffset = ImVec2(),
+        MenuColumns = ImGuiMenuColumns(),
 
         ChildWindows = ImVector(),
 

@@ -3,8 +3,16 @@
 
 --- @meta
 
+local _band = bit.band
+
 --- @alias ImU8           integer
---- @alias ImU16          integer
+
+--- @class ImU16 : integer
+
+--- @param val number
+--- @return ImU16
+function ImU16(val) return _band(val, 0xFFFF) end
+
 --- @alias ImS16          integer
 --- @alias ImU32          integer
 --- @alias ImU64          integer

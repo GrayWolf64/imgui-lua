@@ -1,8 +1,27 @@
 --- ImGui Sincerely WIP
 -- (Demo Code)
 
+local IM_MIN = math.min
 local IM_MAX = math.max
 local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
+
+local function ShowExampleMenuFile()
+
+end
+
+local function DemoWindowMenuBar()
+    if ImGui.BeginMenuBar() then
+        if ImGui.BeginMenu("Menu") then
+            ShowExampleMenuFile()
+            ImGui.EndMenu()
+        end
+        if ImGui.BeginMenu("Examples") then
+            ImGui.EndMenu()
+        end
+
+        ImGui.EndMenuBar()
+    end
+end
 
 local DemoWindowWidgetsBasic
 do
@@ -346,12 +365,25 @@ end
 
 end
 
+local no_menu = false
+
 function ImGui.ShowDemoWindow(open)
-    open = ImGui.Begin("ImGui Sincerely Demo", open)
+    local window_flags = 0
+
+    if not no_menu then window_flags = bit.bor(window_flags, ImGuiWindowFlags.MenuBar) end
+
+    open = ImGui.Begin("ImGui Sincerely Demo", open, window_flags)
     if not open then
         ImGui.End()
         return open
     end
+
+    local label_width_base = ImGui.GetFontSize() * 12
+    local label_width_max = ImGui.GetContentRegionAvail().x * 0.40
+    local label_width = IM_MIN(label_width_base, label_width_max)
+    ImGui.PushItemWidth(-label_width)
+
+    DemoWindowMenuBar()
 
     DemoWindowWidgetsBasic()
     DemoWindowWidgetsBullets()

@@ -2905,9 +2905,9 @@ function ImStb.stb_textedit_replace(str, state, text, text_len)
     IM_ASSERT(false) -- Failed to insert character, normally shouldn't happen because of how we currently use stb_textedit_replace()
 end
 
-do
-
 local MT = ImGui.GetMetatables()
+
+do
 
 --- @param key int
 function MT.ImGuiInputTextState:OnKeyPressed(key)
@@ -5657,6 +5657,52 @@ end
 -- [SECTION] MENU RELATED
 ----------------------------------------------------------------
 
+--- @param spacing            float
+--- @param window_reappearing bool
+function MT.ImGuiMenuColumns:Update(spacing, window_reappearing)
+    if window_reappearing then
+        for i = 1, #self.Widths do self.Widths[i] = 0 end
+    end
+    self.Spacing = spacing
+    self:CalcNextTotalWidth(true)
+    for i = 1, #self.Widths do self.Widths[i] = 0 end
+    self.TotalWidth = self.NextTotalWidth
+    self.NextTotalWidth = 0
+end
+
+--- @param update_offsets bool
+function MT.ImGuiMenuColumns:CalcNextTotalWidth(update_offsets)
+    local offset = 0
+    local want_spacing = false
+    for i = 1, #self.Widths do
+        local width = self.Widths[i]
+        if want_spacing and width > 0 then
+            offset = offset + self.Spacing
+        end
+        want_spacing = want_spacing or (width > 0)
+        if update_offsets then
+            if i == 2 then self.OffsetLabel = offset end
+            if i == 3 then self.OffsetShortcut = offset end
+            if i == 4 then self.OffsetMark = offset end
+        end
+        offset = offset + width
+    end
+    self.NextTotalWidth = offset
+end
+
+--- @param w_icon     float
+--- @param w_label    float
+--- @param w_shortcut float
+--- @param w_mark     float
+function MT.ImGuiMenuColumns:DeclColumns(w_icon, w_label, w_shortcut, w_mark)
+    self.Widths[1] = ImMax(self.Widths[1], (ImU16)(w_icon))
+    self.Widths[2] = ImMax(self.Widths[2], (ImU16)(w_label))
+    self.Widths[3] = ImMax(self.Widths[3], (ImU16)(w_shortcut))
+    self.Widths[4] = ImMax(self.Widths[4], (ImU16)(w_mark))
+    self:CalcNextTotalWidth(false)
+    return ImMax(self.TotalWidth, self.NextTotalWidth)
+end
+
 -- FIXME: Provided a rectangle perhaps e.g. a BeginMenuBarEx() could be used anywhere..
 -- Currently the main responsibility of this function being to setup clip-rect + horizontal layout + menu navigation layer.
 -- Ideally we also want this to be responsible for claiming space out of the main window scrolling rectangle, in which case ImGuiWindowFlags.MenuBar will become unnecessary.
@@ -5761,7 +5807,7 @@ local function IsRootOfOpenMenuSet()
 end
 
 --- @param label   string
---- @param icon    string
+--- @param icon?   string
 --- @param enabled bool
 function ImGui.BeginMenuEx(label, icon, enabled)
     local window = ImGui.GetCurrentWindow()
@@ -5805,5 +5851,202 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         ImGui.BeginDisabled()
     end
 
+    local pressed
+
+    local selectable_flags = bit.bor(ImGuiSelectableFlags.NoHoldingActiveID, ImGuiSelectableFlags.NoSetKeyOwner, ImGuiSelectableFlags.SelectOnClick, ImGuiSelectableFlags.NoAutoClosePopups)
+    local offsets = window.DC.MenuColumns
+    if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
+        window.DC.CursorPos.x = window.DC.CursorPos.x + IM_TRUNC(style.ItemSpacing.x * 0.5)
+        ImGui.PushStyleVarX(ImGuiStyleVar.ItemSpacing, style.ItemSpacing.x * 2.0)
+        local text_pos = ImVec2(window.DC.CursorPos.x + offsets.OffsetLabel, pos.y + window.DC.CurrLineTextBaseOffset)
+        pressed = ImGui.Selectable("", menu_is_open, selectable_flags, label_size)
+        -- TODO: ImGui.LogSetNextTextDecoration("[", "]")
+        ImGui.RenderText(text_pos, label)
+        ImGui.PopStyleVar()
+        window.DC.CursorPos.x = window.DC.CursorPos.x + IM_TRUNC(style.ItemSpacing.x * (-1.0 + 0.5))
+        popup_pos = ImVec2(pos.x - 1.0 - IM_TRUNC(style.ItemSpacing.x * 0.5), text_pos.y - style.FramePadding.y + window.MenuBarHeight)
+    else
+        local icon_w
+        if (icon and icon ~= "") then icon_w = ImGui.CalcTextSize(icon, nil).x else icon_w = 0.0 end
+        local checkmark_w = IM_TRUNC(g.FontSize * 1.20)
+        local min_w = offsets:DeclColumns(icon_w, label_size.x, 0.0, checkmark_w)
+        local extra_w = ImMax(0.0, ImGui.GetContentRegionAvail().x - min_w)
+        local text_pos = ImVec2(window.DC.CursorPos.x, pos.y + window.DC.CurrLineTextBaseOffset)
+        pressed = ImGui.Selectable("", menu_is_open, bit.bor(selectable_flags, ImGuiSelectableFlags.SpanAvailWidth), ImVec2(min_w, label_size.y))
+        -- ImGui.LogSetNextTextDecoration("", ">")
+        ImGui.RenderText(ImVec2(text_pos.x + offsets.OffsetLabel, text_pos.y), label)
+        if icon_w > 0.0 then
+            --- @cast icon string
+            ImGui.RenderText(ImVec2(text_pos.x + offsets.OffsetIcon, text_pos.y), icon)
+        end
+        ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x + offsets.OffsetMark + extra_w + g.FontSize * 0.30, text_pos.y), ImGui.GetColorU32(ImGuiCol.Text), ImGuiDir.Right)
+        popup_pos = ImVec2(pos.x, text_pos.y - style.WindowPadding.y)
+    end
+
+    if not enabled then
+        ImGui.EndDisabled()
+    end
+
+    local hovered = g.HoveredId == id and enabled and not g.NavHighlightItemUnderNav
+    if menuset_is_open then
+        ImGui.PopItemFlag()
+    end
+
+    local want_open = false
+    local want_open_nav_init = false
+    local want_close = false
+    if window.DC.LayoutType == ImGuiLayoutType.Vertical then
+        local moving_toward_child_menu = false
+        local child_popup = (g.BeginPopupStack.Size < g.OpenPopupStack.Size) and g.OpenPopupStack[g.BeginPopupStack.Size + 1] or nil
+        local child_menu_window = (child_popup and child_popup.Window and child_popup.Window.ParentWindow == window) and child_popup.Window or nil
+        if g.HoveredWindow == window and child_menu_window ~= nil then
+            local ref_unit = g.FontSize
+            local child_dir = (window.Pos.x < child_menu_window.Pos.x) and 1.0 or -1.0
+            local next_window_rect = child_menu_window:Rect()
+            local ta = (g.IO.MousePos - g.IO.MouseDelta)
+            local tb
+            local tc
+            if child_dir > 0.0 then
+                tb = next_window_rect:GetTL()
+                tc = next_window_rect:GetBL()
+            else
+                tb = next_window_rect:GetTR()
+                tc = next_window_rect:GetBR()
+            end
+            local pad_farmost_h = ImClamp(ImFabs(ta.x - tb.x) * 0.30, ref_unit * 0.5, ref_unit * 2.5)
+            ta.x = ta.x + child_dir * -0.5
+            tb.x = tb.x + child_dir * ref_unit
+            tc.x = tc.x + child_dir * ref_unit
+            tb.y = ta.y + ImMax((tb.y - pad_farmost_h) - ta.y, -ref_unit * 8.0)
+            tc.y = ta.y + ImMin((tc.y + pad_farmost_h) - ta.y, ref_unit * 8.0)
+            moving_toward_child_menu = ImStd.ImTriangleContainsPoint(ta, tb, tc, g.IO.MousePos)
+        end
+
+        if menu_is_open and not hovered and g.HoveredWindow == window and not moving_toward_child_menu and not g.NavHighlightItemUnderNav and g.ActiveId == 0 then
+            want_close = true
+        end
+
+        if not menu_is_open and pressed then
+            want_open = true
+        elseif not menu_is_open and hovered and not moving_toward_child_menu then
+            want_open = true
+        elseif not menu_is_open and hovered and g.HoveredIdTimer >= 0.30 and g.MouseStationaryTimer >= 0.30 then
+            want_open = true
+        end
+        if g.NavId == id and g.NavMoveDir == ImGuiDir.Right then
+            want_open = true
+            want_open_nav_init = true
+            ImGui.NavMoveRequestCancel()
+            ImGui.SetNavCursorVisibleAfterMove()
+        end
+    else
+        if menu_is_open and pressed and menuset_is_open then
+            want_close = true
+            want_open = false
+            menu_is_open = false
+        elseif pressed or (hovered and menuset_is_open and not menu_is_open) then
+            want_open = true
+        elseif g.NavId == id and g.NavMoveDir == ImGuiDir.Down then
+            want_open = true
+            ImGui.NavMoveRequestCancel()
+        end
+    end
+
+    if not enabled then
+        want_close = true
+    end
+    if want_close and ImGui.IsPopupOpen(id, ImGuiPopupFlags.None) then
+        ImGui.ClosePopupToLevel(g.BeginPopupStack.Size, true)
+    end
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Openable | (menu_is_open ? ImGuiItemStatusFlags_Opened : 0))
+    ImGui.PopID()
+
+    if want_open and not menu_is_open and g.OpenPopupStack.Size > g.BeginPopupStack.Size then
+        ImGui.OpenPopup(label)
+    elseif want_open then
+        menu_is_open = true
+        ImGui.OpenPopup(label, ImGuiPopupFlags.NoReopen)
+    end
+
+    if menu_is_open then
+        local last_item_in_parent = ImGuiLastItemData()
+        ImGuiLastItemData_Copy(last_item_in_parent, g.LastItemData)
+
+        ImGui.SetNextWindowPos(popup_pos, ImGuiCond.Always)
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, style.PopupRounding)
+        menu_is_open = ImGui.BeginPopupMenuEx(id, label, window_flags)
+        ImGui.PopStyleVar()
+        if menu_is_open then
+            if want_open and want_open_nav_init and not g.NavInitRequest then
+                ImGui.FocusWindow(g.CurrentWindow, ImGuiFocusRequestFlags.UnlessBelowModal)
+                ImGui.NavInitWindow(g.CurrentWindow, false)
+            end
+            ImGuiLastItemData_Copy(g.LastItemData, last_item_in_parent)
+            if g.HoveredWindow == window then
+                g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredWindow)
+            end
+        end
+    else
+        g.NextWindowData:ClearFlags()
+    end
+
+    return menu_is_open
+end
+
+--- @param label    string
+--- @param enabled? bool
+function ImGui.BeginMenu(label, enabled)
+    if enabled == nil then enabled = true end
+
+    return ImGui.BeginMenuEx(label, nil, enabled)
+end
+
+function ImGui.EndMenu()
+    local g = GImGui
+    local window = g.CurrentWindow
+    IM_ASSERT_USER_ERROR_RET(bit.band(window.Flags, bit.bor(ImGuiWindowFlags.Popup, ImGuiWindowFlags.ChildMenu)) == bit.bor(ImGuiWindowFlags.Popup, ImGuiWindowFlags.ChildMenu), "Calling EndMenu() in wrong window!")
+
+    local parent_window = window.ParentWindow
+    if window.BeginCount == window.BeginCountPreviousFrame then
+        if g.NavMoveDir == ImGuiDir.Left and ImGui.NavMoveRequestButNoResultYet() then
+            if g.NavWindow and g.NavWindow.RootWindowForNav == window and parent_window.DC.LayoutType == ImGuiLayoutType.Vertical then
+                ImGui.ClosePopupToLevel(g.BeginPopupStack.Size - 1, true)
+                ImGui.NavMoveRequestCancel()
+            end
+        end
+    end
+
+    ImGui.EndPopup()
+end
+
+--- @param label    string
+--- @param icon     string
+--- @param shortcut string
+--- @param selected bool
+--- @param enabled  bool
+function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = GImGui
+    local style = g.Style
+    local pos = ImVec2()
+    ImVec2_Copy(pos, window.DC.CursorPos)
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+
+    local menuset_is_open = IsRootOfOpenMenuSet()
+    if menuset_is_open then
+        ImGui.PushItemFlag(ImGuiItemFlags.NoWindowHoverableCheck, true)
+    end
+
+    ImGui.PushID(label)
+    if not enabled then
+        ImGui.BeginDisabled()
+    end
+
+    local pressed
     -- TODO:
 end

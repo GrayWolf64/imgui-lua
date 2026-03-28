@@ -4235,6 +4235,10 @@ function ImGui.SetNextWindowBgAlpha(alpha)
     g.NextWindowData.BgAlphaVal = alpha
 end
 
+function ImGui.GetFontSize()
+    return GImGui.FontSize
+end
+
 --- @return ImVec2
 function ImGui.GetFontTexUvWhitePixel()
     return GImGui.DrawListSharedData.TexUvWhitePixel
@@ -5194,7 +5198,20 @@ function ImGui.Begin(name, open, flags)
         window.DC.IsSameLine = false
         window.DC.IsSetPos = false
 
+        window.DC.NavLayerCurrent = ImGuiNavLayer.Main
+        window.DC.NavLayersActiveMask = window.DC.NavLayersActiveMaskNext
+        window.DC.NavLayersActiveMaskNext = 0x00
+        window.DC.NavIsScrollPushableX = true
+        window.DC.NavHideHighlightOneFrame = false
+        window.DC.NavWindowHasScrollY = window.ScrollMax.y > 0.0
+
+        window.DC.MenuBarAppending = false
+        window.DC.MenuColumns:Update(style.ItemSpacing.x, window_just_activated_by_user)
+        window.DC.TreeDepth = 0
+        window.DC.TreeHasStackDataDepthMask = 0x00
+        window.DC.TreeRecordsClippedNodesY2Mask = 0x00
         window.DC.ChildWindows:resize(0)
+        -- TODO: StateStorage, CurrentColumns
         window.DC.LayoutType = ImGuiLayoutType.Vertical
         window.DC.ParentLayoutType = (parent_window ~= nil) and parent_window.DC.LayoutType or ImGuiLayoutType.Vertical
 
