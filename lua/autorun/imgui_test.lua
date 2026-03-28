@@ -44,8 +44,14 @@ else
         return derma_window
     end
 
+    local viewport
+
     concommand.Add("imgui_test", function()
-        local viewport = CreateHostWindow()
+        if IsValid(viewport) then
+            return
+        end
+
+        viewport = CreateHostWindow()
         ImGui_ImplGMOD.SetupPanelHooks(viewport, true)
 
         ImGui.CreateContext()
