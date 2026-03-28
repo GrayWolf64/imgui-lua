@@ -3191,7 +3191,6 @@ function MT.ImDrawList:_OnChangedVtxOffset()
     curr_cmd.VtxOffset = self._CmdHeader.VtxOffset
 end
 
--- FIXME: cleanup and fix this
 --- @param points       ImVec2[]
 --- @param points_count int
 --- @param col          ImU32
@@ -3213,9 +3212,7 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
         local vtx_outer_idx = self._VtxCurrentIdx + 1
         for i = 2, points_count - 1 do
             local idx_write_ptr = self._IdxWritePtr
-            self.IdxBuffer.Data[idx_write_ptr] = vtx_inner_idx
-            self.IdxBuffer.Data[idx_write_ptr + 1] = vtx_inner_idx + ((i - 1) * 2)
-            self.IdxBuffer.Data[idx_write_ptr + 2] = vtx_inner_idx + (i * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 0] = vtx_inner_idx; self.IdxBuffer.Data[idx_write_ptr + 1] = vtx_inner_idx + ((i - 1) * 2); self.IdxBuffer.Data[idx_write_ptr + 2] = vtx_inner_idx + (i * 2)
             self._IdxWritePtr = idx_write_ptr + 3
         end
 
@@ -3229,7 +3226,6 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
             local dx = p1.x - p0.x
             local dy = p1.y - p0.y
             dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
-            temp_normals[i0] = ImVec2()
             temp_normals[i0].x = dy
             temp_normals[i0].y = -dx
 
@@ -3246,29 +3242,14 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
             dm_x = dm_x * AA_SIZE * 0.5
             dm_y = dm_y * AA_SIZE * 0.5
 
-            local p1 = points[i1]
             local vtx_write_ptr = self._VtxWritePtr
-
-            self.VtxBuffer.Data[vtx_write_ptr][1].x = p1.x - dm_x
-            self.VtxBuffer.Data[vtx_write_ptr][1].y = p1.y - dm_y
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], uv)
-            self.VtxBuffer.Data[vtx_write_ptr][3] = col
-
-            self.VtxBuffer.Data[vtx_write_ptr + 1][1].x = p1.x + dm_x
-            self.VtxBuffer.Data[vtx_write_ptr + 1][1].y = p1.y + dm_y
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv)
-            self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col_trans
-
+            self.VtxBuffer.Data[vtx_write_ptr + 0][1].x = points[i1].x - dm_x; self.VtxBuffer.Data[vtx_write_ptr + 0][1].y = points[i1].y - dm_y; ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], uv); self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
+            self.VtxBuffer.Data[vtx_write_ptr + 1][1].x = points[i1].x + dm_x; self.VtxBuffer.Data[vtx_write_ptr + 1][1].y = points[i1].y + dm_y; ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv); self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col_trans
             self._VtxWritePtr = vtx_write_ptr + 2
 
             local idx_write_ptr = self._IdxWritePtr
-
-            self.IdxBuffer.Data[idx_write_ptr] = vtx_inner_idx + ((i1 - 1) * 2)
-            self.IdxBuffer.Data[idx_write_ptr + 1] = vtx_inner_idx + ((i0 - 1) * 2)
-            self.IdxBuffer.Data[idx_write_ptr + 2] = vtx_outer_idx + ((i0 - 1) * 2)
-            self.IdxBuffer.Data[idx_write_ptr + 3] = vtx_outer_idx + ((i0 - 1) * 2)
-            self.IdxBuffer.Data[idx_write_ptr + 4] = vtx_outer_idx + ((i1 - 1) * 2)
-            self.IdxBuffer.Data[idx_write_ptr + 5] = vtx_inner_idx + ((i1 - 1) * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 0] = vtx_inner_idx + ((i1 - 1) * 2); self.IdxBuffer.Data[idx_write_ptr + 1] = vtx_inner_idx + ((i0 - 1) * 2); self.IdxBuffer.Data[idx_write_ptr + 2] = vtx_outer_idx + ((i0 - 1) * 2)
+            self.IdxBuffer.Data[idx_write_ptr + 3] = vtx_outer_idx + ((i0 - 1) * 2); self.IdxBuffer.Data[idx_write_ptr + 4] = vtx_outer_idx + ((i1 - 1) * 2); self.IdxBuffer.Data[idx_write_ptr + 5] = vtx_inner_idx + ((i1 - 1) * 2)
             self._IdxWritePtr = idx_write_ptr + 6
 
             i0 = i1
@@ -3279,19 +3260,14 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
         local vtx_count = points_count
         self:PrimReserve(idx_count, vtx_count)
 
-        for i = 1, points_count do
+        for i = 1, vtx_count do
             local vtx_write_ptr = self._VtxWritePtr
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][1], points[i])
-            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr][2], uv)
-            self.VtxBuffer.Data[vtx_write_ptr][3] = col
+            ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], points[i]); ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], uv); self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
             self._VtxWritePtr = vtx_write_ptr + 1
         end
-
         for i = 3, points_count do
             local idx_write_ptr = self._IdxWritePtr
-            self.IdxBuffer.Data[idx_write_ptr] = self._VtxCurrentIdx
-            self.IdxBuffer.Data[idx_write_ptr + 1] = self._VtxCurrentIdx + i - 2
-            self.IdxBuffer.Data[idx_write_ptr + 2] = self._VtxCurrentIdx + i - 1
+            self.IdxBuffer.Data[idx_write_ptr + 0] = self._VtxCurrentIdx; self.IdxBuffer.Data[idx_write_ptr + 1] = self._VtxCurrentIdx + i - 2; self.IdxBuffer.Data[idx_write_ptr + 2] = self._VtxCurrentIdx + i - 1
             self._IdxWritePtr = idx_write_ptr + 3
         end
 
