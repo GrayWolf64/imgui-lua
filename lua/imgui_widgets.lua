@@ -4856,7 +4856,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     if bit.band(flags, ImGuiColorEditFlags.PickerHueWheel) ~= 0 then
         -- Render Hue Wheel
         local aeps = 0.5 / wheel_r_outer -- Half a pixel arc length in radians (2pi cancels out).
-        local segment_per_arc =ImMax(4, math.floor(wheel_r_outer / 12))
+        local segment_per_arc = ImMax(4, math.floor(wheel_r_outer / 12))
 
         for n = 1, 6 do
             local a0 = (n - 1) / 6.0 * 2.0 * IM_PI - aeps

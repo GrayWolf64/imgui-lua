@@ -3191,9 +3191,14 @@ function MT.ImDrawList:_OnChangedVtxOffset()
     curr_cmd.VtxOffset = self._CmdHeader.VtxOffset
 end
 
--- TODO: cleanup
+-- FIXME: cleanup and fix this
+--- @param points       ImVec2[]
+--- @param points_count int
+--- @param col          ImU32
 function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
-    if points_count < 3 or bit.band(col, IM_COL32_A_MASK) == 0 then return end
+    if points_count < 3 or bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
 
     local uv = self._Data.TexUvWhitePixel
 
