@@ -2327,7 +2327,7 @@ end
 --- @param text_end   int
 --- @param flags      ImDrawTextFlags
 --- @return int
-function ImStd.ImTextCalcWordWrapNextLineStart(text, text_begin, text_end, flags)
+local function ImTextCalcWordWrapNextLineStart(text, text_begin, text_end, flags)
     local pos = text_begin
 
     if bit.band(flags, ImDrawTextFlags.WrapKeepBlanks) == 0 then
@@ -2550,7 +2550,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
                 end
                 text_size.y = text_size.y + line_height
                 line_width = 0.0
-                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
                 if bit.band(flags, ImDrawTextFlags.StopOnNewLine) ~= 0 then
                     break
                 end
@@ -4152,7 +4152,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
             local line_end = ImMemchr(text, '\n', s)
             if word_wrap_enabled then
                 s = ImFontCalcWordWrapPositionEx(self, size, text, s, (line_end ~= nil) and line_end or text_end, wrap_width, flags)
-                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
             else
                 s = (line_end ~= nil) and (line_end + 1) or text_end
             end
@@ -4206,7 +4206,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                     break
                 end
                 word_wrap_eol = nil
-                s = ImStd.ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
+                s = ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
 
                 goto CONTINUE
             end
