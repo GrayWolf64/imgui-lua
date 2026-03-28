@@ -3487,7 +3487,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             temp_normals[i1].y = -dx
         end
         if not closed then
-            temp_normals[points_count] = temp_normals[points_count - 1]
+            ImVec2_Copy(temp_normals[points_count], temp_normals[points_count - 1])
         end
 
         -- If we are drawing a one-pixel-wide line without a texture, or a textured line of any width
@@ -3498,10 +3498,10 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 
             -- If line is not closed, the first and last points need to be generated differently
             if not closed then
-                temp_points[temp_points_start + 0] = points[1] + temp_normals[1] * half_draw_size
-                temp_points[temp_points_start + 1] = points[1] - temp_normals[1] * half_draw_size
-                temp_points[temp_points_start + (points_count - 1) * 2 + 0] = points[points_count] + temp_normals[points_count] * half_draw_size
-                temp_points[temp_points_start + (points_count - 1) * 2 + 1] = points[points_count] - temp_normals[points_count] * half_draw_size
+                ImVec2_Copy(temp_points[temp_points_start + 0], points[1] + temp_normals[1] * half_draw_size)
+                ImVec2_Copy(temp_points[temp_points_start + 1], points[1] - temp_normals[1] * half_draw_size)
+                ImVec2_Copy(temp_points[temp_points_start + (points_count - 1) * 2 + 0], points[points_count] + temp_normals[points_count] * half_draw_size)
+                ImVec2_Copy(temp_points[temp_points_start + (points_count - 1) * 2 + 1], points[points_count] - temp_normals[points_count] * half_draw_size)
             end
 
             -- Generate indices and vertices
@@ -3572,14 +3572,14 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             -- If line is not closed, handle first and last points
             if not closed then
                 local points_last = points_count - 1
-                temp_points[temp_points_start + 0] = points[1] + temp_normals[1] * (half_inner_thickness + AA_SIZE)
-                temp_points[temp_points_start + 1] = points[1] + temp_normals[1] * half_inner_thickness
-                temp_points[temp_points_start + 2] = points[1] - temp_normals[1] * half_inner_thickness
-                temp_points[temp_points_start + 3] = points[1] - temp_normals[1] * (half_inner_thickness + AA_SIZE)
-                temp_points[temp_points_start + points_last * 4 + 0] = points[points_count] + temp_normals[points_last + 1] * (half_inner_thickness + AA_SIZE)
-                temp_points[temp_points_start + points_last * 4 + 1] = points[points_count] + temp_normals[points_last + 1] * half_inner_thickness
-                temp_points[temp_points_start + points_last * 4 + 2] = points[points_count] - temp_normals[points_last + 1] * half_inner_thickness
-                temp_points[temp_points_start + points_last * 4 + 3] = points[points_count] - temp_normals[points_last + 1] * (half_inner_thickness + AA_SIZE)
+                ImVec2_Copy(temp_points[temp_points_start + 0], points[1] + temp_normals[1] * (half_inner_thickness + AA_SIZE))
+                ImVec2_Copy(temp_points[temp_points_start + 1], points[1] + temp_normals[1] * half_inner_thickness)
+                ImVec2_Copy(temp_points[temp_points_start + 2], points[1] - temp_normals[1] * half_inner_thickness)
+                ImVec2_Copy(temp_points[temp_points_start + 3], points[1] - temp_normals[1] * (half_inner_thickness + AA_SIZE))
+                ImVec2_Copy(temp_points[temp_points_start + points_last * 4 + 0], points[points_count] + temp_normals[points_last + 1] * (half_inner_thickness + AA_SIZE))
+                ImVec2_Copy(temp_points[temp_points_start + points_last * 4 + 1], points[points_count] + temp_normals[points_last + 1] * half_inner_thickness)
+                ImVec2_Copy(temp_points[temp_points_start + points_last * 4 + 2], points[points_count] - temp_normals[points_last + 1] * half_inner_thickness)
+                ImVec2_Copy(temp_points[temp_points_start + points_last * 4 + 3], points[points_count] - temp_normals[points_last + 1] * (half_inner_thickness + AA_SIZE))
             end
 
             -- Generate indices and vertices
