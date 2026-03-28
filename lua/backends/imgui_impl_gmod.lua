@@ -655,6 +655,13 @@ local function ImGui_ImplGMOD_RestoreRenderState()
     render.PopFilterMag()
 end
 
+local meshPosition = mesh.Position
+local meshTexCoord = mesh.TexCoord
+local meshColor    = mesh.Color
+local meshAdvVtx   = mesh.AdvanceVertex
+
+local colorConvertU32ToFloat4 = ImGui.ColorConvertU32ToFloat4
+
 local col0 = ImVec4()
 local col1 = ImVec4()
 local col2 = ImVec4()
@@ -678,7 +685,10 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
     render.SetMaterial(g_EngineMaterial)
 
+    local idx_data, vtx_data
     for _, draw_list in draw_data.CmdLists:iter() do
+        idx_data = draw_list.IdxBuffer; vtx_data = draw_list.VtxBuffer
+
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.ElemCount > 0 then
                 if pcmd.ClipRect.z <= pcmd.ClipRect.x or pcmd.ClipRect.w <= pcmd.ClipRect.y then
@@ -694,31 +704,31 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
                 for i = 0, pcmd.ElemCount - 1, 3 do
-                    local idx0 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 1 + i]
-                    local idx1 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 2 + i]
-                    local idx2 = draw_list.IdxBuffer.Data[pcmd.IdxOffset + 3 + i]
+                    local idx0 = idx_data[pcmd.IdxOffset + 1 + i]
+                    local idx1 = idx_data[pcmd.IdxOffset + 2 + i]
+                    local idx2 = idx_data[pcmd.IdxOffset + 3 + i]
 
-                    local vtx0 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx0]
-                    local vtx1 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx1]
-                    local vtx2 = draw_list.VtxBuffer.Data[pcmd.VtxOffset + idx2]
+                    local vtx0 = vtx_data[pcmd.VtxOffset + idx0]
+                    local vtx1 = vtx_data[pcmd.VtxOffset + idx1]
+                    local vtx2 = vtx_data[pcmd.VtxOffset + idx2]
 
-                    mesh.Position(vtx0[1].x, vtx0[1].y, 0)
-                    mesh.TexCoord(0, vtx0[2].x, vtx0[2].y)
-                    ImGui.ColorConvertU32ToFloat4(vtx0[3], col0)
-                    mesh.Color(col0.x * 255, col0.y * 255, col0.z * 255, col0.w * 255)
-                    mesh.AdvanceVertex()
+                    meshPosition(vtx0[1].x, vtx0[1].y, 0)
+                    meshTexCoord(0, vtx0[2].x, vtx0[2].y)
+                    colorConvertU32ToFloat4(vtx0[3], col0)
+                    meshColor(col0.x * 255, col0.y * 255, col0.z * 255, col0.w * 255)
+                    meshAdvVtx()
 
-                    mesh.Position(vtx1[1].x, vtx1[1].y, 0)
-                    mesh.TexCoord(0, vtx1[2].x, vtx1[2].y)
-                    ImGui.ColorConvertU32ToFloat4(vtx1[3], col1)
-                    mesh.Color(col1.x * 255, col1.y * 255, col1.z * 255, col1.w * 255)
-                    mesh.AdvanceVertex()
+                    meshPosition(vtx1[1].x, vtx1[1].y, 0)
+                    meshTexCoord(0, vtx1[2].x, vtx1[2].y)
+                    colorConvertU32ToFloat4(vtx1[3], col1)
+                    meshColor(col1.x * 255, col1.y * 255, col1.z * 255, col1.w * 255)
+                    meshAdvVtx()
 
-                    mesh.Position(vtx2[1].x, vtx2[1].y, 0)
-                    mesh.TexCoord(0, vtx2[2].x, vtx2[2].y)
-                    ImGui.ColorConvertU32ToFloat4(vtx2[3], col2)
-                    mesh.Color(col2.x * 255, col2.y * 255, col2.z * 255, col2.w * 255)
-                    mesh.AdvanceVertex()
+                    meshPosition(vtx2[1].x, vtx2[1].y, 0)
+                    meshTexCoord(0, vtx2[2].x, vtx2[2].y)
+                    colorConvertU32ToFloat4(vtx2[3], col2)
+                    meshColor(col2.x * 255, col2.y * 255, col2.z * 255, col2.w * 255)
+                    meshAdvVtx()
                 end
 
                 mesh.End()
