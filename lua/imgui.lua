@@ -1435,6 +1435,11 @@ function ImGui.FocusWindow(window, flags)
 
     local g = GImGui
     -- TODO:
+
+    if bit.band(flags, ImGuiFocusRequestFlags.RestoreFocusedChild) ~= 0 and window ~= nil then
+        window = ImGui.NavRestoreLastChildNavWindow(window)
+    end
+
     if g.NavWindow ~= window then
         ImGui.SetNavWindow(window)
         if window and g.NavHighlightItemUnderNav then
@@ -6269,6 +6274,8 @@ function ImGui.NewFrame()
 
     g.TooltipPreviousWindow = nil
 
+    ImGui.NavUpdate()
+
     ImGui.UpdateMouseInputs()
 
     -- TODO: GC
@@ -7766,6 +7773,14 @@ function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
     ImGui.NavClearPreferredPosForAxis(ImGuiAxis.Y)
 end
 
+--- @param window ImGuiWindow
+function ImGui.NavRestoreLastChildNavWindow(window)
+    if window.NavLastChildNavWindow and window.NavLastChildNavWindow.WasActive then
+        return window.NavLastChildNavWindow
+    end
+    return window
+end
+
 function ImGui.NavUpdateAnyRequestFlag()
     local g = GImGui
     g.NavAnyRequest = g.NavMoveScoringItems or g.NavInitRequest or (IMGUI_DEBUG_NAV_SCORING and g.NavWindow ~= nil)
@@ -7863,6 +7878,188 @@ function ImGui.GetNavTweakPressedAmount(axis)
     end
 
     return amount
+end
+
+-- TODO:
+function ImGui.NavUpdate()
+    local g = GImGui
+    local io = g.IO
+
+    io.WantSetMousePos = false
+
+    local nav_gamepad_active = bit.band(io.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(io.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0
+    local nav_gamepad_keys_to_change_source = { ImGuiKey.GamepadFaceRight, ImGuiKey.GamepadFaceLeft, ImGuiKey.GamepadFaceUp, ImGuiKey.GamepadFaceDown, ImGuiKey.GamepadDpadRight, ImGuiKey.GamepadDpadLeft, ImGuiKey.GamepadDpadUp, ImGuiKey.GamepadDpadDown }
+    if nav_gamepad_active then
+        for _, key in ipairs(nav_gamepad_keys_to_change_source) do
+            if ImGui.IsKeyDown(key) then
+                g.NavInputSource = ImGuiInputSource.Gamepad
+            end
+        end
+    end
+
+    local nav_keyboard_active = bit.band(io.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) ~= 0
+    local nav_keyboard_keys_to_change_source = { ImGuiKey.Space, ImGuiKey.Enter, ImGuiKey.Escape, ImGuiKey.RightArrow, ImGuiKey.LeftArrow, ImGuiKey.UpArrow, ImGuiKey.DownArrow }
+    if nav_keyboard_active then
+        for _, key in ipairs(nav_keyboard_keys_to_change_source) do
+            if ImGui.IsKeyDown(key) then
+                g.NavInputSource = ImGuiInputSource.Keyboard
+            end
+        end
+    end
+
+    g.NavJustMovedToId = 0
+    g.NavJustMovedToFocusScopeId = 0
+    g.NavJustMovedFromFocusScopeId = 0
+    -- if g.NavInitResult.ID ~= 0 then
+    --     ImGui.NavInitRequestApplyResult()
+    -- end
+    -- g.NavInitRequest = false
+    -- g.NavInitRequestFromMove = false
+    -- g.NavInitResult.ID = 0
+
+    -- if g.NavMoveSubmitted then
+    --     ImGui.NavMoveRequestApplyResult()
+    -- end
+    -- g.NavTabbingCounter = 0
+    -- g.NavMoveSubmitted = false
+    -- g.NavMoveScoringItems = false
+    -- if g.NavCursorHideFrames > 0 then
+    --     g.NavCursorHideFrames = g.NavCursorHideFrames - 1
+    --     if g.NavCursorHideFrames == 0 then
+    --         g.NavCursorVisible = true
+    --     end
+    -- end
+
+    local set_mouse_pos = false
+    if g.NavMousePosDirty and g.NavIdIsAlive then
+        if g.NavCursorVisible and g.NavHighlightItemUnderNav and g.NavWindow then
+            set_mouse_pos = true
+        end
+    end
+    g.NavMousePosDirty = false
+    IM_ASSERT(g.NavLayer == ImGuiNavLayer.Main or g.NavLayer == ImGuiNavLayer.Menu)
+
+    -- if g.NavWindow then
+    --     ImGui.NavSaveLastChildNavWindowIntoParent(g.NavWindow)
+    -- end
+    -- if g.NavWindow and g.NavWindow.NavLastChildNavWindow ~= nil and g.NavLayer == ImGuiNavLayer.Main then
+    --     g.NavWindow.NavLastChildNavWindow = nil
+    -- end
+
+    -- ImGui.NavUpdateWindowing()
+
+    -- io.NavActive = (nav_keyboard_active or nav_gamepad_active) and g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) == 0
+    -- io.NavVisible = (io.NavActive and g.NavId ~= 0 and g.NavCursorVisible) or (g.NavWindowingTarget ~= nil)
+
+    -- ImGui.NavUpdateCancelRequest()
+    -- ImGui.NavUpdateContextMenuRequest()
+
+    -- g.NavActivateId = 0
+    -- g.NavActivateDownId = 0
+    -- g.NavActivatePressedId = 0
+    -- g.NavActivateFlags = ImGuiActivateFlags.None
+
+    -- if g.NavId ~= 0 and g.NavCursorVisible and not g.NavWindowingTarget and g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) == 0 then
+    --     local activate_down = (nav_keyboard_active and ImGui.IsKeyDown(ImGuiKey.Space, ImGuiKeyOwner.NoOwner)) or (nav_gamepad_active and ImGui.IsKeyDown(ImGuiKey.NavGamepadActivate, ImGuiKeyOwner.NoOwner))
+    --     local activate_pressed = activate_down and ((nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Space, 0, ImGuiKeyOwner.NoOwner)) or (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey.NavGamepadActivate, 0, ImGuiKeyOwner.NoOwner)))
+    --     local input_pressed_keyboard = nav_keyboard_active and (ImGui.IsKeyPressedEx(ImGuiKey.Enter, 0, ImGuiKeyOwner.NoOwner) or ImGui.IsKeyPressedEx(ImGuiKey.KeypadEnter, 0, ImGuiKeyOwner.NoOwner))
+    --     local input_pressed_gamepad = false
+    --     if activate_down and nav_gamepad_active and ImGui.IsKeyDown(ImGuiKey.NavGamepadActivate, ImGuiKeyOwner.NoOwner) and bit.band(g.NavIdItemFlags, ImGuiItemFlags.Inputable) ~= 0 then
+    --         if ImGui.GetKeyData(g, ImGuiKey.NavGamepadActivate).DownDurationPrev < NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY and ImGui.GetKeyData(g, ImGuiKey.NavGamepadActivate).DownDuration >= NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY then
+    --             input_pressed_gamepad = true
+    --         end
+    --     end
+
+    --     if g.ActiveId == 0 and activate_pressed then
+    --         g.NavActivateId = g.NavId
+    --         g.NavActivateFlags = ImGuiActivateFlags.PreferTweak
+    --     end
+    --     if (g.ActiveId == 0 or g.ActiveId == g.NavId) and (input_pressed_keyboard or input_pressed_gamepad) then
+    --         g.NavActivateId = g.NavId
+    --         g.NavActivateFlags = ImGuiActivateFlags.PreferInput
+    --     end
+    --     if (g.ActiveId == 0 or g.ActiveId == g.NavId) and (activate_down or input_pressed_keyboard or input_pressed_gamepad) then
+    --         g.NavActivateDownId = g.NavId
+    --     end
+    --     if (g.ActiveId == 0 or g.ActiveId == g.NavId) and (activate_pressed or input_pressed_keyboard or input_pressed_gamepad) then
+    --         g.NavActivatePressedId = g.NavId
+    --         ImGui.NavHighlightActivated(g.NavId)
+    --     end
+    -- end
+    -- if g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) ~= 0 then
+    --     g.NavCursorVisible = false
+    -- elseif g.IO.ConfigNavCursorVisibleAlways and g.NavCursorHideFrames == 0 then
+    --     g.NavCursorVisible = true
+    -- end
+    -- if g.NavActivateId ~= 0 then
+    --     IM_ASSERT(g.NavActivateDownId == g.NavActivateId)
+    -- end
+
+    -- if g.NavHighlightActivatedTimer > 0.0 then
+    --     g.NavHighlightActivatedTimer = ImMax(0.0, g.NavHighlightActivatedTimer - io.DeltaTime)
+    -- end
+    -- if g.NavHighlightActivatedTimer == 0.0 then
+    --     g.NavHighlightActivatedId = 0
+    -- end
+
+    -- if g.NavNextActivateId ~= 0 then
+    --     g.NavActivateId = g.NavNextActivateId
+    --     g.NavActivateDownId = g.NavNextActivateId
+    --     g.NavActivatePressedId = g.NavNextActivateId
+    --     g.NavActivateFlags = g.NavNextActivateFlags
+    -- end
+    -- g.NavNextActivateId = 0
+
+    -- ImGui.NavUpdateCreateMoveRequest()
+    -- if g.NavMoveDir == ImGuiDir.None then
+    --     ImGui.NavUpdateCreateTabbingRequest()
+    -- end
+    -- ImGui.NavUpdateAnyRequestFlag()
+    -- g.NavIdIsAlive = false
+
+    -- if g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) == 0 and not g.NavWindowingTarget then
+    --     local window = g.NavWindow
+    --     local scroll_speed = IM_ROUND(window.FontRefSize * 100 * io.DeltaTime)
+    --     local move_dir = g.NavMoveDir
+    --     if window.DC.NavLayersActiveMask == 0x00 and window.DC.NavWindowHasScrollY and move_dir ~= ImGuiDir.None then
+    --         if move_dir == ImGuiDir.Left or move_dir == ImGuiDir.Right then
+    --             local delta = (move_dir == ImGuiDir.Left) and -1.0 or 1.0
+    --             ImGui.SetScrollX(window, ImTrunc(window.Scroll.x + delta * scroll_speed))
+    --         end
+    --         if move_dir == ImGuiDir.Up or move_dir == ImGuiDir.Down then
+    --             local delta = (move_dir == ImGuiDir.Up) and -1.0 or 1.0
+    --             ImGui.SetScrollY(window, ImTrunc(window.Scroll.y + delta * scroll_speed))
+    --         end
+    --     end
+
+    --     if nav_gamepad_active then
+    --         local scroll_dir = ImGui.GetKeyMagnitude2d(ImGuiKey.GamepadLStickLeft, ImGuiKey.GamepadLStickRight, ImGuiKey.GamepadLStickUp, ImGuiKey.GamepadLStickDown)
+    --         local tweak_factor = 1.0
+    --         if ImGui.IsKeyDown(ImGuiKey.NavGamepadTweakSlow) then
+    --             tweak_factor = 1.0 / 10.0
+    --         elseif ImGui.IsKeyDown(ImGuiKey.NavGamepadTweakFast) then
+    --             tweak_factor = 10.0
+    --         end
+    --         if scroll_dir.x ~= 0.0 and window.ScrollbarX then
+    --             ImGui.SetScrollX(window, ImTrunc(window.Scroll.x + scroll_dir.x * scroll_speed * tweak_factor))
+    --         end
+    --         if scroll_dir.y ~= 0.0 then
+    --             ImGui.SetScrollY(window, ImTrunc(window.Scroll.y + scroll_dir.y * scroll_speed * tweak_factor))
+    --         end
+    --     end
+    -- end
+
+    -- if not nav_keyboard_active and not nav_gamepad_active then
+    --     g.NavCursorVisible = false
+    --     g.NavHighlightItemUnderNav = false
+    --     set_mouse_pos = false
+    -- end
+
+    -- if set_mouse_pos and io.ConfigNavMoveSetMousePos and bit.band(io.BackendFlags, ImGuiBackendFlags.HasSetMousePos) ~= 0 then
+    --     ImGui.TeleportMousePos(ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Popup))
+    -- end
+
+    -- g.NavScoringDebugCount = 0
 end
 
 function ImGui.NavMoveRequestButNoResultYet()
