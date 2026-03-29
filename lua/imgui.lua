@@ -1437,6 +1437,14 @@ function ImGui.FocusWindow(window, flags)
     -- TODO:
     if g.NavWindow ~= window then
         ImGui.SetNavWindow(window)
+        if window and g.NavHighlightItemUnderNav then
+            g.NavMousePosDirty = true
+        end
+        g.NavId = window and window.NavLastIds[0] or 0
+        g.NavLayer = ImGuiNavLayer.Main
+        ImGui.SetNavFocusScope(window and window.NavRootFocusScopeId or 0)
+        g.NavIdIsAlive = false
+        g.NavLastValidSelectionUserData = ImGuiSelectionUserData_Invalid
 
         -- Close popups if any
         ImGui.ClosePopupsOverWindow(window, false)
@@ -1445,6 +1453,14 @@ function ImGui.FocusWindow(window, flags)
     IM_ASSERT(window == nil or window.RootWindowDockTree ~= nil)
     local focus_front_window = window and window.RootWindow or nil
     local display_front_window = window and window.RootWindowDockTree or nil
+    local dock_node = window and window.DockNode or nil
+    local active_id_window_is_dock_node_host = g.ActiveIdWindow and dock_node and dock_node.HostWindow == g.ActiveIdWindow
+
+    if g.ActiveId ~= 0 and g.ActiveIdWindow and g.ActiveIdWindow.RootWindow ~= focus_front_window then
+        if not g.ActiveIdNoClearOnFocusLoss and not active_id_window_is_dock_node_host then
+            ImGui.ClearActiveID()
+        end
+    end
 
     if not window then
         return
@@ -1452,7 +1468,9 @@ function ImGui.FocusWindow(window, flags)
     window.LastFrameJustFocused = g.FrameCount
 
     ImGui.BringWindowToFocusFront(focus_front_window)
-    ImGui.BringWindowToDisplayFront(display_front_window)
+    if bit.band(bit.bor(window.Flags, focus_front_window.Flags, display_front_window.Flags), ImGuiWindowFlags.NoBringToFrontOnFocus) == 0 then
+        ImGui.BringWindowToDisplayFront(display_front_window)
+    end
 end
 
 --- @param window ImGuiWindow
@@ -4682,6 +4700,9 @@ function ImGui.Begin(name, open, flags)
         end
     end
 
+    ImGui.PushFocusScope((bit.band(window.ChildFlags, ImGuiChildFlags.NavFlattened) ~= 0) and g.CurrentFocusScopeId or window.ID)
+    window.NavRootFocusScopeId = g.CurrentFocusScopeId
+
     -- Add to popup stacks: update OpenPopupStack data, push to BeginPopupStack
     if bit.band(flags, ImGuiWindowFlags.Popup) ~= 0 then
         local popup_ref = g.OpenPopupStack.Data[g.BeginPopupStack.Size + 1]
@@ -5354,6 +5375,7 @@ function ImGui.End()
     if not window.SkipRefresh then
         ImGui.PopClipRect()
     end
+    ImGui.PopFocusScope()
 
     if window_stack_data.DisabledOverrideReenable and window.RootWindow == window then
         ImGui.EndDisabledOverrideReenable()
@@ -5480,9 +5502,7 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
     end
 
     local padding_regular = g.Style.TouchExtraPadding
-    local padding_for_resize = ImVec2()
-    padding_for_resize.x = ImMax(g.Style.TouchExtraPadding.x, g.Style.WindowBorderHoverPadding)
-    padding_for_resize.y = ImMax(g.Style.TouchExtraPadding.y, g.Style.WindowBorderHoverPadding)
+    local padding_for_resize = ImMaxVec2(g.Style.TouchExtraPadding, ImVec2(g.Style.WindowBorderHoverPadding, g.Style.WindowBorderHoverPadding))
     local window
     for i = g.Windows.Size, 1, -1 do
         window = g.Windows.Data[i]
@@ -5547,13 +5567,15 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags(mouse_pos)
 
     g.HoveredWindow, g.HoveredWindowUnderMovingWindow = FindHoveredWindowEx(mouse_pos, false)
     IM_ASSERT(g.HoveredWindow == nil or g.HoveredWindow == g.MovingWindow or g.HoveredWindow.Viewport == g.MouseViewport)
+    g.HoveredWindowBeforeClear = g.HoveredWindow
 
+    local has_open_popup = (g.OpenPopupStack.Size > 0)
     local mouse_earliest_down = -1
     local mouse_any_down = false
 
     for i = 0, 2 do -- IM_COUNTOF(io.MouseDown)
         if io.MouseClicked[i] then
-            io.MouseDownOwned[i] = (g.HoveredWindow ~= nil)
+            io.MouseDownOwned[i] = (g.HoveredWindow ~= nil) or has_open_popup
         end
 
         mouse_any_down = mouse_any_down or io.MouseDown[i]
@@ -5569,7 +5591,7 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags(mouse_pos)
     if (g.WantCaptureMouseNextFrame ~= -1) then
         io.WantCaptureMouse = (g.WantCaptureMouseNextFrame ~= 0)
     else
-        io.WantCaptureMouse = (mouse_avail and (g.HoveredWindow ~= nil or mouse_any_down)) -- or has_open_popup
+        io.WantCaptureMouse = (mouse_avail and (g.HoveredWindow ~= nil or mouse_any_down)) or has_open_popup
     end
 
     io.WantTextInput = (g.WantTextInputNextFrame ~= -1) and (g.WantTextInputNextFrame ~= 0) or false
@@ -7629,6 +7651,65 @@ end
 -- [SECTION] NAVIGATION
 ---------------------------------------------------------------------------------------
 
+--- @param id ImGuiID
+function ImGui.PushFocusScope(id)
+    local g = GImGui
+    local data = ImGuiFocusScopeData()
+    data.ID = id
+    data.WindowID = g.CurrentWindow.ID
+    g.FocusScopeStack:push_back(data)
+    g.CurrentFocusScopeId = id
+end
+
+function ImGui.PopFocusScope()
+    local g = GImGui
+    -- TODO: IM_ASSERT_USER_ERROR_RET(g.FocusScopeStack.Size > g.StackSizesInBeginForCurrentWindow.SizeOfFocusScopeStack, "Calling PopFocusScope() too many times!")
+    g.FocusScopeStack:pop_back()
+    if g.FocusScopeStack.Size > 0 then
+        g.CurrentFocusScopeId = g.FocusScopeStack:back().ID
+    else
+        g.CurrentFocusScopeId = 0
+    end
+end
+
+--- @param focus_scope_id ImGuiID
+function ImGui.SetNavFocusScope(focus_scope_id)
+    local g = GImGui
+    g.NavFocusScopeId = focus_scope_id
+    g.NavFocusRoute:resize(0)
+    if focus_scope_id == 0 then
+        return
+    end
+    IM_ASSERT(g.NavWindow ~= nil)
+
+    if focus_scope_id == g.CurrentFocusScopeId then
+        for n = g.FocusScopeStack.Size, 1, -1 do
+            local data = g.FocusScopeStack.Data[n]
+            if data.WindowID ~= g.CurrentWindow.ID then
+                break
+            end
+            g.NavFocusRoute:push_back(data)
+        end
+    elseif focus_scope_id == g.NavWindow.NavRootFocusScopeId then
+        local data = ImGuiFocusScopeData()
+        data.ID = focus_scope_id
+        data.WindowID = g.NavWindow.ID
+        g.NavFocusRoute:push_back(data)
+    else
+        return
+    end
+
+    local window = g.NavWindow.ParentWindowForFocusRoute
+    while window ~= nil do
+        local data = ImGuiFocusScopeData()
+        data.ID = window.NavRootFocusScopeId
+        data.WindowID = window.ID
+        g.NavFocusRoute:push_back(data)
+        window = window.ParentWindowForFocusRoute
+    end
+    IM_ASSERT(g.NavFocusRoute.Size < 100)
+end
+
 function ImGui.SetNavCursorVisibleAfterMove()
     local g = GImGui
     if g.NavWindow and (bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) ~= 0) then
@@ -7648,13 +7729,38 @@ end
 function ImGui.SetNavWindow(window)
     local g = GImGui
     if g.NavWindow ~= window then
-        -- TODO:
+        -- IMGUI_DEBUG_LOG_FOCUS("[focus] SetNavWindow(\"%s\")", window and window.Name or "<NULL>")
         g.NavWindow = window
+        g.NavLastValidSelectionUserData = ImGuiSelectionUserData_Invalid
     end
+    g.NavInitRequest = false
+    g.NavMoveSubmitted = false
+    g.NavMoveScoringItems = false
+    ImGui.NavUpdateAnyRequestFlag()
 end
 
-function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
+--- @param axis ImGuiAxis
+function ImGui.NavClearPreferredPosForAxis(axis)
+    local g = GImGui
+    g.NavWindow.RootWindowForNav.NavPreferredScoringPosRel[g.NavLayer][axis] = FLT_MAX
+end
 
+--- @param id             ImGuiID
+--- @param nav_layer      ImGuiNavLayer
+--- @param focus_scope_id ImGuiID
+--- @param rect_rel       ImRect
+function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
+    local g = GImGui
+    IM_ASSERT(g.NavWindow ~= nil)
+    IM_ASSERT(nav_layer == ImGuiNavLayer.Main or nav_layer == ImGuiNavLayer.Menu)
+    g.NavId = id
+    g.NavLayer = nav_layer
+    ImGui.SetNavFocusScope(focus_scope_id)
+    g.NavWindow.NavLastIds[nav_layer] = id
+    g.NavWindow.NavRectRel[nav_layer] = rect_rel
+
+    ImGui.NavClearPreferredPosForAxis(ImGuiAxis.X)
+    ImGui.NavClearPreferredPosForAxis(ImGuiAxis.Y)
 end
 
 function ImGui.NavUpdateAnyRequestFlag()
@@ -7665,8 +7771,10 @@ function ImGui.NavUpdateAnyRequestFlag()
     end
 end
 
+--- @param window       ImGuiWindow
+--- @param force_reinit bool
 function ImGui.NavInitWindow(window, force_reinit)
-
+    -- TODO:
 end
 
 --- @param window_type ImGuiWindowFlags

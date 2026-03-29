@@ -346,6 +346,8 @@ function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = GImGui if bit.band(g.Deb
 function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = GImGui if g2 and bit.band(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
 function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
 
+ImGuiSelectionUserData_Invalid = -1
+
 ImGuiKeyOwner_Any     = 0
 ImGuiKeyOwner_NoOwner = 4294967295
 
@@ -1410,6 +1412,7 @@ end
 --- @field Windows                            ImVector<ImGuiWindow>
 --- @field WindowsFocusOrder                  ImVector<ImGuiWindow>
 --- @field CurrentWindowStack                 ImVector<ImGuiWindowStackData>
+--- @field FocusScopeStack                    ImVector<ImGuiFocusScopeData>
 --- @field ItemFlagsStack                     ImVector<ImGuiItemFlags>
 --- @field GroupStack                         ImVector<ImGuiGroupData>
 --- @field OpenPopupStack                     ImVector<ImGuiPopupData>
@@ -1647,6 +1650,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         TooltipOverrideCount = 0,
         TooltipPreviousWindow = nil,
 
+        FocusScopeStack = ImVector(),
         CurrentFocusScopeId = 0,
         CurrentItemFlags = ImGuiItemFlags.None,
 
