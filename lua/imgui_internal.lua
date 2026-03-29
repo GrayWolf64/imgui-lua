@@ -150,24 +150,26 @@ end
 
 do
 
-local _memmove
+local _memmove = function(dest, dest_start, src, src_start, count)
+    if count <= 0 then return end
+
+    if dest == src then
+        if dest_start < src_start then
+            for i = 0, count - 1 do dest[dest_start + i] = src[src_start + i] end
+        else
+            for i = count - 1, 0, -1 do dest[dest_start + i] = src[src_start + i] end
+        end
+    else
+        for i = 0, count - 1 do dest[dest_start + i] = src[src_start + i] end
+    end
+end
 
 if table.move then
-    _memmove = function(dest, dest_start, src, src_start, count)
-        table.move(src, src_start, src_start + count - 1, dest_start, dest)
-    end
-else
-    _memmove = function(dest, dest_start, src, src_start, count)
-        if count <= 0 then return end
-
-        if dest == src then
-            if dest_start < src_start then
-                for i = 0, count - 1 do dest[dest_start + i] = src[src_start + i] end
-            else
-                for i = count - 1, 0, -1 do dest[dest_start + i] = src[src_start + i] end
-            end
-        else
-            for i = 0, count - 1 do dest[dest_start + i] = src[src_start + i] end
+    --- [GMod] Platform specific: the `table.move` polyfill in non-x86-64 currently uses `unpack` which will break if too many elements
+    -- Remove this check when the polyfill is fixed or removed
+    if not gmod or (gmod and BRANCH == "x86-64") then
+        _memmove = function(dest, dest_start, src, src_start, count)
+            table.move(src, src_start, src_start + count - 1, dest_start, dest)
         end
     end
 end
