@@ -1108,6 +1108,7 @@ function ImGuiStyle()
         FontScaleDpi  = 1.0,
 
         Alpha = 1.0,
+        DisabledAlpha = 0.60,
 
         FramePadding = ImVec2(4, 3),
         FrameRounding = 0.0,

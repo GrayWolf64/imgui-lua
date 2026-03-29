@@ -5956,7 +5956,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         want_close = true
     end
     if want_close and ImGui.IsPopupOpen(id, ImGuiPopupFlags.None) then
-        ImGui.ClosePopupToLevel(g.BeginPopupStack.Size, true)
+        ImGui.ClosePopupToLevel(g.BeginPopupStack.Size + 1, true)
     end
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Openable | (menu_is_open ? ImGuiItemStatusFlags_Opened : 0))
@@ -6011,7 +6011,7 @@ function ImGui.EndMenu()
     if window.BeginCount == window.BeginCountPreviousFrame then
         if g.NavMoveDir == ImGuiDir.Left and ImGui.NavMoveRequestButNoResultYet() then
             if g.NavWindow and g.NavWindow.RootWindowForNav == window and parent_window.DC.LayoutType == ImGuiLayoutType.Vertical then
-                ImGui.ClosePopupToLevel(g.BeginPopupStack.Size - 1, true)
+                ImGui.ClosePopupToLevel(g.BeginPopupStack.Size, true)
                 ImGui.NavMoveRequestCancel()
             end
         end
@@ -6020,11 +6020,11 @@ function ImGui.EndMenu()
     ImGui.EndPopup()
 end
 
---- @param label    string
---- @param icon     string
---- @param shortcut string
---- @param selected bool
---- @param enabled  bool
+--- @param label     string
+--- @param icon?     string
+--- @param shortcut? string
+--- @param selected  bool
+--- @param enabled   bool
 function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
@@ -6048,5 +6048,70 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
     end
 
     local pressed
-    -- TODO:
+
+    local selectable_flags = bit.bor(ImGuiSelectableFlags.NoHoldingActiveID, ImGuiSelectableFlags.SelectOnRelease, ImGuiSelectableFlags.NoSetKeyOwner, ImGuiSelectableFlags.SetNavIdOnHover)
+    local offsets = window.DC.MenuColumns
+    if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
+        window.DC.CursorPos.x = window.DC.CursorPos.x + IM_TRUNC(style.ItemSpacing.x * 0.5)
+        local text_pos = ImVec2(window.DC.CursorPos.x + offsets.OffsetLabel, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
+        ImGui.PushStyleVarX(ImGuiStyleVar.ItemSpacing, style.ItemSpacing.x * 2.0)
+        pressed = ImGui.Selectable("", selected, selectable_flags, ImVec2(label_size.x, 0.0))
+        ImGui.PopStyleVar()
+        if bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) ~= 0 then
+            ImGui.RenderText(text_pos, label)
+        end
+        window.DC.CursorPos.x = window.DC.CursorPos.x + IM_TRUNC(style.ItemSpacing.x * (-1.0 + 0.5))
+    else
+        local icon_w = 0.0
+        if icon and icon ~= "" then
+            icon_w = ImGui.CalcTextSize(icon, nil).x
+        end
+        local shortcut_w = 0.0
+        if shortcut and shortcut ~= "" then
+            shortcut_w = ImGui.CalcTextSize(shortcut, nil).x
+        end
+        local checkmark_w = IM_TRUNC(g.FontSize * 1.20)
+        local min_w = offsets:DeclColumns(icon_w, label_size.x, shortcut_w, checkmark_w)
+        local stretch_w = ImMax(0.0, ImGui.GetContentRegionAvail().x - min_w)
+        local text_pos = ImVec2(pos.x, pos.y + window.DC.CurrLineTextBaseOffset)
+        pressed = ImGui.Selectable("", false, bit.bor(selectable_flags, ImGuiSelectableFlags.SpanAvailWidth), ImVec2(min_w, label_size.y))
+        if bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) ~= 0 then
+            ImGui.RenderText(text_pos + ImVec2(offsets.OffsetLabel, 0.0), label)
+            if icon_w > 0.0 then
+                --- @cast icon string
+                ImGui.RenderText(text_pos + ImVec2(offsets.OffsetIcon, 0.0), icon)
+            end
+            if shortcut_w > 0.0 then
+                ImGui.PushStyleColor(ImGuiCol.Text, style.Colors[ImGuiCol.TextDisabled])
+                -- ImGui.LogSetNextTextDecoration("(", ")")
+                --- @cast shortcut string
+                ImGui.RenderText(text_pos + ImVec2(offsets.OffsetShortcut + stretch_w, 0.0), shortcut, nil, nil, false)
+                ImGui.PopStyleColor()
+            end
+            if selected then
+                ImGui.RenderCheckMark(window.DrawList, text_pos + ImVec2(offsets.OffsetMark + stretch_w + g.FontSize * 0.40, g.FontSize * 0.134 * 0.5), ImGui.GetColorU32(ImGuiCol.Text), g.FontSize * 0.866)
+            end
+        end
+    end
+
+    if not enabled then
+        ImGui.EndDisabled()
+    end
+    ImGui.PopID()
+    if menuset_is_open then
+        ImGui.PopItemFlag()
+    end
+
+    return pressed
+end
+
+--- @param label     string
+--- @param shortcut? string
+--- @param selected? bool
+--- @param enabled?  bool
+function ImGui.MenuItem(label, shortcut, selected, enabled)
+    if selected == nil then selected = false end
+    if enabled  == nil then enabled  = true  end
+
+    return ImGui.MenuItemEx(label, nil, shortcut, selected, enabled)
 end

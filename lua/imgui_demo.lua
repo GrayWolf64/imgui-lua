@@ -6,7 +6,26 @@ local IM_MAX = math.max
 local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
 
 local function ShowExampleMenuFile()
-
+    ImGui.MenuItem("(demo menu)", nil, false, false)
+    if ImGui.MenuItem("New") then end
+    if ImGui.MenuItem("Open", "Ctrl+O") then end
+    if ImGui.BeginMenu("Open Recent") then
+        ImGui.MenuItem("fish_hat.c")
+        ImGui.MenuItem("fish_hat.inl")
+        ImGui.MenuItem("fish_hat.h")
+        if ImGui.BeginMenu("More..") then
+            ImGui.MenuItem("Hello")
+            ImGui.MenuItem("Sailor")
+            if ImGui.BeginMenu("Recurse..") then
+                ShowExampleMenuFile()
+                ImGui.EndMenu()
+            end
+            ImGui.EndMenu()
+        end
+        ImGui.EndMenu()
+    end
+    if ImGui.MenuItem("Save", "Ctrl+S") then end
+    if ImGui.MenuItem("Save As..") then end
 end
 
 local function DemoWindowMenuBar()
