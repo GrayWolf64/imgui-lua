@@ -1609,7 +1609,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         DrawListSharedData = ImDrawListSharedData(),
 
-        -- StackSizesInBeginForCurrentWindow = nil,
+        StackSizesInBeginForCurrentWindow = nil,
 
         --- Misc
         FramerateSecPerFrame = {}, -- size = 60

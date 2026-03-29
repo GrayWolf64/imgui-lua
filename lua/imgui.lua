@@ -4660,6 +4660,10 @@ function ImGui.Begin(name, open, flags)
     ImGuiLastItemData_Copy(window_stack_data.ParentLastItemDataBackup, g.LastItemData)
     window_stack_data.DisabledOverrideReenable = (bit.band(flags, ImGuiWindowFlags.Tooltip) ~= 0) and (bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0)
     window_stack_data.DisabledOverrideReenableAlphaBackup = 0.0
+    -- g.StackSizesInBeginForCurrentWindow = window_stack_data.StackSizesInBegin
+    if bit.band(flags, ImGuiWindowFlags.ChildMenu) ~= 0 then
+        g.BeginMenuDepth = g.BeginMenuDepth + 1
+    end
 
     if first_begin_of_the_frame then
         ImGui.UpdateWindowParentAndRootLinks(window, flags, parent_window)
