@@ -3965,7 +3965,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
         end
 
         -- Title bar
-        if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 then
+        if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 and not window.DockIsActive then
             local title_bar_col
             if titlebar_is_highlight then
                 title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBgActive)
@@ -3976,7 +3976,15 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
             window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundCornersTop)
         end
 
-        -- TODO: Menu bar
+        -- Menu bar
+        if bit.band(flags, ImGuiWindowFlags.MenuBar) ~= 0 then
+            local menu_bar_rect = window:MenuBarRect()
+            menu_bar_rect:ClipWith(window:Rect())
+            window.DrawList:AddRectFilled(menu_bar_rect.Min, menu_bar_rect.Max, ImGui.GetColorU32(ImGuiCol.MenuBarBg), (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and window_rounding or 0.0, ImDrawFlags.RoundCornersTop)
+            if style.FrameBorderSize > 0.0 and menu_bar_rect.Max.y < window.Pos.y + window.Size.y then
+                window.DrawList:AddLine(menu_bar_rect:GetBL() + ImVec2(window_border_size * 0.5, 0.0), menu_bar_rect:GetBR() - ImVec2(window_border_size * 0.5, 0.0), ImGui.GetColorU32(ImGuiCol.Border), style.FrameBorderSize)
+            end
+        end
 
         if window.ScrollbarX then
             ImGui.Scrollbar(ImGuiAxis.X)
