@@ -1434,7 +1434,18 @@ function ImGui.FocusWindow(window, flags)
     if flags == nil then flags = 0 end
 
     local g = GImGui
-    -- TODO:
+
+    if bit.band(flags, ImGuiFocusRequestFlags.UnlessBelowModal) ~= 0 and g.NavWindow ~= window then
+        local blocking_modal = ImGui.FindBlockingModal(window)
+        if blocking_modal then
+            -- IMGUI_DEBUG_LOG_FOCUS("[focus] FocusWindow(\"%s\", UnlessBelowModal): prevented by \"%s\".", window ? window->Name : "<NULL>", blocking_modal->Name)
+            if window and window == window.RootWindow and bit.band(window.Flags, ImGuiWindowFlags.NoBringToFrontOnFocus) == 0 then
+                ImGui.BringWindowToDisplayBehind(window, blocking_modal)
+            end
+            ImGui.ClosePopupsOverWindow(ImGui.GetTopMostPopupModal(), false)
+            return
+        end
+    end
 
     if bit.band(flags, ImGuiFocusRequestFlags.RestoreFocusedChild) ~= 0 and window ~= nil then
         window = ImGui.NavRestoreLastChildNavWindow(window)
@@ -1555,6 +1566,16 @@ function ImGui.BringWindowToDisplayFront(window)
     end
 
     g.Windows:push_back(window)
+end
+
+--- @param window        ImGuiWindow
+--- @param behind_window ImGuiWindow
+function ImGui.BringWindowToDisplayBehind(window, behind_window)
+    IM_ASSERT(window ~= nil and behind_window ~= nil)
+    local g = GImGui
+    window = window.RootWindow
+    behind_window = behind_window.RootWindow
+    -- TODO:
 end
 
 --- @param under_this_window? ImGuiWindow
@@ -5290,7 +5311,10 @@ function ImGui.Begin(name, open, flags)
         g.NextWindowData:ClearFlags()
 
         if want_focus then
-            ImGui.FocusWindow(window)
+            ImGui.FocusWindow(window, ImGuiFocusRequestFlags.UnlessBelowModal)
+        end
+        if want_focus and window == g.NavWindow then
+            ImGui.NavInitWindow(window, false)
         end
 
         if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 then
@@ -7141,6 +7165,36 @@ end
 -- [SECTION] POPUPS
 ---------------------------------------------------------------------------------------
 
+--- @param window? ImGuiWindow
+function ImGui.FindBlockingModal(window)
+    local g = GImGui
+    if g.OpenPopupStack.Size <= 0 then
+        return nil
+    end
+
+    for i = 1, g.OpenPopupStack.Size do
+        local popup_data = g.OpenPopupStack.Data[i]
+        local popup_window = popup_data.Window
+        if popup_window == nil or bit.band(popup_window.Flags, ImGuiWindowFlags.Modal) == 0 then
+            goto CONTINUE
+        end
+        if not popup_window.Active and not popup_window.WasActive then
+            goto CONTINUE
+        end
+        if window == nil then
+            return popup_window
+        end
+        if ImGui.IsWindowWithinBeginStackOf(window, popup_window) then
+            goto CONTINUE
+        end
+
+        do return popup_window end
+
+        ::CONTINUE::
+    end
+    return nil
+end
+
 --- @param id           ImGuiID|string
 --- @param popup_flags? ImGuiPopupFlags
 function ImGui.OpenPopup(id, popup_flags)
@@ -7232,7 +7286,7 @@ function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_p
         while popup_count_to_keep < g.OpenPopupStack.Size do
             local popup = g.OpenPopupStack.Data[popup_count_to_keep + 1]
 
-                if popup.Window then -- cpp code has `continue` here instead of this big if statement
+                if popup.Window then -- TODO: cpp code has `continue` here instead of this big if statement
 
                     IM_ASSERT(bit.band(popup.Window.Flags, ImGuiWindowFlags.Popup) ~= 0)
 
@@ -7813,7 +7867,30 @@ end
 --- @param window       ImGuiWindow
 --- @param force_reinit bool
 function ImGui.NavInitWindow(window, force_reinit)
-    -- TODO:
+    local g = GImGui
+    IM_ASSERT(window == g.NavWindow)
+
+    if bit.band(window.Flags, ImGuiWindowFlags.NoNavInputs) ~= 0 then
+        g.NavId = 0
+        ImGui.SetNavFocusScope(window.NavRootFocusScopeId)
+        return
+    end
+
+    local init_for_nav = false
+    if window == window.RootWindow or bit.band(window.Flags, ImGuiWindowFlags.Popup) ~= 0 or window.NavLastIds[0] == 0 or force_reinit then
+        init_for_nav = true
+    end
+    -- IMGUI_DEBUG_LOG_NAV("[nav] NavInitRequest: from NavInitWindow(), init_for_nav=%d, window=\"%s\", layer=%d", init_for_nav, window->Name, g.NavLayer)
+    if init_for_nav then
+        ImGui.SetNavID(0, g.NavLayer, window.NavRootFocusScopeId, ImRect())
+        g.NavInitRequest = true
+        g.NavInitRequestFromMove = false
+        g.NavInitResult.ID = 0
+        ImGui.NavUpdateAnyRequestFlag()
+    else
+        g.NavId = window.NavLastIds[0]
+        ImGui.SetNavFocusScope(window.NavRootFocusScopeId)
+    end
 end
 
 --- @param window_type ImGuiWindowFlags

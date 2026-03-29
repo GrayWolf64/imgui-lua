@@ -1398,6 +1398,17 @@ local function ImGuiDebugAllocInfo()
     return this
 end
 
+--- @class ImGuiNavItemData
+local _ImGuiNavItemData = {}
+_ImGuiNavItemData.__index = _ImGuiNavItemData
+
+--- @return ImGuiNavItemData
+local function ImGuiNavItemData()
+    return setmetatable({
+        -- TODO:
+    }, _ImGuiNavItemData)
+end
+
 --- @class ImGuiContext
 --- @field Initialized                        bool
 --- @field WithinFrameScope                   bool
@@ -1553,6 +1564,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         NavAnyRequest = false,
         NavInitRequest = false,
         NavInitRequestFromMove = false,
+        NavInitResult = ImGuiNavItemData(),
         NavMoveSubmitted = false,
         NavMoveScoringItems = false,
         NavMoveForwardToNextFrame = false,
