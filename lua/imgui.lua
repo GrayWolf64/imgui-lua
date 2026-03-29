@@ -1592,7 +1592,8 @@ function ImGui.FocusTopMostWindowUnderOne(under_this_window, ignore_window, filt
     ImGui.FocusWindow(nil, flags)
 end
 
---- void ImGui::SetFocusID
+--- @param id     ImGuiID
+--- @param window ImGuiWindow
 function ImGui.SetFocusID(id, window)
     local g = GImGui
     IM_ASSERT(id ~= 0)
@@ -1601,7 +1602,27 @@ function ImGui.SetFocusID(id, window)
         ImGui.SetNavWindow(window)
     end
 
-    -- TODO:
+    local nav_layer = window.DC.NavLayerCurrent
+    g.NavId = id
+    g.NavLayer = nav_layer
+    ImGui.SetNavFocusScope(g.CurrentFocusScopeId)
+    window.NavLastIds[nav_layer] = id
+    if g.LastItemData.ID == id then
+        ImRect_Copy(window.NavRectRel[nav_layer], ImGui.WindowRectAbsToRel(window, g.LastItemData.NavRect))
+    end
+    g.NavIdItemFlags = (g.LastItemData.ID == id) and g.LastItemData.ItemFlags or ImGuiItemFlags.None
+    if id == g.ActiveIdIsAlive then
+        g.NavIdIsAlive = true
+    end
+
+    if g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
+        g.NavHighlightItemUnderNav = true
+    elseif g.IO.ConfigNavCursorVisibleAuto then
+        g.NavCursorVisible = false
+    end
+
+    ImGui.NavClearPreferredPosForAxis(ImGuiAxis.X)
+    ImGui.NavClearPreferredPosForAxis(ImGuiAxis.Y)
 end
 
 function ImGui.StopMouseMovingWindow()
@@ -7767,7 +7788,7 @@ function ImGui.SetNavID(id, nav_layer, focus_scope_id, rect_rel)
     g.NavLayer = nav_layer
     ImGui.SetNavFocusScope(focus_scope_id)
     g.NavWindow.NavLastIds[nav_layer] = id
-    g.NavWindow.NavRectRel[nav_layer] = rect_rel
+    ImRect_Copy(g.NavWindow.NavRectRel[nav_layer], rect_rel)
 
     ImGui.NavClearPreferredPosForAxis(ImGuiAxis.X)
     ImGui.NavClearPreferredPosForAxis(ImGuiAxis.Y)
