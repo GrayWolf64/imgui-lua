@@ -6049,7 +6049,7 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
 
     local pressed
 
-    local selectable_flags = bit.bor(ImGuiSelectableFlags.NoHoldingActiveID, ImGuiSelectableFlags.SelectOnRelease, ImGuiSelectableFlags.NoSetKeyOwner, ImGuiSelectableFlags.SetNavIdOnHover)
+    local selectable_flags = bit.bor(ImGuiSelectableFlags.SelectOnRelease, ImGuiSelectableFlags.NoSetKeyOwner, ImGuiSelectableFlags.SetNavIdOnHover)
     local offsets = window.DC.MenuColumns
     if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
         window.DC.CursorPos.x = window.DC.CursorPos.x + IM_TRUNC(style.ItemSpacing.x * 0.5)

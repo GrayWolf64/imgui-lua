@@ -1814,7 +1814,7 @@ function ImGui.IsWindowContentHoverable(window, flags)
 end
 
 --- @param flags ImGuiHoveredFlags
-function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted here
+function ImGui.IsItemHovered(flags)
     if flags == nil then flags = 0 end
 
     local g = GImGui
@@ -1853,6 +1853,9 @@ function ImGui.IsItemHovered(flags) -- TODO: there are things not implmeneted he
             if g.ActiveId ~= 0 and g.ActiveId ~= id and not g.ActiveIdAllowOverlap and not g.ActiveIdFromShortcut then
                 local cancel_is_hovered = true
                 if g.ActiveId == window.MoveId and (id == 0 or g.ActiveIdDisabledId == id) then
+                    cancel_is_hovered = false
+                end
+                if g.ActiveId == window.TabId then
                     cancel_is_hovered = false
                 end
                 if cancel_is_hovered then
