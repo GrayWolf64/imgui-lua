@@ -7291,35 +7291,37 @@ function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_p
     local popup_count_to_keep = 0
     if ref_window then
         -- Find the highest popup which is a descendant of the reference window (generally reference window = NavWindow)
+        local ref_window_is_descendent_of_popup
         while popup_count_to_keep < g.OpenPopupStack.Size do
             local popup = g.OpenPopupStack.Data[popup_count_to_keep + 1]
+            if not popup.Window then
+                goto CONTINUE
+            end
 
-                if popup.Window then -- TODO: cpp code has `continue` here instead of this big if statement
+            IM_ASSERT(bit.band(popup.Window.Flags, ImGuiWindowFlags.Popup) ~= 0)
 
-                    IM_ASSERT(bit.band(popup.Window.Flags, ImGuiWindowFlags.Popup) ~= 0)
-
-                    -- Trim the stack unless the popup is a direct parent of the reference window (the reference window is often the NavWindow)
-                    -- - Clicking/Focusing Window2 won't close Popup1:
-                    --     Window -> Popup1 -> Window2(Ref)
-                    -- - Clicking/focusing Popup1 will close Popup2 and Popup3:
-                    --     Window -> Popup1(Ref) -> Popup2 -> Popup3
-                    -- - Each popups may contain child windows, which is why we compare ->RootWindow!
-                    --     Window -> Popup1 -> Popup1_Child -> Popup2 -> Popup2_Child
-                    -- We step through every popup from bottom to top to validate their position relative to reference window.
-                    local ref_window_is_descendent_of_popup = false
-                    for n = popup_count_to_keep, g.OpenPopupStack.Size - 1 do
-                        local popup_window = g.OpenPopupStack.Data[n + 1].Window
-                        if popup_window and ImGui.IsWindowWithinBeginStackOf(ref_window, popup_window) then
-                            ref_window_is_descendent_of_popup = true
-                            break
-                        end
-                    end
-
-                    if not ref_window_is_descendent_of_popup then
-                        break
-                    end
-
+            -- Trim the stack unless the popup is a direct parent of the reference window (the reference window is often the NavWindow)
+            -- - Clicking/Focusing Window2 won't close Popup1:
+            --     Window -> Popup1 -> Window2(Ref)
+            -- - Clicking/focusing Popup1 will close Popup2 and Popup3:
+            --     Window -> Popup1(Ref) -> Popup2 -> Popup3
+            -- - Each popups may contain child windows, which is why we compare ->RootWindow!
+            --     Window -> Popup1 -> Popup1_Child -> Popup2 -> Popup2_Child
+            -- We step through every popup from bottom to top to validate their position relative to reference window.
+            ref_window_is_descendent_of_popup = false
+            for n = popup_count_to_keep, g.OpenPopupStack.Size - 1 do
+                local popup_window = g.OpenPopupStack.Data[n + 1].Window
+                if popup_window and ImGui.IsWindowWithinBeginStackOf(ref_window, popup_window) then
+                    ref_window_is_descendent_of_popup = true
+                    break
                 end
+            end
+
+            if not ref_window_is_descendent_of_popup then
+                break
+            end
+
+            :: CONTINUE ::
 
             popup_count_to_keep = popup_count_to_keep + 1
         end
