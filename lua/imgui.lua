@@ -5355,6 +5355,10 @@ function ImGui.End()
         ImGui.PopClipRect()
     end
 
+    if window_stack_data.DisabledOverrideReenable and window.RootWindow == window then
+        ImGui.EndDisabledOverrideReenable()
+    end
+
     if (window.SkipRefresh) then
         IM_ASSERT(window.DrawList == nil)
         window.DrawList = window.DrawListInst
@@ -5445,6 +5449,15 @@ function ImGui.BeginDisabledOverrideReenable()
     g.CurrentItemFlags = bit.band(g.CurrentItemFlags, bit.bnot(ImGuiItemFlags.Disabled))
     g.ItemFlagsStack:push_back(g.CurrentItemFlags)
     g.DisabledStackSize = g.DisabledStackSize + 1
+end
+
+function ImGui.EndDisabledOverrideReenable()
+    local g = GImGui
+    IM_ASSERT(g.DisabledStackSize > 0)
+    g.DisabledStackSize = g.DisabledStackSize - 1
+    g.ItemFlagsStack:pop_back()
+    g.CurrentItemFlags = g.ItemFlagsStack:back()
+    g.Style.Alpha = g.CurrentWindowStack:back().DisabledOverrideReenableAlphaBackup
 end
 
 --- @param pos                            ImVec2
