@@ -6600,6 +6600,10 @@ function ImGui.GetStyle()
     return GImGui.Style
 end
 
+do
+
+local c = ImVec4()
+
 --- @param col        ImGuiCol|ImVec4
 --- @param alpha_mul? float
 --- @return ImU32
@@ -6608,16 +6612,17 @@ function ImGui.GetColorU32(col, alpha_mul)
 
     local style = GImGui.Style
 
-    local c
     if type(col) == "number" then
-        c = style.Colors[col]
+        ImVec4_Copy(c, style.Colors[col])
         c.w = c.w * style.Alpha * alpha_mul
     else --- @cast col ImVec4
-        c = col
+        ImVec4_Copy(c, col)
         c.w = c.w * style.Alpha
     end
 
     return ImGui.ColorConvertFloat4ToU32(c)
+end
+
 end
 
 --- @param col        ImU32
