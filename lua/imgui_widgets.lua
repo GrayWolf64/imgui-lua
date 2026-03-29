@@ -5956,7 +5956,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         want_close = true
     end
     if want_close and ImGui.IsPopupOpen(id, ImGuiPopupFlags.None) then
-        ImGui.ClosePopupToLevel(g.BeginPopupStack.Size + 1, true)
+        ImGui.ClosePopupToLevel(g.BeginPopupStack.Size, true)
     end
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Openable | (menu_is_open ? ImGuiItemStatusFlags_Opened : 0))
@@ -6011,7 +6011,7 @@ function ImGui.EndMenu()
     if window.BeginCount == window.BeginCountPreviousFrame then
         if g.NavMoveDir == ImGuiDir.Left and ImGui.NavMoveRequestButNoResultYet() then
             if g.NavWindow and g.NavWindow.RootWindowForNav == window and parent_window.DC.LayoutType == ImGuiLayoutType.Vertical then
-                ImGui.ClosePopupToLevel(g.BeginPopupStack.Size, true)
+                ImGui.ClosePopupToLevel(g.BeginPopupStack.Size - 1, true)
                 ImGui.NavMoveRequestCancel()
             end
         end

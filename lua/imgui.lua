@@ -7143,7 +7143,7 @@ function ImGui.OpenPopupEx(id, popup_flags)
 
         -- When reopening a popup we first refocus its parent, otherwise if its parent is itself a popup it would get closed by ClosePopupsOverWindow().
         -- This is equivalent to what ClosePopupToLevel() does.
-        -- if (g.OpenPopupStack[current_stack_size].PopupId == id)
+        -- if (g.OpenPopupStack[current_stack_size + 1].PopupId == id)
         --     FocusWindow(parent_window);
     end
 end
@@ -7160,11 +7160,11 @@ function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_p
 
     -- Don't close our own child popup windows.
     -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupsOverWindow(\"%s\") restore_under=%d", ref_window and ref_window.Name or "<NULL>", restore_focus_to_window_under_popup)
-    local popup_count_to_keep = 1
+    local popup_count_to_keep = 0
     if ref_window then
         -- Find the highest popup which is a descendant of the reference window (generally reference window = NavWindow)
-        while popup_count_to_keep <= g.OpenPopupStack.Size do
-            local popup = g.OpenPopupStack.Data[popup_count_to_keep]
+        while popup_count_to_keep < g.OpenPopupStack.Size do
+            local popup = g.OpenPopupStack.Data[popup_count_to_keep + 1]
 
                 if popup.Window then -- cpp code has `continue` here instead of this big if statement
 
@@ -7179,8 +7179,8 @@ function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_p
                     --     Window -> Popup1 -> Popup1_Child -> Popup2 -> Popup2_Child
                     -- We step through every popup from bottom to top to validate their position relative to reference window.
                     local ref_window_is_descendent_of_popup = false
-                    for n = popup_count_to_keep, g.OpenPopupStack.Size do
-                        local popup_window = g.OpenPopupStack.Data[n].Window
+                    for n = popup_count_to_keep, g.OpenPopupStack.Size - 1 do
+                        local popup_window = g.OpenPopupStack.Data[n + 1].Window
                         if popup_window and ImGui.IsWindowWithinBeginStackOf(ref_window, popup_window) then
                             ref_window_is_descendent_of_popup = true
                             break
@@ -7196,7 +7196,7 @@ function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_p
             popup_count_to_keep = popup_count_to_keep + 1
         end
     end
-    if popup_count_to_keep <= g.OpenPopupStack.Size then -- This test is not required but it allows to set a convenient breakpoint on the statement below
+    if popup_count_to_keep < g.OpenPopupStack.Size then -- This test is not required but it allows to set a convenient breakpoint on the statement below
         -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupsOverWindow(\"%s\")", ref_window and ref_window.Name or "<NULL>")
         ImGui.ClosePopupToLevel(popup_count_to_keep, restore_focus_to_window_under_popup)
     end
@@ -7205,17 +7205,17 @@ end
 function ImGui.ClosePopupToLevel(remaining, restore_focus_to_window_under_popup)
     local g = GImGui
     -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupToLevel(%d), restore_under=%d", remaining, restore_focus_to_window_under_popup)
-    IM_ASSERT(remaining > 0 and remaining <= g.OpenPopupStack.Size)
+    IM_ASSERT(remaining >= 0 and remaining < g.OpenPopupStack.Size)
     -- if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then
-    --     for n = remaining, g.OpenPopupStack.Size do
+    --     for n = remaining + 1, g.OpenPopupStack.Size do
     --         local popup = g.OpenPopupStack.Data[n]
     --         IMGUI_DEBUG_LOG_POPUP("[popup] - Closing PopupID 0x%08X Window \"%s\"", popup.PopupId, popup.Window and popup.Window.Name or nil)
     --     end
     -- end
 
     -- Trim open popup stack
-    local prev_popup = g.OpenPopupStack.Data[remaining]
-    g.OpenPopupStack:resize(remaining - 1)
+    local prev_popup = g.OpenPopupStack.Data[remaining + 1]
+    g.OpenPopupStack:resize(remaining)
 
     -- Restore focus (unless popup window was not yet submitted, and didn't have a chance to take focus anyhow. See #7325 for an edge case)
     if restore_focus_to_window_under_popup and prev_popup.Window then
@@ -7263,7 +7263,7 @@ function ImGui.CloseCurrentPopup()
     end
 
     -- IMGUI_DEBUG_LOG_POPUP("[popup] CloseCurrentPopup %d -> %d\n", g.BeginPopupStack.Size, popup_idx)
-    ImGui.ClosePopupToLevel(popup_idx, true)
+    ImGui.ClosePopupToLevel(popup_idx - 1, true)
 
     -- A common pattern is to close a popup when selecting a menu item/selectable that will open another window.
     -- To improve this usage pattern, we avoid nav highlight for a single frame in the parent window.
