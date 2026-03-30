@@ -455,7 +455,39 @@ function ImGui.ButtonBehavior(bb, id, flags)
         end
     end
 
-    -- TODO: Keyboard/Gamepad navigation handling
+    -- Keyboard/Gamepad navigation handling
+    -- We report navigated and navigation-activated items as hovered but we don't set g.HoveredId to not interfere with mouse
+    if bit.band(item_flags, ImGuiItemFlags.Disabled) == 0 then
+        if g.NavId == id and g.NavCursorVisible and g.NavHighlightItemUnderNav then
+            if bit.band(flags, ImGuiButtonFlags.NoHoveredOnFocus) == 0 then
+                hovered = true
+            end
+        end
+        if g.NavActivateDownId == id then
+            local nav_activated_by_code = (g.NavActivateId == id)
+            local nav_activated_by_inputs = (g.NavActivatePressedId == id)
+            if not nav_activated_by_inputs and bit.band(item_flags, ImGuiItemFlags.ButtonRepeat) ~= 0 then
+                -- Avoid pressing multiple keys from triggering excessive amount of repeat events
+                local key1 = ImGui.GetKeyData(g, ImGuiKey.Space)
+                local key2 = ImGui.GetKeyData(g, ImGuiKey.Enter)
+                local key3 = ImGui.GetKeyData(g, ImGuiKey.NavGamepadActivate)
+                local t1 = ImMax(ImMax(key1.DownDuration, key2.DownDuration), key3.DownDuration)
+                nav_activated_by_inputs = ImGui.CalcTypematicRepeatAmount(t1 - g.IO.DeltaTime, t1, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0
+            end
+            if nav_activated_by_code or nav_activated_by_inputs then
+                -- Set active id so it can be queried by user via IsItemActive(), equivalent of holding the mouse button.
+                pressed = true
+                ImGui.SetActiveID(id, window)
+                g.ActiveIdSource = g.NavInputSource
+                if bit.band(flags, ImGuiButtonFlags.NoNavFocus) == 0 and bit.band(g.NavActivateFlags, ImGuiActivateFlags.FromShortcut) == 0 then
+                    ImGui.SetFocusID(id, window)
+                end
+                if bit.band(g.NavActivateFlags, ImGuiActivateFlags.FromShortcut) ~= 0 then
+                    g.ActiveIdFromShortcut = true
+                end
+            end
+        end
+    end
 
     local held = false
     if g.ActiveId == id then
