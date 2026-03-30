@@ -1133,13 +1133,13 @@ function ImGui.Checkbox(label, v)
     if v ~= checked then
         v = checked
         pressed = true
-        -- MarkItemEdited(id);
+        ImGui.MarkItemEdited(id)
     end
 
     local check_bb = ImRect(pos, pos + ImVec2(square_sz, square_sz))
     local mixed_value = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0)
     if is_visible then
-        -- ImGui.RenderNavCursor(total_bb, id)
+        ImGui.RenderNavCursor(total_bb, id)
 
         local frame_col
         if held and hovered then
