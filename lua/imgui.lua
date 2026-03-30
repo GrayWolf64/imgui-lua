@@ -6358,11 +6358,16 @@ function ImGui.NewFrame()
 
     ImGui.UpdateMouseWheel()
 
+    if (g.NavWindow and not g.NavWindow.WasActive) then
+        ImGui.FocusTopMostWindowUnderOne(nil, nil, nil, ImGuiFocusRequestFlags.RestoreFocusedChild)
+    end
+
     g.CurrentWindowStack:resize(0)
     g.BeginPopupStack:resize(0)
     g.ItemFlagsStack:resize(0)
     g.ItemFlagsStack:push_back(ImGuiItemFlags.AutoClosePopups)
     g.CurrentItemFlags = g.ItemFlagsStack:back()
+    g.GroupStack:resize(0)
 
     g.WithinFrameScopeWithImplicitWindow = true
     ImGui.SetNextWindowSize(ImVec2(400, 400), ImGuiCond.FirstUseEver)
@@ -7332,6 +7337,8 @@ function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_p
     end
 end
 
+--- @param remaining                           int  # 0-based
+--- @param restore_focus_to_window_under_popup bool
 function ImGui.ClosePopupToLevel(remaining, restore_focus_to_window_under_popup)
     local g = GImGui
     -- IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupToLevel(%d), restore_under=%d", remaining, restore_focus_to_window_under_popup)
@@ -7344,6 +7351,7 @@ function ImGui.ClosePopupToLevel(remaining, restore_focus_to_window_under_popup)
     -- end
 
     -- Trim open popup stack
+    -- FIXME: is it safer to full copy here?
     local prev_popup = g.OpenPopupStack.Data[remaining + 1]
     g.OpenPopupStack:resize(remaining)
 
@@ -8059,7 +8067,7 @@ function ImGui.NavUpdate()
     -- io.NavActive = (nav_keyboard_active or nav_gamepad_active) and g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) == 0
     -- io.NavVisible = (io.NavActive and g.NavId ~= 0 and g.NavCursorVisible) or (g.NavWindowingTarget ~= nil)
 
-    -- ImGui.NavUpdateCancelRequest()
+    ImGui.NavUpdateCancelRequest()
     -- ImGui.NavUpdateContextMenuRequest()
 
     -- g.NavActivateId = 0
@@ -8122,7 +8130,7 @@ function ImGui.NavUpdate()
     -- if g.NavMoveDir == ImGuiDir.None then
     --     ImGui.NavUpdateCreateTabbingRequest()
     -- end
-    -- ImGui.NavUpdateAnyRequestFlag()
+    ImGui.NavUpdateAnyRequestFlag()
     -- g.NavIdIsAlive = false
 
     -- if g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) == 0 and not g.NavWindowingTarget then
@@ -8157,17 +8165,55 @@ function ImGui.NavUpdate()
     --     end
     -- end
 
-    -- if not nav_keyboard_active and not nav_gamepad_active then
-    --     g.NavCursorVisible = false
-    --     g.NavHighlightItemUnderNav = false
-    --     set_mouse_pos = false
-    -- end
+    if not nav_keyboard_active and not nav_gamepad_active then
+        g.NavCursorVisible = false
+        g.NavHighlightItemUnderNav = false
+        set_mouse_pos = false
+    end
 
     -- if set_mouse_pos and io.ConfigNavMoveSetMousePos and bit.band(io.BackendFlags, ImGuiBackendFlags.HasSetMousePos) ~= 0 then
     --     ImGui.TeleportMousePos(ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Popup))
     -- end
 
-    -- g.NavScoringDebugCount = 0
+    g.NavScoringDebugCount = 0
+end
+
+function ImGui.NavUpdateCancelRequest()
+    local g = GImGui
+    local nav_gamepad_active = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0
+    local nav_keyboard_active = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) ~= 0
+    if not (nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Escape, 0, ImGuiKeyOwner.NoOwner)) and not (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey.NavGamepadCancel, 0, ImGuiKeyOwner.NoOwner)) then
+        return
+    end
+
+    -- IMGUI_DEBUG_LOG_NAV("[nav] NavUpdateCancelRequest()")
+    if g.ActiveId ~= 0 then
+        ImGui.ClearActiveID()
+    elseif g.NavLayer ~= ImGuiNavLayer.Main then
+        ImGui.NavRestoreLayer(ImGuiNavLayer.Main)
+        ImGui.SetNavCursorVisibleAfterMove()
+    elseif g.NavWindow and g.NavWindow ~= g.NavWindow.RootWindow and bit.band(g.NavWindow.RootWindowForNav.Flags, ImGuiWindowFlags.Popup) == 0 and g.NavWindow.RootWindowForNav.ParentWindow then
+        local child_window = g.NavWindow.RootWindowForNav
+        local parent_window = child_window.ParentWindow
+        IM_ASSERT(child_window.ChildId ~= 0)
+        ImGui.FocusWindow(parent_window)
+        ImGui.SetNavID(child_window.ChildId, ImGuiNavLayer.Main, 0, ImGui.WindowRectAbsToRel(parent_window, child_window:Rect()))
+        ImGui.SetNavCursorVisibleAfterMove()
+    elseif g.OpenPopupStack.Size > 0 and g.OpenPopupStack:back().Window ~= nil and bit.band(g.OpenPopupStack:back().Window.Flags, ImGuiWindowFlags.Modal) == 0 then
+        ImGui.ClosePopupToLevel(g.OpenPopupStack.Size - 1, true)
+    else
+        if g.IO.ConfigNavEscapeClearFocusItem or g.IO.ConfigNavEscapeClearFocusWindow then
+            if g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.Popup) ~= 0 then
+                g.NavWindow.NavLastIds[0] = 0
+            end
+        end
+        if g.IO.ConfigNavEscapeClearFocusItem or g.IO.ConfigNavEscapeClearFocusWindow then
+            g.NavId = 0
+        end
+        if g.IO.ConfigNavEscapeClearFocusWindow then
+            ImGui.FocusWindow(nil)
+        end
+    end
 end
 
 function ImGui.NavMoveRequestButNoResultYet()
