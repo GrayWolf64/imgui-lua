@@ -1002,6 +1002,7 @@ function ImGuiIO()
         MouseDragMaxDistanceSqr = {[0] = 0, [1] = 0, [2] = 0},
 
         MouseDownOwned    = {[0] = nil, [1] = nil, [2] = nil},
+        MouseDownOwnedUnlessPopupClose = {[0] = nil, [1] = nil, [2] = nil},
         MouseClickedTime  = {[0] = 0, [1] = 0, [2] = 0},
         MouseReleasedTime = {[0] = 0, [1] = 0, [2] = 0},
         MouseClickedPos   = {[0] = ImVec2(), [1] = ImVec2(), [2] = ImVec2()},

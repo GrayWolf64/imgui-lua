@@ -5626,17 +5626,29 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags(mouse_pos)
 
     g.WindowsBorderHoverPadding = ImMax(ImMax(g.Style.TouchExtraPadding.x, g.Style.TouchExtraPadding.y), g.Style.WindowBorderHoverPadding)
 
+    local clear_hovered_windows = false
     g.HoveredWindow, g.HoveredWindowUnderMovingWindow = FindHoveredWindowEx(mouse_pos, false)
     IM_ASSERT(g.HoveredWindow == nil or g.HoveredWindow == g.MovingWindow or g.HoveredWindow.Viewport == g.MouseViewport)
     g.HoveredWindowBeforeClear = g.HoveredWindow
 
+    local modal_window = ImGui.GetTopMostPopupModal()
+    if modal_window and g.HoveredWindow and not ImGui.IsWindowWithinBeginStackOf(g.HoveredWindow.RootWindow, modal_window) then
+        clear_hovered_windows = true
+    end
+
+    if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoMouse) ~= 0 then
+        clear_hovered_windows = true
+    end
+
     local has_open_popup = (g.OpenPopupStack.Size > 0)
+    local has_open_modal = (modal_window ~= nil)
     local mouse_earliest_down = -1
     local mouse_any_down = false
 
     for i = 0, 2 do -- IM_COUNTOF(io.MouseDown)
         if io.MouseClicked[i] then
             io.MouseDownOwned[i] = (g.HoveredWindow ~= nil) or has_open_popup
+            io.MouseDownOwnedUnlessPopupClose[i] = (g.HoveredWindow ~= nil) or has_open_modal
         end
 
         mouse_any_down = mouse_any_down or io.MouseDown[i]
@@ -5648,11 +5660,36 @@ function ImGui.UpdateHoveredWindowAndCaptureFlags(mouse_pos)
     end
 
     local mouse_avail = (mouse_earliest_down == -1) or io.MouseDownOwned[mouse_earliest_down]
+    local mouse_avail_unless_popup_close = (mouse_earliest_down == -1) or io.MouseDownOwnedUnlessPopupClose[mouse_earliest_down]
+
+    local mouse_dragging_extern_payload = g.DragDropActive and bit.band(g.DragDropSourceFlags, ImGuiDragDropFlags.SourceExtern) ~= 0
+    if not mouse_avail and not mouse_dragging_extern_payload then
+        clear_hovered_windows = true
+    end
+
+    if clear_hovered_windows then
+        g.HoveredWindow = nil
+        g.HoveredWindowUnderMovingWindow = nil
+    end
 
     if (g.WantCaptureMouseNextFrame ~= -1) then
         io.WantCaptureMouse = (g.WantCaptureMouseNextFrame ~= 0)
+        io.WantCaptureMouseUnlessPopupClose = io.WantCaptureMouse
     else
         io.WantCaptureMouse = (mouse_avail and (g.HoveredWindow ~= nil or mouse_any_down)) or has_open_popup
+        io.WantCaptureMouseUnlessPopupClose = (mouse_avail_unless_popup_close and (g.HoveredWindow ~= nil or mouse_any_down)) or has_open_modal
+    end
+
+    io.WantCaptureKeyboard = false
+    if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) == 0 then
+        if (g.ActiveId ~= 0) or (modal_window ~= nil) then
+            io.WantCaptureKeyboard = true
+        elseif io.NavActive and bit.band(io.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) ~= 0 and io.ConfigNavCaptureKeyboard then
+            io.WantCaptureKeyboard = true
+        end
+    end
+    if g.WantCaptureKeyboardNextFrame ~= -1 then
+        io.WantCaptureKeyboard = (g.WantCaptureKeyboardNextFrame ~= 0)
     end
 
     io.WantTextInput = (g.WantTextInputNextFrame ~= -1) and (g.WantTextInputNextFrame ~= 0) or false
