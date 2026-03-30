@@ -334,7 +334,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
     end
 
     local backup_hovered_window = g.HoveredWindow
-    local flatten_hovered_children = (bit.band(flags, ImGuiButtonFlags.FlattenChildren) ~= 0) and g.HoveredWindow and g.HoveredWindow.RootWindow == window.RootWindow
+    local flatten_hovered_children = (bit.band(flags, ImGuiButtonFlags.FlattenChildren) ~= 0) and g.HoveredWindow and g.HoveredWindow.RootWindowDockTree == window.RootWindowDockTree
     if flatten_hovered_children then
         g.HoveredWindow = window
     end

@@ -5,6 +5,8 @@
 -- IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS = true // Don't implement ImStd.ImFileOpen/ImStd.ImFileClose/ImStd.ImFileRead/ImFileWrite so you can implement them yourself
 -- NOTE: you must implement ImStd.ImFileOpen if you are not in GMod
 
+-- IMGUI_DISABLE_DEBUG_TOOLS = true // Disable metrics/debugger and other debug tools: ShowMetricsWindow(), ShowDebugLogWindow() and ShowIDStackToolWindow() will be empty
+
 --- @type ImGuiContext?
 local GImGui = nil
 
@@ -707,7 +709,6 @@ function ImGui.UpdateFontsNewFrame()
     IM_ASSERT(g.Font:IsLoaded())
 end
 
---- void ImGui::UpdateFontsEndFrame
 function ImGui.UpdateFontsEndFrame()
     ImGui.PopFont()
 end
@@ -1962,8 +1963,16 @@ end
 --- @param item_flags ImGuiItemFlags
 function ImGui.ItemHoverable(bb, id, item_flags)
     local g = GImGui
-
     local window = g.CurrentWindow
+
+if not IMGUI_DISABLE_DEBUG_TOOLS then
+    if id ~= 0 and g.HoveredIdPreviousFrame == id and bit.band(item_flags, ImGuiItemFlags.AllowDuplicateId) == 0 then
+        g.HoveredIdPreviousFrameItemCount = g.HoveredIdPreviousFrameItemCount + 1
+        if g.DebugDrawIdConflictsId == id then
+            window.DrawList:AddRect(bb.Min - ImVec2(1, 1), bb.Max + ImVec2(1, 1), IM_COL32(255, 0, 0, 255), 0.0, ImDrawFlags.None, 2.0)
+        end
+    end
+end
 
     if g.HoveredWindow ~= window then
         return false
@@ -4104,12 +4113,12 @@ end
 --- @param flags          ImGuiWindowFlags
 --- @param parent_window? ImGuiWindow
 function ImGui.UpdateWindowParentAndRootLinks(window, flags, parent_window)
-    window.ParentWindow                   = parent_window
-    window.RootWindow                     = window
-    window.RootWindowPopupTree            = window
-    window.RootWindowDockTree             = window
+    window.ParentWindow = parent_window
+    window.RootWindow = window
+    window.RootWindowPopupTree = window
+    window.RootWindowDockTree = window
     window.RootWindowForTitleBarHighlight = window
-    window.RootWindowForNav               = window
+    window.RootWindowForNav = window
 
     if parent_window and (bit.band(flags, ImGuiWindowFlags.ChildWindow) ~= 0) and (bit.band(flags, ImGuiWindowFlags.Tooltip) == 0) then
         window.RootWindowDockTree = parent_window.RootWindowDockTree
@@ -6282,6 +6291,17 @@ function ImGui.NewFrame()
     for _, viewport in g.Viewports:iter() do
         viewport.DrawData = nil
         viewport.DrawDataP.Valid = false
+    end
+
+    if g.DragDropActive and g.DragDropPayload.SourceId == g.ActiveId then
+        ImGui.KeepAliveID(g.DragDropPayload.SourceId)
+    end
+
+    if not g.IO.ConfigDebugHighlightIdConflicts or not g.IO.KeyCtrl then
+        g.DebugDrawIdConflictsId = 0
+    end
+    if g.IO.ConfigDebugHighlightIdConflicts and g.HoveredIdPreviousFrameItemCount > 1 then
+        g.DebugDrawIdConflictsId = g.HoveredIdPreviousFrame
     end
 
     -- Update HoveredId data
