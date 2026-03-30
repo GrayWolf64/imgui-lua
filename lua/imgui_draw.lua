@@ -4111,7 +4111,7 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
     else
         local arc_length = ImAbs(a_max - a_min)
         local circle_segment_count = self:_CalcCircleAutoSegmentCount(radius)
-        local arc_segment_count = ImMax(ImCeil(circle_segment_count * arc_length / (IM_PI * 2.0)), 2.0 * IM_PI / arc_length)
+        local arc_segment_count = ImMax(ImCeil(circle_segment_count * arc_length / (IM_PI * 2.0)), 1)
 
         self:_PathArcToN(center, radius, a_min, a_max, arc_segment_count)
     end
