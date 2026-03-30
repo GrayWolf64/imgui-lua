@@ -4562,8 +4562,10 @@ function ImGui.GetTopMostPopupModal()
     local g = GImGui
     for n = g.OpenPopupStack.Size, 1, -1 do
         local popup = g.OpenPopupStack.Data[n].Window
-        if bit.band(popup.Flags, ImGuiWindowFlags.Modal) ~= 0 then
-            return popup
+        if popup then
+            if bit.band(popup.Flags, ImGuiWindowFlags.Modal) ~= 0 then
+                return popup
+            end
         end
     end
     return nil
@@ -6199,6 +6201,38 @@ function ImGui.GetForegroundDrawList(viewport)
     return GetViewportBgFgDrawList(viewport, 2, "##Foreground")
 end
 
+-- FIXME: Add a more explicit sort order in the window structure
+--- @param lhs ImGuiWindow
+--- @param rhs ImGuiWindow
+local function ChildWindowComparer(lhs, rhs)
+    local a, b = lhs, rhs
+    local d = (bit.band(a.Flags, ImGuiWindowFlags.Popup) ~= 0 and 1 or 0) - (bit.band(b.Flags, ImGuiWindowFlags.Popup) ~= 0 and 1 or 0)
+    if d ~= 0 then
+        return (d < 0)
+    end
+    d = (bit.band(a.Flags, ImGuiWindowFlags.Tooltip) ~= 0 and 1 or 0) - (bit.band(b.Flags, ImGuiWindowFlags.Tooltip) ~= 0 and 1 or 0)
+    if d ~= 0 then
+        return (d < 0)
+    end
+    return (a.BeginOrderWithinParent - b.BeginOrderWithinParent < 0)
+end
+
+--- @param out_sorted_windows ImVector<ImGuiWindow>
+--- @param window             ImGuiWindow
+local function AddWindowToSortBuffer(out_sorted_windows, window)
+    out_sorted_windows:push_back(window)
+    if window.Active then
+        local count = window.DC.ChildWindows.Size
+        ImStd.ImQsort(window.DC.ChildWindows.Data, count, ChildWindowComparer)
+        for i = 1, count do
+            local child = window.DC.ChildWindows[i]
+            if child.Active then
+                AddWindowToSortBuffer(out_sorted_windows, child)
+            end
+        end
+    end
+end
+
 local function AddWindowToDrawData(window, layer)
     local g = GImGui
     local viewport = window.Viewport
@@ -6479,6 +6513,20 @@ function ImGui.EndFrame()
     ImGui.UpdateMouseMovingWindowEndFrame()
 
     ImGui.UpdateViewportsEndFrame()
+
+    g.WindowsTempSortBuffer:resize(0)
+    g.WindowsTempSortBuffer:reserve(g.Windows.Size)
+    for _, window in g.Windows:iter() do
+        if window.Active and bit.band(window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0 then -- if a child is active its parent will add it
+            goto CONTINUE
+        end
+        AddWindowToSortBuffer(g.WindowsTempSortBuffer, window)
+        :: CONTINUE ::
+    end
+
+    IM_ASSERT(g.Windows.Size == g.WindowsTempSortBuffer.Size)
+    g.Windows:swap(g.WindowsTempSortBuffer)
+    g.IO.MetricsActiveWindows = g.WindowsActiveCount
 
     ImGui.UpdateTexturesEndFrame()
 

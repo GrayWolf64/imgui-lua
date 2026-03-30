@@ -65,6 +65,11 @@ ImAcos  = math.acos
 ImAtan2 = math.atan2
 ImSqrt  = math.sqrt
 
+--- @param base     table
+--- @param count    int
+--- @param cmp_func fun(lhs, rhs): bool
+ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then table.sort(base, cmp_func) end end
+
 --- @param a number
 --- @param b number
 --- @param t number
@@ -1422,6 +1427,7 @@ end
 --- @field ActiveIdMouseButton                ImS8
 --- @field Windows                            ImVector<ImGuiWindow>
 --- @field WindowsFocusOrder                  ImVector<ImGuiWindow>
+--- @field WindowsTempSortBuffer              ImVector<ImGuiWindow>
 --- @field CurrentWindowStack                 ImVector<ImGuiWindowStackData>
 --- @field FocusScopeStack                    ImVector<ImGuiFocusScopeData>
 --- @field ItemFlagsStack                     ImVector<ImGuiItemFlags>
@@ -1473,6 +1479,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         WindowsActiveCount = 0,
 
+        WindowsTempSortBuffer = ImVector(),
         CurrentWindowStack = ImVector(),
         CurrentWindow = nil,
 
