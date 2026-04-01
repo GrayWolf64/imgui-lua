@@ -289,12 +289,12 @@ function ImVector(T) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Co
 
 function MT.ImVector:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self.Data[self.Size + 1] = value; self.Size = self.Size + 1; return value end
 function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0) local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
+function MT.ImVector:push_front(value) if self.Size == 0 then self:push_back(value) else self:insert(1, value) end end
 function MT.ImVector:clear() self.Size = 0 end
 function MT.ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
 function MT.ImVector:empty() return self.Size == 0 end
 function MT.ImVector:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
 function MT.ImVector:erase(i) IM_ASSERT(i >= 1 and i <= self.Size) local removed = table.remove(self.Data, i) self.Size = self.Size - 1 return removed end
-function MT.ImVector:at(i)    IM_ASSERT(i >= 1 and i <= self.Size) return self.Data[i] end
 local function _iter(v, i) i = i + 1 if i <= v.Size then return i, v.Data[i] end end
 function MT.ImVector:iter() return _iter, self, 0 end
 function MT.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end

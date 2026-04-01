@@ -945,7 +945,11 @@ local function CreateNewWindow(name, flags)
 
     InitOrLoadWindowSettings(window, settings)
 
-    g.Windows:push_back(window)
+    if bit.band(flags, ImGuiWindowFlags.NoBringToFrontOnFocus) ~= 0 then
+        g.Windows:push_front(window)
+    else
+        g.Windows:push_back(window)
+    end
 
     return window
 end
