@@ -2865,7 +2865,8 @@ end
 function ImStb.TEXTEDIT_DELETECHARS(obj, pos, n)
     IM_ASSERT(obj.TextSrc == obj.TextA.Data)
     ImStd.memmove(obj.TextA.Data, pos, obj.TextA.Data, pos + n, obj.TextLen - n - pos + 2)
-    obj.Edited = true
+    obj.EditedBefore = true
+    obj.EditedThisFrame = true
     obj.TextLen = obj.TextLen - n
 end
 
@@ -2901,7 +2902,8 @@ function ImStb.TEXTEDIT_INSERTCHARS(obj, pos, new_text, new_text_pos, new_text_l
     end
     ImStd.memmove(text, pos, new_text, new_text_pos, new_text_len)
 
-    obj.Edited = true
+    obj.EditedBefore = true
+    obj.EditedThisFrame = true
     obj.TextLen = obj.TextLen + new_text_len
     obj.TextA[obj.TextLen + 1] = 0
 
@@ -3389,7 +3391,8 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         local backup_pos = ImVec2()
         ImVec2_Copy(backup_pos, window.DC.CursorPos)
         ImGui.ItemSize(total_bb, style.FramePadding.y)
-        if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.Inputable) then
+        local no_clip = (g.InputTextDeactivatedState.ID == id) or (g.ActiveId == id) or (id == g.NavActivateId) -- Mimic some of ItemAdd() logic + add InputTextDeactivatedState.ID check.
+        if not ImGui.ItemAdd(total_bb, id, frame_bb, ImGuiItemFlags.Inputable) and not no_clip then
             ImGui.EndGroup()
             return false
         end
@@ -3416,7 +3419,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         g.NavActivateId = backup_activate_id
         ImGui.PopStyleVar(3)
         ImGui.PopStyleColor()
-        if not child_visible then
+        if not child_visible and not no_clip then
             ImGui.EndChild()
             ImGui.EndGroup()
             return false
@@ -3525,6 +3528,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         -- Start edition
         state.ID = id
         state.TextLen = buf_len
+        state.EditedBefore = false
         if not is_readonly then
             state.TextA:resize(buf_size + 1)
             ImStd.memmove(state.TextA.Data, 1, buf, 1, state.TextLen + 1)
@@ -3652,7 +3656,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     if g.ActiveId == id then
         --- @cast state ImGuiInputTextState
         IM_ASSERT(state ~= nil)
-        state.Edited = false
+        state.EditedThisFrame = false
         state.BufCapacity = buf_size
         state.Flags = flags
         state.WrapWidth = wrap_width
@@ -3941,7 +3945,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 apply_new_text_length = state.TextToRevertTo.Size - 1
 
                 value_changed = true
-                ImStd.stb_textedit_replace(state, state.Stb, state.TextToRevertTo.Data, state.TextToRevertTo.Size - 1)
+                ImStb.stb_textedit_replace(state, state.Stb, state.TextToRevertTo.Data, state.TextToRevertTo.Size - 1)
             end
         end
 
@@ -3959,7 +3963,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             elseif bit.band(flags, ImGuiInputTextFlags.CallbackHistory) ~= 0 and ImGui.IsKeyPressed(ImGuiKey.DownArrow) then
                 event_flag = ImGuiInputTextFlags.CallbackHistory
                 event_key = ImGuiKey.DownArrow
-            elseif bit.band(flags, ImGuiInputTextFlags.CallbackEdit) ~= 0 and state.Edited then
+            elseif bit.band(flags, ImGuiInputTextFlags.CallbackEdit) ~= 0 and state.EditedThisFrame then
                 event_flag = ImGuiInputTextFlags.CallbackEdit
             elseif bit.band(flags, ImGuiInputTextFlags.CallbackAlways) ~= 0 then
                 event_flag = ImGuiInputTextFlags.CallbackAlways

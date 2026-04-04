@@ -1894,8 +1894,9 @@ function ImFontAtlasBuildNotifySetFont(atlas, old_font, new_font)
         end
         local ctx = shared_data.Context
         if ctx then
-            if ctx.FrameCount == 0 and old_font == nil then
+            if old_font == nil and ctx.Font == nil and ctx.FontSizeBase == 0.0 then
                 -- While this should work either way, we save ourselves the bother / debugging confusion of running ImGui code so early when it is not needed.
+                -- Also fixes erroneously rewriting style.FontSizeBase during init if adding default fonts.
                 goto CONTINUE
             end
 

@@ -1250,6 +1250,8 @@ end
 --- @field CursorFollow         bool                # set when we want scrolling to follow the current cursor position (not always!)
 --- @field CursorCenterY        bool                # set when we want scrolling to be centered over the cursor position (while resizing a word-wrapping field)
 --- @field SelectedAllMouseLock bool                # after a double-click to select all, we ignore further mouse drags to update selection
+--- @field EditedBefore         bool                # edited since activated
+--- @field EditedThisFrame      bool                # edited this frame
 MT.ImGuiInputTextState = {}
 MT.ImGuiInputTextState.__index = MT.ImGuiInputTextState
 
@@ -1275,6 +1277,8 @@ local function ImGuiInputTextState()
         CursorFollow  = false,
         CursorCenterY = false,
         SelectedAllMouseLock = false,
+        EditedBefore = false,
+        EditedThisFrame = false,
     }
 
     return setmetatable(this, MT.ImGuiInputTextState)
