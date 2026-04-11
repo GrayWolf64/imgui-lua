@@ -5315,8 +5315,16 @@ function ImGui.Begin(name, open, flags)
         window.DC.LayoutType = ImGuiLayoutType.Vertical
         window.DC.ParentLayoutType = (parent_window ~= nil) and parent_window.DC.LayoutType or ImGuiLayoutType.Vertical
 
-        local is_resizable_window = (window.Size.x > 0.0) and (bit.band(flags, ImGuiWindowFlags.Tooltip) == 0) and (bit.band(flags, ImGuiWindowFlags.AlwaysAutoResize) == 0)
-        if (is_resizable_window) then
+        -- Default item width. Make it proportional to window size if window can be manually resized.
+        -- (we cannot use AutoFitFramesX/AutoFitFramesY which is a temporary state)
+        local is_resizable_width
+        if bit.band(flags, ImGuiWindowFlags.ChildWindow) ~= 0 then
+            is_resizable_width = (window.Size.x > 0.0) and (bit.band(window.ChildFlags, bit.bor(ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AlwaysAutoResize)) == 0)
+        else
+            is_resizable_width = (window.Size.x > 0.0) and (bit.band(flags, ImGuiWindowFlags.AlwaysAutoResize) == 0)
+        end
+
+        if is_resizable_width then
             window.DC.ItemWidthDefault = ImTrunc(window.Size.x * 0.65)
         else
             window.DC.ItemWidthDefault = ImTrunc(g.FontSize * 16.0)

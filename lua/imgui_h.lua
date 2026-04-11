@@ -1318,11 +1318,15 @@ ImGuiItemStatusFlags = {
 --- @enum ImGuiChildFlags
 ImGuiChildFlags = {
     None                   = 0,
-    ResizeX                = bit.lshift(1, 0),
-    ResizeY                = bit.lshift(1, 1),
-    Border                 = bit.lshift(1, 5),
-    AlwaysUseWindowPadding = bit.lshift(1, 6),
-    NavFlattened           = bit.lshift(1, 7)
+    Borders                = bit.lshift(1, 0),
+    AlwaysUseWindowPadding = bit.lshift(1, 1),
+    ResizeX                = bit.lshift(1, 2),
+    ResizeY                = bit.lshift(1, 3),
+    AutoResizeX            = bit.lshift(1, 4),
+    AutoResizeY            = bit.lshift(1, 5),
+    AlwaysAutoResize       = bit.lshift(1, 6),
+    FrameStyle             = bit.lshift(1, 7),
+    NavFlattened           = bit.lshift(1, 8)
 }
 
 ImGuiChildFlags.ResizeBoth = bit.bor(ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY)
