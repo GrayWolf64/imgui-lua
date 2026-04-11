@@ -3487,7 +3487,8 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local scroll_y = is_multiline and draw_window.Scroll.y or FLT_MAX
 
     local init_reload_from_user_buf = (state ~= nil and state.WantReloadUserBuf)
-    local init_changed_specs = (state ~= nil and state.Stb.single_line ~= (not is_multiline)) -- state ~= nil means its our state
+    local init_changed_specs_multiline = (state ~= nil and (state.Stb.single_line ~= (not is_multiline)))
+    local init_changed_specs_readonly = (state ~= nil and (bit.band(bit.bxor(state.Flags, flags), ImGuiInputTextFlags.ReadOnly) ~= 0)) -- state ~= nil means it's our state
     local init_make_active = (input_requested_by_user or input_requested_by_nav or input_requested_by_reactivate or user_scroll_finish)
     if init_reload_from_user_buf then
         local new_len = ImStd.ImStrlen(buf)
@@ -3501,7 +3502,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state.Stb.select_start = state.ReloadSelectionStart
         state.Stb.cursor = state.ReloadSelectionEnd
         state.Stb.select_end = state.ReloadSelectionEnd -- will be clamped to bounds below
-    elseif (init_make_active and g.ActiveId ~= id) or init_changed_specs then
+    elseif (init_make_active and g.ActiveId ~= id) or init_changed_specs_multiline or init_changed_specs_readonly then
         -- Access state even if we don't own it yet
         state = g.InputTextState
         state:CursorAnimReset()
@@ -3520,8 +3521,8 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
         -- Preserve cursor position and undo/redo stack if we come back to same widget
         -- FIXME: Since we reworked this on 2022/06, may want to differentiate recycle_cursor vs recycle_undostate?
-        local recycle_state = (state.ID == id and not init_changed_specs)
-        if (recycle_state and (state.TextLen ~= buf_len or (state.TextA.Data == nil or ImStd.strncmp(state.TextA.Data, buf, buf_len) ~= 0))) then
+        local recycle_state = (state.ID == id and not init_changed_specs_multiline)
+        if (recycle_state and not init_changed_specs_readonly and (state.TextLen ~= buf_len or (state.TextA.Data == nil or ImStd.strncmp(state.TextA.Data, buf, buf_len) ~= 0))) then
             recycle_state = false
         end
 
@@ -3644,12 +3645,15 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         ImGui.PushPasswordFont()
     end
 
-    -- Word-wrapping: attempt to keep cursor in view while resizing frame/parent
-    -- FIXME-WORDWRAP: It would be better to preserve same relative offset.
-    if is_wordwrap and state ~= nil and state.ID == id and state.WrapWidth ~= wrap_width then
-        state.CursorCenterY = true
-        state.WrapWidth = wrap_width
-        render_cursor = true
+    if state ~= nil and state.ID == id then
+        state.Flags = flags
+
+        -- Word-wrapping: attempt to keep cursor in view while resizing frame/parent (FIXME-WORDWRAP: would be better to preserve same relative offset)
+        if is_wordwrap and state.WrapWidth ~= wrap_width then
+            state.CursorCenterY = true
+            state.WrapWidth = wrap_width
+            render_cursor = true
+        end
     end
 
     -- Process mouse inputs and character inputs
@@ -3658,7 +3662,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         IM_ASSERT(state ~= nil)
         state.EditedThisFrame = false
         state.BufCapacity = buf_size
-        state.Flags = flags
         state.WrapWidth = wrap_width
 
         -- Although we are active we don't prevent mouse from hovering other elements unless we are interacting right now with the widget.
