@@ -3648,22 +3648,15 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
     end
 end
 
-local function FixRectCornerFlags(flags)
-    IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
-
-    if (bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0) then
-        flags = bit.bor(flags, ImDrawFlags.RoundCornersAll)
-    end
-
-    return flags
-end
-
 function MT.ImDrawList:PathRect(a, b, rounding, flags)
     if not rounding then rounding = 0.0 end
     if not flags    then flags    = 0   end
 
     if rounding >= 0.5 then
-        flags = FixRectCornerFlags(flags)
+        IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
+        if bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0 then
+            flags = bit.bor(flags, ImDrawFlags.RoundCornersAll)
+        end
         rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags.RoundCornersTop) == ImDrawFlags.RoundCornersTop) or (bit.band(flags, ImDrawFlags.RoundCornersBottom) == ImDrawFlags.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
         rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags.RoundCornersLeft) == ImDrawFlags.RoundCornersLeft) or (bit.band(flags, ImDrawFlags.RoundCornersRight) == ImDrawFlags.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
     end
@@ -3889,7 +3882,11 @@ function MT.ImDrawList:AddImageRounded(tex_ref, p_min, p_max, uv_min, uv_max, co
         return
     end
 
-    flags = FixRectCornerFlags(flags)
+    IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
+    if bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0 then
+        flags = bit.bor(flags, ImDrawFlags.RoundCornersAll)
+    end
+
     if rounding < 0.5 or bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone then
         self:AddImage(tex_ref, p_min, p_max, uv_min, uv_max, col)
         return
