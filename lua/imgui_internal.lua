@@ -1427,6 +1427,16 @@ end
 --- @field CurrentWindow                      ImGuiWindow
 --- @field HoveredWindow                      ImGuiWindow
 --- @field Style                              ImGuiStyle
+--- @field FontAtlases                        ImVector<ImFontAtlas>
+--- @field Font                               ImFont
+--- @field FontBaked                          ImFontBaked
+--- @field FontSize                           float
+--- @field FontSizeBase                       float
+--- @field FontBakedScale                     float
+--- @field FontRasterizerDensity              float
+--- @field DrawListSharedData                 ImDrawListSharedData
+--- @field WithinEndChildID                   ImGuiID
+--- @field WithinEndPopupID                   ImGuiID
 --- @field StyleVarStack                      ImVector
 --- @field ActiveIdMouseButton                ImS8
 --- @field Windows                            ImVector<ImGuiWindow>
@@ -1622,7 +1632,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         OpenPopupStack = ImVector(),
         BeginPopupStack = ImVector(),
 
-        WithinEndChildID = 0,
+        WithinEndChildID = 0, WithinEndPopupID = 0,
 
         BeginMenuDepth = 0, BeginComboDepth = 0,
         ColorEditOptions = ImGuiColorEditFlags.DefaultOptions_,

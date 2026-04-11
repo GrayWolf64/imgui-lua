@@ -5450,6 +5450,13 @@ function ImGui.End()
     end
     local window_stack_data = g.CurrentWindowStack:back()
 
+    if bit.band(window.Flags, ImGuiWindowFlags.Popup) ~= 0 then
+        IM_ASSERT_USER_ERROR(g.WithinEndPopupID == window.ID, "Must call EndPopup() and not End()!")
+    end
+    if bit.band(window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0 then
+        IM_ASSERT_USER_ERROR(g.WithinEndChildID == window.ID, "Must call EndChild() and not End()!")
+    end
+
     if not window.SkipRefresh then
         ImGui.PopClipRect()
     end
@@ -7591,12 +7598,15 @@ function ImGui.EndPopup()
     end
 
     -- Child-popups don't need to be laid out
+    local backup_within_end_popup_id = g.WithinEndPopupID
     local backup_within_end_child_id = g.WithinEndChildID
+    g.WithinEndPopupID = window.ID
     if bit.band(window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0 then
         g.WithinEndChildID = window.ID
     end
 
     ImGui.End()
+    g.WithinEndPopupID = backup_within_end_popup_id
     g.WithinEndChildID = backup_within_end_child_id
 end
 
