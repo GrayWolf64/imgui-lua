@@ -3275,8 +3275,10 @@ local function CalcWindowAutoFitSize(window, size_contents, axis_mask)
         local size_auto_fit = ImClampV2(size_desired, ImMinVec2(size_min, size_max), size_max)
 
         local size_auto_fit_after_constraint = CalcWindowSizeAfterConstraint(window, size_auto_fit)
-        local will_have_scrollbar_x = (size_auto_fit_after_constraint.x < size_contents.x + size_pad.x + decoration_w_without_scrollbars and bit.band(window.Flags, ImGuiWindowFlags.NoScrollbar) == 0 and bit.band(window.Flags, ImGuiWindowFlags.HorizontalScrollbar) ~= 0) or bit.band(window.Flags, ImGuiWindowFlags.AlwaysHorizontalScrollbar) ~= 0
-        local will_have_scrollbar_y = (size_auto_fit_after_constraint.y < size_contents.y + size_pad.y + decoration_h_without_scrollbars and bit.band(window.Flags, ImGuiWindowFlags.NoScrollbar) == 0) or bit.band(window.Flags, ImGuiWindowFlags.AlwaysVerticalScrollbar) ~= 0
+        local size_contents_for_scrollbar_x = (bit.band(axis_mask, 1) ~= 0) and size_contents.x or window.ContentSize.x
+        local size_contents_for_scrollbar_y = (bit.band(axis_mask, 2) ~= 0) and size_contents.y or window.ContentSize.y
+        local will_have_scrollbar_x = (size_auto_fit_after_constraint.x < size_contents_for_scrollbar_x + size_pad.x + decoration_w_without_scrollbars and bit.band(window.Flags, ImGuiWindowFlags.NoScrollbar) == 0 and bit.band(window.Flags, ImGuiWindowFlags.HorizontalScrollbar) ~= 0) or bit.band(window.Flags, ImGuiWindowFlags.AlwaysHorizontalScrollbar) ~= 0
+        local will_have_scrollbar_y = (size_auto_fit_after_constraint.y < size_contents_for_scrollbar_y + size_pad.y + decoration_h_without_scrollbars and bit.band(window.Flags, ImGuiWindowFlags.NoScrollbar) == 0) or bit.band(window.Flags, ImGuiWindowFlags.AlwaysVerticalScrollbar) ~= 0
         if will_have_scrollbar_x then
             size_auto_fit.y = size_auto_fit.y + style.ScrollbarSize
         end
