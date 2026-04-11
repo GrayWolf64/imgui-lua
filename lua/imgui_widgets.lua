@@ -1399,7 +1399,7 @@ function ImGui.TextLink(label)
     local label_end = ImGui.FindRenderedTextEnd(label)
 
     local pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
-    local size = ImGui.CalcTextSize(label, label_end, true)
+    local size = ImGui.CalcTextSize(label, label_end, false)
     local bb = ImRect(pos, pos + size)
     ImGui.ItemSize(size, 0.0)
     if not ImGui.ItemAdd(bb, id) then
@@ -5308,7 +5308,8 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     local style = g.Style
 
     local id = window:GetID(label)
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
     local size = ImVec2((size_arg.x ~= 0.0) and size_arg.x or label_size.x, (size_arg.y ~= 0.0) and size_arg.y or label_size.y)
 
     local pos = ImVec2()
@@ -5482,7 +5483,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
 
     -- Text stays at the submission position. Alignment/clipping extents ignore SpanAllColumns.
     if is_visible then
-        ImGui.RenderTextClipped(pos, ImVec2(ImMin(pos.x + size.x, window.WorkRect.Max.x), pos.y + size.y), label, nil, label_size, style.SelectableTextAlign, bb)
+        ImGui.RenderTextClipped(pos, ImVec2(ImMin(pos.x + size.x, window.WorkRect.Max.x), pos.y + size.y), label, label_end, label_size, style.SelectableTextAlign, bb)
     end
 
     -- Automatically close popups
