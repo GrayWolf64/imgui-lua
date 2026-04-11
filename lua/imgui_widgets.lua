@@ -5404,7 +5404,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     local was_selected = selected
     if is_multi_select then
         -- Handle multi-select + alter button flags for it
-        selected, button_flags = ImGui.MultiSelectItemHeader(id, selected, button_flags)
+        -- TODO: selected, button_flags = ImGui.MultiSelectItemHeader(id, selected, button_flags)
     end
 
     local pressed, hovered, held = ImGui.ButtonBehavior(bb, id, button_flags)
@@ -5412,7 +5412,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
 
     -- Multi-selection support (footer)
     if is_multi_select then
-        selected, pressed = ImGui.MultiSelectItemFooter(id, selected, pressed)
+        -- TODO: selected, pressed = ImGui.MultiSelectItemFooter(id, selected, pressed)
     else
         -- Auto-select when moved into
         -- - This will be more fully fleshed in the range-select branch

@@ -1429,7 +1429,7 @@ end
 --- @field Style                              ImGuiStyle
 --- @field FontAtlases                        ImVector<ImFontAtlas>
 --- @field Font                               ImFont
---- @field FontBaked                          ImFontBaked
+--- @field FontBaked                          ImFontBaked?
 --- @field FontSize                           float
 --- @field FontSizeBase                       float
 --- @field FontBakedScale                     float
