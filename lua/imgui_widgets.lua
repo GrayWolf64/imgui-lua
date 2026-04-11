@@ -253,7 +253,8 @@ function ImGui.LabelText(label, fmt, ...)
     local value_text = ImFormatString(fmt, ...)
     local value_text_end = #value_text + 1
     local value_size = ImGui.CalcTextSize(value_text, value_text_end, false)
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
 
     local pos = ImVec2()
     ImVec2_Copy(pos, window.DC.CursorPos)
@@ -267,7 +268,7 @@ function ImGui.LabelText(label, fmt, ...)
     -- Render
     ImGui.RenderTextClipped(value_bb.Min + style.FramePadding, value_bb.Max, value_text, value_text_end, value_size, ImVec2(0.0, 0.0))
     if label_size.x > 0.0 then
-        ImGui.RenderText(ImVec2(value_bb.Max.x + style.ItemInnerSpacing.x, value_bb.Min.y + style.FramePadding.y), label)
+        ImGui.RenderText(ImVec2(value_bb.Max.x + style.ItemInnerSpacing.x, value_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
     end
 end
 
@@ -562,7 +563,8 @@ function ImGui.ButtonEx(label, size_arg, flags)
     local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
 
     local pos = ImVec2() -- Don't modify the cursor!
     ImVec2_Copy(pos, window.DC.CursorPos)
@@ -593,7 +595,7 @@ function ImGui.ButtonEx(label, size_arg, flags)
 
     -- if (g.LogEnabled)
     --     LogSetNextTextDecoration("[", "]");
-    ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, nil, label_size, style.ButtonTextAlign, bb)
+    ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, label_end, label_size, style.ButtonTextAlign, bb)
 
     -- Automatically close popups
     --if (pressed && !(flags & ImGuiButtonFlags.DontClosePopups) && (window->Flags & ImGuiWindowFlags.Popup))
@@ -1094,7 +1096,8 @@ function ImGui.Checkbox(label, v)
     local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
 
     local square_sz = ImGui.GetFrameHeight()
     local pos = ImVec2()
@@ -1180,7 +1183,7 @@ function ImGui.Checkbox(label, v)
     end
 
     if is_visible and label_size.x > 0.0 then
-        ImGui.RenderText(label_pos, label)
+        ImGui.RenderText(label_pos, label, 1, label_end, false)
     end
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Checkable | (*v ? ImGuiItemStatusFlags_Checked : 0))
@@ -1226,7 +1229,8 @@ function ImGui.RadioButtonEx(label, active)
     local g = GImGui
     local style = g.Style
     local id = window:GetID(label)
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
 
     local square_sz = ImGui.GetFrameHeight()
     local pos = ImVec2()
@@ -1274,7 +1278,7 @@ function ImGui.RadioButtonEx(label, active)
         -- ImGui.LogRenderedText(label_pos, active and "(x)" or "( )")
     end
     if label_size.x > 0.0 then
-        ImGui.RenderText(label_pos, label)
+        ImGui.RenderText(label_pos, label, 1, label_end, false)
     end
 
     return pressed
@@ -1722,7 +1726,8 @@ function ImGui.BeginCombo(label, preview_value, flags)
         arrow_size = ImGui.GetFrameHeight()
     end
 
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
 
     local preview_width
     if ((bit.band(flags, ImGuiComboFlags.WidthFitPreview) ~= 0) and (preview_value ~= nil)) then
@@ -1796,7 +1801,7 @@ function ImGui.BeginCombo(label, preview_value, flags)
     end
 
     if label_size.x > 0 then
-        ImGui.RenderText(ImVec2(bb.Max.x + style.ItemInnerSpacing.x, bb.Min.y + style.FramePadding.y), label)
+        ImGui.RenderText(ImVec2(bb.Max.x + style.ItemInnerSpacing.x, bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
     end
 
     if not popup_open then
@@ -2345,7 +2350,8 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     local w = ImGui.CalcItemWidth()
     local color_marker = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker) ~= 0) and g.NextItemData.ColorMarker or 0
 
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
     local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0))
     local total_bb = ImRect(frame_bb.Min, frame_bb.Max + ImVec2((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0, 0.0))
 
@@ -2423,7 +2429,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.5))
 
     if label_size.x > 0.0 then
-        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label)
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
     end
 
     return data, value_changed
@@ -3376,7 +3382,8 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         ImGui.BeginGroup()
     end
     local id = window:GetID(label)
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
     local frame_size = ImGui.CalcItemSize(size_arg, ImGui.CalcItemWidth(), (is_multiline and g.FontSize * 8.0 or label_size.y) + style.FramePadding.y * 2.0)  -- Arbitrary default of 8 lines high for multi-line
     local total_size = ImVec2(frame_size.x + ((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0), frame_size.y)
 
@@ -4280,7 +4287,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     end
 
     if label_size.x > 0.0 then
-        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label)
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
     end
 
     if value_changed then
@@ -5514,7 +5521,8 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
     local style = g.Style
     local id = window:GetID(label)
 
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
     local frame_size = ImGui.CalcItemSize(size_arg, ImGui.CalcItemWidth(), label_size.y + style.FramePadding.y * 2.0)
 
     local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + frame_size)
@@ -5613,7 +5621,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
     end
 
     if label_size.x > 0.0 then
-        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, inner_bb.Min.y), label)
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, inner_bb.Min.y), label, 1, label_end, false)
     end
 
     return idx_hovered
@@ -5875,7 +5883,8 @@ function ImGui.BeginMenuEx(label, icon, enabled)
 
     g.MenusIdSubmittedThisFrame:push_back(id)
 
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
 
     local menuset_is_open = IsRootOfOpenMenuSet()
     if menuset_is_open then
@@ -5900,7 +5909,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         local text_pos = ImVec2(window.DC.CursorPos.x + offsets.OffsetLabel, pos.y + window.DC.CurrLineTextBaseOffset)
         pressed = ImGui.Selectable("", menu_is_open, selectable_flags, label_size)
         -- TODO: ImGui.LogSetNextTextDecoration("[", "]")
-        ImGui.RenderText(text_pos, label)
+        ImGui.RenderText(text_pos, label, 1, label_end, false)
         ImGui.PopStyleVar()
         window.DC.CursorPos.x = window.DC.CursorPos.x + IM_TRUNC(style.ItemSpacing.x * (-1.0 + 0.5))
         popup_pos = ImVec2(pos.x - 1.0 - IM_TRUNC(style.ItemSpacing.x * 0.5), text_pos.y - style.FramePadding.y + window.MenuBarHeight)
@@ -5913,7 +5922,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         local text_pos = ImVec2(window.DC.CursorPos.x, pos.y + window.DC.CurrLineTextBaseOffset)
         pressed = ImGui.Selectable("", menu_is_open, bit.bor(selectable_flags, ImGuiSelectableFlags.SpanAvailWidth), ImVec2(min_w, label_size.y))
         -- ImGui.LogSetNextTextDecoration("", ">")
-        ImGui.RenderText(ImVec2(text_pos.x + offsets.OffsetLabel, text_pos.y), label)
+        ImGui.RenderText(ImVec2(text_pos.x + offsets.OffsetLabel, text_pos.y), label, 1, label_end, false)
         if icon_w > 0.0 then
             --- @cast icon string
             ImGui.RenderText(ImVec2(text_pos.x + offsets.OffsetIcon, text_pos.y), icon)
@@ -6074,7 +6083,8 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
     local style = g.Style
     local pos = ImVec2()
     ImVec2_Copy(pos, window.DC.CursorPos)
-    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
 
     local menuset_is_open = IsRootOfOpenMenuSet()
     if menuset_is_open then
@@ -6097,7 +6107,7 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
         pressed = ImGui.Selectable("", selected, selectable_flags, ImVec2(label_size.x, 0.0))
         ImGui.PopStyleVar()
         if bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) ~= 0 then
-            ImGui.RenderText(text_pos, label)
+            ImGui.RenderText(text_pos, label, 1, label_end, false)
         end
         window.DC.CursorPos.x = window.DC.CursorPos.x + IM_TRUNC(style.ItemSpacing.x * (-1.0 + 0.5))
     else
@@ -6115,7 +6125,7 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
         local text_pos = ImVec2(pos.x, pos.y + window.DC.CurrLineTextBaseOffset)
         pressed = ImGui.Selectable("", false, bit.bor(selectable_flags, ImGuiSelectableFlags.SpanAvailWidth), ImVec2(min_w, label_size.y))
         if bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) ~= 0 then
-            ImGui.RenderText(text_pos + ImVec2(offsets.OffsetLabel, 0.0), label)
+            ImGui.RenderText(text_pos + ImVec2(offsets.OffsetLabel, 0.0), label, 1, label_end, false)
             if icon_w > 0.0 then
                 --- @cast icon string
                 ImGui.RenderText(text_pos + ImVec2(offsets.OffsetIcon, 0.0), icon)
