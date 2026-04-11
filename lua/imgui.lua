@@ -5122,14 +5122,14 @@ function ImGui.Begin(name, open, flags)
             local avail_size_from_last_frame = window.InnerRect:GetSize() + scrollbar_sizes_from_last_frame
             local needed_size_from_last_frame = window_just_created and ImVec2(0, 0) or window.ContentSize + window.WindowPadding * 2.0
 
-            local size_x_for_scrollbars = use_current_size_for_scrollbar_x and avail_size_from_current_frame.x or avail_size_from_last_frame.x
-            local size_y_for_scrollbars = use_current_size_for_scrollbar_y and avail_size_from_current_frame.y or avail_size_from_last_frame.y
+            local size_for_scrollbars_x = use_current_size_for_scrollbar_x and avail_size_from_current_frame.x or avail_size_from_last_frame.x
+            local size_for_scrollbars_y = use_current_size_for_scrollbar_y and avail_size_from_current_frame.y or avail_size_from_last_frame.y
 
             local scrollbar_x_prev = window.ScrollbarX
             -- local scrollbar_y_from_last_frame = window.ScrollbarY -- FIXME: May want to use that in the ScrollbarX expression? How many pros vs cons?
 
-            window.ScrollbarY = (bit.band(flags, ImGuiWindowFlags.AlwaysVerticalScrollbar) ~= 0) or ((needed_size_from_last_frame.y > size_y_for_scrollbars) and not (bit.band(flags, ImGuiWindowFlags.NoScrollbar) ~= 0))
-            window.ScrollbarX = (bit.band(flags, ImGuiWindowFlags.AlwaysHorizontalScrollbar) ~= 0) or ((needed_size_from_last_frame.x > size_x_for_scrollbars - (window.ScrollbarY and style.ScrollbarSize or 0.0)) and not (bit.band(flags, ImGuiWindowFlags.NoScrollbar) ~= 0) and (bit.band(flags, ImGuiWindowFlags.HorizontalScrollbar) ~= 0))
+            window.ScrollbarY = (bit.band(flags, ImGuiWindowFlags.AlwaysVerticalScrollbar) ~= 0) or ((needed_size_from_last_frame.y > size_for_scrollbars_y) and not (bit.band(flags, ImGuiWindowFlags.NoScrollbar) ~= 0))
+            window.ScrollbarX = (bit.band(flags, ImGuiWindowFlags.AlwaysHorizontalScrollbar) ~= 0) or ((needed_size_from_last_frame.x > size_for_scrollbars_x - (window.ScrollbarY and style.ScrollbarSize or 0.0)) and not (bit.band(flags, ImGuiWindowFlags.NoScrollbar) ~= 0) and (bit.band(flags, ImGuiWindowFlags.HorizontalScrollbar) ~= 0))
 
             -- Track when ScrollbarX visibility keeps toggling, which is a sign of a feedback loop, and stabilize by enforcing visibility (#3285, #8488)
             -- (Feedback loops of this sort can manifest in various situations, but combining horizontal + vertical scrollbar + using a clipper with varying width items is one frequent cause.
@@ -5150,7 +5150,7 @@ function ImGui.Begin(name, open, flags)
             window.ScrollbarXStabilizeEnabled = scrollbar_x_stabilize
 
             if window.ScrollbarX and not window.ScrollbarY then
-                window.ScrollbarY = (needed_size_from_last_frame.y > size_y_for_scrollbars - style.ScrollbarSize) and not (bit.band(flags, ImGuiWindowFlags.NoScrollbar) ~= 0)
+                window.ScrollbarY = (needed_size_from_last_frame.y > size_for_scrollbars_y - style.ScrollbarSize) and not (bit.band(flags, ImGuiWindowFlags.NoScrollbar) ~= 0)
             end
 
             window.ScrollbarSizes = ImVec2(window.ScrollbarY and style.ScrollbarSize or 0.0, window.ScrollbarX and style.ScrollbarSize or 0.0)
