@@ -294,6 +294,10 @@ function ImHashStr(str, size, seed)
     if size == nil then size = #str end
     if seed == nil then seed = 0    end
 
+    if str == "" or size == 0 then
+        return seed -- need to match cpp code edge case behavior while using FNV ourselves
+    end
+
     local FNV_OFFSET_BASIS = 0x811C9DC5
     local FNV_PRIME = 0x01000193
 
