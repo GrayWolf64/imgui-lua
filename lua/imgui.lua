@@ -601,7 +601,7 @@ function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     end
     g.FontSize = final_size
     g.FontBaked = (g.Font ~= nil and window ~= nil) and g.Font:GetFontBaked(final_size) or nil
-    g.FontBakedScale = (g.Font ~= nil and window ~= nil) and (g.FontSize / g.FontBaked.Size) or 0.0
+    g.FontBakedScale = (g.FontBaked ~= nil) and (g.FontSize / g.FontBaked.Size) or 0.0
     g.DrawListSharedData.FontSize = g.FontSize
     g.DrawListSharedData.FontScale = g.FontBakedScale
 end
