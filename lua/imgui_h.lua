@@ -1373,10 +1373,11 @@ ImDrawListFlags = {
 
 --- @enum ImFontFlags
 ImFontFlags = {
-    None           = 0,
-    NoLoadError    = bit.lshift(1, 1),
-    NoLoadGlyphs   = bit.lshift(1, 2),
-    LockBakedSizes = bit.lshift(1, 3)
+    None            = 0,
+    NoLoadError     = bit.lshift(1, 1),
+    NoLoadGlyphs    = bit.lshift(1, 2),
+    LockBakedSizes  = bit.lshift(1, 3),
+    ImplicitRefSize = bit.lshift(1, 4)
 }
 
 --- @enum ImGuiMouseSource

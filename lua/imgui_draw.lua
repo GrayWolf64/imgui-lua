@@ -2710,7 +2710,7 @@ function MT.ImFontAtlas:AddFont(font_cfg_in)
         font.CurrentRasterizerDensity = font_cfg_in.RasterizerDensity
         self.Fonts:push_back(font)
     else
-        IM_ASSERT(self.Fonts.Size > 0, "Cannot use MergeMode for the first font")
+        IM_ASSERT(self.Fonts.Size > 0, "Cannot use MergeMode for the first font!")
         font = (font_cfg_in.DstFont ~= nil) and font_cfg_in.DstFont or self.Fonts:back()
         ImFontAtlasFontDiscardBakes(self, font, 0)
     end
@@ -2733,6 +2733,9 @@ function MT.ImFontAtlas:AddFont(font_cfg_in)
     if font_cfg.FontLoader ~= nil then
         IM_ASSERT(font_cfg.FontLoader.FontBakedLoadGlyph ~= nil)
         IM_ASSERT(font_cfg.FontLoader.LoaderInit == nil and font_cfg.FontLoader.LoaderShutdown == nil)
+    end
+    if font_cfg_in.MergeMode and font_cfg_in.SizePixels > 0 then
+        IM_ASSERT(bit.band(font.Flags, ImFontFlags.ImplicitRefSize) == 0, "Cannot use MergeMode with an explicit reference size when the destination font used an implicit reference size!")
     end
     IM_ASSERT(font_cfg.FontLoaderData == nil)
 
@@ -2828,6 +2831,7 @@ function MT.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
     end
     if font_cfg.SizePixels <= 0.0 then
         font_cfg.SizePixels = 13.0
+        font_cfg.Flags = bit.band(font_cfg.Flags, ImFontFlags.ImplicitRefSize)
     end
     if not font_cfg.Name or font_cfg.Name == "" then
         font_cfg.Name = "ProggyClean.ttf"
