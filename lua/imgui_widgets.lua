@@ -789,7 +789,7 @@ function ImGui.GetWindowScrollbarRect(window, axis)
     IM_ASSERT(scrollbar_size >= 0.0)
 
     local border_size = IM_ROUND(window.WindowBorderSize * 0.5)
-    local border_top = (bit.band(window.Flags, ImGuiWindowFlags.MenuBar) ~= 0) and IM_ROUND(g.Style.FrameBorderSize * 0.5) or 0.0
+    local border_top = (bit.band(window.Flags, ImGuiWindowFlags.MenuBar) ~= 0) and IM_ROUND(g.Style.FrameBorderSize * 0.5) or (bit.band(window.Flags, ImGuiWindowFlags.NoTitleBar) ~= 0 and border_size or 0)
 
     if axis == ImGuiAxis.X then
         return ImRect(inner_rect.Min.x + border_size, ImMax(outer_rect.Min.y + border_size, outer_rect.Max.y - border_size - scrollbar_size), inner_rect.Max.x - border_size, outer_rect.Max.y - border_size)
