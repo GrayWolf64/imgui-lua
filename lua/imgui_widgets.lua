@@ -1606,7 +1606,7 @@ function ImGui.Separator()
         flags = bit.bor(flags, ImGuiSeparatorFlags.SpanAllColumns)
     end
 
-    ImGui.SeparatorEx(flags, g.Style.SeparatorSize)
+    ImGui.SeparatorEx(flags, ImMax(g.Style.SeparatorSize, 1.0))
 end
 
 --- @param id         ImGuiID

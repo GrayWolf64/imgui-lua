@@ -777,6 +777,7 @@ local function CreateEngineResource(bd, backend_tex, tex)
     end
 
     local i = #bd.Textures + 1
+    --- @diagnostic disable-next-line
     rt = GetRenderTargetEx(string.format("imgui_implgmod_rt#%d", i), backend_tex.Width, backend_tex.Height, RT_SIZE_LITERAL, MATERIAL_RT_DEPTH_NONE, 0, 0, IMAGE_FORMAT_RGBA8888)
     bd.Textures[i] = rt
     bd.TextureInUseMarkers[i] = true
