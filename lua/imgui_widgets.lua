@@ -1434,7 +1434,7 @@ function ImGui.TextLink(label)
     window.DrawList:AddLine(ImVec2(bb.Min.x, line_y), ImVec2(bb.Max.x, line_y), ImGui.GetColorU32(line_colf)) -- FIXME-TEXT: Underline mode -- FIXME-DPI
 
     ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(text_colf))
-    ImGui.RenderText(bb.Min, label, 1, label_end)
+    ImGui.RenderText(bb.Min, label, 1, label_end, false)
     ImGui.PopStyleColor()
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags)
@@ -1731,7 +1731,7 @@ function ImGui.BeginCombo(label, preview_value, flags)
 
     local preview_width
     if ((bit.band(flags, ImGuiComboFlags.WidthFitPreview) ~= 0) and (preview_value ~= nil)) then
-        preview_width = ImGui.CalcTextSize(preview_value, nil, true).x
+        preview_width = ImGui.CalcTextSize(preview_value, nil, false).x
     else
         preview_width = 0.0
     end
