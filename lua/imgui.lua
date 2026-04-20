@@ -3985,13 +3985,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- Title bar
         if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 and not window.DockIsActive then
-            local title_bar_col
-            if titlebar_is_highlight then
-                title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBgActive)
-            else
-                title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBg)
-            end
-
+            local title_bar_col = ImGui.GetColorU32(titlebar_is_highlight and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg)
             window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundCornersTop)
         end
 
@@ -5199,7 +5193,7 @@ function ImGui.Begin(name, open, flags)
 
         -- Apply scrolling
         CalcNextScrollFromScrollTargetAndClamp(window)
-        window.ScrollTarget = ImVec2(FLT_MAX, FLT_MAX)
+        ImVec2_CopyV(window.ScrollTarget, FLT_MAX, FLT_MAX)
         window.DecoInnerSizeX1 = 0.0; window.DecoInnerSizeY1 = 0.0
 
         IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer.Data[1].ElemCount == 0)
