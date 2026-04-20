@@ -8129,6 +8129,11 @@ function ImGui.GetNavTweakPressedAmount(axis)
     return amount
 end
 
+do
+
+local nav_gamepad_keys_to_change_source = { ImGuiKey.GamepadFaceRight, ImGuiKey.GamepadFaceLeft, ImGuiKey.GamepadFaceUp, ImGuiKey.GamepadFaceDown, ImGuiKey.GamepadDpadRight, ImGuiKey.GamepadDpadLeft, ImGuiKey.GamepadDpadUp, ImGuiKey.GamepadDpadDown }
+local nav_keyboard_keys_to_change_source = { ImGuiKey.Space, ImGuiKey.Enter, ImGuiKey.Escape, ImGuiKey.RightArrow, ImGuiKey.LeftArrow, ImGuiKey.UpArrow, ImGuiKey.DownArrow }
+
 -- TODO:
 function ImGui.NavUpdate()
     local g = GImGui
@@ -8137,7 +8142,6 @@ function ImGui.NavUpdate()
     io.WantSetMousePos = false
 
     local nav_gamepad_active = bit.band(io.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(io.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0
-    local nav_gamepad_keys_to_change_source = { ImGuiKey.GamepadFaceRight, ImGuiKey.GamepadFaceLeft, ImGuiKey.GamepadFaceUp, ImGuiKey.GamepadFaceDown, ImGuiKey.GamepadDpadRight, ImGuiKey.GamepadDpadLeft, ImGuiKey.GamepadDpadUp, ImGuiKey.GamepadDpadDown }
     if nav_gamepad_active then
         for _, key in ipairs(nav_gamepad_keys_to_change_source) do
             if ImGui.IsKeyDown(key) then
@@ -8147,7 +8151,6 @@ function ImGui.NavUpdate()
     end
 
     local nav_keyboard_active = bit.band(io.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) ~= 0
-    local nav_keyboard_keys_to_change_source = { ImGuiKey.Space, ImGuiKey.Enter, ImGuiKey.Escape, ImGuiKey.RightArrow, ImGuiKey.LeftArrow, ImGuiKey.UpArrow, ImGuiKey.DownArrow }
     if nav_keyboard_active then
         for _, key in ipairs(nav_keyboard_keys_to_change_source) do
             if ImGui.IsKeyDown(key) then
@@ -8309,6 +8312,8 @@ function ImGui.NavUpdate()
     -- end
 
     g.NavScoringDebugCount = 0
+end
+
 end
 
 function ImGui.NavUpdateCancelRequest()
