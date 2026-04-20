@@ -5289,14 +5289,14 @@ function ImGui.Begin(name, open, flags)
         -- This is used by clipper to compensate and fix the most common use case of large scroll area. Easy and cheap, next best thing compared to switching everything to double or ImU64.
         local start_pos_highp_x = window.Pos.x + window.WindowPadding.x - window.Scroll.x + window.DecoOuterSizeX1 + window.DC.ColumnsOffset.x
         local start_pos_highp_y = window.Pos.y + window.WindowPadding.y - window.Scroll.y + window.DecoOuterSizeY1
-        ImVec2_Copy(window.DC.CursorStartPos, ImVec2(start_pos_highp_x, start_pos_highp_y))
-        ImVec2_Copy(window.DC.CursorStartPosLossyness, ImVec2(start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y))
+        ImVec2_CopyV(window.DC.CursorStartPos, start_pos_highp_x, start_pos_highp_y)
+        ImVec2_CopyV(window.DC.CursorStartPosLossyness, start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y)
         ImVec2_Copy(window.DC.CursorPos, window.DC.CursorStartPos)
         ImVec2_Copy(window.DC.CursorPosPrevLine, window.DC.CursorPos)
         ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorStartPos)
         ImVec2_Copy(window.DC.IdealMaxPos, window.DC.CursorStartPos)
-        ImVec2_Copy(window.DC.CurrLineSize, ImVec2(0.0, 0.0))
-        ImVec2_Copy(window.DC.PrevLineSize, ImVec2(0.0, 0.0))
+        ImVec2_CopyV(window.DC.CurrLineSize, 0.0, 0.0)
+        ImVec2_CopyV(window.DC.PrevLineSize, 0.0, 0.0)
         window.DC.CurrLineTextBaseOffset = 0.0
         window.DC.PrevLineTextBaseOffset = 0.0
         window.DC.IsSameLine = false

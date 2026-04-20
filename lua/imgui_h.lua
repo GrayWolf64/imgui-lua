@@ -202,6 +202,11 @@ function ImVec2_Copy(dest, src)
     dest.x = src.x; dest.y = src.y
 end
 
+--- @param dest  ImVec2
+--- @param src_x number
+--- @param src_y number
+function ImVec2_CopyV(dest, src_x, src_y) dest.x = src_x; dest.y = src_y end
+
 -- This structure supports indexing on string keys `x`, `y`, `z`, `w` and number keys 1, 2, 3, 4.
 -- But note that the later is likely to be more expensive.
 --- @class ImVec4
