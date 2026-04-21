@@ -241,7 +241,7 @@ local ImGuiResizeBorderDef = {
 local function GetResizeBorderRect(window, border_n, perp_padding, thickness)
     local rect = window:Rect()
     if thickness == 0.0 then
-        rect.Max = ImVec2(rect.Max.x - 1, rect.Max.y - 1)
+        ImVec2_CopyV(rect.Max, rect.Max.x - 1, rect.Max.y - 1)
     end
     if border_n == ImGuiDir.Left then
         return ImRect(rect.Min.x - thickness, rect.Min.y + perp_padding, rect.Min.x + thickness, rect.Max.y - perp_padding)
@@ -7763,7 +7763,7 @@ function ImGui.GetPopupAllowedExtentRect(window)
         -- Extent with be in the frame of reference of the given viewport (so Min is likely to be negative here)
         local monitor = g.PlatformIO.Monitors.Data[window.ViewportAllowPlatformMonitorExtend]
         ImVec2_Copy(r_screen.Min, monitor.WorkPos)
-        r_screen.Max = monitor.WorkPos + monitor.WorkSize
+        ImVec2_Copy(r_screen.Max, monitor.WorkPos + monitor.WorkSize)
     else
         -- Use the full viewport area (not work area) for popups
         r_screen = window.Viewport:GetMainRect()
