@@ -2436,18 +2436,9 @@ ImGuiInputFlags.SupportedBySetNextItemShortcut = bit.bor(ImGuiInputFlags.RepeatM
 ImGuiInputFlags.SupportedBySetKeyOwner         = bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)
 ImGuiInputFlags.SupportedBySetItemKeyOwner     = bit.bor(ImGuiInputFlags.SupportedBySetKeyOwner, ImGuiInputFlags.CondMask_)
 
---- @enum ImGuiAxis
-ImGuiAxis = {
-    None = -1,
-    X    = 0,
-    Y    = 1
-}
+ImGuiAxis = { None = 0, X = 1, Y = 2 } --- @enum ImGuiAxis
 
---- @enum ImGuiPlotType
-ImGuiPlotType = {
-    Lines     = 0,
-    Histogram = 1
-}
+ImGuiPlotType = { Lines = 0, Histogram = 1 } --- @enum ImGuiPlotType
 
 --- @enum ImGuiActivateFlags
 ImGuiActivateFlags = {

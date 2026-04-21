@@ -3494,9 +3494,9 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             -- Double-clicking bottom or right border auto-fit on this axis
             -- FIXME: Support top and right borders: rework CalcResizePosSizeFromAnyCorner() to be reusable in both cases.
             if border_n == 1 or border_n == 3 then  -- Right and bottom border
-                local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, bit.lshift(1, axis))
+                local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, bit.lshift(1, axis - 1))
                 size_target[axis] = CalcWindowSizeAfterConstraint(window, size_auto_fit)[axis]
-                ret_auto_fit_mask = bit.bor(ret_auto_fit_mask, bit.lshift(1, axis))
+                ret_auto_fit_mask = bit.bor(ret_auto_fit_mask, bit.lshift(1, axis - 1))
                 hovered = false
                 held = false  -- So border doesn't show highlighted at new position
             end
@@ -4946,10 +4946,10 @@ function ImGui.Begin(name, open, flags)
 
             local size_auto_fit_mask = 0
             if size_auto_fit_x_always or size_auto_fit_x_current then
-                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.X))
+                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.X - 1))
             end
             if size_auto_fit_y_always or size_auto_fit_y_current then
-                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.Y))
+                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.Y - 1))
             end
 
             local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, size_auto_fit_mask)
@@ -5086,10 +5086,10 @@ function ImGui.Begin(name, open, flags)
             local auto_fit_mask
             auto_fit_mask, border_hovered, border_held = UpdateWindowManualResize(window, resize_grip_count, resize_grip_col, visibility_rect)
             if auto_fit_mask ~= 0 then
-                if bit.band(auto_fit_mask, bit.lshift(1, ImGuiAxis.X)) ~= 0 then
+                if bit.band(auto_fit_mask, bit.lshift(1, ImGuiAxis.X - 1)) ~= 0 then
                     use_current_size_for_scrollbar_x = true
                 end
-                if bit.band(auto_fit_mask, bit.lshift(1, ImGuiAxis.Y)) ~= 0 then
+                if bit.band(auto_fit_mask, bit.lshift(1, ImGuiAxis.Y - 1)) ~= 0 then
                     use_current_size_for_scrollbar_y = true
                 end
             end
@@ -5947,9 +5947,9 @@ end
 local function FindBestWheelingWindow(wheel)
     local g = GImGui
     local windows = {nil, nil}
-    for axis = 0, 1 do
+    for axis = ImGuiAxis.X, ImGuiAxis.Y do
         if wheel[axis] ~= 0.0 then
-            windows[axis + 1] = g.HoveredWindow
+            windows[axis] = g.HoveredWindow
             local window = g.HoveredWindow
             while bit.band(window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0 do
                 local has_scrolling = (window.ScrollMax[axis] ~= 0.0)
@@ -5959,7 +5959,7 @@ local function FindBestWheelingWindow(wheel)
                     break -- select this window
                 end
 
-                windows[axis + 1] = window.ParentWindow
+                windows[axis] = window.ParentWindow
                 window = window.ParentWindow
             end
         end
@@ -6054,15 +6054,11 @@ function ImGui.UpdateMouseWheel()
         if not (bit.band(window.Flags, ImGuiWindowFlags.NoScrollWithMouse) ~= 0) and not (bit.band(window.Flags, ImGuiWindowFlags.NoMouseInputs) ~= 0) then
             local do_scroll = { wheel.x ~= 0.0 and window.ScrollMax.x ~= 0.0, wheel.y ~= 0.0 and window.ScrollMax.y ~= 0.0 }
 
-            if do_scroll[ImGuiAxis.X + 1] and do_scroll[ImGuiAxis.Y + 1] then
-                if g.WheelingAxisAvg.x > g.WheelingAxisAvg.y then
-                    do_scroll[ImGuiAxis.Y + 1] = false
-                else
-                    do_scroll[ImGuiAxis.X + 1] = false
-                end
+            if do_scroll[ImGuiAxis.X] and do_scroll[ImGuiAxis.Y] then
+                do_scroll[(g.WheelingAxisAvg.x > g.WheelingAxisAvg.y) and ImGuiAxis.Y or ImGuiAxis.X] = false
             end
 
-            if do_scroll[ImGuiAxis.X + 1] then
+            if do_scroll[ImGuiAxis.X] then
                 LockWheelingWindow(window, wheel.x)
                 local max_step = window.InnerRect:GetWidth() * 0.67
                 local scroll_step = ImTrunc(ImMin(2 * window.FontRefSize, max_step))
@@ -6070,7 +6066,7 @@ function ImGui.UpdateMouseWheel()
                 g.WheelingWindowScrolledFrame = g.FrameCount
             end
 
-            if do_scroll[ImGuiAxis.Y + 1] then
+            if do_scroll[ImGuiAxis.Y] then
                 LockWheelingWindow(window, wheel.y)
                 local max_step = window.InnerRect:GetHeight() * 0.67
                 local scroll_step = ImTrunc(ImMin(5 * window.FontRefSize, max_step))
@@ -7175,7 +7171,7 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
     local scroll = window.Scroll
     local decoration_size = ImVec2(window.DecoOuterSizeX1 + window.DecoInnerSizeX1 + window.DecoOuterSizeX2, window.DecoOuterSizeY1 + window.DecoInnerSizeY1 + window.DecoOuterSizeY2)
 
-    for axis = 0, 1 do
+    for axis = ImGuiAxis.X, ImGuiAxis.Y do
         if window.ScrollTarget[axis] < FLT_MAX then
             local center_ratio = window.ScrollTargetCenterRatio[axis]
             local scroll_target = window.ScrollTarget[axis]

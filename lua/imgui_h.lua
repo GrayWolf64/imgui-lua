@@ -168,10 +168,8 @@ MT.ImVec2 = {}
 --- @param t ImVec2
 --- @param k int
 MT.ImVec2.__index = function(t, k)
-    if k == ImGuiAxis.X then
-        return rawget(t, "x")
-    elseif k == ImGuiAxis.Y then
-        return rawget(t, "y")
+    if     k == "x" then return rawget(t, 1)
+    elseif k == "y" then return rawget(t, 2)
     end
 end
 
@@ -179,10 +177,8 @@ end
 --- @param k int
 --- @param v number
 MT.ImVec2.__newindex = function(t, k, v)
-    if k == ImGuiAxis.X then
-        rawset(t, "x", v)
-    elseif k == ImGuiAxis.Y then
-        rawset(t, "y", v)
+    if     k == "x" then rawset(t, 1, v)
+    elseif k == "y" then rawset(t, 2, v)
     end
 end
 
@@ -190,7 +186,7 @@ end
 --- @param y? number
 --- @return ImVec2
 --- @nodiscard
-function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, MT.ImVec2) end
+function ImVec2(x, y) return setmetatable({x or 0, y or 0}, MT.ImVec2) end
 
 function MT.ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
 function MT.ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
