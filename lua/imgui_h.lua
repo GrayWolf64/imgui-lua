@@ -156,6 +156,8 @@ function ImTextureRect(x, y, w, h)
     }
 end
 
+local rawget = rawget; local rawset = rawset
+
 -- This structure supports indexing on string keys `x`, `y` and number keys `ImGuiAxis.X`, `ImGuiAxis.Y`.
 -- But note that the later is likely to be more expensive.
 --- @class ImVec2
@@ -208,7 +210,7 @@ end
 function ImVec2_CopyV(dest, src_x, src_y) dest.x = src_x; dest.y = src_y end
 
 -- This structure supports indexing on string keys `x`, `y`, `z`, `w` and number keys 1, 2, 3, 4.
--- But note that the later is likely to be more expensive.
+-- But note that the former is likely to be more expensive.
 --- @class ImVec4
 --- @field x number
 --- @field y number
@@ -219,14 +221,10 @@ MT.ImVec4 = {}
 --- @param t ImVec4
 --- @param k int
 MT.ImVec4.__index = function(t, k)
-    if k == 1 then
-        return rawget(t, "x")
-    elseif k == 2 then
-        return rawget(t, "y")
-    elseif k == 3 then
-        return rawget(t, "z")
-    elseif k == 4 then
-        return rawget(t, "w")
+    if     k == "x" then return rawget(t, 1)
+    elseif k == "y" then return rawget(t, 2)
+    elseif k == "z" then return rawget(t, 3)
+    elseif k == "w" then return rawget(t, 4)
     end
 end
 
@@ -234,32 +232,30 @@ end
 --- @param k int
 --- @param v number
 MT.ImVec4.__newindex = function(t, k, v)
-    if k == 1 then
-        rawset(t, "x", v)
-    elseif k == 2 then
-        rawset(t, "y", v)
-    elseif k == 3 then
-        rawset(t, "z", v)
-    elseif k == 4 then
-        rawset(t, "w", v)
+    if     k == "x" then rawset(t, 1, v)
+    elseif k == "y" then rawset(t, 2, v)
+    elseif k == "z" then rawset(t, 3, v)
+    elseif k == "w" then rawset(t, 4, v)
     end
 end
 
+--- @param x? number
+--- @param y? number
+--- @param z? number
+--- @param w? number
 --- @return ImVec4
 --- @nodiscard
-function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, MT.ImVec4) end
+function ImVec4(x, y, z, w) return setmetatable({x or 0, y or 0, z or 0, w or 0}, MT.ImVec4) end
 
-function MT.ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
-function MT.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
-function MT.ImVec4:__mul(other) if type(other) == "number" then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
-function MT.ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
+function MT.ImVec4:__add(other) return ImVec4(self[1] + other[1], self[2] + other[2], self[3] + other[3], self[4] + other[4]) end
+function MT.ImVec4:__sub(other) return ImVec4(self[1] - other[1], self[2] - other[2], self[3] - other[3], self[4] - other[4]) end
+function MT.ImVec4:__mul(other) return ImVec4(self[1] * other, self[2] * other, self[3] * other, self[4] * other) end
+function MT.ImVec4:__eq(other) return self[1] == other[1] and self[2] == other[2] and self[3] == other[3] and self[4] == other[4] end
 function MT.ImVec4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", self.x, self.y, self.z, self.w) end
 
 --- @param dest ImVec4
 --- @param src  ImVec4
-function ImVec4_Copy(dest, src)
-    dest.x = src.x; dest.y = src.y; dest.z = src.z; dest.w = src.w
-end
+function ImVec4_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2]; dest[3] = src[3]; dest[4] = src[4] end
 
 --- A compact ImVector clone
 --- @class ImVector<T>
