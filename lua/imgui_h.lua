@@ -158,8 +158,8 @@ end
 
 local rawget = rawget; local rawset = rawset
 
--- This structure supports indexing on string keys `x`, `y` and number keys `ImGuiAxis.X`, `ImGuiAxis.Y`.
--- But note that the later is likely to be more expensive.
+-- This structure supports indexing on string keys `x`, `y` and number keys 1, 2.
+-- But note that the former is likely to be more expensive.
 --- @class ImVec2
 --- @field x number
 --- @field y number

@@ -703,6 +703,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
                 mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
 
+                -- It's strongly recommended here that number indices are used instead of string keys
                 for i = 0, pcmd.ElemCount - 1, 3 do
                     local idx0 = idx_data[pcmd.IdxOffset + 1 + i]
                     local idx1 = idx_data[pcmd.IdxOffset + 2 + i]
@@ -712,22 +713,22 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     local vtx1 = vtx_data[pcmd.VtxOffset + idx1]
                     local vtx2 = vtx_data[pcmd.VtxOffset + idx2]
 
-                    meshPosition(vtx0[1].x, vtx0[1].y, 0)
-                    meshTexCoord(0, vtx0[2].x, vtx0[2].y)
+                    meshPosition(vtx0[1][1], vtx0[1][2], 0)
+                    meshTexCoord(0, vtx0[2][1], vtx0[2][2])
                     colorConvertU32ToFloat4(vtx0[3], col0)
-                    meshColor(col0.x * 255, col0.y * 255, col0.z * 255, col0.w * 255)
+                    meshColor(col0[1] * 255, col0[2] * 255, col0[3] * 255, col0[4] * 255)
                     meshAdvVtx()
 
-                    meshPosition(vtx1[1].x, vtx1[1].y, 0)
-                    meshTexCoord(0, vtx1[2].x, vtx1[2].y)
+                    meshPosition(vtx1[1][1], vtx1[1][2], 0)
+                    meshTexCoord(0, vtx1[2][1], vtx1[2][2])
                     colorConvertU32ToFloat4(vtx1[3], col1)
-                    meshColor(col1.x * 255, col1.y * 255, col1.z * 255, col1.w * 255)
+                    meshColor(col1[1] * 255, col1[2] * 255, col1[3] * 255, col1[4] * 255)
                     meshAdvVtx()
 
-                    meshPosition(vtx2[1].x, vtx2[1].y, 0)
-                    meshTexCoord(0, vtx2[2].x, vtx2[2].y)
+                    meshPosition(vtx2[1][1], vtx2[1][2], 0)
+                    meshTexCoord(0, vtx2[2][1], vtx2[2][2])
                     colorConvertU32ToFloat4(vtx2[3], col2)
-                    meshColor(col2.x * 255, col2.y * 255, col2.z * 255, col2.w * 255)
+                    meshColor(col2[1] * 255, col2[2] * 255, col2[3] * 255, col2[4] * 255)
                     meshAdvVtx()
                 end
 
