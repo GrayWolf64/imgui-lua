@@ -196,14 +196,12 @@ function MT.ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, s
 
 --- @param dest ImVec2
 --- @param src  ImVec2
-function ImVec2_Copy(dest, src)
-    dest.x = src.x; dest.y = src.y
-end
+function ImVec2_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2] end
 
 --- @param dest  ImVec2
 --- @param src_x number
 --- @param src_y number
-function ImVec2_CopyV(dest, src_x, src_y) dest.x = src_x; dest.y = src_y end
+function ImVec2_CopyV(dest, src_x, src_y) dest[1] = src_x; dest[2] = src_y end
 
 -- This structure supports indexing on string keys `x`, `y`, `z`, `w` and number keys 1, 2, 3, 4.
 -- But note that the former is likely to be more expensive.
