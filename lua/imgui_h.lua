@@ -285,7 +285,8 @@ end
 --- @param k int
 --- @param v any
 MT.ImVector.__newindex = function(t, k, v)
-    t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] = v
+    IM_ASSERT(k >= 1 and k <= t.Size)
+    t.Data[k] = v
 end
 
 local _default_constructor = function() return nil end
