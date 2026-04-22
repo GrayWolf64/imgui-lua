@@ -2932,9 +2932,9 @@ local function IM_NORMALIZE2F_OVER_ZERO(VX, VY)
     return VX, VY
 end
 
-local IM_FIXNORMAL2F_MAX_INVLEN2 = 100
-
 local function IM_FIXNORMAL2F(VX, VY)
+    local IM_FIXNORMAL2F_MAX_INVLEN2 = 100
+
     local d2 = VX * VX + VY * VY
     if d2 > 0.000001 then
         local inv_len2 = 1.0 / d2
