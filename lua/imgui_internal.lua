@@ -723,13 +723,10 @@ function _ImBitArray:TestBit(n) n = n + self[3]; IM_ASSERT(n >= 1 and n <= self[
 --- @param n int
 function _ImBitArray:SetBit(n) IM_ASSERT(n >= 1 and n <= self[2]); ImBitArraySetBit(self[1], n); end
 
-function MT.ImDrawList:PathClear()
-    self._Path:clear_delete() -- TODO: is clear() fine?
-end
+function MT.ImDrawList:PathClear() self._Path:clear() end
 
-function MT.ImDrawList:PathLineTo(pos)
-    self._Path:push_back(pos)
-end
+--- @param pos ImVec2
+function MT.ImDrawList:PathLineTo(pos) self._Path:push_back(pos) end
 
 function MT.ImDrawList:PathLineToMergeDuplicate(pos)
     local path_size = self._Path.Size
