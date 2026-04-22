@@ -3464,11 +3464,11 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             local i2 = (i1 == points_count) and 1 or i1 + 1
             local p1 = points[i1]
             local p2 = points[i2]
-            local dx = p2.x - p1.x
-            local dy = p2.y - p1.y
+            local dx = p2[1] - p1[1]
+            local dy = p2[2] - p1[2]
             dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
-            temp_normals[i1].x = dy
-            temp_normals[i1].y = -dx
+            temp_normals[i1][1] = dy
+            temp_normals[i1][2] = -dx
         end
         if not closed then
             ImVec2_Copy(temp_normals[points_count], temp_normals[points_count - 1])
@@ -3496,18 +3496,18 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + (use_texture and 2 or 3))
 
                 -- Average normals
-                local dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5
-                local dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5
+                local dm_x = (temp_normals[i1][1] + temp_normals[i2][1]) * 0.5
+                local dm_y = (temp_normals[i1][2] + temp_normals[i2][2]) * 0.5
                 dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
                 dm_x = dm_x * half_draw_size
                 dm_y = dm_y * half_draw_size
 
                 -- Add temporary vertices for the outer edges
                 local out_off = (i2 - 1) * 2
-                temp_points[temp_points_start + out_off + 0].x = points[i2].x + dm_x
-                temp_points[temp_points_start + out_off + 0].y = points[i2].y + dm_y
-                temp_points[temp_points_start + out_off + 1].x = points[i2].x - dm_x
-                temp_points[temp_points_start + out_off + 1].y = points[i2].y - dm_y
+                temp_points[temp_points_start + out_off + 0][1] = points[i2][1] + dm_x
+                temp_points[temp_points_start + out_off + 0][2] = points[i2][2] + dm_y
+                temp_points[temp_points_start + out_off + 1][1] = points[i2][1] - dm_x
+                temp_points[temp_points_start + out_off + 1][2] = points[i2][2] - dm_y
 
                 if use_texture then
                     -- Add indices for two triangles
@@ -3575,8 +3575,8 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + 4)
 
                 -- Average normals
-                local dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5
-                local dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5
+                local dm_x = (temp_normals[i1][1] + temp_normals[i2][1]) * 0.5
+                local dm_y = (temp_normals[i1][2] + temp_normals[i2][2]) * 0.5
                 dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
                 local dm_out_x = dm_x * (half_inner_thickness + AA_SIZE)
                 local dm_out_y = dm_y * (half_inner_thickness + AA_SIZE)
@@ -3585,14 +3585,14 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 
                 -- Add temporary vertices
                 local out_off = (i2 - 1) * 4
-                temp_points[temp_points_start + out_off + 0].x = points[i2].x + dm_out_x
-                temp_points[temp_points_start + out_off + 0].y = points[i2].y + dm_out_y
-                temp_points[temp_points_start + out_off + 1].x = points[i2].x + dm_in_x
-                temp_points[temp_points_start + out_off + 1].y = points[i2].y + dm_in_y
-                temp_points[temp_points_start + out_off + 2].x = points[i2].x - dm_in_x
-                temp_points[temp_points_start + out_off + 2].y = points[i2].y - dm_in_y
-                temp_points[temp_points_start + out_off + 3].x = points[i2].x - dm_out_x
-                temp_points[temp_points_start + out_off + 3].y = points[i2].y - dm_out_y
+                temp_points[temp_points_start + out_off + 0][1] = points[i2][1] + dm_out_x
+                temp_points[temp_points_start + out_off + 0][2] = points[i2][2] + dm_out_y
+                temp_points[temp_points_start + out_off + 1][1] = points[i2][1] + dm_in_x
+                temp_points[temp_points_start + out_off + 1][2] = points[i2][2] + dm_in_y
+                temp_points[temp_points_start + out_off + 2][1] = points[i2][1] - dm_in_x
+                temp_points[temp_points_start + out_off + 2][2] = points[i2][2] - dm_in_y
+                temp_points[temp_points_start + out_off + 3][1] = points[i2][1] - dm_out_x
+                temp_points[temp_points_start + out_off + 3][2] = points[i2][2] - dm_out_y
 
                 -- Add indices
                 local idx_write_ptr = self._IdxWritePtr
@@ -3630,17 +3630,17 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             local p1 = points[i1]
             local p2 = points[i2]
 
-            local dx = p2.x - p1.x
-            local dy = p2.y - p1.y
+            local dx = p2[1] - p1[1]
+            local dy = p2[2] - p1[2]
             dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
             dx = dx * (thickness * 0.5)
             dy = dy * (thickness * 0.5)
 
             local vtx_write_ptr = self._VtxWritePtr
-            vtx_data[vtx_write_ptr + 0][1].x = p1.x + dy; vtx_data[vtx_write_ptr + 0][1].y = p1.y - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], opaque_uv); vtx_data[vtx_write_ptr + 0][3] = col
-            vtx_data[vtx_write_ptr + 1][1].x = p2.x + dy; vtx_data[vtx_write_ptr + 1][1].y = p2.y - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], opaque_uv); vtx_data[vtx_write_ptr + 1][3] = col
-            vtx_data[vtx_write_ptr + 2][1].x = p2.x - dy; vtx_data[vtx_write_ptr + 2][1].y = p2.y + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], opaque_uv); vtx_data[vtx_write_ptr + 2][3] = col
-            vtx_data[vtx_write_ptr + 3][1].x = p1.x - dy; vtx_data[vtx_write_ptr + 3][1].y = p1.y + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 3][2], opaque_uv); vtx_data[vtx_write_ptr + 3][3] = col
+            vtx_data[vtx_write_ptr + 0][1][1] = p1[1] + dy; vtx_data[vtx_write_ptr + 0][1][2] = p1[2] - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], opaque_uv); vtx_data[vtx_write_ptr + 0][3] = col
+            vtx_data[vtx_write_ptr + 1][1][1] = p2[1] + dy; vtx_data[vtx_write_ptr + 1][1][2] = p2[2] - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], opaque_uv); vtx_data[vtx_write_ptr + 1][3] = col
+            vtx_data[vtx_write_ptr + 2][1][1] = p2[1] - dy; vtx_data[vtx_write_ptr + 2][1][2] = p2[2] + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], opaque_uv); vtx_data[vtx_write_ptr + 2][3] = col
+            vtx_data[vtx_write_ptr + 3][1][1] = p1[1] - dy; vtx_data[vtx_write_ptr + 3][1][2] = p1[2] + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 3][2], opaque_uv); vtx_data[vtx_write_ptr + 3][3] = col
             self._VtxWritePtr = vtx_write_ptr + 4
 
             local idx_write_ptr = self._IdxWritePtr
