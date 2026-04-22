@@ -3512,7 +3512,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
                 g.WindowResizeRelativeMode = true
             end
 
-            local border_curr = window.Pos + ImMinVec2(def.SegmentN1, def.SegmentN2) * window.Size
+            local border_curr = window.Pos + ImVec2_MulComp(ImMinVec2(def.SegmentN1, def.SegmentN2), window.Size)
             local border_target_rel_mode_for_axis
             local border_target_abs_mode_for_axis
             border_target_rel_mode_for_axis = border_curr[axis] + g.IO.MouseDelta[axis]
@@ -4013,10 +4013,10 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
                 if bit.band(col, IM_COL32_A_MASK) == 0 then goto CONTINUE end
 
                 local inner_dir = ImGuiResizeGripDef[i].InnerDir
-                local corner = window.Pos + ImGuiResizeGripDef[i].CornerPosN * window.Size
+                local corner = window.Pos + ImVec2_MulComp(ImGuiResizeGripDef[i].CornerPosN, window.Size)
                 local border_inner = IM_ROUND(window_border_size * 0.5)
-                window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
-                window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
+                window.DrawList:PathLineTo(corner + ImVec2_MulComp(inner_dir, ((i % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner))))
+                window.DrawList:PathLineTo(corner + ImVec2_MulComp(inner_dir, ((i % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size))))
                 window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImGuiResizeGripDef[i].AngleMin12, ImGuiResizeGripDef[i].AngleMax12)
                 window.DrawList:PathFillConvex(col)
 
@@ -5009,7 +5009,7 @@ function ImGui.Begin(name, open, flags)
 
         local window_pos_with_pivot = (window.SetWindowPosVal.x ~= FLT_MAX and window.HiddenFramesCannotSkipItems == 0)
         if window_pos_with_pivot then
-            ImGui.SetWindowPos(window, window.SetWindowPosVal - window.Size * window.SetWindowPosPivot, 0)  -- Position given a pivot (e.g. for centering)
+            ImGui.SetWindowPos(window, window.SetWindowPosVal - ImVec2_MulComp(window.Size, window.SetWindowPosPivot), 0) -- Position given a pivot (e.g. for centering)
         elseif (bit.band(flags, ImGuiWindowFlags.ChildMenu) ~= 0) then
             ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         elseif (bit.band(flags, ImGuiWindowFlags.Popup) ~= 0) and not window_pos_set_by_api and window_just_appearing_after_hidden_for_resize then
@@ -7815,7 +7815,7 @@ function ImGui.FindBestWindowPosForPopup(window)
         local ref_pos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Tooltip)
 
         if g.IO.MouseSource == ImGuiMouseSource.TouchScreen and ImGui.NavCalcPreferredRefPosSource(ImGuiWindowFlags.Tooltip) == ImGuiInputSource.Mouse then
-            local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - (TOOLTIP_DEFAULT_PIVOT_TOUCH * window.Size)
+            local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - ImVec2_MulComp(TOOLTIP_DEFAULT_PIVOT_TOUCH, window.Size)
             if r_outer:Contains(ImRect(tooltip_pos, tooltip_pos + window.Size)) then
                 return tooltip_pos
             end

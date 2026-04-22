@@ -1759,8 +1759,8 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
             end
         end
 
-        local uv0 = ImVec2((r.x + pad_left - 1), (r.y + y)) * atlas.TexUvScale
-        local uv1 = ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)) * atlas.TexUvScale
+        local uv0 = ImVec2_MulComp(ImVec2((r.x + pad_left - 1), (r.y + y)), atlas.TexUvScale)
+        local uv1 = ImVec2_MulComp(ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)), atlas.TexUvScale)
         local half_v = (uv0.y + uv1.y) * 0.5
         atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v)
     end
@@ -2864,8 +2864,8 @@ function MT.ImFontAtlas:GetCustomRect(id, out_r)
     out_r.y = r.y
     out_r.w = r.w
     out_r.h = r.h
-    out_r.uv0 = ImVec2((r.x), (r.y)) * self.TexUvScale
-    out_r.uv1 = ImVec2((r.x + r.w), (r.y + r.h)) * self.TexUvScale
+    ImVec2_CopyV(out_r.uv0, ImVec2_MulCompV(ImVec2((r.x), (r.y)), self.TexUvScale))
+    ImVec2_CopyV(out_r.uv1, ImVec2_MulCompV(ImVec2((r.x + r.w), (r.y + r.h)), self.TexUvScale))
 
     return true
 end
@@ -2889,11 +2889,11 @@ function ImFontAtlasGetMouseCursorTexData(atlas, cursor_type, out_offset, out_si
     local size = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][2]
     ImVec2_Copy(out_size, size)
     ImVec2_Copy(out_offset, FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][3])
-    ImVec2_Copy(out_uv_border[1], (pos) * atlas.TexUvScale)
-    ImVec2_Copy(out_uv_border[2], (pos + size) * atlas.TexUvScale)
+    ImVec2_CopyV(out_uv_border[1], ImVec2_MulCompV((pos), atlas.TexUvScale))
+    ImVec2_CopyV(out_uv_border[2], ImVec2_MulCompV((pos + size), atlas.TexUvScale))
     pos.x = pos.x + (FONT_ATLAS_DEFAULT_TEX_DATA_W + 1)
-    ImVec2_Copy(out_uv_fill[1], (pos) * atlas.TexUvScale)
-    ImVec2_Copy(out_uv_fill[2], (pos + size) * atlas.TexUvScale)
+    ImVec2_CopyV(out_uv_fill[1], ImVec2_MulCompV((pos), atlas.TexUvScale))
+    ImVec2_CopyV(out_uv_fill[2], ImVec2_MulCompV((pos + size), atlas.TexUvScale))
 
     return true
 end

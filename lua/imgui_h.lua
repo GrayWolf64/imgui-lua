@@ -161,6 +161,11 @@ local rawget = rawget; local rawset = rawset
 -- This structure supports indexing on string keys `x`, `y` and number keys 1, 2.
 -- But note that the former is likely to be more expensive.
 --- @class ImVec2
+--- @operator add(ImVec2): ImVec2
+--- @operator sub(ImVec2): ImVec2
+--- @operator mul(number): ImVec2
+--- @field [1] number
+--- @field [2] number
 --- @field x number
 --- @field y number
 MT.ImVec2 = {}
@@ -188,10 +193,11 @@ end
 --- @nodiscard
 function ImVec2(x, y) return setmetatable({x or 0, y or 0}, MT.ImVec2) end
 
-function MT.ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
-function MT.ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
-function MT.ImVec2:__mul(other) if type(other) == "number" then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
-function MT.ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
+function MT.ImVec2.__add(lhs, rhs) return ImVec2(lhs[1] + rhs[1], lhs[2] + rhs[2]) end
+function MT.ImVec2.__sub(lhs, rhs) return ImVec2(lhs[1] - rhs[1], lhs[2] - rhs[2]) end
+function MT.ImVec2.__mul(lhs, rhs) return ImVec2(lhs[1] * rhs, lhs[2] * rhs) end
+function MT.ImVec2.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] end
+
 function MT.ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
 
 --- @param dest ImVec2
@@ -202,6 +208,15 @@ function ImVec2_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2] end
 --- @param src_x number
 --- @param src_y number
 function ImVec2_CopyV(dest, src_x, src_y) dest[1] = src_x; dest[2] = src_y end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+--- @nodiscard
+function ImVec2_MulComp(lhs, rhs) return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2]) end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+function ImVec2_MulCompV(lhs, rhs) return lhs[1] * rhs[1], lhs[2] * rhs[2] end
 
 -- This structure supports indexing on string keys `x`, `y`, `z`, `w` and number keys 1, 2, 3, 4.
 -- But note that the former is likely to be more expensive.
