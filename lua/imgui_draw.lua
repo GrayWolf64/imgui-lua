@@ -4007,7 +4007,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
             end
 
             local s = self._Data.ArcFastVtx[sample_index + 1]
-            self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+            ImVec2_CopyV(self._Path.Data[out_ptr], center.x + s.x * radius, center.y + s.y * radius)
             out_ptr = out_ptr + 1
 
             a = a + a_step
@@ -4022,7 +4022,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
             end
 
             local s = self._Data.ArcFastVtx[sample_index + 1]
-            self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+            ImVec2_CopyV(self._Path.Data[out_ptr], center.x + s.x * radius, center.y + s.y * radius)
             out_ptr = out_ptr + 1
 
             a = a - a_step
@@ -4038,7 +4038,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
         end
 
         local s = self._Data.ArcFastVtx[normalized_max_sample + 1]
-        self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+        ImVec2_CopyV(self._Path.Data[out_ptr], center.x + s.x * radius, center.y + s.y * radius)
         out_ptr = out_ptr + 1
     end
 

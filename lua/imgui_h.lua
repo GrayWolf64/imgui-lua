@@ -512,7 +512,7 @@ function ImDrawList(data)
         _Data          = data,
         _VtxWritePtr   = 1,
         _IdxWritePtr   = 1,
-        _Path          = ImVector(),
+        _Path          = ImVector(ImVec2),
         _CmdHeader     = ImDrawCmdHeader(),
         _Splitter      = ImDrawListSplitter(),
         _ClipRectStack = ImVector(),
