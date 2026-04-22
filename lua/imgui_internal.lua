@@ -691,37 +691,31 @@ end
 
 --- @alias ImBitArrayForNamedKeys ImBitArray
 
+--- NOTE: This struct is expensive to create
 --- @class ImBitArray<BITCOUNT, OFFSET>
---- @field [1] ImU32[] # Data
---- @field [2] int     # BITCOUNT
---- @field [3] int     # OFFSET
---- @field [4] int     # Pre-calculated size of Data
-local _ImBitArray = {}
-_ImBitArray.__index = _ImBitArray
+--- @field Data ImU32[]
 
---- @param bitcount int
---- @param offset?  int
+--- @param BITCOUNT int
+--- @param OFFSET?  int
 --- @return ImBitArray
-function ImBitArray(bitcount, offset)
-    local this = setmetatable({ {}, bitcount, offset or 0, bit.rshift(bitcount + 31, 5) }, _ImBitArray)
+function ImBitArray(BITCOUNT, OFFSET)
+    if OFFSET == nil then OFFSET = 0 end
+
+    local this = { Data = {} }
+    local size = bit.rshift(BITCOUNT + 31, 5)
+
+    this.ClearAllBits = function(self) local data = self.Data; for i = 1, size do data[i] = 0 end end
+    this.SetAllBits   = function(self) local data = self.Data; for i = 1, size do data[i] = 0xFFFFFFFF end end
+    --- @param n int
+    --- @return boolean
+    this.TestBit = function(self, n) n = n + OFFSET; IM_ASSERT(n >= 1 and n <= BITCOUNT); return IM_BITARRAY_TESTBIT(self.Data, n); end
+    --- @param n int
+    this.SetBit  = function(self, n) IM_ASSERT(n >= 1 and n <= BITCOUNT); ImBitArraySetBit(self.Data, n); end
+
     this:ClearAllBits()
+
     return this
 end
-
-function _ImBitArray:ClearAllBits()
-    for i = 1, self[4] do self[1][i] = 0 end
-end
-
-function _ImBitArray:SetAllBits()
-    for i = 1, self[4] do self[1][i] = 0xFFFFFFFF end
-end
-
---- @param n int
---- @return boolean
-function _ImBitArray:TestBit(n) n = n + self[3]; IM_ASSERT(n >= 1 and n <= self[2]); return IM_BITARRAY_TESTBIT(self[1], n); end
-
---- @param n int
-function _ImBitArray:SetBit(n) IM_ASSERT(n >= 1 and n <= self[2]); ImBitArraySetBit(self[1], n); end
 
 function MT.ImDrawList:PathClear() self._Path:clear() end
 

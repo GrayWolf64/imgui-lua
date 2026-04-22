@@ -2916,6 +2916,10 @@ function ImGui.IsMouseReleased(button, owner_id)
     return g.IO.MouseReleased[button] and ImGui.TestKeyOwner(ImGui.MouseButtonToKey(button), owner_id)
 end
 
+do
+
+local key_changed_mask = ImBitArray(ImGuiKey.NamedKey_COUNT)
+
 --- @param trickle_fast_inputs bool
 function ImGui.UpdateInputEvents(trickle_fast_inputs)
     local g = GImGui
@@ -2930,7 +2934,7 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
     local text_inputted        = false
     local mouse_button_changed = 0x00
 
-    local key_changed_mask = ImBitArray(ImGuiKey.NamedKey_COUNT)
+    key_changed_mask:ClearAllBits()
 
     local event_n = 1
     while event_n <= g.InputEventsQueue.Size do
@@ -3034,6 +3038,8 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             g.InputEventsQueue:erase(1)
         end
     end
+end
+
 end
 
 --- @param key      ImGuiKey
