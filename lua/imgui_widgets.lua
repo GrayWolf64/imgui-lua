@@ -2630,7 +2630,7 @@ local IMSTB_TEXTEDIT_GETWIDTH_NEWLINE = -1.0
 ImStb.TEXTEDIT_memmove = ImStd.memmove
 
 --- @param ctx  ImGuiContext
---- @param text             ImString
+--- @param text             char[]
 --- @param text_begin       int
 --- @param text_end_display int
 --- @param text_end         int
