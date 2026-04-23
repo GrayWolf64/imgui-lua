@@ -4,8 +4,8 @@
 FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
 FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
 
-IM_FONTGLYPH_INDEX_UNUSED    = 0xFFFF
-IM_FONTGLYPH_INDEX_NOT_FOUND = 0xFFFE
+local IM_FONTGLYPH_INDEX_UNUSED    = 0xFFFF
+local IM_FONTGLYPH_INDEX_NOT_FOUND = 0xFFFE
 
 --- @param str string
 --- @return table
@@ -388,6 +388,8 @@ local ImTextClassifierGet
 local ImTextClassifierClear
 local ImTextClassifierSetCharClass
 local ImTextClassifierSetCharClassFromStr
+
+local ImTextureDataGetFormatBytesPerPixel
 
 function MT.ImFontAtlas:Clear()
     local backup_renderer_has_textures = self.RendererHasTextures
