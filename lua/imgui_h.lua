@@ -221,6 +221,13 @@ function ImVec2_MulCompV(lhs, rhs) return lhs[1] * rhs[1], lhs[2] * rhs[2] end
 -- This structure supports indexing on string keys `x`, `y`, `z`, `w` and number keys 1, 2, 3, 4.
 -- But note that the former is likely to be more expensive.
 --- @class ImVec4
+--- @operator add(ImVec4): ImVec4
+--- @operator sub(ImVec4): ImVec4
+--- @operator mul(number): ImVec4
+--- @field [1] number
+--- @field [2] number
+--- @field [3] number
+--- @field [4] number
 --- @field x number
 --- @field y number
 --- @field z number
@@ -256,10 +263,11 @@ end
 --- @nodiscard
 function ImVec4(x, y, z, w) return setmetatable({x or 0, y or 0, z or 0, w or 0}, MT.ImVec4) end
 
-function MT.ImVec4:__add(other) return ImVec4(self[1] + other[1], self[2] + other[2], self[3] + other[3], self[4] + other[4]) end
-function MT.ImVec4:__sub(other) return ImVec4(self[1] - other[1], self[2] - other[2], self[3] - other[3], self[4] - other[4]) end
-function MT.ImVec4:__mul(other) return ImVec4(self[1] * other, self[2] * other, self[3] * other, self[4] * other) end
-function MT.ImVec4:__eq(other) return self[1] == other[1] and self[2] == other[2] and self[3] == other[3] and self[4] == other[4] end
+function MT.ImVec4.__add(lhs, rhs) return ImVec4(lhs[1] + rhs[1], lhs[2] + rhs[2], lhs[3] + rhs[3], lhs[4] + rhs[4]) end
+function MT.ImVec4.__sub(lhs, rhs) return ImVec4(lhs[1] - rhs[1], lhs[2] - rhs[2], lhs[3] - rhs[3], lhs[4] - rhs[4]) end
+function MT.ImVec4.__mul(lhs, rhs) return ImVec4(lhs[1] * rhs, lhs[2] * rhs, lhs[3] * rhs, lhs[4] * rhs) end
+function MT.ImVec4.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] and lhs[3] == rhs[3] and lhs[4] == rhs[4] end
+
 function MT.ImVec4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", self.x, self.y, self.z, self.w) end
 
 --- @param dest ImVec4
