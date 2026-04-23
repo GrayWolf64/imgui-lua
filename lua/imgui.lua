@@ -107,7 +107,7 @@ local TOOLTIP_DEFAULT_OFFSET_MOUSE = ImVec2(16, 10)   -- Multiplied by g.Style.M
 local TOOLTIP_DEFAULT_OFFSET_TOUCH = ImVec2(0, -20)   -- Multiplied by g.Style.MouseCursorScale
 local TOOLTIP_DEFAULT_PIVOT_TOUCH  = ImVec2(0.5, 1.0) -- Multiplied by g.Style.MouseCursorScale
 
-IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
+local IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 
 local string = string
 ImFormatString = string.format
