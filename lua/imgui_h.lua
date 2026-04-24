@@ -218,6 +218,12 @@ function ImVec2_MulComp(lhs, rhs) return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2]
 --- @param rhs ImVec2
 function ImVec2_MulCompV(lhs, rhs) return lhs[1] * rhs[1], lhs[2] * rhs[2] end
 
+--- An inlined version of `ImVec2_Copy` currently for use in certain ImVector<ImVec2> `push_back`
+--- @param t ImVec2[]
+--- @param k int
+--- @param v ImVec2
+local function ImVec2_TCopy(t, k, v) local dest = t[k]; dest[1] = v[1]; dest[2] = v[2]; end
+
 -- This structure supports indexing on string keys `x`, `y`, `z`, `w` and number keys 1, 2, 3, 4.
 -- But note that the former is likely to be more expensive.
 --- @class ImVec4
@@ -279,6 +285,7 @@ function ImVec4_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2]; dest[3] = sr
 --- @field Data          T[] # 1-based table
 --- @field Size          int # >= 0
 --- @field _Constructor  function
+--- @field _CopyFunc     function
 MT.ImVector = {}
 
 -- Support 1-based number key indexing while keep method accessing speed
@@ -298,15 +305,17 @@ MT.ImVector.__newindex = function(t, k, v)
 end
 
 local _default_constructor = function() return nil end
+local _default_copyfunc = function(t, k, v) t[k] = v end
 
 local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and (v.Capacity + v.Capacity / 2) or 8; return (new_capacity > sz) and new_capacity or sz; end
 
---- @param T? function
+--- @param T?         function
+--- @param COPY_FUNC? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor}, MT.ImVector) end
+function ImVector(T, COPY_FUNC) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, MT.ImVector) end
 
-function MT.ImVector:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self.Data[self.Size + 1] = value; self.Size = self.Size + 1; return value end
+function MT.ImVector:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self._CopyFunc(self.Data, self.Size + 1, value); self.Size = self.Size + 1; return value end
 function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0); self.Size = self.Size - 1; end
 function MT.ImVector:push_front(value) if self.Size == 0 then self:push_back(value) else self:insert(1, value) end end
 function MT.ImVector:clear() self.Size = 0 end
@@ -351,6 +360,8 @@ end
 
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size; self.Capacity, other.Capacity = other.Capacity, self.Capacity; self.Data, other.Data = other.Data, self.Data end
 function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end end return false end
+
+--- NOTE: This currently does not use type-aware copy!
 function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1); if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
 
 --- @nodiscard
@@ -521,7 +532,7 @@ function ImDrawList(data)
         _Data          = nil,
         _VtxWritePtr   = 1,
         _IdxWritePtr   = 1,
-        _Path          = ImVector(ImVec2),
+        _Path          = ImVector(ImVec2, ImVec2_TCopy),
         _CmdHeader     = ImDrawCmdHeader(),
         _Splitter      = ImDrawListSplitter(),
         _ClipRectStack = ImVector(),
