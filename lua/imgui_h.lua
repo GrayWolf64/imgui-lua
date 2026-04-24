@@ -307,7 +307,7 @@ local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and 
 function ImVector(T) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor}, MT.ImVector) end
 
 function MT.ImVector:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self.Data[self.Size + 1] = value; self.Size = self.Size + 1; return value end
-function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0) local value = self.Data[self.Size] self.Data[self.Size] = nil self.Size = self.Size - 1 return value end
+function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0); self.Size = self.Size - 1; end
 function MT.ImVector:push_front(value) if self.Size == 0 then self:push_back(value) else self:insert(1, value) end end
 function MT.ImVector:clear() self.Size = 0 end
 function MT.ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
