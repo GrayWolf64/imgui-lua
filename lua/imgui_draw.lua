@@ -4519,40 +4519,44 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
             local y1 = ImClamp(y, p_min.y, p_max.y)
             local y2 = ImMin(y + grid_step, p_max.y)
 
-            if y2 > y1 then
+            if y2 <= y1 then
+                goto OUTER_CONTINUE
+            end
 
-                local x_start = p_min.x + grid_off.x + (yi % 2) * grid_step
-                local x = x_start
-                while x < p_max.x do
-                    local x1 = ImClamp(x, p_min.x, p_max.x)
-                    local x2 = ImMin(x + grid_step, p_max.x)
+            local x_start = p_min.x + grid_off.x + (yi % 2) * grid_step
+            local x = x_start
+            while x < p_max.x do
+                local x1 = ImClamp(x, p_min.x, p_max.x)
+                local x2 = ImMin(x + grid_step, p_max.x)
 
-                    if x2 > x1 then
-
-                        local cell_flags = ImDrawFlags.RoundCornersNone
-                        if y1 <= p_min.y then
-                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopLeft) end
-                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopRight) end
-                        end
-                        if y2 >= p_max.y then
-                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomLeft) end
-                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomRight) end
-                        end
-
-                        -- Combine flags
-                        if flags == ImDrawFlags.RoundCornersNone or cell_flags == ImDrawFlags.RoundCornersNone then
-                            cell_flags = ImDrawFlags.RoundCornersNone
-                        else
-                            cell_flags = bit.band(cell_flags, flags)
-                        end
-                        draw_list:AddRectFilled(ImVec2(x1, y1), ImVec2(x2, y2), col_bg2, rounding, cell_flags)
-
-                    end
-
-                    x = x + grid_step * 2.0
+                if x2 <= x1 then
+                    goto INNER_CONTINUE
                 end
 
+                local cell_flags = ImDrawFlags.RoundCornersNone
+                if y1 <= p_min.y then
+                    if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopLeft) end
+                    if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopRight) end
+                end
+                if y2 >= p_max.y then
+                    if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomLeft) end
+                    if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomRight) end
+                end
+
+                -- Combine flags
+                if flags == ImDrawFlags.RoundCornersNone or cell_flags == ImDrawFlags.RoundCornersNone then
+                    cell_flags = ImDrawFlags.RoundCornersNone
+                else
+                    cell_flags = bit.band(cell_flags, flags)
+                end
+                draw_list:AddRectFilled(ImVec2(x1, y1), ImVec2(x2, y2), col_bg2, rounding, cell_flags)
+
+                :: INNER_CONTINUE ::
+
+                x = x + grid_step * 2.0
             end
+
+            :: OUTER_CONTINUE ::
 
             y = y + grid_step
             yi = yi + 1
