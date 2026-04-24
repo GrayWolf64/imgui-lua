@@ -518,7 +518,7 @@ function ImDrawList(data)
         Flags     = 0,
 
         _VtxCurrentIdx = 1,
-        _Data          = data,
+        _Data          = nil,
         _VtxWritePtr   = 1,
         _IdxWritePtr   = 1,
         _Path          = ImVector(ImVec2),
