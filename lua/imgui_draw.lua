@@ -4282,10 +4282,10 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                 local glyph_col = glyph.Colored and color_untinted or col
 
                 do
-                    vtx_data[vtx_write + 0][1].x = x1; vtx_data[vtx_write + 0][1].y = y1; vtx_data[vtx_write + 0][3] = glyph_col; vtx_data[vtx_write + 0][2].x = u1; vtx_data[vtx_write + 0][2].y = v1;
-                    vtx_data[vtx_write + 1][1].x = x2; vtx_data[vtx_write + 1][1].y = y1; vtx_data[vtx_write + 1][3] = glyph_col; vtx_data[vtx_write + 1][2].x = u2; vtx_data[vtx_write + 1][2].y = v1;
-                    vtx_data[vtx_write + 2][1].x = x2; vtx_data[vtx_write + 2][1].y = y2; vtx_data[vtx_write + 2][3] = glyph_col; vtx_data[vtx_write + 2][2].x = u2; vtx_data[vtx_write + 2][2].y = v2;
-                    vtx_data[vtx_write + 3][1].x = x1; vtx_data[vtx_write + 3][1].y = y2; vtx_data[vtx_write + 3][3] = glyph_col; vtx_data[vtx_write + 3][2].x = u1; vtx_data[vtx_write + 3][2].y = v2;
+                    vtx_data[vtx_write + 0][1][1] = x1; vtx_data[vtx_write + 0][1][2] = y1; vtx_data[vtx_write + 0][3] = glyph_col; vtx_data[vtx_write + 0][2][1] = u1; vtx_data[vtx_write + 0][2][2] = v1;
+                    vtx_data[vtx_write + 1][1][1] = x2; vtx_data[vtx_write + 1][1][2] = y1; vtx_data[vtx_write + 1][3] = glyph_col; vtx_data[vtx_write + 1][2][1] = u2; vtx_data[vtx_write + 1][2][2] = v1;
+                    vtx_data[vtx_write + 2][1][1] = x2; vtx_data[vtx_write + 2][1][2] = y2; vtx_data[vtx_write + 2][3] = glyph_col; vtx_data[vtx_write + 2][2][1] = u2; vtx_data[vtx_write + 2][2][2] = v2;
+                    vtx_data[vtx_write + 3][1][1] = x1; vtx_data[vtx_write + 3][1][2] = y2; vtx_data[vtx_write + 3][3] = glyph_col; vtx_data[vtx_write + 3][2][1] = u1; vtx_data[vtx_write + 3][2][2] = v2;
                     idx_data[idx_write + 0] = vtx_index; idx_data[idx_write + 1] = vtx_index + 1; idx_data[idx_write + 2] = vtx_index + 2;
                     idx_data[idx_write + 3] = vtx_index; idx_data[idx_write + 4] = vtx_index + 2; idx_data[idx_write + 5] = vtx_index + 3;
                     vtx_write = vtx_write + 4
