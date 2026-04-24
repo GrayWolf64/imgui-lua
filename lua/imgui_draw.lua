@@ -4515,6 +4515,9 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
 
         local yi = 0
         local y = p_min.y + grid_off.y
+        local x_start
+        local x
+        local cell_flags
         while y < p_max.y do
             local y1 = ImClamp(y, p_min.y, p_max.y)
             local y2 = ImMin(y + grid_step, p_max.y)
@@ -4523,8 +4526,8 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
                 goto OUTER_CONTINUE
             end
 
-            local x_start = p_min.x + grid_off.x + (yi % 2) * grid_step
-            local x = x_start
+            x_start = p_min.x + grid_off.x + (yi % 2) * grid_step
+            x = x_start
             while x < p_max.x do
                 local x1 = ImClamp(x, p_min.x, p_max.x)
                 local x2 = ImMin(x + grid_step, p_max.x)
@@ -4533,7 +4536,7 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
                     goto INNER_CONTINUE
                 end
 
-                local cell_flags = ImDrawFlags.RoundCornersNone
+                cell_flags = ImDrawFlags.RoundCornersNone
                 if y1 <= p_min.y then
                     if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopLeft) end
                     if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopRight) end
