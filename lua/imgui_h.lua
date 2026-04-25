@@ -217,6 +217,20 @@ function ImVec2_AddV(lhs, rhs) return lhs[1] + rhs[1], lhs[2] + rhs[2] end
 --- @param rhs ImVec2
 function ImVec2_SubV(lhs, rhs) return lhs[1] - rhs[1], lhs[2] - rhs[2] end
 
+--- @param v     ImVec2
+--- @param add_x number
+--- @param add_y number
+function ImVec2_AddVA(v, add_x, add_y) return v[1] + add_x, v[2] + add_y end
+
+--- @param v     ImVec2
+--- @param sub_x number
+--- @param sub_y number
+function ImVec2_SubVA(v, sub_x, sub_y) return v[1] - sub_x, v[2] - sub_y end
+
+--- @param lhs ImVec2
+--- @param rhs number
+function ImVec2_MulNV(lhs, rhs) return lhs[1] * rhs, lhs[2] * rhs end
+
 --- @param lhs ImVec2
 --- @param rhs ImVec2
 --- @nodiscard
