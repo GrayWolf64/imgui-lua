@@ -5279,6 +5279,26 @@ function ImGui.ColorPickerOptionsPopup(ref_col, flags)
 end
 
 ----------------------------------------------------------------
+-- [SECTION] TREES
+----------------------------------------------------------------
+
+--- @param id         ImGuiID
+--- @param flags      ImGuiTreeNodeFlags
+--- @param label      string
+--- @param label_end? int
+function ImGui.TreeNodeBehavior(id, flags, label, label_end)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = GImGui
+    local style = g.Style
+
+    -- TODO:
+end
+
+----------------------------------------------------------------
 -- [SECTION] SELECTABLE
 ----------------------------------------------------------------
 -- - Selectable()

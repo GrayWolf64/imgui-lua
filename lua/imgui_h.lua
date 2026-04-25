@@ -2040,3 +2040,30 @@ end
 
 --- @alias ImGuiMemAllocFunc fun(T: function, start_idx: int, end_idx: int, userdata: any): table
 --- @alias ImGuiMemFreeFunc fun(owner: table, field: string, userdata: any)
+
+--- @enum ImGuiTreeNodeFlags
+ImGuiTreeNodeFlags = {
+    None                 = 0,
+    Selected             = bit.lshift(1, 0),
+    Framed               = bit.lshift(1, 1),
+    AllowOverlap         = bit.lshift(1, 2),
+    NoTreePushOnOpen     = bit.lshift(1, 3),
+    NoAutoOpenOnLog      = bit.lshift(1, 4),
+    DefaultOpen          = bit.lshift(1, 5),
+    OpenOnDoubleClick    = bit.lshift(1, 6),
+    OpenOnArrow          = bit.lshift(1, 7),
+    Leaf                 = bit.lshift(1, 8),
+    Bullet               = bit.lshift(1, 9),
+    FramePadding         = bit.lshift(1, 10),
+    SpanAvailWidth       = bit.lshift(1, 11),
+    SpanFullWidth        = bit.lshift(1, 12),
+    SpanLabelWidth       = bit.lshift(1, 13),
+    SpanAllColumns       = bit.lshift(1, 14),
+    LabelSpanAllColumns  = bit.lshift(1, 15),
+    NavLeftJumpsToParent = bit.lshift(1, 17),
+    DrawLinesNone        = bit.lshift(1, 18),
+    DrawLinesFull        = bit.lshift(1, 19),
+    DrawLinesToNodes     = bit.lshift(1, 20)
+}
+
+ImGuiTreeNodeFlags.CollapsingHeader = bit.bor(ImGuiTreeNodeFlags.Framed, ImGuiTreeNodeFlags.NoTreePushOnOpen, ImGuiTreeNodeFlags.NoAutoOpenOnLog)
