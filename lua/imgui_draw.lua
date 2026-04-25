@@ -294,10 +294,12 @@ function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx,
     local col_delta_g = bit.band(bit.rshift(col1, IM_COL32_G_SHIFT), 0xFF) - col0_g
     local col_delta_b = bit.band(bit.rshift(col1, IM_COL32_B_SHIFT), 0xFF) - col0_b
 
+    local a = ImVec2()
     for vert_idx = vert_start_idx, vert_end_idx - 1 do
         local vert = draw_list.VtxBuffer.Data[vert_idx]
 
-        local d = ImDot(vert[1] - gradient_p0, gradient_extent)
+        ImVec2_CopyV(a, ImVec2_SubV(vert[1], gradient_p0))
+        local d = ImDot(a, gradient_extent)
         local t = ImClamp(d * gradient_inv_length2, 0.0, 1.0)
 
         local r = math.floor(col0_r + col_delta_r * t)

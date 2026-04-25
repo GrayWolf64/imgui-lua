@@ -211,6 +211,14 @@ function ImVec2_CopyV(dest, src_x, src_y) dest[1] = src_x; dest[2] = src_y end
 
 --- @param lhs ImVec2
 --- @param rhs ImVec2
+function ImVec2_AddV(lhs, rhs) return lhs[1] + rhs[1], lhs[2] + rhs[2] end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+function ImVec2_SubV(lhs, rhs) return lhs[1] - rhs[1], lhs[2] - rhs[2] end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
 --- @nodiscard
 function ImVec2_MulComp(lhs, rhs) return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2]) end
 
