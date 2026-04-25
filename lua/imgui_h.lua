@@ -156,9 +156,16 @@ function ImTextureRect(x, y, w, h)
     }
 end
 
--- This structure supports indexing on string keys `x`, `y` and number keys `ImGuiAxis.X`, `ImGuiAxis.Y`.
--- But note that the later is likely to be more expensive.
+local rawget = rawget; local rawset = rawset
+
+-- This structure supports indexing on string keys `x`, `y` and number keys 1, 2.
+-- But note that the former is likely to be more expensive.
 --- @class ImVec2
+--- @operator add(ImVec2): ImVec2
+--- @operator sub(ImVec2): ImVec2
+--- @operator mul(number): ImVec2
+--- @field [1] number
+--- @field [2] number
 --- @field x number
 --- @field y number
 MT.ImVec2 = {}
@@ -166,10 +173,8 @@ MT.ImVec2 = {}
 --- @param t ImVec2
 --- @param k int
 MT.ImVec2.__index = function(t, k)
-    if k == ImGuiAxis.X then
-        return rawget(t, "x")
-    elseif k == ImGuiAxis.Y then
-        return rawget(t, "y")
+    if     k == "x" then return rawget(t, 1)
+    elseif k == "y" then return rawget(t, 2)
     end
 end
 
@@ -177,10 +182,8 @@ end
 --- @param k int
 --- @param v number
 MT.ImVec2.__newindex = function(t, k, v)
-    if k == ImGuiAxis.X then
-        rawset(t, "x", v)
-    elseif k == ImGuiAxis.Y then
-        rawset(t, "y", v)
+    if     k == "x" then rawset(t, 1, v)
+    elseif k == "y" then rawset(t, 2, v)
     end
 end
 
@@ -188,23 +191,71 @@ end
 --- @param y? number
 --- @return ImVec2
 --- @nodiscard
-function ImVec2(x, y) return setmetatable({x = x or 0, y = y or 0}, MT.ImVec2) end
+function ImVec2(x, y) return setmetatable({x or 0, y or 0}, MT.ImVec2) end
 
-function MT.ImVec2:__add(other) return ImVec2(self.x + other.x, self.y + other.y) end
-function MT.ImVec2:__sub(other) return ImVec2(self.x - other.x, self.y - other.y) end
-function MT.ImVec2:__mul(other) if type(other) == "number" then return ImVec2(self.x * other, self.y * other) else return ImVec2(self.x * other.x, self.y * other.y) end end
-function MT.ImVec2:__eq(other) return self.x == other.x and self.y == other.y end
+function MT.ImVec2.__add(lhs, rhs) return ImVec2(lhs[1] + rhs[1], lhs[2] + rhs[2]) end
+function MT.ImVec2.__sub(lhs, rhs) return ImVec2(lhs[1] - rhs[1], lhs[2] - rhs[2]) end
+function MT.ImVec2.__mul(lhs, rhs) return ImVec2(lhs[1] * rhs, lhs[2] * rhs) end
+function MT.ImVec2.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] end
+
 function MT.ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
 
 --- @param dest ImVec2
 --- @param src  ImVec2
-function ImVec2_Copy(dest, src)
-    dest.x = src.x; dest.y = src.y
-end
+function ImVec2_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2] end
+
+--- @param dest  ImVec2
+--- @param src_x number
+--- @param src_y number
+function ImVec2_CopyV(dest, src_x, src_y) dest[1] = src_x; dest[2] = src_y end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+function ImVec2_AddV(lhs, rhs) return lhs[1] + rhs[1], lhs[2] + rhs[2] end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+function ImVec2_SubV(lhs, rhs) return lhs[1] - rhs[1], lhs[2] - rhs[2] end
+
+--- @param v     ImVec2
+--- @param add_x number
+--- @param add_y number
+function ImVec2_AddVA(v, add_x, add_y) return v[1] + add_x, v[2] + add_y end
+
+--- @param v     ImVec2
+--- @param sub_x number
+--- @param sub_y number
+function ImVec2_SubVA(v, sub_x, sub_y) return v[1] - sub_x, v[2] - sub_y end
+
+--- @param lhs ImVec2
+--- @param rhs number
+function ImVec2_MulNV(lhs, rhs) return lhs[1] * rhs, lhs[2] * rhs end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+--- @nodiscard
+function ImVec2_MulComp(lhs, rhs) return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2]) end
+
+--- @param lhs ImVec2
+--- @param rhs ImVec2
+function ImVec2_MulCompV(lhs, rhs) return lhs[1] * rhs[1], lhs[2] * rhs[2] end
+
+--- An inlined version of `ImVec2_Copy` currently for use in certain ImVector<ImVec2> `push_back`
+--- @param t ImVec2[]
+--- @param k int
+--- @param v ImVec2
+local function ImVec2_TCopy(t, k, v) local dest = t[k]; dest[1] = v[1]; dest[2] = v[2]; end
 
 -- This structure supports indexing on string keys `x`, `y`, `z`, `w` and number keys 1, 2, 3, 4.
--- But note that the later is likely to be more expensive.
+-- But note that the former is likely to be more expensive.
 --- @class ImVec4
+--- @operator add(ImVec4): ImVec4
+--- @operator sub(ImVec4): ImVec4
+--- @operator mul(number): ImVec4
+--- @field [1] number
+--- @field [2] number
+--- @field [3] number
+--- @field [4] number
 --- @field x number
 --- @field y number
 --- @field z number
@@ -214,14 +265,10 @@ MT.ImVec4 = {}
 --- @param t ImVec4
 --- @param k int
 MT.ImVec4.__index = function(t, k)
-    if k == 1 then
-        return rawget(t, "x")
-    elseif k == 2 then
-        return rawget(t, "y")
-    elseif k == 3 then
-        return rawget(t, "z")
-    elseif k == 4 then
-        return rawget(t, "w")
+    if     k == "x" then return rawget(t, 1)
+    elseif k == "y" then return rawget(t, 2)
+    elseif k == "z" then return rawget(t, 3)
+    elseif k == "w" then return rawget(t, 4)
     end
 end
 
@@ -229,38 +276,38 @@ end
 --- @param k int
 --- @param v number
 MT.ImVec4.__newindex = function(t, k, v)
-    if k == 1 then
-        rawset(t, "x", v)
-    elseif k == 2 then
-        rawset(t, "y", v)
-    elseif k == 3 then
-        rawset(t, "z", v)
-    elseif k == 4 then
-        rawset(t, "w", v)
+    if     k == "x" then rawset(t, 1, v)
+    elseif k == "y" then rawset(t, 2, v)
+    elseif k == "z" then rawset(t, 3, v)
+    elseif k == "w" then rawset(t, 4, v)
     end
 end
 
+--- @param x? number
+--- @param y? number
+--- @param z? number
+--- @param w? number
 --- @return ImVec4
 --- @nodiscard
-function ImVec4(x, y, z, w) return setmetatable({x = x or 0, y = y or 0, z = z or 0, w = w or 0}, MT.ImVec4) end
+function ImVec4(x, y, z, w) return setmetatable({x or 0, y or 0, z or 0, w or 0}, MT.ImVec4) end
 
-function MT.ImVec4:__add(other) return ImVec4(self.x + other.x, self.y + other.y, self.z + other.z, self.w + other.w) end
-function MT.ImVec4:__sub(other) return ImVec4(self.x - other.x, self.y - other.y, self.z - other.z, self.w - other.w) end
-function MT.ImVec4:__mul(other) if type(other) == "number" then return ImVec4(self.x * other, self.y * other, self.z * other, self.w * other) else return ImVec4(self.x * other.x, self.y * other.y, self.z * other.z, self.w * other.w) end end
-function MT.ImVec4:__eq(other) return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w end
+function MT.ImVec4.__add(lhs, rhs) return ImVec4(lhs[1] + rhs[1], lhs[2] + rhs[2], lhs[3] + rhs[3], lhs[4] + rhs[4]) end
+function MT.ImVec4.__sub(lhs, rhs) return ImVec4(lhs[1] - rhs[1], lhs[2] - rhs[2], lhs[3] - rhs[3], lhs[4] - rhs[4]) end
+function MT.ImVec4.__mul(lhs, rhs) return ImVec4(lhs[1] * rhs, lhs[2] * rhs, lhs[3] * rhs, lhs[4] * rhs) end
+function MT.ImVec4.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] and lhs[3] == rhs[3] and lhs[4] == rhs[4] end
+
 function MT.ImVec4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", self.x, self.y, self.z, self.w) end
 
 --- @param dest ImVec4
 --- @param src  ImVec4
-function ImVec4_Copy(dest, src)
-    dest.x = src.x; dest.y = src.y; dest.z = src.z; dest.w = src.w
-end
+function ImVec4_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2]; dest[3] = src[3]; dest[4] = src[4] end
 
 --- A compact ImVector clone
 --- @class ImVector<T>
 --- @field Data          T[] # 1-based table
 --- @field Size          int # >= 0
 --- @field _Constructor  function
+--- @field _CopyFunc     function
 MT.ImVector = {}
 
 -- Support 1-based number key indexing while keep method accessing speed
@@ -275,19 +322,22 @@ end
 --- @param k int
 --- @param v any
 MT.ImVector.__newindex = function(t, k, v)
-    t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] = v
+    IM_ASSERT(k >= 1 and k <= t.Size)
+    t.Data[k] = v
 end
 
 local _default_constructor = function() return nil end
+local _default_copyfunc = function(t, k, v) t[k] = v end
 
 local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and (v.Capacity + v.Capacity / 2) or 8; return (new_capacity > sz) and new_capacity or sz; end
 
---- @param T? function
+--- @param T?         function
+--- @param COPY_FUNC? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor}, MT.ImVector) end
+function ImVector(T, COPY_FUNC) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, MT.ImVector) end
 
-function MT.ImVector:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self.Data[self.Size + 1] = value; self.Size = self.Size + 1; return value end
+function MT.ImVector:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self._CopyFunc(self.Data, self.Size + 1, value); self.Size = self.Size + 1; return value end
 function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0); self.Size = self.Size - 1; end
 function MT.ImVector:push_front(value) if self.Size == 0 then self:push_back(value) else self:insert(1, value) end end
 function MT.ImVector:clear() self.Size = 0 end
@@ -332,6 +382,8 @@ end
 
 function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size; self.Capacity, other.Capacity = other.Capacity, self.Capacity; self.Data, other.Data = other.Data, self.Data end
 function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end end return false end
+
+--- NOTE: This currently does not use type-aware copy!
 function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1); if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
 
 --- @nodiscard
@@ -499,10 +551,10 @@ function ImDrawList(data)
         Flags     = 0,
 
         _VtxCurrentIdx = 1,
-        _Data          = data,
+        _Data          = nil,
         _VtxWritePtr   = 1,
         _IdxWritePtr   = 1,
-        _Path          = ImVector(),
+        _Path          = ImVector(ImVec2, ImVec2_TCopy),
         _CmdHeader     = ImDrawCmdHeader(),
         _Splitter      = ImDrawListSplitter(),
         _ClipRectStack = ImVector(),

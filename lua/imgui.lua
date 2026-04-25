@@ -241,7 +241,7 @@ local ImGuiResizeBorderDef = {
 local function GetResizeBorderRect(window, border_n, perp_padding, thickness)
     local rect = window:Rect()
     if thickness == 0.0 then
-        rect.Max = ImVec2(rect.Max.x - 1, rect.Max.y - 1)
+        ImVec2_CopyV(rect.Max, rect.Max.x - 1, rect.Max.y - 1)
     end
     if border_n == ImGuiDir.Left then
         return ImRect(rect.Min.x - thickness, rect.Min.y + perp_padding, rect.Min.x + thickness, rect.Max.y - perp_padding)
@@ -2916,6 +2916,10 @@ function ImGui.IsMouseReleased(button, owner_id)
     return g.IO.MouseReleased[button] and ImGui.TestKeyOwner(ImGui.MouseButtonToKey(button), owner_id)
 end
 
+do
+
+local key_changed_mask = ImBitArray(ImGuiKey.NamedKey_COUNT)
+
 --- @param trickle_fast_inputs bool
 function ImGui.UpdateInputEvents(trickle_fast_inputs)
     local g = GImGui
@@ -2930,7 +2934,7 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
     local text_inputted        = false
     local mouse_button_changed = 0x00
 
-    local key_changed_mask = ImBitArray(ImGuiKey.NamedKey_COUNT)
+    key_changed_mask:ClearAllBits()
 
     local event_n = 1
     while event_n <= g.InputEventsQueue.Size do
@@ -3034,6 +3038,8 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             g.InputEventsQueue:erase(1)
         end
     end
+end
+
 end
 
 --- @param key      ImGuiKey
@@ -3494,9 +3500,9 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             -- Double-clicking bottom or right border auto-fit on this axis
             -- FIXME: Support top and right borders: rework CalcResizePosSizeFromAnyCorner() to be reusable in both cases.
             if border_n == 1 or border_n == 3 then  -- Right and bottom border
-                local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, bit.lshift(1, axis))
+                local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, bit.lshift(1, axis - 1))
                 size_target[axis] = CalcWindowSizeAfterConstraint(window, size_auto_fit)[axis]
-                ret_auto_fit_mask = bit.bor(ret_auto_fit_mask, bit.lshift(1, axis))
+                ret_auto_fit_mask = bit.bor(ret_auto_fit_mask, bit.lshift(1, axis - 1))
                 hovered = false
                 held = false  -- So border doesn't show highlighted at new position
             end
@@ -3512,7 +3518,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
                 g.WindowResizeRelativeMode = true
             end
 
-            local border_curr = window.Pos + ImMinVec2(def.SegmentN1, def.SegmentN2) * window.Size
+            local border_curr = window.Pos + ImVec2_MulComp(ImMinVec2(def.SegmentN1, def.SegmentN2), window.Size)
             local border_target_rel_mode_for_axis
             local border_target_abs_mode_for_axis
             border_target_rel_mode_for_axis = border_curr[axis] + g.IO.MouseDelta[axis]
@@ -3985,13 +3991,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- Title bar
         if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 and not window.DockIsActive then
-            local title_bar_col
-            if titlebar_is_highlight then
-                title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBgActive)
-            else
-                title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBg)
-            end
-
+            local title_bar_col = ImGui.GetColorU32(titlebar_is_highlight and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg)
             window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundCornersTop)
         end
 
@@ -4019,10 +4019,10 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
                 if bit.band(col, IM_COL32_A_MASK) == 0 then goto CONTINUE end
 
                 local inner_dir = ImGuiResizeGripDef[i].InnerDir
-                local corner = window.Pos + ImGuiResizeGripDef[i].CornerPosN * window.Size
+                local corner = window.Pos + ImVec2_MulComp(ImGuiResizeGripDef[i].CornerPosN, window.Size)
                 local border_inner = IM_ROUND(window_border_size * 0.5)
-                window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
-                window.DrawList:PathLineTo(corner + inner_dir * ((i % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
+                window.DrawList:PathLineTo(corner + ImVec2_MulComp(inner_dir, ((i % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner))))
+                window.DrawList:PathLineTo(corner + ImVec2_MulComp(inner_dir, ((i % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size))))
                 window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImGuiResizeGripDef[i].AngleMin12, ImGuiResizeGripDef[i].AngleMax12)
                 window.DrawList:PathFillConvex(col)
 
@@ -4952,10 +4952,10 @@ function ImGui.Begin(name, open, flags)
 
             local size_auto_fit_mask = 0
             if size_auto_fit_x_always or size_auto_fit_x_current then
-                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.X))
+                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.X - 1))
             end
             if size_auto_fit_y_always or size_auto_fit_y_current then
-                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.Y))
+                size_auto_fit_mask = bit.bor(size_auto_fit_mask, bit.lshift(1, ImGuiAxis.Y - 1))
             end
 
             local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, size_auto_fit_mask)
@@ -5015,7 +5015,7 @@ function ImGui.Begin(name, open, flags)
 
         local window_pos_with_pivot = (window.SetWindowPosVal.x ~= FLT_MAX and window.HiddenFramesCannotSkipItems == 0)
         if window_pos_with_pivot then
-            ImGui.SetWindowPos(window, window.SetWindowPosVal - window.Size * window.SetWindowPosPivot, 0)  -- Position given a pivot (e.g. for centering)
+            ImGui.SetWindowPos(window, window.SetWindowPosVal - ImVec2_MulComp(window.Size, window.SetWindowPosPivot), 0) -- Position given a pivot (e.g. for centering)
         elseif (bit.band(flags, ImGuiWindowFlags.ChildMenu) ~= 0) then
             ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         elseif (bit.band(flags, ImGuiWindowFlags.Popup) ~= 0) and not window_pos_set_by_api and window_just_appearing_after_hidden_for_resize then
@@ -5092,10 +5092,10 @@ function ImGui.Begin(name, open, flags)
             local auto_fit_mask
             auto_fit_mask, border_hovered, border_held = UpdateWindowManualResize(window, resize_grip_count, resize_grip_col, visibility_rect)
             if auto_fit_mask ~= 0 then
-                if bit.band(auto_fit_mask, bit.lshift(1, ImGuiAxis.X)) ~= 0 then
+                if bit.band(auto_fit_mask, bit.lshift(1, ImGuiAxis.X - 1)) ~= 0 then
                     use_current_size_for_scrollbar_x = true
                 end
-                if bit.band(auto_fit_mask, bit.lshift(1, ImGuiAxis.Y)) ~= 0 then
+                if bit.band(auto_fit_mask, bit.lshift(1, ImGuiAxis.Y - 1)) ~= 0 then
                     use_current_size_for_scrollbar_y = true
                 end
             end
@@ -5199,7 +5199,7 @@ function ImGui.Begin(name, open, flags)
 
         -- Apply scrolling
         CalcNextScrollFromScrollTargetAndClamp(window)
-        window.ScrollTarget = ImVec2(FLT_MAX, FLT_MAX)
+        ImVec2_CopyV(window.ScrollTarget, FLT_MAX, FLT_MAX)
         window.DecoInnerSizeX1 = 0.0; window.DecoInnerSizeY1 = 0.0
 
         IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer.Data[1].ElemCount == 0)
@@ -5289,14 +5289,14 @@ function ImGui.Begin(name, open, flags)
         -- This is used by clipper to compensate and fix the most common use case of large scroll area. Easy and cheap, next best thing compared to switching everything to double or ImU64.
         local start_pos_highp_x = window.Pos.x + window.WindowPadding.x - window.Scroll.x + window.DecoOuterSizeX1 + window.DC.ColumnsOffset.x
         local start_pos_highp_y = window.Pos.y + window.WindowPadding.y - window.Scroll.y + window.DecoOuterSizeY1
-        ImVec2_Copy(window.DC.CursorStartPos, ImVec2(start_pos_highp_x, start_pos_highp_y))
-        ImVec2_Copy(window.DC.CursorStartPosLossyness, ImVec2(start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y))
+        ImVec2_CopyV(window.DC.CursorStartPos, start_pos_highp_x, start_pos_highp_y)
+        ImVec2_CopyV(window.DC.CursorStartPosLossyness, start_pos_highp_x - window.DC.CursorStartPos.x, start_pos_highp_y - window.DC.CursorStartPos.y)
         ImVec2_Copy(window.DC.CursorPos, window.DC.CursorStartPos)
         ImVec2_Copy(window.DC.CursorPosPrevLine, window.DC.CursorPos)
         ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorStartPos)
         ImVec2_Copy(window.DC.IdealMaxPos, window.DC.CursorStartPos)
-        ImVec2_Copy(window.DC.CurrLineSize, ImVec2(0.0, 0.0))
-        ImVec2_Copy(window.DC.PrevLineSize, ImVec2(0.0, 0.0))
+        ImVec2_CopyV(window.DC.CurrLineSize, 0.0, 0.0)
+        ImVec2_CopyV(window.DC.PrevLineSize, 0.0, 0.0)
         window.DC.CurrLineTextBaseOffset = 0.0
         window.DC.PrevLineTextBaseOffset = 0.0
         window.DC.IsSameLine = false
@@ -5953,9 +5953,9 @@ end
 local function FindBestWheelingWindow(wheel)
     local g = GImGui
     local windows = {nil, nil}
-    for axis = 0, 1 do
+    for axis = ImGuiAxis.X, ImGuiAxis.Y do
         if wheel[axis] ~= 0.0 then
-            windows[axis + 1] = g.HoveredWindow
+            windows[axis] = g.HoveredWindow
             local window = g.HoveredWindow
             while bit.band(window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0 do
                 local has_scrolling = (window.ScrollMax[axis] ~= 0.0)
@@ -5965,7 +5965,7 @@ local function FindBestWheelingWindow(wheel)
                     break -- select this window
                 end
 
-                windows[axis + 1] = window.ParentWindow
+                windows[axis] = window.ParentWindow
                 window = window.ParentWindow
             end
         end
@@ -6060,15 +6060,11 @@ function ImGui.UpdateMouseWheel()
         if not (bit.band(window.Flags, ImGuiWindowFlags.NoScrollWithMouse) ~= 0) and not (bit.band(window.Flags, ImGuiWindowFlags.NoMouseInputs) ~= 0) then
             local do_scroll = { wheel.x ~= 0.0 and window.ScrollMax.x ~= 0.0, wheel.y ~= 0.0 and window.ScrollMax.y ~= 0.0 }
 
-            if do_scroll[ImGuiAxis.X + 1] and do_scroll[ImGuiAxis.Y + 1] then
-                if g.WheelingAxisAvg.x > g.WheelingAxisAvg.y then
-                    do_scroll[ImGuiAxis.Y + 1] = false
-                else
-                    do_scroll[ImGuiAxis.X + 1] = false
-                end
+            if do_scroll[ImGuiAxis.X] and do_scroll[ImGuiAxis.Y] then
+                do_scroll[(g.WheelingAxisAvg.x > g.WheelingAxisAvg.y) and ImGuiAxis.Y or ImGuiAxis.X] = false
             end
 
-            if do_scroll[ImGuiAxis.X + 1] then
+            if do_scroll[ImGuiAxis.X] then
                 LockWheelingWindow(window, wheel.x)
                 local max_step = window.InnerRect:GetWidth() * 0.67
                 local scroll_step = ImTrunc(ImMin(2 * window.FontRefSize, max_step))
@@ -6076,7 +6072,7 @@ function ImGui.UpdateMouseWheel()
                 g.WheelingWindowScrolledFrame = g.FrameCount
             end
 
-            if do_scroll[ImGuiAxis.Y + 1] then
+            if do_scroll[ImGuiAxis.Y] then
                 LockWheelingWindow(window, wheel.y)
                 local max_step = window.InnerRect:GetHeight() * 0.67
                 local scroll_step = ImTrunc(ImMin(5 * window.FontRefSize, max_step))
@@ -7181,7 +7177,7 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
     local scroll = window.Scroll
     local decoration_size = ImVec2(window.DecoOuterSizeX1 + window.DecoInnerSizeX1 + window.DecoOuterSizeX2, window.DecoOuterSizeY1 + window.DecoInnerSizeY1 + window.DecoOuterSizeY2)
 
-    for axis = 0, 1 do
+    for axis = ImGuiAxis.X, ImGuiAxis.Y do
         if window.ScrollTarget[axis] < FLT_MAX then
             local center_ratio = window.ScrollTargetCenterRatio[axis]
             local scroll_target = window.ScrollTarget[axis]
@@ -7769,7 +7765,7 @@ function ImGui.GetPopupAllowedExtentRect(window)
         -- Extent with be in the frame of reference of the given viewport (so Min is likely to be negative here)
         local monitor = g.PlatformIO.Monitors.Data[window.ViewportAllowPlatformMonitorExtend]
         ImVec2_Copy(r_screen.Min, monitor.WorkPos)
-        r_screen.Max = monitor.WorkPos + monitor.WorkSize
+        ImVec2_Copy(r_screen.Max, monitor.WorkPos + monitor.WorkSize)
     else
         -- Use the full viewport area (not work area) for popups
         r_screen = window.Viewport:GetMainRect()
@@ -7825,7 +7821,7 @@ function ImGui.FindBestWindowPosForPopup(window)
         local ref_pos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Tooltip)
 
         if g.IO.MouseSource == ImGuiMouseSource.TouchScreen and ImGui.NavCalcPreferredRefPosSource(ImGuiWindowFlags.Tooltip) == ImGuiInputSource.Mouse then
-            local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - (TOOLTIP_DEFAULT_PIVOT_TOUCH * window.Size)
+            local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - ImVec2_MulComp(TOOLTIP_DEFAULT_PIVOT_TOUCH, window.Size)
             if r_outer:Contains(ImRect(tooltip_pos, tooltip_pos + window.Size)) then
                 return tooltip_pos
             end

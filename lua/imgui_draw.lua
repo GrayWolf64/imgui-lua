@@ -294,10 +294,12 @@ function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx,
     local col_delta_g = bit.band(bit.rshift(col1, IM_COL32_G_SHIFT), 0xFF) - col0_g
     local col_delta_b = bit.band(bit.rshift(col1, IM_COL32_B_SHIFT), 0xFF) - col0_b
 
+    local a = ImVec2()
     for vert_idx = vert_start_idx, vert_end_idx - 1 do
         local vert = draw_list.VtxBuffer.Data[vert_idx]
 
-        local d = ImDot(vert[1] - gradient_p0, gradient_extent)
+        ImVec2_CopyV(a, ImVec2_SubV(vert[1], gradient_p0))
+        local d = ImDot(a, gradient_extent)
         local t = ImClamp(d * gradient_inv_length2, 0.0, 1.0)
 
         local r = math.floor(col0_r + col_delta_r * t)
@@ -1761,8 +1763,8 @@ function ImFontAtlasBuildUpdateLinesTexData(atlas)
             end
         end
 
-        local uv0 = ImVec2((r.x + pad_left - 1), (r.y + y)) * atlas.TexUvScale
-        local uv1 = ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)) * atlas.TexUvScale
+        local uv0 = ImVec2_MulComp(ImVec2((r.x + pad_left - 1), (r.y + y)), atlas.TexUvScale)
+        local uv1 = ImVec2_MulComp(ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)), atlas.TexUvScale)
         local half_v = (uv0.y + uv1.y) * 0.5
         atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v)
     end
@@ -2866,8 +2868,8 @@ function MT.ImFontAtlas:GetCustomRect(id, out_r)
     out_r.y = r.y
     out_r.w = r.w
     out_r.h = r.h
-    out_r.uv0 = ImVec2((r.x), (r.y)) * self.TexUvScale
-    out_r.uv1 = ImVec2((r.x + r.w), (r.y + r.h)) * self.TexUvScale
+    ImVec2_CopyV(out_r.uv0, ImVec2_MulCompV(ImVec2((r.x), (r.y)), self.TexUvScale))
+    ImVec2_CopyV(out_r.uv1, ImVec2_MulCompV(ImVec2((r.x + r.w), (r.y + r.h)), self.TexUvScale))
 
     return true
 end
@@ -2891,11 +2893,11 @@ function ImFontAtlasGetMouseCursorTexData(atlas, cursor_type, out_offset, out_si
     local size = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][2]
     ImVec2_Copy(out_size, size)
     ImVec2_Copy(out_offset, FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][3])
-    ImVec2_Copy(out_uv_border[1], (pos) * atlas.TexUvScale)
-    ImVec2_Copy(out_uv_border[2], (pos + size) * atlas.TexUvScale)
+    ImVec2_CopyV(out_uv_border[1], ImVec2_MulCompV((pos), atlas.TexUvScale))
+    ImVec2_CopyV(out_uv_border[2], ImVec2_MulCompV((pos + size), atlas.TexUvScale))
     pos.x = pos.x + (FONT_ATLAS_DEFAULT_TEX_DATA_W + 1)
-    ImVec2_Copy(out_uv_fill[1], (pos) * atlas.TexUvScale)
-    ImVec2_Copy(out_uv_fill[2], (pos + size) * atlas.TexUvScale)
+    ImVec2_CopyV(out_uv_fill[1], ImVec2_MulCompV((pos), atlas.TexUvScale))
+    ImVec2_CopyV(out_uv_fill[2], ImVec2_MulCompV((pos + size), atlas.TexUvScale))
 
     return true
 end
@@ -2934,9 +2936,9 @@ local function IM_NORMALIZE2F_OVER_ZERO(VX, VY)
     return VX, VY
 end
 
-local IM_FIXNORMAL2F_MAX_INVLEN2 = 100
-
 local function IM_FIXNORMAL2F(VX, VY)
+    local IM_FIXNORMAL2F_MAX_INVLEN2 = 100
+
     local d2 = VX * VX + VY * VY
     if d2 > 0.000001 then
         local inv_len2 = 1.0 / d2
@@ -3466,11 +3468,11 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             local i2 = (i1 == points_count) and 1 or i1 + 1
             local p1 = points[i1]
             local p2 = points[i2]
-            local dx = p2.x - p1.x
-            local dy = p2.y - p1.y
+            local dx = p2[1] - p1[1]
+            local dy = p2[2] - p1[2]
             dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
-            temp_normals[i1].x = dy
-            temp_normals[i1].y = -dx
+            temp_normals[i1][1] = dy
+            temp_normals[i1][2] = -dx
         end
         if not closed then
             ImVec2_Copy(temp_normals[points_count], temp_normals[points_count - 1])
@@ -3484,10 +3486,10 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 
             -- If line is not closed, the first and last points need to be generated differently
             if not closed then
-                ImVec2_Copy(temp_points[temp_points_start + 0], points[1] + temp_normals[1] * half_draw_size)
-                ImVec2_Copy(temp_points[temp_points_start + 1], points[1] - temp_normals[1] * half_draw_size)
-                ImVec2_Copy(temp_points[temp_points_start + (points_count - 1) * 2 + 0], points[points_count] + temp_normals[points_count] * half_draw_size)
-                ImVec2_Copy(temp_points[temp_points_start + (points_count - 1) * 2 + 1], points[points_count] - temp_normals[points_count] * half_draw_size)
+                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_count], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 1], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_count], half_draw_size)))
             end
 
             -- Generate indices and vertices
@@ -3498,18 +3500,18 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + (use_texture and 2 or 3))
 
                 -- Average normals
-                local dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5
-                local dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5
+                local dm_x = (temp_normals[i1][1] + temp_normals[i2][1]) * 0.5
+                local dm_y = (temp_normals[i1][2] + temp_normals[i2][2]) * 0.5
                 dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
                 dm_x = dm_x * half_draw_size
                 dm_y = dm_y * half_draw_size
 
                 -- Add temporary vertices for the outer edges
                 local out_off = (i2 - 1) * 2
-                temp_points[temp_points_start + out_off + 0].x = points[i2].x + dm_x
-                temp_points[temp_points_start + out_off + 0].y = points[i2].y + dm_y
-                temp_points[temp_points_start + out_off + 1].x = points[i2].x - dm_x
-                temp_points[temp_points_start + out_off + 1].y = points[i2].y - dm_y
+                temp_points[temp_points_start + out_off + 0][1] = points[i2][1] + dm_x
+                temp_points[temp_points_start + out_off + 0][2] = points[i2][2] + dm_y
+                temp_points[temp_points_start + out_off + 1][1] = points[i2][1] - dm_x
+                temp_points[temp_points_start + out_off + 1][2] = points[i2][2] - dm_y
 
                 if use_texture then
                     -- Add indices for two triangles
@@ -3559,14 +3561,14 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             -- If line is not closed, handle first and last points
             if not closed then
                 local points_last = points_count - 1
-                ImVec2_Copy(temp_points[temp_points_start + 0], points[1] + temp_normals[1] * (half_inner_thickness + AA_SIZE))
-                ImVec2_Copy(temp_points[temp_points_start + 1], points[1] + temp_normals[1] * half_inner_thickness)
-                ImVec2_Copy(temp_points[temp_points_start + 2], points[1] - temp_normals[1] * half_inner_thickness)
-                ImVec2_Copy(temp_points[temp_points_start + 3], points[1] - temp_normals[1] * (half_inner_thickness + AA_SIZE))
-                ImVec2_Copy(temp_points[temp_points_start + points_last * 4 + 0], points[points_count] + temp_normals[points_last + 1] * (half_inner_thickness + AA_SIZE))
-                ImVec2_Copy(temp_points[temp_points_start + points_last * 4 + 1], points[points_count] + temp_normals[points_last + 1] * half_inner_thickness)
-                ImVec2_Copy(temp_points[temp_points_start + points_last * 4 + 2], points[points_count] - temp_normals[points_last + 1] * half_inner_thickness)
-                ImVec2_Copy(temp_points[temp_points_start + points_last * 4 + 3], points[points_count] - temp_normals[points_last + 1] * (half_inner_thickness + AA_SIZE))
+                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + 2], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + 3], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 1], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 2], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 3], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
             end
 
             -- Generate indices and vertices
@@ -3577,8 +3579,8 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
                 local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + 4)
 
                 -- Average normals
-                local dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5
-                local dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5
+                local dm_x = (temp_normals[i1][1] + temp_normals[i2][1]) * 0.5
+                local dm_y = (temp_normals[i1][2] + temp_normals[i2][2]) * 0.5
                 dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
                 local dm_out_x = dm_x * (half_inner_thickness + AA_SIZE)
                 local dm_out_y = dm_y * (half_inner_thickness + AA_SIZE)
@@ -3587,14 +3589,14 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
 
                 -- Add temporary vertices
                 local out_off = (i2 - 1) * 4
-                temp_points[temp_points_start + out_off + 0].x = points[i2].x + dm_out_x
-                temp_points[temp_points_start + out_off + 0].y = points[i2].y + dm_out_y
-                temp_points[temp_points_start + out_off + 1].x = points[i2].x + dm_in_x
-                temp_points[temp_points_start + out_off + 1].y = points[i2].y + dm_in_y
-                temp_points[temp_points_start + out_off + 2].x = points[i2].x - dm_in_x
-                temp_points[temp_points_start + out_off + 2].y = points[i2].y - dm_in_y
-                temp_points[temp_points_start + out_off + 3].x = points[i2].x - dm_out_x
-                temp_points[temp_points_start + out_off + 3].y = points[i2].y - dm_out_y
+                temp_points[temp_points_start + out_off + 0][1] = points[i2][1] + dm_out_x
+                temp_points[temp_points_start + out_off + 0][2] = points[i2][2] + dm_out_y
+                temp_points[temp_points_start + out_off + 1][1] = points[i2][1] + dm_in_x
+                temp_points[temp_points_start + out_off + 1][2] = points[i2][2] + dm_in_y
+                temp_points[temp_points_start + out_off + 2][1] = points[i2][1] - dm_in_x
+                temp_points[temp_points_start + out_off + 2][2] = points[i2][2] - dm_in_y
+                temp_points[temp_points_start + out_off + 3][1] = points[i2][1] - dm_out_x
+                temp_points[temp_points_start + out_off + 3][2] = points[i2][2] - dm_out_y
 
                 -- Add indices
                 local idx_write_ptr = self._IdxWritePtr
@@ -3632,17 +3634,17 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
             local p1 = points[i1]
             local p2 = points[i2]
 
-            local dx = p2.x - p1.x
-            local dy = p2.y - p1.y
+            local dx = p2[1] - p1[1]
+            local dy = p2[2] - p1[2]
             dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
             dx = dx * (thickness * 0.5)
             dy = dy * (thickness * 0.5)
 
             local vtx_write_ptr = self._VtxWritePtr
-            vtx_data[vtx_write_ptr + 0][1].x = p1.x + dy; vtx_data[vtx_write_ptr + 0][1].y = p1.y - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], opaque_uv); vtx_data[vtx_write_ptr + 0][3] = col
-            vtx_data[vtx_write_ptr + 1][1].x = p2.x + dy; vtx_data[vtx_write_ptr + 1][1].y = p2.y - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], opaque_uv); vtx_data[vtx_write_ptr + 1][3] = col
-            vtx_data[vtx_write_ptr + 2][1].x = p2.x - dy; vtx_data[vtx_write_ptr + 2][1].y = p2.y + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], opaque_uv); vtx_data[vtx_write_ptr + 2][3] = col
-            vtx_data[vtx_write_ptr + 3][1].x = p1.x - dy; vtx_data[vtx_write_ptr + 3][1].y = p1.y + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 3][2], opaque_uv); vtx_data[vtx_write_ptr + 3][3] = col
+            vtx_data[vtx_write_ptr + 0][1][1] = p1[1] + dy; vtx_data[vtx_write_ptr + 0][1][2] = p1[2] - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], opaque_uv); vtx_data[vtx_write_ptr + 0][3] = col
+            vtx_data[vtx_write_ptr + 1][1][1] = p2[1] + dy; vtx_data[vtx_write_ptr + 1][1][2] = p2[2] - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], opaque_uv); vtx_data[vtx_write_ptr + 1][3] = col
+            vtx_data[vtx_write_ptr + 2][1][1] = p2[1] - dy; vtx_data[vtx_write_ptr + 2][1][2] = p2[2] + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], opaque_uv); vtx_data[vtx_write_ptr + 2][3] = col
+            vtx_data[vtx_write_ptr + 3][1][1] = p1[1] - dy; vtx_data[vtx_write_ptr + 3][1][2] = p1[2] + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 3][2], opaque_uv); vtx_data[vtx_write_ptr + 3][3] = col
             self._VtxWritePtr = vtx_write_ptr + 4
 
             local idx_write_ptr = self._IdxWritePtr
@@ -4009,7 +4011,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
             end
 
             local s = self._Data.ArcFastVtx[sample_index + 1]
-            self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+            ImVec2_CopyV(self._Path.Data[out_ptr], center.x + s.x * radius, center.y + s.y * radius)
             out_ptr = out_ptr + 1
 
             a = a + a_step
@@ -4024,7 +4026,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
             end
 
             local s = self._Data.ArcFastVtx[sample_index + 1]
-            self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+            ImVec2_CopyV(self._Path.Data[out_ptr], center.x + s.x * radius, center.y + s.y * radius)
             out_ptr = out_ptr + 1
 
             a = a - a_step
@@ -4040,7 +4042,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
         end
 
         local s = self._Data.ArcFastVtx[normalized_max_sample + 1]
-        self._Path.Data[out_ptr] = ImVec2(center.x + s.x * radius, center.y + s.y * radius)
+        ImVec2_CopyV(self._Path.Data[out_ptr], center.x + s.x * radius, center.y + s.y * radius)
         out_ptr = out_ptr + 1
     end
 
@@ -4282,10 +4284,10 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                 local glyph_col = glyph.Colored and color_untinted or col
 
                 do
-                    vtx_data[vtx_write + 0][1].x = x1; vtx_data[vtx_write + 0][1].y = y1; vtx_data[vtx_write + 0][3] = glyph_col; vtx_data[vtx_write + 0][2].x = u1; vtx_data[vtx_write + 0][2].y = v1;
-                    vtx_data[vtx_write + 1][1].x = x2; vtx_data[vtx_write + 1][1].y = y1; vtx_data[vtx_write + 1][3] = glyph_col; vtx_data[vtx_write + 1][2].x = u2; vtx_data[vtx_write + 1][2].y = v1;
-                    vtx_data[vtx_write + 2][1].x = x2; vtx_data[vtx_write + 2][1].y = y2; vtx_data[vtx_write + 2][3] = glyph_col; vtx_data[vtx_write + 2][2].x = u2; vtx_data[vtx_write + 2][2].y = v2;
-                    vtx_data[vtx_write + 3][1].x = x1; vtx_data[vtx_write + 3][1].y = y2; vtx_data[vtx_write + 3][3] = glyph_col; vtx_data[vtx_write + 3][2].x = u1; vtx_data[vtx_write + 3][2].y = v2;
+                    vtx_data[vtx_write + 0][1][1] = x1; vtx_data[vtx_write + 0][1][2] = y1; vtx_data[vtx_write + 0][3] = glyph_col; vtx_data[vtx_write + 0][2][1] = u1; vtx_data[vtx_write + 0][2][2] = v1;
+                    vtx_data[vtx_write + 1][1][1] = x2; vtx_data[vtx_write + 1][1][2] = y1; vtx_data[vtx_write + 1][3] = glyph_col; vtx_data[vtx_write + 1][2][1] = u2; vtx_data[vtx_write + 1][2][2] = v1;
+                    vtx_data[vtx_write + 2][1][1] = x2; vtx_data[vtx_write + 2][1][2] = y2; vtx_data[vtx_write + 2][3] = glyph_col; vtx_data[vtx_write + 2][2][1] = u2; vtx_data[vtx_write + 2][2][2] = v2;
+                    vtx_data[vtx_write + 3][1][1] = x1; vtx_data[vtx_write + 3][1][2] = y2; vtx_data[vtx_write + 3][3] = glyph_col; vtx_data[vtx_write + 3][2][1] = u1; vtx_data[vtx_write + 3][2][2] = v2;
                     idx_data[idx_write + 0] = vtx_index; idx_data[idx_write + 1] = vtx_index + 1; idx_data[idx_write + 2] = vtx_index + 2;
                     idx_data[idx_write + 3] = vtx_index; idx_data[idx_write + 4] = vtx_index + 2; idx_data[idx_write + 5] = vtx_index + 3;
                     vtx_write = vtx_write + 4
@@ -4515,44 +4517,51 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
 
         local yi = 0
         local y = p_min.y + grid_off.y
+        local x_start
+        local x
+        local cell_flags
         while y < p_max.y do
             local y1 = ImClamp(y, p_min.y, p_max.y)
             local y2 = ImMin(y + grid_step, p_max.y)
 
-            if y2 > y1 then
+            if y2 <= y1 then
+                goto OUTER_CONTINUE
+            end
 
-                local x_start = p_min.x + grid_off.x + (yi % 2) * grid_step
-                local x = x_start
-                while x < p_max.x do
-                    local x1 = ImClamp(x, p_min.x, p_max.x)
-                    local x2 = ImMin(x + grid_step, p_max.x)
+            x_start = p_min.x + grid_off.x + (yi % 2) * grid_step
+            x = x_start
+            while x < p_max.x do
+                local x1 = ImClamp(x, p_min.x, p_max.x)
+                local x2 = ImMin(x + grid_step, p_max.x)
 
-                    if x2 > x1 then
-
-                        local cell_flags = ImDrawFlags.RoundCornersNone
-                        if y1 <= p_min.y then
-                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopLeft) end
-                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopRight) end
-                        end
-                        if y2 >= p_max.y then
-                            if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomLeft) end
-                            if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomRight) end
-                        end
-
-                        -- Combine flags
-                        if flags == ImDrawFlags.RoundCornersNone or cell_flags == ImDrawFlags.RoundCornersNone then
-                            cell_flags = ImDrawFlags.RoundCornersNone
-                        else
-                            cell_flags = bit.band(cell_flags, flags)
-                        end
-                        draw_list:AddRectFilled(ImVec2(x1, y1), ImVec2(x2, y2), col_bg2, rounding, cell_flags)
-
-                    end
-
-                    x = x + grid_step * 2.0
+                if x2 <= x1 then
+                    goto INNER_CONTINUE
                 end
 
+                cell_flags = ImDrawFlags.RoundCornersNone
+                if y1 <= p_min.y then
+                    if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopLeft) end
+                    if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopRight) end
+                end
+                if y2 >= p_max.y then
+                    if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomLeft) end
+                    if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomRight) end
+                end
+
+                -- Combine flags
+                if flags == ImDrawFlags.RoundCornersNone or cell_flags == ImDrawFlags.RoundCornersNone then
+                    cell_flags = ImDrawFlags.RoundCornersNone
+                else
+                    cell_flags = bit.band(cell_flags, flags)
+                end
+                draw_list:AddRectFilled(ImVec2(x1, y1), ImVec2(x2, y2), col_bg2, rounding, cell_flags)
+
+                :: INNER_CONTINUE ::
+
+                x = x + grid_step * 2.0
             end
+
+            :: OUTER_CONTINUE ::
 
             y = y + grid_step
             yi = yi + 1

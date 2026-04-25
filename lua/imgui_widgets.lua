@@ -875,7 +875,7 @@ function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_
     -- As a special thing, we allow scrollbar near the edge of a screen/viewport to be reachable with mouse at the extreme edge (#9276)
     local bb_hit = ImRect()
     ImRect_Copy(bb_hit, bb_frame)
-    ImGui.ExtendHitBoxWhenNearViewportEdge(window, bb_hit, g.Style.WindowBorderSize, bit.bxor(axis, 1))
+    ImGui.ExtendHitBoxWhenNearViewportEdge(window, bb_hit, g.Style.WindowBorderSize, ImGuiAxis.X + ImGuiAxis.Y - axis) -- swap axis here
 
     ImGui.ItemAdd(bb_frame, id, nil, ImGuiItemFlags.NoNav)
     local pressed, hovered, held = ImGui.ButtonBehavior(bb_hit, id, ImGuiButtonFlags.NoNavFocus)
@@ -2630,7 +2630,7 @@ local IMSTB_TEXTEDIT_GETWIDTH_NEWLINE = -1.0
 ImStb.TEXTEDIT_memmove = ImStd.memmove
 
 --- @param ctx  ImGuiContext
---- @param text             ImString
+--- @param text             char[]
 --- @param text_begin       int
 --- @param text_end_display int
 --- @param text_end         int

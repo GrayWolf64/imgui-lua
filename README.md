@@ -4,7 +4,7 @@
 
 ## Current State
 
-<img src="misc/images/current.png" alt="Example" width="420" height="640">
+<img src="misc/images/current.png" alt="Example" width="530" height="810">
 
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
