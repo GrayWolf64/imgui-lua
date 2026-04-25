@@ -4058,12 +4058,20 @@ function MT.ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
     self:_PathArcToFastEx(center, radius, a_min_of_12 * IM_DRAWLIST_ARCFAST_SAMPLE_MAX / 12, a_max_of_12 * IM_DRAWLIST_ARCFAST_SAMPLE_MAX / 12, 0)
 end
 
+--- @param center       ImVec2
+--- @param radius       float
+--- @param a_min        float
+--- @param a_max        float
+--- @param num_segments int
 function MT.ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
     if radius < 0.5 then
         self._Path:push_back(center)
         return
     end
 
+    -- Note that we are adding a point at both a_min and a_max.
+    -- If you are trying to draw a full closed circle you don't want the overlapping points!
+    self._Path:reserve(self._Path.Size + (num_segments + 1))
     for i = 0, num_segments do
         local a = a_min + (i / num_segments) * (a_max - a_min)
         self._Path:push_back(ImVec2(center.x + ImCos(a) * radius, center.y + ImSin(a) * radius))
@@ -4103,17 +4111,11 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
         local a_emit_start = ImAbs(a_min_segment_angle - a_min) >= 1e-5
         local a_emit_end = ImAbs(a_max - a_max_segment_angle) >= 1e-5
 
-        if a_emit_start then
-            self._Path:push_back(ImVec2(center.x + ImCos(a_min) * radius, center.y + ImSin(a_min) * radius))
-        end
+        self._Path:reserve(self._Path.Size + (a_mid_samples + 1 + (a_emit_start and 1 or 0) + (a_emit_end and 1 or 0)))
 
-        if a_mid_samples > 0 then
-            self:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, 0)
-        end
-
-        if a_emit_end then
-            self._Path:push_back(ImVec2(center.x + ImCos(a_max) * radius, center.y + ImSin(a_max) * radius))
-        end
+        if a_emit_start      then self._Path:push_back(ImVec2(center.x + ImCos(a_min) * radius, center.y + ImSin(a_min) * radius)) end
+        if a_mid_samples > 0 then self:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, 0) end
+        if a_emit_end        then self._Path:push_back(ImVec2(center.x + ImCos(a_max) * radius, center.y + ImSin(a_max) * radius)) end
     else
         local arc_length = ImAbs(a_max - a_min)
         local circle_segment_count = self:_CalcCircleAutoSegmentCount(radius)
