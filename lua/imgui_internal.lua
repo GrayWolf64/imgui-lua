@@ -657,8 +657,8 @@ function MT.ImRect:AsVec4() return ImVec4(self.Min.x, self.Min.y, self.Max.x, se
 --- @param dest ImRect
 --- @param src  ImRect
 function ImRect_Copy(dest, src)
-    dest.Min.x = src.Min.x; dest.Min.y = src.Min.y
-    dest.Max.x = src.Max.x; dest.Max.y = src.Max.y
+    dest.Min[1] = src.Min[1]; dest.Min[2] = src.Min[2]
+    dest.Max[1] = src.Max[1]; dest.Max[2] = src.Max[2]
 end
 
 --- @param dest ImRect
