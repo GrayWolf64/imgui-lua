@@ -855,6 +855,17 @@ function ImGui.FindWindowSettingsByID(id)
 end
 
 --- @param window ImGuiWindow
+--- @return ImGuiWindow?
+function ImGui.FindFrontMostVisibleChildWindow(window)
+    for n = window.DC.ChildWindows.Size, 1, -1 do
+        if ImGui.IsWindowActiveAndVisible(window.DC.ChildWindows.Data[n]) then
+            return ImGui.FindFrontMostVisibleChildWindow(window.DC.ChildWindows.Data[n])
+        end
+    end
+    return window
+end
+
+--- @param window ImGuiWindow
 --- @param cond ImGuiCond
 --- @param allow bool
 local function SetWindowConditionAllowFlags(window, cond, allow)
@@ -1810,9 +1821,12 @@ function ImGui.MarkItemEdited(id)
     -- This marking is to be able to provide info for IsItemDeactivatedAfterEdit().
     -- ActiveId might have been released by the time we call this (as in the typical press/release button behavior) but still need to fill the data.
     local g = GImGui
+
+    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.EditedInternal)
     if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited) ~= 0 then
         return
     end
+    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Edited)
 
     if g.ActiveId == id or g.ActiveId == 0 then
         -- FIXME: Can't we fully rely on LastItemData yet?
@@ -7902,6 +7916,20 @@ function ImGui.PopFocusScope()
     else
         g.CurrentFocusScopeId = 0
     end
+end
+
+--- @param focus_scope_id ImGuiID
+function ImGui.IsInNavFocusRoute(focus_scope_id)
+    local g = GImGui
+    if g.NavFocusScopeId == focus_scope_id then
+        return true
+    end
+    for _, focus_scope in g.NavFocusRoute:iter() do
+        if focus_scope.ID == focus_scope_id then
+            return true
+        end
+    end
+    return false
 end
 
 --- @param focus_scope_id ImGuiID

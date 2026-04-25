@@ -1354,17 +1354,18 @@ ImGuiItemFlags = {
 --- @enum ImGuiItemStatusFlags
 ImGuiItemStatusFlags = {
     None             = 0,
-    HoveredRect      = bit.lshift(1, 0), -- Mouse position is within item rectangle (does NOT mean that the window is in correct z-order and can be hovered!, this is only one part of the most-common IsItemHovered test)
-    HasDisplayRect   = bit.lshift(1, 1), -- g.LastItemData.DisplayRect is valid
-    Edited           = bit.lshift(1, 2), -- Value exposed by item was edited in the current frame (should match the bool return value of most widgets)
-    ToggledSelection = bit.lshift(1, 3), -- Set when Selectable(), TreeNode() reports toggling a selection. We can't report "Selected", only state changes, in order to easily handle clipping with less issues
-    ToggledOpen      = bit.lshift(1, 4), -- Set when TreeNode() reports toggling their open state
-    HasDeactivated   = bit.lshift(1, 5), -- Set if the widget/group is able to provide data for the ImGuiItemStatusFlags.Deactivated flag
-    Deactivated      = bit.lshift(1, 6), -- Only valid if ImGuiItemStatusFlags.HasDeactivated is set
-    HoveredWindow    = bit.lshift(1, 7), -- Override the HoveredWindow test to allow cross-window hover testing
-    Visible          = bit.lshift(1, 8), -- [WIP] Set when item is overlapping the current clipping rectangle (Used internally. Please don't use yet: API/system will change as we refactor Itemadd())
-    HasClipRect      = bit.lshift(1, 9), -- g.LastItemData.ClipRect is valid
-    HasShortcut      = bit.lshift(1, 10) -- g.LastItemData.Shortcut valid. Set by SetNextItemShortcut() -> ItemAdd()
+    HoveredRect      = bit.lshift(1, 0),
+    HasDisplayRect   = bit.lshift(1, 1),
+    Edited           = bit.lshift(1, 2),
+    ToggledSelection = bit.lshift(1, 3),
+    ToggledOpen      = bit.lshift(1, 4),
+    HasDeactivated   = bit.lshift(1, 5),
+    Deactivated      = bit.lshift(1, 6),
+    HoveredWindow    = bit.lshift(1, 7),
+    Visible          = bit.lshift(1, 8),
+    HasClipRect      = bit.lshift(1, 9),
+    HasShortcut      = bit.lshift(1, 10),
+    EditedInternal   = bit.lshift(1, 11)
 }
 
 --- @enum ImGuiChildFlags

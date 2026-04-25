@@ -24,6 +24,8 @@ Roadmap and task list: [TODO](misc/TODO.md)
 
 Things to pay attention to: [PORT](misc/PORT.md)
 
+Please refer to official Dear ImGui docs or src code comments for documentation!
+
 ### How to Try it in GMOD?
 
 1. Clone this project into your GMod `addons` folder
