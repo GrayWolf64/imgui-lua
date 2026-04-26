@@ -59,82 +59,93 @@ local str0 = {string.byte("Hello, World!", 1, 13)}
 table.insert(str0, 0)
 
 function DemoWindowWidgetsBasic()
-    ImGui.SeparatorText("General")
+    if ImGui.TreeNode("Basic") then
+        ImGui.SeparatorText("General")
 
-    if ImGui.Button("Button") then
-        clicked = clicked + 1
-    end
-
-    if clicked % 2 ~= 0 then
-        ImGui.SameLine()
-        ImGui.Text("Thanks for clicking me!")
-    end
-
-    _, check = ImGui.Checkbox("checkbox", check)
-
-    _, radio_v = ImGui.RadioButton("radio a", radio_v, 0) ImGui.SameLine()
-    _, radio_v = ImGui.RadioButton("radio b", radio_v, 1) ImGui.SameLine()
-    _, radio_v = ImGui.RadioButton("radio c", radio_v, 2)
-
-    ImGui.AlignTextToFramePadding()
-    ImGui.TextLinkOpenURL("Hyperlink", "https://github.com/GrayWolf64/imgui-lua")
-
-    for i = 1, 7 do
-        if i > 1 then
-            ImGui.SameLine()
+        if ImGui.Button("Button") then
+            clicked = clicked + 1
         end
-        ImGui.PushID(i)
 
-        col0.x, col0.y, col0.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.6, 0.6)
-        col1.x, col1.y, col1.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.7, 0.7)
-        col2.x, col2.y, col2.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.8, 0.8)
-        ImGui.PushStyleColor(ImGuiCol.Button, col0)
-        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, col1)
-        ImGui.PushStyleColor(ImGuiCol.ButtonActive, col2)
+        if clicked % 2 ~= 0 then
+            ImGui.SameLine()
+            ImGui.Text("Thanks for clicking me!")
+        end
 
-        ImGui.Button("Click")
+        _, check = ImGui.Checkbox("checkbox", check)
 
-        ImGui.PopStyleColor(3)
-        ImGui.PopID()
-    end
+        _, radio_v = ImGui.RadioButton("radio a", radio_v, 0) ImGui.SameLine()
+        _, radio_v = ImGui.RadioButton("radio b", radio_v, 1) ImGui.SameLine()
+        _, radio_v = ImGui.RadioButton("radio c", radio_v, 2)
 
-    -- Use AlignTextToFramePadding() to align text baseline to the baseline of framed widgets elements
-    -- (otherwise a Text+SameLine+Button sequence will have the text a little too high by default!)
-    -- See 'Demo->Layout->Text Baseline Alignment' for details.
-    ImGui.AlignTextToFramePadding()
-    ImGui.Text("Hold to repeat:")
-    ImGui.SameLine()
+        ImGui.AlignTextToFramePadding()
+        ImGui.TextLinkOpenURL("Hyperlink", "https://github.com/GrayWolf64/imgui-lua")
 
-    -- Arrow buttons with Repeater
-    local spacing = ImGui.GetStyle().ItemInnerSpacing.x
-    ImGui.PushItemFlag(ImGuiItemFlags.ButtonRepeat, true)
-    if ImGui.ArrowButton("##left", ImGuiDir.Left) then counter = counter - 1 end
-    ImGui.SameLine(0.0, spacing)
-    if ImGui.ArrowButton("##right", ImGuiDir.Right) then counter = counter + 1 end
-    ImGui.PopItemFlag()
-    ImGui.SameLine()
-    ImGui.Text("%d", counter)
+        for i = 1, 7 do
+            if i > 1 then
+                ImGui.SameLine()
+            end
+            ImGui.PushID(i)
 
-    ImGui.Button("Tooltip")
-    ImGui.SetItemTooltip("I am a tooltip")
+            col0.x, col0.y, col0.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.6, 0.6)
+            col1.x, col1.y, col1.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.7, 0.7)
+            col2.x, col2.y, col2.z = ImGui.ColorConvertHSVtoRGB(i / 7.0, 0.8, 0.8)
+            ImGui.PushStyleColor(ImGuiCol.Button, col0)
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, col1)
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, col2)
 
-    ImGui.LabelText("label", "Value")
+            ImGui.Button("Click")
 
-    ImGui.SeparatorText("Inputs")
+            ImGui.PopStyleColor(3)
+            ImGui.PopID()
+        end
 
-    do
-        ImGui.InputText("input text", str0, 128)
-        -- TODO:
+        -- Use AlignTextToFramePadding() to align text baseline to the baseline of framed widgets elements
+        -- (otherwise a Text+SameLine+Button sequence will have the text a little too high by default!)
+        -- See 'Demo->Layout->Text Baseline Alignment' for details.
+        ImGui.AlignTextToFramePadding()
+        ImGui.Text("Hold to repeat:")
+        ImGui.SameLine()
+
+        -- Arrow buttons with Repeater
+        local spacing = ImGui.GetStyle().ItemInnerSpacing.x
+        ImGui.PushItemFlag(ImGuiItemFlags.ButtonRepeat, true)
+        if ImGui.ArrowButton("##left", ImGuiDir.Left) then counter = counter - 1 end
+        ImGui.SameLine(0.0, spacing)
+        if ImGui.ArrowButton("##right", ImGuiDir.Right) then counter = counter + 1 end
+        ImGui.PopItemFlag()
+        ImGui.SameLine()
+        ImGui.Text("%d", counter)
+
+        ImGui.Button("Tooltip")
+        ImGui.SetItemTooltip("I am a tooltip")
+
+        ImGui.LabelText("label", "Value")
+
+        ImGui.SeparatorText("Inputs")
+
+        do
+            ImGui.InputText("input text", str0, 128)
+            -- TODO:
+        end
+
+        ImGui.TreePop()
     end
 end
 
 end
 
 local function DemoWindowWidgetsBullets()
-    ImGui.BulletText("Bullet point 1")
-    ImGui.BulletText("Bullet point 2\nOn multiple lines")
-    ImGui.Bullet() ImGui.Text("Bullet point 3 (two calls)")
-    ImGui.Bullet() ImGui.SmallButton("Button")
+    if ImGui.TreeNode("Bullets") then
+        ImGui.BulletText("Bullet point 1")
+        ImGui.BulletText("Bullet point 2\nOn multiple lines")
+        if ImGui.TreeNode("Tree node") then
+            ImGui.BulletText("Another bullet point")
+            ImGui.TreePop()
+        end
+        ImGui.Bullet() ImGui.Text("Bullet point 3 (two calls)")
+        ImGui.Bullet() ImGui.SmallButton("Button")
+        ImGui.TreePop()
+    end
 end
 
 local DemoWindowWidgetsColorAndPickers

@@ -5284,6 +5284,16 @@ end
 -- [SECTION] TREES
 ----------------------------------------------------------------
 
+--- @param label string
+function ImGui.TreeNode(label)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+    local id = window:GetID(label)
+    return ImGui.TreeNodeBehavior(id, ImGuiTreeNodeFlags.None, label, nil)
+end
+
 --- @param storage_id ImGuiID
 function ImGui.TreeNodeGetOpen(storage_id)
     local g = GImGui
@@ -5406,7 +5416,8 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
     local text_pos = ImVec2(window.DC.CursorPos.x + text_offset_x, window.DC.CursorPos.y + text_offset_y)
     ImGui.ItemSize(ImVec2(text_width, frame_height), padding.y)
 
-    local interact_bb = frame_bb
+    local interact_bb = ImRect()
+    ImRect_Copy(interact_bb, frame_bb)
     if bit.band(flags, bit.bor(ImGuiTreeNodeFlags.Framed, ImGuiTreeNodeFlags.SpanAvailWidth, ImGuiTreeNodeFlags.SpanFullWidth, ImGuiTreeNodeFlags.SpanLabelWidth, ImGuiTreeNodeFlags.SpanAllColumns)) == 0 then
         interact_bb.Max.x = frame_bb.Min.x + text_width + (label_size.x > 0.0 and (style.ItemSpacing.x * 2.0) or 0.0)
     end
@@ -5645,6 +5656,37 @@ function ImGui.TreePushOverrideID(id)
     ImGui.Indent()
     window.DC.TreeDepth = window.DC.TreeDepth + 1
     ImGui.PushOverrideID(id)
+end
+
+function ImGui.TreePop()
+    local g = GImGui
+    local window = g.CurrentWindow
+    ImGui.Unindent()
+
+    window.DC.TreeDepth = window.DC.TreeDepth - 1
+    local tree_depth_mask = bit.lshift(1, window.DC.TreeDepth)
+
+    if bit.band(window.DC.TreeHasStackDataDepthMask, tree_depth_mask) ~= 0 then
+        local data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
+        IM_ASSERT(data.ID == window.IDStack:back())
+
+        if bit.band(data.TreeFlags, ImGuiTreeNodeFlags.NavLeftJumpsToParent) ~= 0 then
+            if g.NavIdIsAlive and g.NavMoveDir == ImGuiDir.Left and g.NavWindow == window and ImGui.NavMoveRequestButNoResultYet() then
+                ImGui.NavMoveRequestResolveWithPastTreeNode(g.NavMoveResultLocal, data)
+            end
+        end
+
+        if data.DrawLinesX1 ~= FLT_MAX and window.DC.CursorPos.y >= window.ClipRect.Min.y then
+            ImGui.TreeNodeDrawLineToTreePop(data)
+        end
+
+        g.TreeNodeStack:pop_back()
+        window.DC.TreeHasStackDataDepthMask = bit.band(window.DC.TreeHasStackDataDepthMask, bit.bnot(tree_depth_mask))
+        window.DC.TreeRecordsClippedNodesY2Mask = bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.bnot(tree_depth_mask))
+    end
+
+    IM_ASSERT(window.IDStack.Size > 1)
+    ImGui.PopID()
 end
 
 --- @param label  string

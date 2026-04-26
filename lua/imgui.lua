@@ -1189,8 +1189,10 @@ function ImGui.Indent(indent_w)
     window.DC.CursorPos.x = window.Pos.x + window.DC.Indent.x + window.DC.ColumnsOffset.x
 end
 
---- @param indent_w float
+--- @param indent_w? float
 function ImGui.Unindent(indent_w)
+    if indent_w == nil then indent_w = 0.0 end
+
     local g = GImGui
     local window = ImGui.GetCurrentWindow()
 
@@ -8392,6 +8394,24 @@ end
 function ImGui.NavMoveRequestButNoResultYet()
     local g = GImGui
     return g.NavMoveScoringItems and g.NavMoveResultLocal.ID == 0 and g.NavMoveResultOther.ID == 0
+end
+
+--- @param result ImGuiNavItemData
+function ImGui.NavApplyItemToResult(result)
+    -- TODO:
+end
+
+--- @param result         ImGuiNavItemData
+--- @param tree_node_data ImGuiTreeNodeStackData
+function ImGui.NavMoveRequestResolveWithPastTreeNode(result, tree_node_data)
+    local g = GImGui
+    g.NavMoveScoringItems = false
+    g.LastItemData.ID = tree_node_data.ID
+    g.LastItemData.ItemFlags = bit.band(tree_node_data.ItemFlags, bit.bnot(ImGuiItemFlags.HasSelectionUserData))
+    ImRect_Copy(g.LastItemData.NavRect, tree_node_data.NavRect)
+    ImGui.NavApplyItemToResult(result)
+    ImGui.NavClearPreferredPosForAxis(ImGuiAxis.Y)
+    ImGui.NavUpdateAnyRequestFlag()
 end
 
 function ImGui.NavMoveRequestCancel()
