@@ -2063,7 +2063,14 @@ ImGuiTreeNodeFlags = {
     NavLeftJumpsToParent = bit.lshift(1, 17),
     DrawLinesNone        = bit.lshift(1, 18),
     DrawLinesFull        = bit.lshift(1, 19),
-    DrawLinesToNodes     = bit.lshift(1, 20)
+    DrawLinesToNodes     = bit.lshift(1, 20),
+
+    NoNavFocus                 = bit.lshift(1, 27),
+    ClipLabelForTrailingButton = bit.lshift(1, 28),
+    UpsideDownArrow            = bit.lshift(1, 29),
 }
 
 ImGuiTreeNodeFlags.CollapsingHeader = bit.bor(ImGuiTreeNodeFlags.Framed, ImGuiTreeNodeFlags.NoTreePushOnOpen, ImGuiTreeNodeFlags.NoAutoOpenOnLog)
+
+ImGuiTreeNodeFlags.OpenOnMask_ = bit.bor(ImGuiTreeNodeFlags.OpenOnDoubleClick, ImGuiTreeNodeFlags.OpenOnArrow)
+ImGuiTreeNodeFlags.DrawLinesMask_ = bit.bor(ImGuiTreeNodeFlags.DrawLinesNone, ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)

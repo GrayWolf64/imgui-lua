@@ -1173,8 +1173,10 @@ function ImGui.SameLine(offset_from_start_x, spacing_w)
     window.DC.IsSameLine = true
 end
 
---- @param indent_w float
+--- @param indent_w? float
 function ImGui.Indent(indent_w)
+    if indent_w == nil then indent_w = 0.0 end
+
     local g = GImGui
     local window = ImGui.GetCurrentWindow()
 
@@ -1752,6 +1754,14 @@ function ImGui.PushID(str_id)
     local g = GImGui
     local window = g.CurrentWindow
     local id = window:GetID(str_id)
+    window.IDStack:push_back(id)
+end
+
+--- @param id ImGuiID
+function ImGui.PushOverrideID(id)
+    local g = GImGui
+    local window = g.CurrentWindow
+    -- TODO: DebugHookIdInfo()
     window.IDStack:push_back(id)
 end
 

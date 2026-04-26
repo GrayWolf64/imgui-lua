@@ -5429,7 +5429,49 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
     g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasDisplayRect)
     ImRect_Copy(g.LastItemData.DisplayRect, frame_bb)
 
+    local store_tree_node_stack_data = false
+    if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesMask_) == 0 then
+        flags = bit.bor(flags, g.Style.TreeLinesFlags)
+    end
+    local draw_tree_lines = (bit.band(flags, bit.bor(ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)) ~= 0) and (frame_bb.Min.y < window.ClipRect.Max.y) and (g.Style.TreeLinesSize > 0.0)
+    if bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 then
+        store_tree_node_stack_data = draw_tree_lines
+        if bit.band(flags, ImGuiTreeNodeFlags.NavLeftJumpsToParent) ~= 0 and not g.NavIdIsAlive then
+            if g.NavMoveDir == ImGuiDir.Left and g.NavWindow == window and ImGui.NavMoveRequestButNoResultYet() then
+                store_tree_node_stack_data = true
+            end
+        end
+    end
+
+    local is_leaf = bit.band(flags, ImGuiTreeNodeFlags.Leaf) ~= 0
+    if not is_visible then
+        if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesToNodes) ~= 0 and bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.lshift(1, (window.DC.TreeDepth - 1))) ~= 0 then
+            local parent_data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
+            parent_data.DrawLinesToNodesY2 = ImMax(parent_data.DrawLinesToNodesY2, window.DC.CursorPos.y)
+            if frame_bb.Min.y >= window.ClipRect.Max.y then
+                window.DC.TreeRecordsClippedNodesY2Mask = bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.bnot(bit.lshift(1, (window.DC.TreeDepth - 1))))
+            end
+        end
+        if is_open and store_tree_node_stack_data then
+            ImGui.TreeNodeStoreStackData(flags, text_pos.x - text_offset_x)
+        end
+        if is_open and bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 then
+            ImGui.TreePushOverrideID(id)
+        end
+        -- IMGUI_TEST_ENGINE_ITEM_INFO(g.LastItemData.ID, label, g.LastItemData.StatusFlags | (is_leaf ? 0 : ImGuiItemStatusFlags_Openable) | (is_open ? ImGuiItemStatusFlags_Opened : 0))
+        return is_open
+    end
+
     -- TODO:
+end
+
+--- @param id ImGuiID
+function ImGui.TreePushOverrideID(id)
+    local g = GImGui
+    local window = g.CurrentWindow
+    ImGui.Indent()
+    window.DC.TreeDepth = window.DC.TreeDepth + 1
+    ImGui.PushOverrideID(id)
 end
 
 ----------------------------------------------------------------

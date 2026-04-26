@@ -1154,6 +1154,10 @@ function ImGuiStyle()
 
         WindowBorderHoverPadding = 4.0,
 
+        TreeLinesFlags = ImGuiTreeNodeFlags.DrawLinesNone,
+        TreeLinesSize  = 1.0,
+        TreeLinesRounding = 0.0,
+
         ColorMarkerSize = 3.0,
         ColorButtonPosition = ImGuiDir.Right,
 
