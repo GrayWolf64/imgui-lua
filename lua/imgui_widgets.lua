@@ -2966,6 +2966,8 @@ local utf8 = {0, 0, 0, 0, 0}
 
 --- @param c unsigned_int
 function MT.ImGuiInputTextState:OnCharPressed(c)
+    for i = 1, 5 do utf8[i] = 0 end
+
     -- Convert the key to a UTF8 byte sequence.
     -- The changes we had to make to stb_textedit_key made it very much UTF-8 specific which is not too great.
     ImStd.ImTextCharToUtf8(utf8, c)
