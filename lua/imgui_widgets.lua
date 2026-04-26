@@ -5462,6 +5462,179 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
         return is_open
     end
 
+    if span_all_columns or span_all_columns_label then
+        ImGui.TablePushBackgroundChannel()
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasClipRect)
+        ImRect_Copy(g.LastItemData.ClipRect, window.ClipRect)
+    end
+
+    local button_flags = ImGuiTreeNodeFlags.None
+    if bit.band(flags, ImGuiTreeNodeFlags.AllowOverlap) ~= 0 or bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.AllowOverlap) ~= 0 then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.AllowOverlap)
+    end
+    if not is_leaf then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnDragDropHold)
+    end
+
+    local arrow_hit_x1 = (text_pos.x - text_offset_x) - style.TouchExtraPadding.x
+    local arrow_hit_x2 = (text_pos.x - text_offset_x) + (g.FontSize + padding.x * 2.0) + style.TouchExtraPadding.x
+    local is_mouse_x_over_arrow = (g.IO.MousePos.x >= arrow_hit_x1 and g.IO.MousePos.x < arrow_hit_x2)
+
+    local is_multi_select = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.IsMultiSelect) ~= 0
+    if is_multi_select then
+        flags = bit.bor(flags, (bit.band(flags, ImGuiTreeNodeFlags.OpenOnMask_) == 0) and bit.bor(ImGuiTreeNodeFlags.OpenOnArrow, ImGuiTreeNodeFlags.OpenOnDoubleClick) or ImGuiTreeNodeFlags.OpenOnArrow)
+    end
+
+    if is_mouse_x_over_arrow then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClick)
+    elseif bit.band(flags, ImGuiTreeNodeFlags.OpenOnDoubleClick) ~= 0 then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClickRelease, ImGuiButtonFlags.PressedOnDoubleClick)
+    else
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClickRelease)
+    end
+    if bit.band(flags, ImGuiTreeNodeFlags.NoNavFocus) ~= 0 then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.NoNavFocus)
+    end
+
+    local selected = bit.band(flags, ImGuiTreeNodeFlags.Selected) ~= 0
+    local was_selected = selected
+
+    if is_multi_select then
+        selected, button_flags = ImGui.MultiSelectItemHeader(id, selected, button_flags)
+        if is_mouse_x_over_arrow then
+            button_flags = bit.band(bit.bor(button_flags, ImGuiButtonFlags.PressedOnClick), bit.bnot(ImGuiButtonFlags.PressedOnClickRelease))
+        end
+    else
+        if window ~= g.HoveredWindow or not is_mouse_x_over_arrow then
+            button_flags = bit.bor(button_flags, ImGuiButtonFlags.NoKeyModsAllowed)
+        end
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(interact_bb, id, button_flags)
+    local toggled = false
+    if not is_leaf then
+        if pressed and g.DragDropHoldJustPressedId ~= id then
+            if bit.band(flags, ImGuiTreeNodeFlags.OpenOnMask_) == 0 or (g.NavActivateId == id and not is_multi_select) then
+                toggled = true
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.OpenOnArrow) ~= 0 then
+                toggled = toggled or (is_mouse_x_over_arrow and not g.NavHighlightItemUnderNav)
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.OpenOnDoubleClick) ~= 0 and g.IO.MouseClickedCount[0] == 2 then
+                toggled = true
+            end
+        elseif pressed and g.DragDropHoldJustPressedId == id then
+            IM_ASSERT(bit.band(button_flags, ImGuiButtonFlags.PressedOnDragDropHold) ~= 0)
+            if not is_open then
+                toggled = true
+            else
+                pressed = false
+            end
+        end
+
+        if g.NavId == id and g.NavMoveDir == ImGuiDir.Left and is_open then
+            toggled = true
+            ImGui.NavClearPreferredPosForAxis(ImGuiAxis.X)
+            ImGui.NavMoveRequestCancel()
+        end
+        if g.NavId == id and g.NavMoveDir == ImGuiDir.Right and not is_open then
+            toggled = true
+            ImGui.NavClearPreferredPosForAxis(ImGuiAxis.X)
+            ImGui.NavMoveRequestCancel()
+        end
+
+        if toggled then
+            is_open = not is_open
+            window.DC.StateStorage[storage_id] = is_open
+            g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledOpen)
+        end
+    end
+
+    if is_multi_select then
+        local pressed_copy = pressed and not toggled
+        selected, pressed_copy = ImGui.MultiSelectItemFooter(id, selected, pressed_copy)
+        if pressed then
+            ImGui.SetNavID(id, window.DC.NavLayerCurrent, g.CurrentFocusScopeId, interact_bb)
+        end
+    end
+
+    if selected ~= was_selected then
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledSelection)
+    end
+
+    -- Render
+    do
+        local text_col = ImGui.GetColorU32(ImGuiCol.Text)
+        local nav_render_cursor_flags = ImGuiNavRenderCursorFlags.Compact
+        if is_multi_select then
+            nav_render_cursor_flags = bit.bor(nav_render_cursor_flags, ImGuiNavRenderCursorFlags.AlwaysDraw)
+        end
+        if display_frame then
+            local bg_col = ImGui.GetColorU32((held and hovered) and ImGuiCol.HeaderActive or (hovered and ImGuiCol.HeaderHovered or ImGuiCol.Header))
+            ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, bg_col, true, style.FrameRounding)
+            ImGui.RenderNavCursor(frame_bb, id, nav_render_cursor_flags)
+            if span_all_columns and not span_all_columns_label then
+                ImGui.TablePopBackgroundChannel()
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.Bullet) ~= 0 then
+                ImGui.RenderBullet(window.DrawList, ImVec2(text_pos.x - text_offset_x * 0.60, text_pos.y + g.FontSize * 0.5), text_col)
+            elseif not is_leaf then
+                ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x - text_offset_x + padding.x, text_pos.y), text_col, is_open and ((bit.band(flags, ImGuiTreeNodeFlags.UpsideDownArrow) ~= 0) and ImGuiDir.Up or ImGuiDir.Down) or ImGuiDir.Right, 1.0)
+            else
+                text_pos.x = text_pos.x - (text_offset_x - padding.x)
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.ClipLabelForTrailingButton) ~= 0 then
+                frame_bb.Max.x = frame_bb.Max.x - (g.FontSize + style.FramePadding.x)
+            end
+            -- if g.LogEnabled then
+            --     ImGui.LogSetNextTextDecoration("###", "###")
+            -- end
+        else
+            if hovered or selected then
+                local bg_col = ImGui.GetColorU32((held and hovered) and ImGuiCol.HeaderActive or (hovered and ImGuiCol.HeaderHovered or ImGuiCol.Header))
+                ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, bg_col, false)
+            end
+            ImGui.RenderNavCursor(frame_bb, id, nav_render_cursor_flags)
+            if span_all_columns and not span_all_columns_label then
+                ImGui.TablePopBackgroundChannel()
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.Bullet) ~= 0 then
+                ImGui.RenderBullet(window.DrawList, ImVec2(text_pos.x - text_offset_x * 0.5, text_pos.y + g.FontSize * 0.5), text_col)
+            elseif not is_leaf then
+                ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x - text_offset_x + padding.x, text_pos.y + g.FontSize * 0.15), text_col, is_open and ((bit.band(flags, ImGuiTreeNodeFlags.UpsideDownArrow) ~= 0) and ImGuiDir.Up or ImGuiDir.Down) or ImGuiDir.Right, 0.70)
+            end
+            -- if g.LogEnabled then
+            --     ImGui.LogSetNextTextDecoration(">", nil)
+            -- end
+        end
+
+        if draw_tree_lines then
+            ImGui.TreeNodeDrawLineToChildNode(ImVec2(text_pos.x - text_offset_x + padding.x, text_pos.y + g.FontSize * 0.5))
+        end
+
+        if display_frame then
+            ImGui.RenderTextClipped(text_pos, frame_bb.Max, label, label_end, label_size)
+        else
+            ImGui.RenderText(text_pos, label, 1, label_end, false)
+        end
+
+        if span_all_columns_label then
+            ImGui.TablePopBackgroundChannel()
+        end
+    end
+
+    if is_open and store_tree_node_stack_data then
+        TreeNodeStoreStackData(flags, text_pos.x - text_offset_x)
+    end
+    if is_open and bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 then
+        ImGui.TreePushOverrideID(id)
+    end
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | (is_leaf ? 0 : ImGuiItemStatusFlags_Openable) | (is_open ? ImGuiItemStatusFlags_Opened : 0));
+    return is_open
+end
+
+function ImGui.TreeNodeDrawLineToChildNode(target_pos)
     -- TODO:
 end
 

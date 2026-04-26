@@ -3869,11 +3869,11 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
     end
 end
 
---- @param p_min    ImVec2
---- @param p_max    ImVec2
---- @param fill_col ImU32
---- @param borders  bool
---- @param rounding float
+--- @param p_min     ImVec2
+--- @param p_max     ImVec2
+--- @param fill_col  ImU32
+--- @param borders?  bool
+--- @param rounding? float
 function ImGui.RenderFrame(p_min, p_max, fill_col, borders, rounding)
     if borders  == nil then borders  = true end
     if rounding == nil then rounding = 0.0 end
