@@ -386,6 +386,47 @@ end
 
 local no_menu = false
 
+local function DemoWindowWidgets()
+    if not ImGui.CollapsingHeader("Widgets") then
+        return
+    end
+
+    DemoWindowWidgetsBasic()
+    DemoWindowWidgetsBullets()
+    DemoWindowWidgetsColorAndPickers()
+    DemoWindowWidgetsImages()
+    DemoWindowWidgetsPlotting()
+    DemoWindowWidgetsProgressBars()
+end
+
+local function DemoWindowLayout()
+    if not ImGui.CollapsingHeader("Layout & Scrolling") then
+        return
+    end
+
+end
+
+local function DemoWindowPopups()
+    if not ImGui.CollapsingHeader("Popups & Modal windows") then
+        return
+    end
+
+end
+
+local function DemoWindowTables()
+    if not ImGui.CollapsingHeader("Tables & Columns") then
+        return
+    end
+
+end
+
+local function DemoWindowInputs()
+    if not ImGui.CollapsingHeader("Inputs & Focus") then
+        return
+    end
+
+end
+
 function ImGui.ShowDemoWindow(open)
     local window_flags = 0
 
@@ -404,12 +445,23 @@ function ImGui.ShowDemoWindow(open)
 
     DemoWindowMenuBar()
 
-    DemoWindowWidgetsBasic()
-    DemoWindowWidgetsBullets()
-    DemoWindowWidgetsColorAndPickers()
-    DemoWindowWidgetsImages()
-    DemoWindowWidgetsPlotting()
-    DemoWindowWidgetsProgressBars()
+    if ImGui.CollapsingHeader("Help") then
+        ImGui.SeparatorText("ABOUT THIS DEMO:")
+    end
+
+    if ImGui.CollapsingHeader("Configuration") then
+        
+    end
+
+    if ImGui.CollapsingHeader("Window Options") then
+        
+    end
+
+    DemoWindowWidgets()
+    DemoWindowLayout()
+    DemoWindowPopups()
+    DemoWindowTables()
+    DemoWindowInputs()
 
     ImGui.End()
 

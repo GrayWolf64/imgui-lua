@@ -1765,6 +1765,15 @@ function ImGui.PushOverrideID(id)
     window.IDStack:push_back(id)
 end
 
+--- @param str     string
+--- @param str_end int
+--- @param seed    ImGuiID
+function ImGui.GetIDFromStrWithSeed(str, str_end, seed)
+    local id = ImHashStr(str, str_end and (str_end - 1) or 0, seed)
+    -- TODO: DebugHookIdInfo()
+    return id
+end
+
 function ImGui.PopID()
     local window = GImGui.CurrentWindow
     IM_ASSERT_USER_ERROR_RET(window.IDStack.Size > 1, "Calling PopID() too many times!")

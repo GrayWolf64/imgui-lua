@@ -5647,6 +5647,19 @@ function ImGui.TreePushOverrideID(id)
     ImGui.PushOverrideID(id)
 end
 
+--- @param label  string
+--- @param flags? ImGuiTreeNodeFlags
+function ImGui.CollapsingHeader(label, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+    local id = window:GetID(label)
+    return ImGui.TreeNodeBehavior(id, bit.bor(flags, ImGuiTreeNodeFlags.CollapsingHeader), label)
+end
+
 ----------------------------------------------------------------
 -- [SECTION] SELECTABLE
 ----------------------------------------------------------------
