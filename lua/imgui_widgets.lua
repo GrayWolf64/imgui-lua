@@ -5282,6 +5282,80 @@ end
 -- [SECTION] TREES
 ----------------------------------------------------------------
 
+--- @param storage_id ImGuiID
+function ImGui.TreeNodeGetOpen(storage_id)
+    local g = GImGui
+    local storage = g.CurrentWindow.DC.StateStorage
+    return (storage[storage_id]) and true or false
+end
+
+--- @param storage_id ImGuiID
+--- @param is_open    bool
+function ImGui.TreeNodeSetOpen(storage_id, is_open)
+    local g = GImGui
+    local storage = g.CurrentWindow.DC.StateStorage
+    storage[storage_id] = is_open
+end
+
+--- @param storage_id ImGuiID
+--- @param flags      ImGuiTreeNodeFlags
+function ImGui.TreeNodeUpdateNextOpen(storage_id, flags)
+    if bit.band(flags, ImGuiTreeNodeFlags.Leaf) ~= 0 then
+        return true
+    end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+    local storage = window.DC.StateStorage
+
+    local is_open
+    if bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasOpen) ~= 0 then
+        if bit.band(g.NextItemData.OpenCond, ImGuiCond.Always) ~= 0 then
+            is_open = g.NextItemData.OpenVal
+            ImGui.TreeNodeSetOpen(storage_id, is_open)
+        else
+            local stored_value = storage[storage_id]
+            if stored_value == nil then
+                is_open = g.NextItemData.OpenVal
+                ImGui.TreeNodeSetOpen(storage_id, is_open)
+            else
+                is_open = stored_value ~= 0
+            end
+        end
+    else
+        is_open = (storage[storage_id] == nil) and (bit.band(flags, ImGuiTreeNodeFlags.DefaultOpen) ~= 0) or storage[storage_id]
+    end
+
+    if g.LogEnabled and bit.band(flags, ImGuiTreeNodeFlags.NoAutoOpenOnLog) == 0 and (window.DC.TreeDepth - g.LogDepthRef) < g.LogDepthToExpand then
+        is_open = true
+    end
+
+    return is_open
+end
+
+--- @param flags ImGuiTreeNodeFlags
+--- @param x1    float
+local function TreeNodeStoreStackData(flags, x1)
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    g.TreeNodeStack:resize(g.TreeNodeStack.Size + 1)
+    local tree_node_data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
+    tree_node_data.ID = g.LastItemData.ID
+    tree_node_data.TreeFlags = flags
+    tree_node_data.ItemFlags = g.LastItemData.ItemFlags
+    ImRect_Copy(tree_node_data.NavRect, g.LastItemData.NavRect)
+
+    local draw_lines = bit.band(flags, bit.bor(ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)) ~= 0
+    tree_node_data.DrawLinesX1 = draw_lines and (x1 + g.FontSize * 0.5 + g.Style.FramePadding.x) or FLT_MAX
+    tree_node_data.DrawLinesTableColumn = (draw_lines and g.CurrentTable) and g.CurrentTable.CurrentColumn or -1
+    tree_node_data.DrawLinesToNodesY2 = -FLT_MAX
+    window.DC.TreeHasStackDataDepthMask = window.DC.TreeHasStackDataDepthMask or bit.lshift(1, window.DC.TreeDepth)
+    if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesToNodes) ~= 0 then
+        window.DC.TreeRecordsClippedNodesY2Mask = window.DC.TreeRecordsClippedNodesY2Mask or bit.lshift(1, window.DC.TreeDepth)
+    end
+end
+
 --- @param id         ImGuiID
 --- @param flags      ImGuiTreeNodeFlags
 --- @param label      string
@@ -5336,6 +5410,23 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
     end
 
     local storage_id = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasStorageID) ~= 0) and g.NextItemData.StorageId or id
+    local is_open = ImGui.TreeNodeUpdateNextOpen(storage_id, flags)
+
+    local is_visible
+    if span_all_columns or span_all_columns_label then
+        local backup_clip_rect_min_x = window.ClipRect.Min.x
+        local backup_clip_rect_max_x = window.ClipRect.Max.x
+        window.ClipRect.Min.x = window.ParentWorkRect.Min.x
+        window.ClipRect.Max.x = window.ParentWorkRect.Max.x
+        is_visible = ImGui.ItemAdd(interact_bb, id)
+        window.ClipRect.Min.x = backup_clip_rect_min_x
+        window.ClipRect.Max.x = backup_clip_rect_max_x
+    else
+        is_visible = ImGui.ItemAdd(interact_bb, id)
+    end
+    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasDisplayRect)
+    ImRect_Copy(g.LastItemData.DisplayRect, frame_bb)
+
     -- TODO:
 end
 

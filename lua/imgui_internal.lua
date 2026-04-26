@@ -4,6 +4,8 @@
 
 --- @meta
 
+--- @alias ImGuiTableColumnIdx ImS16
+
 -- TODO: Implement actual ImString type
 --- @alias ImString char[]|string
 --- @alias ImStringBuffer char[]
@@ -960,6 +962,29 @@ function ImGuiLastItemData_Copy(dest, src)
     dest.Shortcut = src.Shortcut
 end
 
+--- @class ImGuiTreeNodeStackData
+--- @field ID                   ImGuiID
+--- @field TreeFlags            ImGuiTreeNodeFlags
+--- @field ItemFlags            ImGuiItemFlags
+--- @field NavRect              ImRect
+--- @field DrawLinesX1          float
+--- @field DrawLinesToNodesY2   float
+--- @field DrawLinesTableColumn ImGuiTableColumnIdx
+
+--- @return ImGuiTreeNodeStackData
+--- @nodiscard
+local function ImGuiTreeNodeStackData()
+    return {
+        ID                   = nil,
+        TreeFlags            = nil,
+        ItemFlags            = nil,
+        NavRect              = ImRect(),
+        DrawLinesX1          = nil,
+        DrawLinesToNodesY2   = nil,
+        DrawLinesTableColumn = nil
+    }
+end
+
 --- @class ImGuiNextItemData
 --- @field HasFlags          ImGuiNextItemDataFlags
 --- @field ItemFlags         ImGuiItemFlags
@@ -1426,6 +1451,9 @@ end
 --- @field FontBakedScale                     float
 --- @field FontRasterizerDensity              float
 --- @field DrawListSharedData                 ImDrawListSharedData
+--- @field NextItemData                       ImGuiNextItemData
+--- @field LastItemData                       ImGuiLastItemData
+--- @field NextWindowData                     ImGuiNextWindowData
 --- @field WithinEndChildID                   ImGuiID
 --- @field WithinEndPopupID                   ImGuiID
 --- @field StyleVarStack                      ImVector
@@ -1439,6 +1467,7 @@ end
 --- @field GroupStack                         ImVector<ImGuiGroupData>
 --- @field OpenPopupStack                     ImVector<ImGuiPopupData>
 --- @field BeginPopupStack                    ImVector<ImGuiPopupData>
+--- @field TreeNodeStack                      ImVector<ImGuiTreeNodeStackData>
 --- @field PlatformIO                         ImGuiPlatformIO
 --- @field Viewports                          ImVector<ImGuiViewportP>
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
@@ -1623,6 +1652,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         OpenPopupStack = ImVector(),
         BeginPopupStack = ImVector(),
 
+        TreeNodeStack = ImVector(ImGuiTreeNodeStackData),
+
         WithinEndChildID = 0, WithinEndPopupID = 0,
 
         BeginMenuDepth = 0, BeginComboDepth = 0,
@@ -1784,27 +1815,31 @@ local function ImGuiMenuColumns()
 end
 
 --- @class ImGuiWindowTempData
---- @field CursorPos               ImVec2
---- @field CursorPosPrevLine       ImVec2
---- @field CursorStartPos          ImVec2
---- @field CursorMaxPos            ImVec2
---- @field IdealMaxPos             ImVec2
---- @field CurrLineSize            ImVec2
---- @field PrevLineSize            ImVec2
---- @field CurrLineTextBaseOffset  float
---- @field PrevLineTextBaseOffset  float
---- @field IsSameLine              bool
---- @field IsSetPos                bool
---- @field Indent                  ImVec1
---- @field ColumnsOffset           ImVec1
---- @field GroupOffset             ImVec1
---- @field CursorStartPosLossyness ImVec2
---- @field TextWrapPos             float
---- @field TextWrapPosStack        ImVector
---- @field MenuBarAppending        bool
---- @field MenuBarOffset           ImVec2
---- @field ChildWindows            ImVector<ImGuiWindow>
---- @field LayoutType              ImGuiLayoutType
+--- @field CursorPos                     ImVec2
+--- @field CursorPosPrevLine             ImVec2
+--- @field CursorStartPos                ImVec2
+--- @field CursorMaxPos                  ImVec2
+--- @field IdealMaxPos                   ImVec2
+--- @field CurrLineSize                  ImVec2
+--- @field PrevLineSize                  ImVec2
+--- @field CurrLineTextBaseOffset        float
+--- @field PrevLineTextBaseOffset        float
+--- @field IsSameLine                    bool
+--- @field IsSetPos                      bool
+--- @field Indent                        ImVec1
+--- @field ColumnsOffset                 ImVec1
+--- @field GroupOffset                   ImVec1
+--- @field CursorStartPosLossyness       ImVec2
+--- @field TextWrapPos                   float
+--- @field TextWrapPosStack              ImVector
+--- @field MenuBarAppending              bool
+--- @field MenuBarOffset                 ImVec2
+--- @field MenuColumns                   ImGuiMenuColumns
+--- @field TreeDepth                     int
+--- @field TreeHasStackDataDepthMask     ImU32
+--- @field TreeRecordsClippedNodesY2Mask ImU32
+--- @field ChildWindows                  ImVector<ImGuiWindow>
+--- @field LayoutType                    ImGuiLayoutType
 
 --- @return ImGuiWindowTempData
 --- @nodiscard
@@ -1838,8 +1873,12 @@ local function ImGuiWindowTempData()
         MenuBarAppending = false, -- FIXME: Remove this
         MenuBarOffset = ImVec2(),
         MenuColumns = ImGuiMenuColumns(),
+        TreeDepth = 0,
+        TreeHasStackDataDepthMask = nil,
+        TreeRecordsClippedNodesY2Mask = nil,
 
         ChildWindows = ImVector(),
+        StateStorage = nil,
 
         LayoutType = nil
     }
@@ -1880,6 +1919,7 @@ end
 --- @field RootWindow                         ImGuiWindow
 --- @field RootWindowPopupTree                ImGuiWindow
 --- @field RootWindowDockTree                 ImGuiWindow
+--- @field StateStorage                       {[ImGuiID]: bool}
 MT.ImGuiWindow = {}
 MT.ImGuiWindow.__index = MT.ImGuiWindow
 
@@ -2025,6 +2065,8 @@ function ImGuiWindow(ctx, name)
         LastFrameActive = -1,
         LastFrameJustFocused = -1,
         LastTimeActive = -1.0,
+
+        StateStorage = {},
 
         WriteAccessed = false,
 

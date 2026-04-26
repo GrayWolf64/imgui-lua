@@ -5329,7 +5329,8 @@ function ImGui.Begin(name, open, flags)
         window.DC.TreeHasStackDataDepthMask = 0x00
         window.DC.TreeRecordsClippedNodesY2Mask = 0x00
         window.DC.ChildWindows:resize(0)
-        -- TODO: StateStorage, CurrentColumns
+        window.DC.StateStorage = window.StateStorage
+        -- TODO: CurrentColumns
         window.DC.LayoutType = ImGuiLayoutType.Vertical
         window.DC.ParentLayoutType = (parent_window ~= nil) and parent_window.DC.LayoutType or ImGuiLayoutType.Vertical
 
