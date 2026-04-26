@@ -5295,6 +5295,47 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
     local g = GImGui
     local style = g.Style
 
+    local display_frame = bit.band(flags, ImGuiTreeNodeFlags.Framed) ~= 0
+    local use_frame_padding = display_frame or (bit.band(flags, ImGuiTreeNodeFlags.FramePadding) ~= 0)
+    local padding
+    if use_frame_padding then
+        padding = style.FramePadding
+    else
+        padding = ImVec2(style.FramePadding.x, ImMin(window.DC.CurrLineTextBaseOffset, style.FramePadding.y))
+    end
+
+    if label_end == nil then
+        label_end = ImGui.FindRenderedTextEnd(label)
+    end
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
+
+    local text_offset_x = g.FontSize + (display_frame and (padding.x * 3) or (padding.x * 2))
+    local text_offset_y = use_frame_padding and ImMax(style.FramePadding.y, window.DC.CurrLineTextBaseOffset) or window.DC.CurrLineTextBaseOffset
+    local text_width = g.FontSize + label_size.x + padding.x * 2
+
+    local frame_height = label_size.y + padding.y * 2
+    local span_all_columns = bit.band(flags, ImGuiTreeNodeFlags.SpanAllColumns) ~= 0 and (g.CurrentTable ~= nil)
+    local span_all_columns_label = bit.band(flags, ImGuiTreeNodeFlags.LabelSpanAllColumns) ~= 0 and (g.CurrentTable ~= nil)
+    local frame_bb = ImRect()
+    frame_bb.Min.x = span_all_columns and window.ParentWorkRect.Min.x or (bit.band(flags, ImGuiTreeNodeFlags.SpanFullWidth) ~= 0 and window.WorkRect.Min.x or window.DC.CursorPos.x)
+    frame_bb.Min.y = window.DC.CursorPos.y + (text_offset_y - padding.y)
+    frame_bb.Max.x = span_all_columns and window.ParentWorkRect.Max.x or (bit.band(flags, ImGuiTreeNodeFlags.SpanLabelWidth) ~= 0 and window.DC.CursorPos.x + text_width + padding.x or window.WorkRect.Max.x)
+    frame_bb.Max.y = window.DC.CursorPos.y + (text_offset_y - padding.y) + frame_height
+    if display_frame then
+        local outer_extend = IM_TRUNC(window.WindowPadding.x * 0.5)
+        frame_bb.Min.x = frame_bb.Min.x - outer_extend
+        frame_bb.Max.x = frame_bb.Max.x + outer_extend
+    end
+
+    local text_pos = ImVec2(window.DC.CursorPos.x + text_offset_x, window.DC.CursorPos.y + text_offset_y)
+    ImGui.ItemSize(ImVec2(text_width, frame_height), padding.y)
+
+    local interact_bb = frame_bb
+    if bit.band(flags, bit.bor(ImGuiTreeNodeFlags.Framed, ImGuiTreeNodeFlags.SpanAvailWidth, ImGuiTreeNodeFlags.SpanFullWidth, ImGuiTreeNodeFlags.SpanLabelWidth, ImGuiTreeNodeFlags.SpanAllColumns)) == 0 then
+        interact_bb.Max.x = frame_bb.Min.x + text_width + (label_size.x > 0.0 and (style.ItemSpacing.x * 2.0) or 0.0)
+    end
+
+    local storage_id = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasStorageID) ~= 0) and g.NextItemData.StorageId or id
     -- TODO:
 end
 
