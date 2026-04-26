@@ -1780,7 +1780,7 @@ end
 function MT.ImGuiWindow:GetIDFromPos(p_abs)
     local seed = self.IDStack:back()
     local p_rel = ImGui.WindowPosAbsToRel(self, p_abs)
-    return ImHashData({p_rel.x, p_rel.y}, 2, seed)
+    return ImHashData(p_rel, 2, seed)
 end
 
 --- @param id ImGuiID
