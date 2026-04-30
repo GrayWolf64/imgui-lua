@@ -3941,7 +3941,7 @@ local function RenderWindowOuterBorders(window)
 
     if g.Style.FrameBorderSize > 0 and (bit.band(window.Flags, ImGuiWindowFlags.NoTitleBar) == 0) then
         local y = window.Pos.y + window.TitleBarHeight - 1
-        window.DrawList:AddLine(ImVec2(window.Pos.x + border_size * 0.5, y), ImVec2(window.Pos.x + window.Size.x - border_size * 0.5, y), border_col, g.Style.FrameBorderSize)
+        window.DrawList:AddLineH(window.Pos.x + border_size * 0.5, window.Pos.x + window.Size.x - border_size * 0.5, y, border_col, g.Style.FrameBorderSize)
     end
 end
 
@@ -4015,7 +4015,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
             menu_bar_rect:ClipWith(window:Rect())
             window.DrawList:AddRectFilled(menu_bar_rect.Min, menu_bar_rect.Max, ImGui.GetColorU32(ImGuiCol.MenuBarBg), (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and window_rounding or 0.0, ImDrawFlags.RoundCornersTop)
             if style.FrameBorderSize > 0.0 and menu_bar_rect.Max.y < window.Pos.y + window.Size.y then
-                window.DrawList:AddLine(menu_bar_rect:GetBL() + ImVec2(window_border_size * 0.5, 0.0), menu_bar_rect:GetBR() - ImVec2(window_border_size * 0.5, 0.0), ImGui.GetColorU32(ImGuiCol.Border), style.FrameBorderSize)
+                window.DrawList:AddLineH(menu_bar_rect.Min.x + window_border_size * 0.5, menu_bar_rect.Max.x - window_border_size * 0.5, menu_bar_rect.Max.y, ImGui.GetColorU32(ImGuiCol.Border), style.FrameBorderSize)
             end
         end
 
