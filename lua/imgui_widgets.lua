@@ -1431,7 +1431,7 @@ function ImGui.TextLink(label)
     end
 
     local line_y = bb.Max.y + ImFloor(g.FontBaked.Descent * g.FontBakedScale * 0.20)
-    window.DrawList:AddLine(ImVec2(bb.Min.x, line_y), ImVec2(bb.Max.x, line_y), ImGui.GetColorU32(line_colf)) -- FIXME-TEXT: Underline mode -- FIXME-DPI
+    window.DrawList:AddLineH(bb.Min.x, bb.Max.x, line_y, ImGui.GetColorU32(line_colf), 1.0 * ImTrunc(g.Style._MainScale)) -- FIXME-DPI
 
     ImGui.PushStyleColor(ImGuiCol.Text, ImGui.GetColorU32(text_colf))
     ImGui.RenderText(bb.Min, label, 1, label_end, false)
@@ -1650,11 +1650,11 @@ function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
         local sep2_x1 = label_pos.x + label_size.x + extra_w + style.ItemSpacing.x
 
         if sep1_x2 > sep1_x1 and separator_thickness > 0.0 then
-            window.DrawList:AddLine(ImVec2(sep1_x1, seps_y), ImVec2(sep1_x2, seps_y), separator_col, separator_thickness)
+            window.DrawList:AddLineH(sep1_x1, sep1_x2, seps_y, separator_col, separator_thickness)
         end
 
         if sep2_x2 > sep2_x1 and separator_thickness > 0.0 then
-            window.DrawList:AddLine(ImVec2(sep2_x1, seps_y), ImVec2(sep2_x2, seps_y), separator_col, separator_thickness)
+            window.DrawList:AddLineH(sep2_x1, sep2_x2, seps_y, separator_col, separator_thickness)
         end
 
         if g.LogEnabled then
@@ -1668,7 +1668,7 @@ function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
         end
 
         if separator_thickness > 0.0 then
-            window.DrawList:AddLine(ImVec2(sep1_x1, seps_y), ImVec2(sep2_x2, seps_y), separator_col, separator_thickness)
+            window.DrawList:AddLineH(sep1_x1, sep2_x2, seps_y, separator_col, separator_thickness)
         end
     end
 end
@@ -4253,7 +4253,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         local cursor_screen_rect = ImRect(cursor_screen_pos.x, cursor_screen_pos.y - g.FontSize + 0.5, cursor_screen_pos.x + 1.0, cursor_screen_pos.y - 1.5)
 
         if cursor_is_visible and cursor_screen_rect:Overlaps(clip_rect) then
-            draw_window.DrawList:AddLine(cursor_screen_rect.Min, cursor_screen_rect:GetBL(), ImGui.GetColorU32(ImGuiCol.InputTextCursor), 1.0 * style._MainScale)
+            draw_window.DrawList:AddLineV(cursor_screen_rect.Min.x, cursor_screen_rect.Min.y, cursor_screen_rect.Max.y, ImGui.GetColorU32(ImGuiCol.InputTextCursor), 1.0 * ImTrunc(style._MainScale))
         end
 
         if not is_readonly and g.ActiveId == id then

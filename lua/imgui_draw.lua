@@ -3740,6 +3740,38 @@ function MT.ImDrawList:AddLine(p1, p2, col, thickness)
     self:PathStroke(col, 0, thickness)
 end
 
+--- @param min_x      float
+--- @param max_x      float
+--- @param y          float
+--- @param col        ImU32
+--- @param thickness? float
+function MT.ImDrawList:AddLineH(min_x, max_x, y, col, thickness)
+    if thickness == nil then thickness = 1.0 end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+    self:PathLineTo(ImVec2(min_x + 0.5, y + 0.5))
+    self:PathLineTo(ImVec2(max_x + 0.5, y + 0.5))
+    self:PathStroke(col, 0, thickness)
+end
+
+--- @param x          float
+--- @param min_y      float
+--- @param max_y      float
+--- @param col        ImU32
+--- @param thickness? float
+function MT.ImDrawList:AddLineV(x, min_y, max_y, col, thickness)
+    if thickness == nil then thickness = 1.0 end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+    self:PathLineTo(ImVec2(x + 0.5, min_y + 0.5))
+    self:PathLineTo(ImVec2(x + 0.5, max_y + 0.5))
+    self:PathStroke(col, 0, thickness)
+end
+
 function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness)
     if bit.band(col, IM_COL32_A_MASK) == 0 then
         return
