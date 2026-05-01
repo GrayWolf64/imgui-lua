@@ -1532,12 +1532,13 @@ ImGuiStyleVar = {
     TableAngledHeadersTextAlign = 32,
     TreeLinesSize               = 33,
     TreeLinesRounding           = 34,
-    ButtonTextAlign             = 35,
-    SelectableTextAlign         = 36,
-    SeparatorTextBorderSize     = 37,
-    SeparatorTextAlign          = 38,
-    SeparatorTextPadding        = 39,
-    COUNT                       = 40
+    DragDropTargetRounding      = 35,
+    ButtonTextAlign             = 36,
+    SelectableTextAlign         = 37,
+    SeparatorTextBorderSize     = 38,
+    SeparatorTextAlign          = 39,
+    SeparatorTextPadding        = 40,
+    COUNT                       = 41
 }
 
 --- @enum ImGuiHoveredFlags

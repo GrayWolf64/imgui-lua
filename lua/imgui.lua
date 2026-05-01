@@ -6970,6 +6970,7 @@ local GStyleVarsInfo = {
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "TableAngledHeadersTextAlign"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesSize"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "DragDropTargetRounding"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ButtonTextAlign"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SelectableTextAlign"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "SeparatorSize"),
