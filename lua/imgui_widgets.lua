@@ -3356,8 +3356,8 @@ end
 
 -- Edit a string of text
 --- @param label              string
---- @param hint?              ImStringBuffer
---- @param buf                ImStringBuffer
+--- @param hint?              char[]
+--- @param buf                char[]
 --- @param buf_size           int
 --- @param size_arg           ImVec2
 --- @param flags              ImGuiInputTextFlags
@@ -4132,7 +4132,12 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local line_count = 1
     if is_multiline then
         local will_scroll_y = state and ((state.CursorFollow and render_cursor) or (state.CursorCenterY and (render_cursor or render_selection)))
-        line_count = ImGui.InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1), buf_display_end and nil or buf_display_end)
+        --- @cast buf_display_end int
+        local out_buf_end
+        line_count, out_buf_end = InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1))
+        if buf_display_end then
+            buf_display_end = out_buf_end
+        end
     end
     line_index.EndOffset = buf_display_end - 1
     line_visible_n1 = ImMin(line_visible_n1, line_count + 1)
@@ -4304,6 +4309,20 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     else
         return value_changed
     end
+end
+
+--- @param label      string
+--- @param hint       char[]
+--- @param buf        char[]
+--- @param buf_size   size_t
+--- @param flags?     ImGuiInputTextFlags
+--- @param callback?  ImGuiInputTextCallback
+--- @param user_data? any
+function ImGui.InputTextWithHint(label, hint, buf, buf_size, flags, callback, user_data)
+    if flags == nil then flags = 0 end
+
+    IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.Multiline) == 0)
+    return ImGui.InputTextEx(label, hint, buf, buf_size, ImVec2(0, 0), flags, callback, user_data)
 end
 
 ----------------------------------------------------------------
