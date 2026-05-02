@@ -2136,6 +2136,43 @@ local function ImParseFormatPrecision(fmt, default_precision)
     return (precision == INT_MAX) and default_precision or precision
 end
 
+--- @param bb        ImRect
+--- @param id        ImGuiID
+--- @param label     string
+--- @param buf       char[]
+--- @param buf_size  int
+--- @param flags?    ImGuiInputTextFlags
+--- @param callback? ImGuiInputTextCallback
+--- @param user_data any
+function ImGui.TempInputText(bb, id, label, buf, buf_size, flags, callback, user_data)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    local init = (g.TempInputId ~= id)
+    if init then
+        ImGui.ClearActiveID()
+    end
+
+    local backup_pos = ImVec2()
+    ImVec2_Copy(backup_pos, window.DC.CursorPos)
+    ImVec2_Copy(window.DC.CursorPos, bb.Min)
+    g.LastItemData.ItemFlags = bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.AllowDuplicateId)
+    local value_changed = ImGui.InputTextEx(label, nil, buf, buf_size, bb:GetSize(), bit.bor(flags, ImGuiInputTextFlags.TempInput, ImGuiInputTextFlags.AutoSelectAll), callback, user_data)
+    ImGui.KeepAliveID(id)
+    if init then
+        IM_ASSERT(g.ActiveId == id)
+        g.TempInputId = g.ActiveId
+    end
+    if g.ActiveId ~= id then
+        g.TempInputId = 0
+    end
+    ImVec2_Copy(window.DC.CursorPos, backup_pos)
+
+    return value_changed
+end
+
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
 --- @param data_type ImGuiDataType
 --- @param v         number
