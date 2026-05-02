@@ -2081,6 +2081,24 @@ local function ImParseFormatFindEnd(fmt, pos)
     return len + 1
 end
 
+--- @param fmt      string
+--- @param buf      char[]
+--- @param buf_size int
+local function ImParseFormatTrimDecorations(fmt, buf, buf_size)
+    local fmt_start = ImParseFormatFindStart(fmt)
+    if string.byte(fmt, fmt_start) ~= 37 then -- '%'
+        return nil
+    end
+    --- @cast fmt_start int
+    local fmt_end = ImParseFormatFindEnd(fmt, fmt_start)
+    if string.byte(fmt, fmt_end) ~= 37 then
+        return fmt_start
+    end
+    local n = ImMin((size_t)(fmt_end - fmt_start) + 1, buf_size)
+    ImStd.ImStrncpy(buf, 1, { string.byte(fmt, fmt_start, fmt_start + n - 1) }, 1, n)
+    return 1
+end
+
 --- @param str string
 --- @param pos int
 local function ImAtoi(str, pos)
