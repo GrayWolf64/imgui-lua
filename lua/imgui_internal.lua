@@ -67,6 +67,30 @@ ImAcos  = math.acos
 ImAtan2 = math.atan2
 ImSqrt  = math.sqrt
 
+--- @generic T: number
+--- @param a  T
+--- @param b  T
+--- @param mn T
+--- @param mx T
+--- @return T
+function ImAddClampOverflow(a, b, mn, mx)
+    if b < 0 and (a < mn - b) then return mn end
+    if b > 0 and (a > mx - b) then return mx end
+    return a + b
+end
+
+--- @generic T: number
+--- @param a  T
+--- @param b  T
+--- @param mn T
+--- @param mx T
+--- @return T
+function ImSubClampOverflow(a, b, mn, mx)
+    if b > 0 and (a < mn + b) then return mn end
+    if b < 0 and (a > mx + b) then return mx end
+    return a - b
+end
+
 --- @param base     table
 --- @param count    int
 --- @param cmp_func fun(lhs, rhs): bool

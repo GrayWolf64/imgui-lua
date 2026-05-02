@@ -2004,7 +2004,7 @@ end
 --- @param format    string
 function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     local str
-    if data_type == ImGuiDataType.S32 or data_type == ImGuiDataType.U32 then
+    if     data_type == ImGuiDataType.S32 or data_type == ImGuiDataType.U32 then
         str = ImFormatString(format, data)
         ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
     elseif data_type == ImGuiDataType.S64 then
@@ -2023,7 +2023,7 @@ function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
         str = ImFormatString(format, data)
         ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
     elseif data_type == ImGuiDataType.S16 then
-        str = ImFormatString(format, data)
+        str = ImFormatString(format, (ImS16)(data))
         ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
     elseif data_type == ImGuiDataType.U16 then
         str = ImFormatString(format, (ImU16)(data))
@@ -2031,6 +2031,72 @@ function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     else
         IM_ASSERT(false)
     end
+end
+
+--- @param data_type ImGuiDataType
+--- @param op        int
+--- @param arg1      number
+--- @param arg2      number
+function ImGui.DataTypeApplyOp(data_type, op, arg1, arg2)
+    IM_ASSERT(op == 43 or op == 45) -- '+' or '-'
+
+    if data_type == ImGuiDataType.S8 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_S8_MIN, IM_S8_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_S8_MIN, IM_S8_MAX)
+        end
+    elseif data_type == ImGuiDataType.U8 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_U8_MIN, IM_U8_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_U8_MIN, IM_U8_MAX)
+        end
+    elseif data_type == ImGuiDataType.S16 then
+        if op == 43 then
+            return ImAddClampOverflow((ImS16)(arg1), (ImS16)(arg2), IM_S16_MIN, IM_S16_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow((ImS16)(arg1), (ImS16)(arg2), IM_S16_MIN, IM_S16_MAX)
+        end
+    elseif data_type == ImGuiDataType.U16 then
+        if op == 43 then
+            return ImAddClampOverflow((ImU16)(arg1), (ImU16)(arg2), IM_U16_MIN, IM_U16_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow((ImU16)(arg1), (ImU16)(arg2), IM_U16_MIN, IM_U16_MAX)
+        end
+    elseif data_type == ImGuiDataType.S32 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_S32_MIN, IM_S32_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_S32_MIN, IM_S32_MAX)
+        end
+    elseif data_type == ImGuiDataType.U32 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_U32_MIN, IM_U32_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_U32_MIN, IM_U32_MAX)
+        end
+    elseif data_type == ImGuiDataType.S64 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_S64_MIN, IM_S64_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_S64_MIN, IM_S64_MAX)
+        end
+    elseif data_type == ImGuiDataType.Float then
+        if op == 43 then
+            return arg1 + arg2
+        elseif op == 45 then
+            return arg1 - arg2
+        end
+    elseif data_type == ImGuiDataType.Double then
+        if op == 43 then
+            return arg1 + arg2
+        elseif op == 45 then
+            return arg1 - arg2
+        end
+    end
+
+    IM_ASSERT(false)
 end
 
 local GetMinimumStepAtDecimalPrecision do
