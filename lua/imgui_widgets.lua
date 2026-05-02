@@ -1997,6 +1997,42 @@ function ImGui.DataTypeGetInfo(data_type)
     return GDataTypeInfo[data_type]
 end
 
+--- @param buf       char[]
+--- @param buf_size  int
+--- @param data_type ImGuiDataType
+--- @param data      number
+--- @param format    string
+function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
+    local str
+    if data_type == ImGuiDataType.S32 or data_type == ImGuiDataType.U32 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+    elseif data_type == ImGuiDataType.S64 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+    elseif data_type == ImGuiDataType.Float then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+    elseif data_type == ImGuiDataType.Double then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+    elseif data_type == ImGuiDataType.S8 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+    elseif data_type == ImGuiDataType.U8 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+    elseif data_type == ImGuiDataType.S16 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+    elseif data_type == ImGuiDataType.U16 then
+        str = ImFormatString(format, (ImU16)(data))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+    else
+        IM_ASSERT(false)
+    end
+end
+
 local GetMinimumStepAtDecimalPrecision do
 
 local min_steps = { 1.0, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001, 0.000000001 }
