@@ -570,6 +570,22 @@ function ImStd.ImStrbol(str, mid_line, begin)
     return mid_line
 end
 
+--- @param buf char[]
+function ImStd.ImStrTrimBlanks(buf)
+    local p = 1
+    while buf[p] == 32 or buf[p] == 9 do
+        p = p + 1
+    end
+    local p_start = p
+    while buf[p] ~= 0 do
+        p = p + 1
+    end
+    while p > p_start and (buf[p - 1] == 32 or buf[p - 1] == 9) do
+        ImStd.memmove(buf, 1, buf, p_start, p - p_start)
+    end
+    buf[p - p_start] = 0
+end
+
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     local g = GImGui
     local window = g.CurrentWindow
