@@ -110,7 +110,7 @@ local TOOLTIP_DEFAULT_PIVOT_TOUCH  = ImVec2(0.5, 1.0) -- Multiplied by g.Style.M
 local IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 
 local string = string
-ImFormatString = string.format
+ImFormatString = string.format -- TODO: an simplified version that operates on byte tables directly?
 
 local math = math
 local bit  = bit
