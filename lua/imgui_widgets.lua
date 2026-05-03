@@ -4663,9 +4663,53 @@ function ImGui.ColorEdit4(label, col, flags)
         end
     elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
         -- RGB Hexadecimal Input
-        -- TODO:
-
+        -- TODO: resolve sprintf, sscanf requirement. currently this section creates a lot of temp tables and strings...
+        local buf, buf_size = nil, 64
+        if alpha then
+            local str = ImFormatString("#%02X%02X%02X%02X", ImClamp(i[1], 0, 255), ImClamp(i[2], 0, 255), ImClamp(i[3], 0, 255), ImClamp(i[4], 0, 255))
+            buf = { string.byte(str, 1, #str) }
+            buf[#buf + 1] = 0
+        else
+            local str = ImFormatString("#%02X%02X%02X", ImClamp(i[1], 0, 255), ImClamp(i[2], 0, 255), ImClamp(i[3], 0, 255))
+            buf = { string.byte(str, 1, #str) }
+            buf[#buf + 1] = 0
+        end
         ImGui.SetNextItemWidth(w_inputs)
+
+        if ImGui.InputText("##Text", buf, buf_size, ImGuiInputTextFlags.CharsUppercase) then
+            value_changed = true
+            local p = 1
+            while buf[p] == 35 or ImCharIsBlankA(buf[p]) do
+                p = p + 1
+            end
+            i[1], i[2], i[3] = 0, 0, 0
+            i[4] = 0xFF
+
+            local hex_str = {}
+            local idx = p
+            while buf[idx] ~= 0 and idx <= #buf do
+                hex_str[#hex_str + 1] = string.char(buf[idx])
+                idx = idx + 1
+            end
+            local s = table.concat(hex_str)
+
+            if alpha then
+                local r_hex, g_hex, b_hex, a_hex = s:match("^(%x%x)(%x%x)(%x%x)(%x%x)")
+                if r_hex then
+                    i[1] = tonumber(r_hex, 16)
+                    i[2] = tonumber(g_hex, 16)
+                    i[3] = tonumber(b_hex, 16)
+                    i[4] = tonumber(a_hex, 16)
+                end
+            else
+                local r_hex, g_hex, b_hex = s:match("^(%x%x)(%x%x)(%x%x)")
+                if r_hex then
+                    i[1] = tonumber(r_hex, 16)
+                    i[2] = tonumber(g_hex, 16)
+                    i[3] = tonumber(b_hex, 16)
+                end
+            end
+        end
 
         if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
             ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags.MouseButtonRight)
@@ -4747,6 +4791,7 @@ function ImGui.ColorEdit4(label, col, flags)
     ImGui.EndGroup()
 
     -- Drag and Drop Target
+    -- TODO:
 
     -- When picker is being actively used, use its active id so IsItemActive() will function on ColorEdit4()
     if picker_active_window and g.ActiveId ~= 0 and g.ActiveIdWindow == picker_active_window then
