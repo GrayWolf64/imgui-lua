@@ -4685,30 +4685,13 @@ function ImGui.ColorEdit4(label, col, flags)
             i[1], i[2], i[3] = 0, 0, 0
             i[4] = 0xFF
 
-            local hex_str = {}
-            local idx = p
-            while buf[idx] ~= 0 and idx <= #buf do
-                hex_str[#hex_str + 1] = string.char(buf[idx])
-                idx = idx + 1
-            end
-            local s = table.concat(hex_str)
-
+            local r
             if alpha then
-                local r_hex, g_hex, b_hex, a_hex = s:match("^(%x%x)(%x%x)(%x%x)(%x%x)")
-                if r_hex then
-                    i[1] = tonumber(r_hex, 16)
-                    i[2] = tonumber(g_hex, 16)
-                    i[3] = tonumber(b_hex, 16)
-                    i[4] = tonumber(a_hex, 16)
-                end
+                r = ImStd.sscanf(buf, p, "%02X%02X%02X%02X", i)
             else
-                local r_hex, g_hex, b_hex = s:match("^(%x%x)(%x%x)(%x%x)")
-                if r_hex then
-                    i[1] = tonumber(r_hex, 16)
-                    i[2] = tonumber(g_hex, 16)
-                    i[3] = tonumber(b_hex, 16)
-                end
+                r = ImStd.sscanf(buf, p, "%02X%02X%02X", i)
             end
+            -- IM_UNUSED(r)
         end
 
         if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
