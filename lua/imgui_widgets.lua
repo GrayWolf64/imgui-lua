@@ -2099,6 +2099,15 @@ function ImGui.DataTypeApplyOp(data_type, op, arg1, arg2)
     IM_ASSERT(false)
 end
 
+--- @param buf              char[]
+--- @param data_type        ImGuiDataType
+--- @param data             number
+--- @param data_when_empty? number
+function ImGui.DataTypeApplyFromText(buf, data_type, data, data_when_empty)
+    local type_info = ImGui.DataTypeGetInfo(data_type)
+    -- TODO:
+end
+
 local GetMinimumStepAtDecimalPrecision do
 
 local min_steps = { 1.0, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001, 0.000000001 }
@@ -2199,6 +2208,35 @@ local function ImParseFormatTrimDecorations(fmt, buf, buf_size)
     local n = ImMin((size_t)(fmt_end - fmt_start) + 1, buf_size)
     ImStd.ImStrncpy(buf, 1, { string.byte(fmt, fmt_start, fmt_start + n - 1) }, 1, n)
     return 1
+end
+
+--- @param fmt_in       string
+--- @param fmt_out      char[]
+--- @param fmt_out_size size_t
+local function ImParseFormatSanitizeForScanning(fmt_in, fmt_out, fmt_out_size)
+    local fmt_end = ImParseFormatFindEnd(fmt_in, 1)
+    -- IM_UNUSED(fmt_out_size)
+    IM_ASSERT(fmt_end < fmt_out_size)
+    local has_type = false
+    local fmt_in_begin = 1
+    local fmt_out_begin = 1
+    while fmt_in_begin < fmt_end do
+        local c = string.byte(fmt_in, fmt_in_begin, fmt_in_begin)
+        fmt_in_begin = fmt_in_begin + 1
+
+        if (not has_type and ((c >= 48 and c <= 57) or c == 46 or c == 43 or c == 35)) then
+            goto CONTINUE
+        end
+        has_type = has_type or ((c >= 97 and c <= 122) or (c >= 65 and c <= 90))
+        if c ~= 39 and c ~= 36 and c ~= 95 then
+            fmt_out[fmt_out_begin] = c
+            fmt_out_begin = fmt_out_begin + 1
+        end
+
+        :: CONTINUE ::
+    end
+    fmt_out[fmt_out_begin] = 0
+    return fmt_out
 end
 
 --- @param str string

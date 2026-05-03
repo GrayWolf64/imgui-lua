@@ -1,7 +1,9 @@
 --- ImGui Sincerely
 -- This is a minimal Lua impl of C-like sscanf sub-set
 
--- Supports: %nX
+-- Supports:
+-- - %x, %X, %nx, %nX (where n is a number)
+--
 -- Returns items_matched instead of EOF on error
 
 local _byte = string.byte
