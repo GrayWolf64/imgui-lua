@@ -3,6 +3,7 @@
 
 -- Supports:
 -- - %x, %X, %nx, %nX (where n is a number)
+-- - %d, %nd (where n is a number)
 --
 -- Returns items_matched instead of EOF on error
 
@@ -13,6 +14,7 @@ local CHAR_0 = _byte'0'
 local CHAR_9 = _byte'9'
 local CHAR_a = _byte'a'
 local CHAR_A = _byte'A'
+local CHAR_d = _byte'd'
 local CHAR_f = _byte'f'
 local CHAR_F = _byte'F'
 local CHAR_x = _byte'x'
@@ -21,6 +23,12 @@ local CHAR_X = _byte'X'
 local function isspace(c) return c == 32 or c == 9 end
 local function isdigit(c) return c >= CHAR_0 and c <= CHAR_9 end
 local function isxdigit(c) return isdigit(c) or (c >= CHAR_a and c <= CHAR_f) or (c >= CHAR_A and c <= CHAR_F) end
+
+local function isdigit_under_base(c, base)
+    if     base == 10 then return isdigit(c)
+    elseif base == 16 then return isxdigit(c)
+    end
+end
 
 local function hex_digit_to_int(c)
     if c >= CHAR_0 and c <= CHAR_9 then return c - CHAR_0 end
@@ -83,16 +91,24 @@ local function sscanf(buffer, buffer_begin, format, result)
             width = math.huge
         end
 
-        -- handle x and X
-        if _byte(format, f, f) == CHAR_x or _byte(format, f, f) == CHAR_X then
-            f = f + 1
+        local spec = _byte(format, f, f)
+        local base
+        if     spec == CHAR_x or spec == CHAR_X then
+            base = 16
+        elseif spec == CHAR_d then
+            base = 10
+        else
+            return items_matched
+        end
+        f = f + 1
 
+        do
             while isspace(buffer[p]) do
                 p = p + 1
             end
 
             local p_start = p
-            while width > 0 and buffer[p] and isxdigit(buffer[p]) do
+            while width > 0 and buffer[p] and isdigit_under_base(buffer[p], base) do
                 p = p + 1
                 width = width - 1
             end
@@ -106,14 +122,12 @@ local function sscanf(buffer, buffer_begin, format, result)
             while p_start < p do
                 local c = buffer[p_start]
                 p_start = p_start + 1
-                val = val * 16 + hex_digit_to_int(c)
+                val = val * base + hex_digit_to_int(c)
             end
 
             result[assigned + 1] = val
             assigned = assigned + 1
             items_matched = items_matched + 1
-        else
-            return items_matched
         end
 
         :: outer_continue ::

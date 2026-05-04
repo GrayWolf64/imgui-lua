@@ -1716,6 +1716,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         InputTextDeactivatedState = ImGuiInputTextDeactivatedState(),
         InputTextPasswordFontBackupBaked = ImFontBaked(),
 
+        ActiveIdValueOnActivation = 0,
         DataTypeZeroValue = 0,
 
         ComboPreviewData = ImGuiComboPreviewData(),

@@ -2119,9 +2119,9 @@ function ImGui.DataTypeApplyFromText(buf, data_type, data, format, data_when_emp
     if buf[p] == 0 then
         if data_when_empty ~= nil then
             data = data_when_empty
-            return data_backup ~= data
+            return data, data_backup ~= data
         end
-        return false
+        return data, false
     end
 
     local format_sanitized, format_sanitized_size = {}, 32
@@ -2136,10 +2136,15 @@ function ImGui.DataTypeApplyFromText(buf, data_type, data, format, data_when_emp
 
     local v32 = 0
     local res = {}
-    if (ImStd.sscanf(buf, 1, format, res) < 1) then
-        return false
+    if ImStd.sscanf(buf, 1, format, res) < 1 then
+        return data, false
     end
-    v32 = res[1]
+    if type_info.Size >= 4 then
+        data = res[1]
+    else
+        v32 = res[1]
+    end
+
     if type_info.Size < 4 then
         if data_type == ImGuiDataType.S8 then
             data = (ImS8)(ImClamp(v32, IM_S8_MIN, IM_S8_MAX))
@@ -2154,7 +2159,7 @@ function ImGui.DataTypeApplyFromText(buf, data_type, data, format, data_when_emp
         end
     end
 
-    return data_backup ~= data
+    return data, data_backup ~= data
 end
 
 --- @generic T : number
@@ -2351,7 +2356,7 @@ function ImParseFormatSanitizeForScanning(fmt_in, fmt_out, fmt_out_size)
         :: CONTINUE ::
     end
     -- fmt_out[fmt_out_begin] = 0
-    return table.concat(fmt_out) -- FIXME: not ideal
+    return string.char(unpack(fmt_out)) -- FIXME: not ideal
 end
 
 --- @param str string
@@ -2469,12 +2474,12 @@ function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min
     local flags = bit.bor(ImGuiInputTextFlags.AutoSelectAll, ImGuiInputTextFlags.LocalizeDecimalPoint)
     g.LastItemData.ItemFlags = bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited)
     if not ImGui.TempInputText(bb, id, label, data_buf, data_buf_size, flags) then
-        return false
+        return data, false
     end
 
     local data_backup = data
 
-    ImGui.DataTypeApplyFromText(data_buf, data_type, data, format, nil)
+    data = ImGui.DataTypeApplyFromText(data_buf, data_type, data, format, nil)
     if clamp_min or clamp_max then
         if clamp_min and clamp_max and ImGui.DataTypeCompare(data_type, clamp_min, clamp_max) > 0 then
             clamp_min, clamp_max = clamp_max, clamp_min
@@ -2488,7 +2493,7 @@ function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min
         ImGui.MarkItemEdited(id)
     end
 
-    return value_changed
+    return data, value_changed
 end
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
@@ -2788,7 +2793,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
 
     if temp_input_is_active then
         local clamp_enabled = TempInputIsClampEnabled(flags, data_type, min, max)
-        return data, ImGui.TempInputScalar(frame_bb, id, label, data_type, data, format, clamp_enabled and min or nil, clamp_enabled and max or nil)
+        return ImGui.TempInputScalar(frame_bb, id, label, data_type, data, format, clamp_enabled and min or nil, clamp_enabled and max or nil)
     end
 
     -- Draw frame
