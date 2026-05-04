@@ -5,22 +5,21 @@
 
 local _band = bit.band
 
---- @alias ImU8           integer
+--- @class ImU8 : integer
+--- @class ImS8 : integer
 
 --- @class ImU16 : integer
 --- @class ImS16 : integer
 
---- @param val number
---- @return ImU16
-function ImU16(val) return _band(val, 0xFFFF) end
+function ImU8(val) return _band(val, 0xFF) end                                          --- @type fun(val: number): ImU8
+function ImS8(val) return _band(val, 0xFF) - (_band(val, 0x80) ~= 0 and 0x100 or 0) end --- @type fun(val: number): ImS8
 
---- @param val number
---- @return ImS16
-function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x10000 or 0) end
+function ImU16(val) return _band(val, 0xFFFF) end                                               --- @type fun(val: number): ImU16
+function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x10000 or 0) end  --- @type fun(val: number): ImS16
 
 --- @alias ImU32          integer
 --- @alias ImU64          integer
---- @alias ImS8           integer
+
 --- @alias ImS64          integer
 --- @alias float          number
 

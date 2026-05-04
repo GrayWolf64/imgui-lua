@@ -1968,27 +1968,29 @@ local GDefaultRgbaColorMarkers = {
     IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
 }
 
+--- @param size      size_t
 --- @param name      string
 --- @param print_fmt string
+--- @param scan_fmt  string
 --- @return ImGuiDataTypeInfo
 --- @nodiscard
 --- @package
-local function ImGuiDataTypeInfo(name, print_fmt)
-    return { Name = name, PrintFmt = print_fmt }
+local function ImGuiDataTypeInfo(size, name, print_fmt, scan_fmt)
+    return { Size = size, Name = name, PrintFmt = print_fmt, ScanFmt = scan_fmt }
 end
 
 local GDataTypeInfo = {
-    ImGuiDataTypeInfo("S8",     "%d"),
-    ImGuiDataTypeInfo("U8",     "%u"),
-    ImGuiDataTypeInfo("S16",    "%d"),
-    ImGuiDataTypeInfo("U16",    "%u"),
-    ImGuiDataTypeInfo("S32",    "%d"),
-    ImGuiDataTypeInfo("U32",    "%u"),
-    ImGuiDataTypeInfo("S64",    "%lld"),
-    ImGuiDataTypeInfo("float",  "%.3f"),
-    ImGuiDataTypeInfo("double", "%f"),
-    ImGuiDataTypeInfo("bool",   "%d"),
-    ImGuiDataTypeInfo("string", "%s")
+    ImGuiDataTypeInfo(1, "S8",     "%d",   "%d"),
+    ImGuiDataTypeInfo(1, "U8",     "%u",   "%u"),
+    ImGuiDataTypeInfo(2, "S16",    "%d",   "%d"),
+    ImGuiDataTypeInfo(2, "U16",    "%u",   "%u"),
+    ImGuiDataTypeInfo(4, "S32",    "%d",   "%d"),
+    ImGuiDataTypeInfo(4, "U32",    "%u",   "%u"),
+    ImGuiDataTypeInfo(8, "S64",    "%lld", "%lld"),
+    ImGuiDataTypeInfo(4, "float",  "%.3f", "%f"),
+    ImGuiDataTypeInfo(8, "double", "%f",   "%lf"),
+    ImGuiDataTypeInfo(1, "bool",   "%d",   "%d"),
+    ImGuiDataTypeInfo(0, "string", "%s",   "%s")
 }
 
 --- @param data_type ImGuiDataType
@@ -2099,13 +2101,59 @@ function ImGui.DataTypeApplyOp(data_type, op, arg1, arg2)
     IM_ASSERT(false)
 end
 
+local ImParseFormatSanitizeForScanning
+
 --- @param buf              char[]
 --- @param data_type        ImGuiDataType
 --- @param data             number
 --- @param data_when_empty? number
 function ImGui.DataTypeApplyFromText(buf, data_type, data, data_when_empty)
     local type_info = ImGui.DataTypeGetInfo(data_type)
-    -- TODO:
+    local data_backup = data
+
+    local p = 1
+    while ImCharIsBlankA(buf[p]) do
+        p = p + 1
+    end
+    if buf[p] == 0 then
+        if data_when_empty ~= nil then
+            data = data_when_empty
+            return data_backup ~= data
+        end
+        return false
+    end
+
+    local format_sanitized, format_sanitized_size = {}, 32
+    if (data_type == ImGuiDataType.Float or data_type == ImGuiDataType.Double) then
+        format = type_info.ScanFmt
+    else
+        format = ImParseFormatSanitizeForScanning(format, format_sanitized, format_sanitized_size)
+        if format[1] == 0 then
+            format = type_info.ScanFmt
+        end
+    end
+
+    local v32 = 0
+    local res = {}
+    if (ImStd.sscanf(buf, 1, format, res) < 1) then
+        return false
+    end
+    v32 = res[1]
+    if type_info.Size < 4 then
+        if data_type == ImGuiDataType.S8 then
+            data = (ImS8)(ImClamp(v32, IM_S8_MIN, IM_S8_MAX))
+        elseif data_type == ImGuiDataType.U8 then
+            data = (ImU8)(ImClamp(v32, IM_U8_MIN, IM_U8_MAX))
+        elseif data_type == ImGuiDataType.S16 then
+            data = (ImS16)(ImClamp(v32, IM_S16_MIN, IM_S16_MAX))
+        elseif data_type == ImGuiDataType.U16 then
+            data = (ImU16)(ImClamp(v32, IM_U16_MIN, IM_U16_MAX))
+        else
+            IM_ASSERT(false)
+        end
+    end
+
+    return data_backup ~= data
 end
 
 local GetMinimumStepAtDecimalPrecision do
@@ -2213,7 +2261,7 @@ end
 --- @param fmt_in       string
 --- @param fmt_out      char[]
 --- @param fmt_out_size size_t
-local function ImParseFormatSanitizeForScanning(fmt_in, fmt_out, fmt_out_size)
+function ImParseFormatSanitizeForScanning(fmt_in, fmt_out, fmt_out_size)
     local fmt_end = ImParseFormatFindEnd(fmt_in, 1)
     -- IM_UNUSED(fmt_out_size)
     IM_ASSERT(fmt_end < fmt_out_size)
@@ -2235,8 +2283,8 @@ local function ImParseFormatSanitizeForScanning(fmt_in, fmt_out, fmt_out_size)
 
         :: CONTINUE ::
     end
-    fmt_out[fmt_out_begin] = 0
-    return fmt_out
+    -- fmt_out[fmt_out_begin] = 0
+    return table.concat(fmt_out) -- FIXME: not ideal
 end
 
 --- @param str string

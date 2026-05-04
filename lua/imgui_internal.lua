@@ -941,11 +941,12 @@ function ImGuiStyleMod(idx, v)
     return this
 end
 
---- Type information associated to one ImGuiDataType. Retrieve with DataTypeGetInfo().\
---- Unlike cpp impl, `Size` and `ScanFmt` fields are absent here
+--- Type information associated to one ImGuiDataType. Retrieve with DataTypeGetInfo()
 --- @class ImGuiDataTypeInfo
+--- @field Size     size_t # Size in bytes
 --- @field Name     string # Short descriptive name for the type, for debugging
 --- @field PrintFmt string # Default printf format for the type
+--- @field ScanFmt  string # Default scanf format for the type
 
 --- @class ImGuiLastItemData
 --- @field ID          ImGuiID
