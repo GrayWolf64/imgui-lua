@@ -2008,28 +2008,28 @@ function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     local str
     if     data_type == ImGuiDataType.S32 or data_type == ImGuiDataType.U32 then
         str = ImFormatString(format, data)
-        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
     elseif data_type == ImGuiDataType.S64 then
         str = ImFormatString(format, data)
-        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
     elseif data_type == ImGuiDataType.Float then
         str = ImFormatString(format, data)
-        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
     elseif data_type == ImGuiDataType.Double then
         str = ImFormatString(format, data)
-        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
     elseif data_type == ImGuiDataType.S8 then
         str = ImFormatString(format, data)
-        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
     elseif data_type == ImGuiDataType.U8 then
         str = ImFormatString(format, data)
-        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
     elseif data_type == ImGuiDataType.S16 then
         str = ImFormatString(format, (ImS16)(data))
-        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
     elseif data_type == ImGuiDataType.U16 then
         str = ImFormatString(format, (ImU16)(data))
-        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str, buf_size))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
     else
         IM_ASSERT(false)
     end
@@ -2494,6 +2494,119 @@ function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min
     end
 
     return data, value_changed
+end
+
+--- @param label      string
+--- @param data_type  ImGuiDataType
+--- @param data       number
+--- @param step?      number
+--- @param step_fast? number
+--- @param format?    string
+--- @param flags?     ImGuiInputTextFlags
+function ImGui.InputScalar(label, data_type, data, step, step_fast, format, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return data, false
+    end
+
+    local g = GImGui
+    local style = g.Style
+
+    if format == nil then
+        format = ImGui.DataTypeGetInfo(data_type).PrintFmt
+    end
+
+    local data_default = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasRefVal) ~= 0) and g.NextItemData.RefVal or g.DataTypeZeroValue
+
+    local buf, buf_size = {}, 64 -- TODO: IM_COUNTOF()
+    if bit.band(flags, ImGuiInputTextFlags.DisplayEmptyRefVal) ~= 0 and ImGui.DataTypeCompare(data_type, data, data_default) == 0 then
+        buf[1] = 0
+    else
+        ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
+    end
+
+    g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited)
+    flags = bit.bor(flags, ImGuiInputTextFlags.AutoSelectAll, ImGuiInputTextFlags.LocalizeDecimalPoint)
+
+    local has_step_buttons = (step ~= nil)
+    local button_size = has_step_buttons and ImGui.GetFrameHeight() or 0.0
+    local ret
+    if has_step_buttons then
+        ImGui.BeginGroup()
+        ImGui.PushID(label)
+        ImGui.SetNextItemWidth(ImMax(1.0, ImGui.CalcItemWidth() - (button_size + style.ItemInnerSpacing.x) * 2))
+        ret = ImGui.InputText("", buf, buf_size, flags)
+        -- IMGUI_TEST_ENGINE_ITEM_INFO()
+    else
+        ret = ImGui.InputText(label, buf, buf_size, flags)
+    end
+
+    local input_edited = bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.EditedInternal) ~= 0
+    local ret2
+    data, ret2 = ImGui.DataTypeApplyFromText(buf, data_type, data, format, (bit.band(flags, ImGuiInputTextFlags.ParseEmptyRefVal) ~= 0) and data_default or nil)
+    local value_changed = input_edited and ret2 or false
+
+    if has_step_buttons then
+        local backup_frame_padding = ImVec2()
+        ImVec2_Copy(backup_frame_padding, style.FramePadding)
+        style.FramePadding.x = style.FramePadding.y
+        if bit.band(flags, ImGuiInputTextFlags.ReadOnly) ~= 0 then
+            ImGui.BeginDisabled()
+        end
+        ImGui.PushItemFlag(ImGuiItemFlags.ButtonRepeat, true)
+        ImGui.SameLine(0, style.ItemInnerSpacing.x)
+        --- @cast step number
+        if ImGui.ButtonEx("-", ImVec2(button_size, button_size)) then
+            data = ImGui.DataTypeApplyOp(data_type, 45, data, ((g.IO.KeyCtrl and step_fast) and step_fast or step))
+            value_changed = true
+            ret = true
+        end
+        ImGui.SameLine(0, style.ItemInnerSpacing.x)
+        if ImGui.ButtonEx("+", ImVec2(button_size, button_size)) then
+            data = ImGui.DataTypeApplyOp(data_type, 43, data, ((g.IO.KeyCtrl and step_fast) and step_fast or step))
+            value_changed = true
+            ret = true
+        end
+        ImGui.PopItemFlag()
+        if bit.band(flags, ImGuiInputTextFlags.ReadOnly) ~= 0 then
+            ImGui.EndDisabled()
+        end
+        local label_end = ImGui.FindRenderedTextEnd(label)
+        if label_end ~= 1 then
+            ImGui.SameLine(0, style.ItemInnerSpacing.x)
+            ImGui.TextEx(label, label_end)
+        end
+        ImVec2_Copy(style.FramePadding, backup_frame_padding)
+
+        ImGui.PopID()
+        ImGui.EndGroup()
+    end
+
+    g.LastItemData.ItemFlags = bit.band(g.LastItemData.ItemFlags, bit.bnot(ImGuiItemFlags.NoMarkEdited))
+    if value_changed then
+        ImGui.MarkItemEdited(g.LastItemData.ID)
+    end
+
+    if bit.band(flags, ImGuiInputTextFlags.EnterReturnsTrue) ~= 0 then
+        return data, ret
+    end
+    return data, value_changed
+end
+
+--- @param label      string
+--- @param v          int
+--- @param step?      int
+--- @param step_fast? int
+--- @param flags?     ImGuiInputTextFlags
+function ImGui.InputInt(label, v, step, step_fast, flags)
+    if step      == nil then step      = 1   end
+    if step_fast == nil then step_fast = 100 end
+    if flags     == nil then flags     = 0   end
+
+    local format = (bit.band(flags, ImGuiInputTextFlags.CharsHexadecimal) ~= 0) and "%08X" or "%d"
+    return ImGui.InputScalar(label, ImGuiDataType.S32, v, (step > 0) and step or nil, (step_fast > 0) and step_fast or nil, format, flags)
 end
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)

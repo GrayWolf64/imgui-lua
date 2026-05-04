@@ -1045,7 +1045,7 @@ function ImGuiNextItemData()
         ShortcutFlags     = 0,
         OpenVal           = false,
         OpenCond          = 0,
-        RefVal            = nil,
+        RefVal            = 0,
         StorageId         = 0,
         ColorMarker       = 0
     }, MT.ImGuiNextItemData)

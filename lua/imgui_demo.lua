@@ -64,6 +64,8 @@ str1[1] = 0
 local hint0 = {string.byte("enter text here", 1, 15)}
 table.insert(hint0, 0)
 
+local i0 = 233
+
 function DemoWindowWidgetsBasic()
     if ImGui.TreeNode("Basic") then
         ImGui.SeparatorText("General")
@@ -133,6 +135,8 @@ function DemoWindowWidgetsBasic()
             ImGui.InputText("input text", str0, 128)
 
             ImGui.InputTextWithHint("input text (w/ hint)", hint0, str1, 128)
+
+            i0 = ImGui.InputInt("input int", i0)
             -- TODO:
         end
 
