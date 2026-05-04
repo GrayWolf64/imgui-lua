@@ -2156,6 +2156,65 @@ function ImGui.DataTypeApplyFromText(buf, data_type, data, data_when_empty)
     return data_backup ~= data
 end
 
+--- @generic T : number
+--- @param lhs T
+--- @param rhs T
+local function DataTypeCompareT(lhs, rhs)
+    if lhs < rhs then return -1 end
+    if lhs > rhs then return  1 end
+    return 0
+end
+
+--- @param data_type ImGuiDataType
+--- @param arg1      number
+--- @param arg2      number
+function ImGui.DataTypeCompare(data_type, arg1, arg2)
+    if     data_type == ImGuiDataType.S8  then return DataTypeCompareT((ImS8)(arg1), (ImS8)(arg2))
+    elseif data_type == ImGuiDataType.U8  then return DataTypeCompareT((ImU8)(arg1), (ImU8)(arg2))
+    elseif data_type == ImGuiDataType.S16 then return DataTypeCompareT((ImS16)(arg1), (ImS16)(arg2))
+    elseif data_type == ImGuiDataType.U16 then return DataTypeCompareT((ImU16)(arg1), (ImU16)(arg2))
+    elseif data_type == ImGuiDataType.S32 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.U32 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.S64 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.U64 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.Float  then return DataTypeCompareT(arg1, arg2)
+    elseif data_type == ImGuiDataType.Double then return DataTypeCompareT(arg1, arg2)
+    end
+    IM_ASSERT(false)
+    return 0
+end
+
+--- @generic T : number
+--- @param v      T
+--- @param v_min? T
+--- @param v_max? T
+--- @return T, boolean
+local function DataTypeClampT(v, v_min, v_max)
+    if v_min and v < v_min then return v_min, true end
+    if v_max and v > v_max then return v_max, true end
+    return v, false
+end
+
+--- @param data_type ImGuiDataType
+--- @param data      number
+--- @param min?      number
+--- @param max?      number
+function ImGui.DataTypeClamp(data_type, data, min, max)
+    if     data_type == ImGuiDataType.S8  then return DataTypeClampT((ImS8)(data),  min and (ImS8)(min),  max and (ImS8)(max))
+    elseif data_type == ImGuiDataType.U8  then return DataTypeClampT((ImU8)(data),  min and (ImU8)(min),  max and (ImU8)(max))
+    elseif data_type == ImGuiDataType.S16 then return DataTypeClampT((ImS16)(data), min and (ImS16)(min), max and (ImS16)(max))
+    elseif data_type == ImGuiDataType.U16 then return DataTypeClampT((ImU16)(data), min and (ImU16)(min), max and (ImU16)(max))
+    elseif data_type == ImGuiDataType.S32 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.U32 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.S64 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.U64 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.Float  then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.Double then return DataTypeClampT(data, min, max)
+    end
+    IM_ASSERT(false)
+    return data, false
+end
+
 local GetMinimumStepAtDecimalPrecision do
 
 local min_steps = { 1.0, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001, 0.000000001 }
@@ -2377,6 +2436,18 @@ function ImGui.TempInputText(bb, id, label, buf, buf_size, flags, callback, user
     ImVec2_Copy(window.DC.CursorPos, backup_pos)
 
     return value_changed
+end
+
+--- @param bb        ImRect
+--- @param id        ImGuiID
+--- @param label     string
+--- @param data_type ImGuiDataType
+--- @param data      number
+--- @param format    string
+--- @param clamp_min number
+--- @param clamp_max number
+function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min, clamp_max)
+    -- TODO:
 end
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
