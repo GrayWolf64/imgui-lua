@@ -2106,8 +2106,9 @@ local ImParseFormatSanitizeForScanning
 --- @param buf              char[]
 --- @param data_type        ImGuiDataType
 --- @param data             number
+--- @param format           string
 --- @param data_when_empty? number
-function ImGui.DataTypeApplyFromText(buf, data_type, data, data_when_empty)
+function ImGui.DataTypeApplyFromText(buf, data_type, data, format, data_when_empty)
     local type_info = ImGui.DataTypeGetInfo(data_type)
     local data_backup = data
 
@@ -2438,16 +2439,49 @@ function ImGui.TempInputText(bb, id, label, buf, buf_size, flags, callback, user
     return value_changed
 end
 
---- @param bb        ImRect
---- @param id        ImGuiID
---- @param label     string
---- @param data_type ImGuiDataType
---- @param data      number
---- @param format    string
---- @param clamp_min number
---- @param clamp_max number
+--- @param bb         ImRect
+--- @param id         ImGuiID
+--- @param label      string
+--- @param data_type  ImGuiDataType
+--- @param data       number
+--- @param format     string
+--- @param clamp_min? number
+--- @param clamp_max? number
 function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min, clamp_max)
-    -- TODO:
+    local g = GImGui
+    local type_info = ImGui.DataTypeGetInfo(data_type)
+    local fmt_buf, fmt_buf_size = {}, 32
+    local data_buf, data_buf_size = {}, 32
+    local fmt_start = ImParseFormatTrimDecorations(format, fmt_buf, fmt_buf_size)
+    if fmt_buf[fmt_start] == 0 then
+        format = type_info.PrintFmt
+    end
+    ImGui.DataTypeFormatString(data_buf, data_buf_size, data_type, data, format)
+    ImStd.ImStrTrimBlanks(data_buf)
+
+    local flags = bit.bor(ImGuiInputTextFlags.AutoSelectAll, ImGuiInputTextFlags.LocalizeDecimalPoint)
+    g.LastItemData.ItemFlags = bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited)
+    if not ImGui.TempInputText(bb, id, label, data_buf, data_buf_size, flags) then
+        return false
+    end
+
+    local data_backup = data
+
+    ImGui.DataTypeApplyFromText(data_buf, data_type, data, format, nil)
+    if clamp_min or clamp_max then
+        if clamp_min and clamp_max and ImGui.DataTypeCompare(data_type, clamp_min, clamp_max) > 0 then
+            clamp_min, clamp_max = clamp_max, clamp_min
+        end
+        data = ImGui.DataTypeClamp(data_type, data, clamp_min, clamp_max)
+    end
+
+    g.LastItemData.ItemFlags = bit.band(g.LastItemData.ItemFlags, bit.bnot(ImGuiItemFlags.NoMarkEdited))
+    local value_changed = data_backup ~= data
+    if value_changed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    return value_changed
 end
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
