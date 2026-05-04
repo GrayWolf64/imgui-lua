@@ -706,10 +706,10 @@ function ImBitArray(BITCOUNT, OFFSET)
 
     this.ClearAllBits = function(self) local data = self.Data; for i = 1, size do data[i] = 0 end end
     this.SetAllBits   = function(self) local data = self.Data; for i = 1, size do data[i] = 0xFFFFFFFF end end
-    --- @param n int
+    --- @param n int # 1-based
     --- @return boolean
     this.TestBit = function(self, n) n = n + OFFSET; IM_ASSERT(n >= 1 and n <= BITCOUNT); return IM_BITARRAY_TESTBIT(self.Data, n); end
-    --- @param n int
+    --- @param n int # 1-based
     this.SetBit  = function(self, n) IM_ASSERT(n >= 1 and n <= BITCOUNT); ImBitArraySetBit(self.Data, n); end
 
     this:ClearAllBits()

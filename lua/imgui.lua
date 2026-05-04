@@ -3011,7 +3011,7 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
 
             if key_data.Down ~= e.Key.Down then
                 key_changed = true
-                key_changed_mask:SetBit(key_data_index)
+                key_changed_mask:SetBit(key_data_index + 1)
                 if trickle_interleaved_nonchar_keys_and_text and not key_is_potentially_for_char_input then
                     key_changed_nonchar = true
                 end
