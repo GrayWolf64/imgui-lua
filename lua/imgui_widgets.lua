@@ -2216,6 +2216,13 @@ function ImGui.DataTypeClamp(data_type, data, min, max)
     return data, false
 end
 
+--- @param data_type ImGuiDataType
+--- @param data      number
+function ImGui.DataTypeIsZero(data_type, data)
+    local g = GImGui
+    return ImGui.DataTypeCompare(data_type, data, g.DataTypeZeroValue) == 0
+end
+
 local GetMinimumStepAtDecimalPrecision do
 
 local min_steps = { 1.0, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.0000001, 0.00000001, 0.000000001 }
@@ -2686,6 +2693,34 @@ function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
     return v, false
 end
 
+--- @param flags     ImGuiSliderFlags
+--- @param data_type ImGuiDataType
+--- @param min       number
+--- @param max       number
+local function TempInputIsClampEnabled(flags, data_type, min, max)
+    if bit.band(flags, ImGuiSliderFlags.ClampOnInput) ~= 0 and (min ~= nil or max ~= nil) then
+        local clamp_range_dir = 0
+        if min ~= nil and max ~= nil then
+            clamp_range_dir = ImGui.DataTypeCompare(data_type, min, max)
+        end
+        if min == nil or max == nil or clamp_range_dir < 0 then
+            return true
+        end
+        if clamp_range_dir == 0 then
+            return ImGui.DataTypeIsZero(data_type, min) and (bit.band(flags, ImGuiSliderFlags.ClampZeroRange) ~= 0) or true
+        end
+    end
+    return false
+end
+
+--- @param label     string
+--- @param data_type ImGuiDataType
+--- @param data      number
+--- @param v_speed   float
+--- @param min       number
+--- @param max       number
+--- @param format    string
+--- @param flags     ImGuiSliderFlags
 function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, flags)
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
@@ -2740,7 +2775,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
 
         -- Store initial value (not used by main lib but available as a convenience but some mods e.g. to revert)
         if make_active then
-            -- TODO:
+            g.ActiveIdValueOnActivation = data
         end
 
         if make_active and not temp_input_is_active then
@@ -2752,7 +2787,8 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     end
 
     if temp_input_is_active then
-        -- TODO:
+        local clamp_enabled = TempInputIsClampEnabled(flags, data_type, min, max)
+        return data, ImGui.TempInputScalar(frame_bb, id, label, data_type, data, format, clamp_enabled and min or nil, clamp_enabled and max or nil)
     end
 
     -- Draw frame
@@ -2783,10 +2819,24 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     return data, value_changed
 end
 
+--- @param label   string
+--- @param v       float
+--- @param v_speed float
+--- @param v_min   float
+--- @param v_max   float
+--- @param format  string
+--- @param flags   ImGuiSliderFlags
 function ImGui.DragFloat(label, v, v_speed, v_min, v_max, format, flags)
     return ImGui.DragScalar(label, ImGuiDataType.Float, v, v_speed, v_min, v_max, format, flags)
 end
 
+--- @param label   string
+--- @param v       int
+--- @param v_speed float
+--- @param v_min   int
+--- @param v_max   int
+--- @param format  string
+--- @param flags   ImGuiSliderFlags
 function ImGui.DragInt(label, v, v_speed, v_min, v_max, format, flags)
     return ImGui.DragScalar(label, ImGuiDataType.S32, v, v_speed, v_min, v_max, format, flags)
 end
