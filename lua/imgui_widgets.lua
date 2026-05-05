@@ -1968,33 +1968,264 @@ local GDefaultRgbaColorMarkers = {
     IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
 }
 
+--- @param size      size_t
 --- @param name      string
 --- @param print_fmt string
+--- @param scan_fmt  string
 --- @return ImGuiDataTypeInfo
 --- @nodiscard
 --- @package
-local function ImGuiDataTypeInfo(name, print_fmt)
-    return { Name = name, PrintFmt = print_fmt }
+local function ImGuiDataTypeInfo(size, name, print_fmt, scan_fmt)
+    return { Size = size, Name = name, PrintFmt = print_fmt, ScanFmt = scan_fmt }
 end
 
 local GDataTypeInfo = {
-    ImGuiDataTypeInfo("S8",     "%d"),
-    ImGuiDataTypeInfo("U8",     "%u"),
-    ImGuiDataTypeInfo("S16",    "%d"),
-    ImGuiDataTypeInfo("U16",    "%u"),
-    ImGuiDataTypeInfo("S32",    "%d"),
-    ImGuiDataTypeInfo("U32",    "%u"),
-    ImGuiDataTypeInfo("S64",    "%lld"),
-    ImGuiDataTypeInfo("float",  "%.3f"),
-    ImGuiDataTypeInfo("double", "%f"),
-    ImGuiDataTypeInfo("bool",   "%d"),
-    ImGuiDataTypeInfo("string", "%s")
+    ImGuiDataTypeInfo(1, "S8",     "%d",   "%d"),
+    ImGuiDataTypeInfo(1, "U8",     "%u",   "%u"),
+    ImGuiDataTypeInfo(2, "S16",    "%d",   "%d"),
+    ImGuiDataTypeInfo(2, "U16",    "%u",   "%u"),
+    ImGuiDataTypeInfo(4, "S32",    "%d",   "%d"),
+    ImGuiDataTypeInfo(4, "U32",    "%u",   "%u"),
+    ImGuiDataTypeInfo(8, "S64",    "%lld", "%lld"),
+    ImGuiDataTypeInfo(4, "float",  "%.3f", "%f"),
+    ImGuiDataTypeInfo(8, "double", "%f",   "%lf"),
+    ImGuiDataTypeInfo(1, "bool",   "%d",   "%d"),
+    ImGuiDataTypeInfo(0, "string", "%s",   "%s")
 }
 
 --- @param data_type ImGuiDataType
 function ImGui.DataTypeGetInfo(data_type)
     IM_ASSERT(data_type >= 1 and data_type <= ImGuiDataType.COUNT)
     return GDataTypeInfo[data_type]
+end
+
+--- @param buf       char[]
+--- @param buf_size  int
+--- @param data_type ImGuiDataType
+--- @param data      number
+--- @param format    string
+function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
+    local str
+    if     data_type == ImGuiDataType.S32 or data_type == ImGuiDataType.U32 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
+    elseif data_type == ImGuiDataType.S64 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
+    elseif data_type == ImGuiDataType.Float then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
+    elseif data_type == ImGuiDataType.Double then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
+    elseif data_type == ImGuiDataType.S8 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
+    elseif data_type == ImGuiDataType.U8 then
+        str = ImFormatString(format, data)
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
+    elseif data_type == ImGuiDataType.S16 then
+        str = ImFormatString(format, (ImS16)(data))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
+    elseif data_type == ImGuiDataType.U16 then
+        str = ImFormatString(format, (ImU16)(data))
+        ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size))
+    else
+        IM_ASSERT(false)
+    end
+end
+
+--- @param data_type ImGuiDataType
+--- @param op        int
+--- @param arg1      number
+--- @param arg2      number
+function ImGui.DataTypeApplyOp(data_type, op, arg1, arg2)
+    IM_ASSERT(op == 43 or op == 45) -- '+' or '-'
+
+    if data_type == ImGuiDataType.S8 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_S8_MIN, IM_S8_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_S8_MIN, IM_S8_MAX)
+        end
+    elseif data_type == ImGuiDataType.U8 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_U8_MIN, IM_U8_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_U8_MIN, IM_U8_MAX)
+        end
+    elseif data_type == ImGuiDataType.S16 then
+        if op == 43 then
+            return ImAddClampOverflow((ImS16)(arg1), (ImS16)(arg2), IM_S16_MIN, IM_S16_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow((ImS16)(arg1), (ImS16)(arg2), IM_S16_MIN, IM_S16_MAX)
+        end
+    elseif data_type == ImGuiDataType.U16 then
+        if op == 43 then
+            return ImAddClampOverflow((ImU16)(arg1), (ImU16)(arg2), IM_U16_MIN, IM_U16_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow((ImU16)(arg1), (ImU16)(arg2), IM_U16_MIN, IM_U16_MAX)
+        end
+    elseif data_type == ImGuiDataType.S32 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_S32_MIN, IM_S32_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_S32_MIN, IM_S32_MAX)
+        end
+    elseif data_type == ImGuiDataType.U32 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_U32_MIN, IM_U32_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_U32_MIN, IM_U32_MAX)
+        end
+    elseif data_type == ImGuiDataType.S64 then
+        if op == 43 then
+            return ImAddClampOverflow(arg1, arg2, IM_S64_MIN, IM_S64_MAX)
+        elseif op == 45 then
+            return ImSubClampOverflow(arg1, arg2, IM_S64_MIN, IM_S64_MAX)
+        end
+    elseif data_type == ImGuiDataType.Float then
+        if op == 43 then
+            return arg1 + arg2
+        elseif op == 45 then
+            return arg1 - arg2
+        end
+    elseif data_type == ImGuiDataType.Double then
+        if op == 43 then
+            return arg1 + arg2
+        elseif op == 45 then
+            return arg1 - arg2
+        end
+    end
+
+    IM_ASSERT(false)
+end
+
+local ImParseFormatSanitizeForScanning
+
+--- @param buf              char[]
+--- @param data_type        ImGuiDataType
+--- @param data             number
+--- @param format           string
+--- @param data_when_empty? number
+function ImGui.DataTypeApplyFromText(buf, data_type, data, format, data_when_empty)
+    local type_info = ImGui.DataTypeGetInfo(data_type)
+    local data_backup = data
+
+    local p = 1
+    while ImCharIsBlankA(buf[p]) do
+        p = p + 1
+    end
+    if buf[p] == 0 then
+        if data_when_empty ~= nil then
+            data = data_when_empty
+            return data, data_backup ~= data
+        end
+        return data, false
+    end
+
+    local format_sanitized, format_sanitized_size = {}, 32
+    if (data_type == ImGuiDataType.Float or data_type == ImGuiDataType.Double) then
+        format = type_info.ScanFmt
+    else
+        format = ImParseFormatSanitizeForScanning(format, format_sanitized, format_sanitized_size)
+        if format[1] == 0 then
+            format = type_info.ScanFmt
+        end
+    end
+
+    local v32 = 0
+    local res = {}
+    if ImStd.sscanf(buf, 1, format, res) < 1 then
+        return data, false
+    end
+    if type_info.Size >= 4 then
+        data = res[1]
+    else
+        v32 = res[1]
+    end
+
+    if type_info.Size < 4 then
+        if data_type == ImGuiDataType.S8 then
+            data = (ImS8)(ImClamp(v32, IM_S8_MIN, IM_S8_MAX))
+        elseif data_type == ImGuiDataType.U8 then
+            data = (ImU8)(ImClamp(v32, IM_U8_MIN, IM_U8_MAX))
+        elseif data_type == ImGuiDataType.S16 then
+            data = (ImS16)(ImClamp(v32, IM_S16_MIN, IM_S16_MAX))
+        elseif data_type == ImGuiDataType.U16 then
+            data = (ImU16)(ImClamp(v32, IM_U16_MIN, IM_U16_MAX))
+        else
+            IM_ASSERT(false)
+        end
+    end
+
+    return data, data_backup ~= data
+end
+
+--- @generic T : number
+--- @param lhs T
+--- @param rhs T
+local function DataTypeCompareT(lhs, rhs)
+    if lhs < rhs then return -1 end
+    if lhs > rhs then return  1 end
+    return 0
+end
+
+--- @param data_type ImGuiDataType
+--- @param arg1      number
+--- @param arg2      number
+function ImGui.DataTypeCompare(data_type, arg1, arg2)
+    if     data_type == ImGuiDataType.S8  then return DataTypeCompareT((ImS8)(arg1), (ImS8)(arg2))
+    elseif data_type == ImGuiDataType.U8  then return DataTypeCompareT((ImU8)(arg1), (ImU8)(arg2))
+    elseif data_type == ImGuiDataType.S16 then return DataTypeCompareT((ImS16)(arg1), (ImS16)(arg2))
+    elseif data_type == ImGuiDataType.U16 then return DataTypeCompareT((ImU16)(arg1), (ImU16)(arg2))
+    elseif data_type == ImGuiDataType.S32 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.U32 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.S64 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.U64 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.Float  then return DataTypeCompareT(arg1, arg2)
+    elseif data_type == ImGuiDataType.Double then return DataTypeCompareT(arg1, arg2)
+    end
+    IM_ASSERT(false)
+    return 0
+end
+
+--- @generic T : number
+--- @param v      T
+--- @param v_min? T
+--- @param v_max? T
+--- @return T, boolean
+local function DataTypeClampT(v, v_min, v_max)
+    if v_min and v < v_min then return v_min, true end
+    if v_max and v > v_max then return v_max, true end
+    return v, false
+end
+
+--- @param data_type ImGuiDataType
+--- @param data      number
+--- @param min?      number
+--- @param max?      number
+function ImGui.DataTypeClamp(data_type, data, min, max)
+    if     data_type == ImGuiDataType.S8  then return DataTypeClampT((ImS8)(data),  min and (ImS8)(min),  max and (ImS8)(max))
+    elseif data_type == ImGuiDataType.U8  then return DataTypeClampT((ImU8)(data),  min and (ImU8)(min),  max and (ImU8)(max))
+    elseif data_type == ImGuiDataType.S16 then return DataTypeClampT((ImS16)(data), min and (ImS16)(min), max and (ImS16)(max))
+    elseif data_type == ImGuiDataType.U16 then return DataTypeClampT((ImU16)(data), min and (ImU16)(min), max and (ImU16)(max))
+    elseif data_type == ImGuiDataType.S32 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.U32 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.S64 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.U64 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.Float  then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.Double then return DataTypeClampT(data, min, max)
+    end
+    IM_ASSERT(false)
+    return data, false
+end
+
+--- @param data_type ImGuiDataType
+--- @param data      number
+function ImGui.DataTypeIsZero(data_type, data)
+    local g = GImGui
+    return ImGui.DataTypeCompare(data_type, data, g.DataTypeZeroValue) == 0
 end
 
 local GetMinimumStepAtDecimalPrecision do
@@ -2081,6 +2312,53 @@ local function ImParseFormatFindEnd(fmt, pos)
     return len + 1
 end
 
+--- @param fmt      string
+--- @param buf      char[]
+--- @param buf_size int
+local function ImParseFormatTrimDecorations(fmt, buf, buf_size)
+    local fmt_start = ImParseFormatFindStart(fmt)
+    if string.byte(fmt, fmt_start) ~= 37 then -- '%'
+        return nil
+    end
+    --- @cast fmt_start int
+    local fmt_end = ImParseFormatFindEnd(fmt, fmt_start)
+    if string.byte(fmt, fmt_end) ~= 37 then
+        return fmt_start
+    end
+    local n = ImMin((size_t)(fmt_end - fmt_start) + 1, buf_size)
+    ImStd.ImStrncpy(buf, 1, { string.byte(fmt, fmt_start, fmt_start + n - 1) }, 1, n)
+    return 1
+end
+
+--- @param fmt_in       string
+--- @param fmt_out      char[]
+--- @param fmt_out_size size_t
+function ImParseFormatSanitizeForScanning(fmt_in, fmt_out, fmt_out_size)
+    local fmt_end = ImParseFormatFindEnd(fmt_in, 1)
+    -- IM_UNUSED(fmt_out_size)
+    IM_ASSERT(fmt_end < fmt_out_size)
+    local has_type = false
+    local fmt_in_begin = 1
+    local fmt_out_begin = 1
+    while fmt_in_begin < fmt_end do
+        local c = string.byte(fmt_in, fmt_in_begin, fmt_in_begin)
+        fmt_in_begin = fmt_in_begin + 1
+
+        if (not has_type and ((c >= 48 and c <= 57) or c == 46 or c == 43 or c == 35)) then
+            goto CONTINUE
+        end
+        has_type = has_type or ((c >= 97 and c <= 122) or (c >= 65 and c <= 90))
+        if c ~= 39 and c ~= 36 and c ~= 95 then
+            fmt_out[fmt_out_begin] = c
+            fmt_out_begin = fmt_out_begin + 1
+        end
+
+        :: CONTINUE ::
+    end
+    -- fmt_out[fmt_out_begin] = 0
+    return string.char(unpack(fmt_out)) -- FIXME: not ideal
+end
+
 --- @param str string
 --- @param pos int
 local function ImAtoi(str, pos)
@@ -2134,6 +2412,201 @@ local function ImParseFormatPrecision(fmt, default_precision)
         precision = -1
     end
     return (precision == INT_MAX) and default_precision or precision
+end
+
+--- @param bb        ImRect
+--- @param id        ImGuiID
+--- @param label     string
+--- @param buf       char[]
+--- @param buf_size  int
+--- @param flags?    ImGuiInputTextFlags
+--- @param callback? ImGuiInputTextCallback
+--- @param user_data any
+function ImGui.TempInputText(bb, id, label, buf, buf_size, flags, callback, user_data)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    local init = (g.TempInputId ~= id)
+    if init then
+        ImGui.ClearActiveID()
+    end
+
+    local backup_pos = ImVec2()
+    ImVec2_Copy(backup_pos, window.DC.CursorPos)
+    ImVec2_Copy(window.DC.CursorPos, bb.Min)
+    g.LastItemData.ItemFlags = bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.AllowDuplicateId)
+    local value_changed = ImGui.InputTextEx(label, nil, buf, buf_size, bb:GetSize(), bit.bor(flags, ImGuiInputTextFlags.TempInput, ImGuiInputTextFlags.AutoSelectAll), callback, user_data)
+    ImGui.KeepAliveID(id)
+    if init then
+        IM_ASSERT(g.ActiveId == id)
+        g.TempInputId = g.ActiveId
+    end
+    if g.ActiveId ~= id then
+        g.TempInputId = 0
+    end
+    ImVec2_Copy(window.DC.CursorPos, backup_pos)
+
+    return value_changed
+end
+
+--- @param bb         ImRect
+--- @param id         ImGuiID
+--- @param label      string
+--- @param data_type  ImGuiDataType
+--- @param data       number
+--- @param format     string
+--- @param clamp_min? number
+--- @param clamp_max? number
+function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min, clamp_max)
+    local g = GImGui
+    local type_info = ImGui.DataTypeGetInfo(data_type)
+    local fmt_buf, fmt_buf_size = {}, 32
+    local data_buf, data_buf_size = {}, 32
+    local fmt_start = ImParseFormatTrimDecorations(format, fmt_buf, fmt_buf_size)
+    if fmt_buf[fmt_start] == 0 then
+        format = type_info.PrintFmt
+    end
+    ImGui.DataTypeFormatString(data_buf, data_buf_size, data_type, data, format)
+    ImStd.ImStrTrimBlanks(data_buf)
+
+    local flags = bit.bor(ImGuiInputTextFlags.AutoSelectAll, ImGuiInputTextFlags.LocalizeDecimalPoint)
+    g.LastItemData.ItemFlags = bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited)
+    if not ImGui.TempInputText(bb, id, label, data_buf, data_buf_size, flags) then
+        return data, false
+    end
+
+    local data_backup = data
+
+    data = ImGui.DataTypeApplyFromText(data_buf, data_type, data, format, nil)
+    if clamp_min or clamp_max then
+        if clamp_min and clamp_max and ImGui.DataTypeCompare(data_type, clamp_min, clamp_max) > 0 then
+            clamp_min, clamp_max = clamp_max, clamp_min
+        end
+        data = ImGui.DataTypeClamp(data_type, data, clamp_min, clamp_max)
+    end
+
+    g.LastItemData.ItemFlags = bit.band(g.LastItemData.ItemFlags, bit.bnot(ImGuiItemFlags.NoMarkEdited))
+    local value_changed = data_backup ~= data
+    if value_changed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    return data, value_changed
+end
+
+--- @param label      string
+--- @param data_type  ImGuiDataType
+--- @param data       number
+--- @param step?      number
+--- @param step_fast? number
+--- @param format?    string
+--- @param flags?     ImGuiInputTextFlags
+function ImGui.InputScalar(label, data_type, data, step, step_fast, format, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return data, false
+    end
+
+    local g = GImGui
+    local style = g.Style
+
+    if format == nil then
+        format = ImGui.DataTypeGetInfo(data_type).PrintFmt
+    end
+
+    local data_default = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasRefVal) ~= 0) and g.NextItemData.RefVal or g.DataTypeZeroValue
+
+    local buf, buf_size = {}, 64 -- TODO: IM_COUNTOF()
+    if bit.band(flags, ImGuiInputTextFlags.DisplayEmptyRefVal) ~= 0 and ImGui.DataTypeCompare(data_type, data, data_default) == 0 then
+        buf[1] = 0
+    else
+        ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
+    end
+
+    g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited)
+    flags = bit.bor(flags, ImGuiInputTextFlags.AutoSelectAll, ImGuiInputTextFlags.LocalizeDecimalPoint)
+
+    local has_step_buttons = (step ~= nil)
+    local button_size = has_step_buttons and ImGui.GetFrameHeight() or 0.0
+    local ret
+    if has_step_buttons then
+        ImGui.BeginGroup()
+        ImGui.PushID(label)
+        ImGui.SetNextItemWidth(ImMax(1.0, ImGui.CalcItemWidth() - (button_size + style.ItemInnerSpacing.x) * 2))
+        ret = ImGui.InputText("", buf, buf_size, flags)
+        -- IMGUI_TEST_ENGINE_ITEM_INFO()
+    else
+        ret = ImGui.InputText(label, buf, buf_size, flags)
+    end
+
+    local input_edited = bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.EditedInternal) ~= 0
+    local ret2
+    data, ret2 = ImGui.DataTypeApplyFromText(buf, data_type, data, format, (bit.band(flags, ImGuiInputTextFlags.ParseEmptyRefVal) ~= 0) and data_default or nil)
+    local value_changed = input_edited and ret2 or false
+
+    if has_step_buttons then
+        local backup_frame_padding = ImVec2()
+        ImVec2_Copy(backup_frame_padding, style.FramePadding)
+        style.FramePadding.x = style.FramePadding.y
+        if bit.band(flags, ImGuiInputTextFlags.ReadOnly) ~= 0 then
+            ImGui.BeginDisabled()
+        end
+        ImGui.PushItemFlag(ImGuiItemFlags.ButtonRepeat, true)
+        ImGui.SameLine(0, style.ItemInnerSpacing.x)
+        --- @cast step number
+        if ImGui.ButtonEx("-", ImVec2(button_size, button_size)) then
+            data = ImGui.DataTypeApplyOp(data_type, 45, data, ((g.IO.KeyCtrl and step_fast) and step_fast or step))
+            value_changed = true
+            ret = true
+        end
+        ImGui.SameLine(0, style.ItemInnerSpacing.x)
+        if ImGui.ButtonEx("+", ImVec2(button_size, button_size)) then
+            data = ImGui.DataTypeApplyOp(data_type, 43, data, ((g.IO.KeyCtrl and step_fast) and step_fast or step))
+            value_changed = true
+            ret = true
+        end
+        ImGui.PopItemFlag()
+        if bit.band(flags, ImGuiInputTextFlags.ReadOnly) ~= 0 then
+            ImGui.EndDisabled()
+        end
+        local label_end = ImGui.FindRenderedTextEnd(label)
+        if label_end ~= 1 then
+            ImGui.SameLine(0, style.ItemInnerSpacing.x)
+            ImGui.TextEx(label, label_end)
+        end
+        ImVec2_Copy(style.FramePadding, backup_frame_padding)
+
+        ImGui.PopID()
+        ImGui.EndGroup()
+    end
+
+    g.LastItemData.ItemFlags = bit.band(g.LastItemData.ItemFlags, bit.bnot(ImGuiItemFlags.NoMarkEdited))
+    if value_changed then
+        ImGui.MarkItemEdited(g.LastItemData.ID)
+    end
+
+    if bit.band(flags, ImGuiInputTextFlags.EnterReturnsTrue) ~= 0 then
+        return data, ret
+    end
+    return data, value_changed
+end
+
+--- @param label      string
+--- @param v          int
+--- @param step?      int
+--- @param step_fast? int
+--- @param flags?     ImGuiInputTextFlags
+function ImGui.InputInt(label, v, step, step_fast, flags)
+    if step      == nil then step      = 1   end
+    if step_fast == nil then step_fast = 100 end
+    if flags     == nil then flags     = 0   end
+
+    local format = (bit.band(flags, ImGuiInputTextFlags.CharsHexadecimal) ~= 0) and "%08X" or "%d"
+    return ImGui.InputScalar(label, ImGuiDataType.S32, v, (step > 0) and step or nil, (step_fast > 0) and step_fast or nil, format, flags)
 end
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
@@ -2338,6 +2811,34 @@ function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
     return v, false
 end
 
+--- @param flags     ImGuiSliderFlags
+--- @param data_type ImGuiDataType
+--- @param min       number
+--- @param max       number
+local function TempInputIsClampEnabled(flags, data_type, min, max)
+    if bit.band(flags, ImGuiSliderFlags.ClampOnInput) ~= 0 and (min ~= nil or max ~= nil) then
+        local clamp_range_dir = 0
+        if min ~= nil and max ~= nil then
+            clamp_range_dir = ImGui.DataTypeCompare(data_type, min, max)
+        end
+        if min == nil or max == nil or clamp_range_dir < 0 then
+            return true
+        end
+        if clamp_range_dir == 0 then
+            return ImGui.DataTypeIsZero(data_type, min) and (bit.band(flags, ImGuiSliderFlags.ClampZeroRange) ~= 0) or true
+        end
+    end
+    return false
+end
+
+--- @param label     string
+--- @param data_type ImGuiDataType
+--- @param data      number
+--- @param v_speed   float
+--- @param min       number
+--- @param max       number
+--- @param format    string
+--- @param flags     ImGuiSliderFlags
 function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, flags)
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
@@ -2392,7 +2893,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
 
         -- Store initial value (not used by main lib but available as a convenience but some mods e.g. to revert)
         if make_active then
-
+            g.ActiveIdValueOnActivation = data
         end
 
         if make_active and not temp_input_is_active then
@@ -2404,7 +2905,8 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     end
 
     if temp_input_is_active then
-        -- TODO:
+        local clamp_enabled = TempInputIsClampEnabled(flags, data_type, min, max)
+        return ImGui.TempInputScalar(frame_bb, id, label, data_type, data, format, clamp_enabled and min or nil, clamp_enabled and max or nil)
     end
 
     -- Draw frame
@@ -2435,10 +2937,24 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     return data, value_changed
 end
 
+--- @param label   string
+--- @param v       float
+--- @param v_speed float
+--- @param v_min   float
+--- @param v_max   float
+--- @param format  string
+--- @param flags   ImGuiSliderFlags
 function ImGui.DragFloat(label, v, v_speed, v_min, v_max, format, flags)
     return ImGui.DragScalar(label, ImGuiDataType.Float, v, v_speed, v_min, v_max, format, flags)
 end
 
+--- @param label   string
+--- @param v       int
+--- @param v_speed float
+--- @param v_min   int
+--- @param v_max   int
+--- @param format  string
+--- @param flags   ImGuiSliderFlags
 function ImGui.DragInt(label, v, v_speed, v_min, v_max, format, flags)
     return ImGui.DragScalar(label, ImGuiDataType.S32, v, v_speed, v_min, v_max, format, flags)
 end
@@ -3356,8 +3872,8 @@ end
 
 -- Edit a string of text
 --- @param label              string
---- @param hint?              ImStringBuffer
---- @param buf                ImStringBuffer
+--- @param hint?              char[]
+--- @param buf                char[]
 --- @param buf_size           int
 --- @param size_arg           ImVec2
 --- @param flags              ImGuiInputTextFlags
@@ -4132,7 +4648,12 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local line_count = 1
     if is_multiline then
         local will_scroll_y = state and ((state.CursorFollow and render_cursor) or (state.CursorCenterY and (render_cursor or render_selection)))
-        line_count = ImGui.InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1), buf_display_end and nil or buf_display_end)
+        --- @cast buf_display_end int
+        local out_buf_end
+        line_count, out_buf_end = InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1))
+        if buf_display_end then
+            buf_display_end = out_buf_end
+        end
     end
     line_index.EndOffset = buf_display_end - 1
     line_visible_n1 = ImMin(line_visible_n1, line_count + 1)
@@ -4304,6 +4825,20 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     else
         return value_changed
     end
+end
+
+--- @param label      string
+--- @param hint       char[]
+--- @param buf        char[]
+--- @param buf_size   size_t
+--- @param flags?     ImGuiInputTextFlags
+--- @param callback?  ImGuiInputTextCallback
+--- @param user_data? any
+function ImGui.InputTextWithHint(label, hint, buf, buf_size, flags, callback, user_data)
+    if flags == nil then flags = 0 end
+
+    IM_ASSERT(bit.band(flags, ImGuiInputTextFlags.Multiline) == 0)
+    return ImGui.InputTextEx(label, hint, buf, buf_size, ImVec2(0, 0), flags, callback, user_data)
 end
 
 ----------------------------------------------------------------
@@ -4487,9 +5022,36 @@ function ImGui.ColorEdit4(label, col, flags)
         end
     elseif bit.band(flags, ImGuiColorEditFlags.DisplayHex) ~= 0 and bit.band(flags, ImGuiColorEditFlags.NoInputs) == 0 then
         -- RGB Hexadecimal Input
-        -- TODO:
-
+        -- TODO: resolve sprintf, sscanf requirement. currently this section creates a lot of temp tables and strings...
+        local buf, buf_size = nil, 64
+        if alpha then
+            local str = ImFormatString("#%02X%02X%02X%02X", ImClamp(i[1], 0, 255), ImClamp(i[2], 0, 255), ImClamp(i[3], 0, 255), ImClamp(i[4], 0, 255))
+            buf = { string.byte(str, 1, #str) }
+            buf[#buf + 1] = 0
+        else
+            local str = ImFormatString("#%02X%02X%02X", ImClamp(i[1], 0, 255), ImClamp(i[2], 0, 255), ImClamp(i[3], 0, 255))
+            buf = { string.byte(str, 1, #str) }
+            buf[#buf + 1] = 0
+        end
         ImGui.SetNextItemWidth(w_inputs)
+
+        if ImGui.InputText("##Text", buf, buf_size, ImGuiInputTextFlags.CharsUppercase) then
+            value_changed = true
+            local p = 1
+            while buf[p] == 35 or ImCharIsBlankA(buf[p]) do
+                p = p + 1
+            end
+            i[1], i[2], i[3] = 0, 0, 0
+            i[4] = 0xFF
+
+            local r
+            if alpha then
+                r = ImStd.sscanf(buf, p, "%02X%02X%02X%02X", i)
+            else
+                r = ImStd.sscanf(buf, p, "%02X%02X%02X", i)
+            end
+            -- IM_UNUSED(r)
+        end
 
         if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
             ImGui.OpenPopupOnItemClick("context", ImGuiPopupFlags.MouseButtonRight)
@@ -4571,6 +5133,7 @@ function ImGui.ColorEdit4(label, col, flags)
     ImGui.EndGroup()
 
     -- Drag and Drop Target
+    -- TODO:
 
     -- When picker is being actively used, use its active id so IsItemActive() will function on ColorEdit4()
     if picker_active_window and g.ActiveId ~= 0 and g.ActiveIdWindow == picker_active_window then
@@ -5278,6 +5841,428 @@ function ImGui.ColorPickerOptionsPopup(ref_col, flags)
     end
     ImGui.PopItemFlag()
     ImGui.EndPopup()
+end
+
+----------------------------------------------------------------
+-- [SECTION] TREES
+----------------------------------------------------------------
+
+--- @param label string
+function ImGui.TreeNode(label)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+    local id = window:GetID(label)
+    return ImGui.TreeNodeBehavior(id, ImGuiTreeNodeFlags.None, label, nil)
+end
+
+--- @param storage_id ImGuiID
+function ImGui.TreeNodeGetOpen(storage_id)
+    local g = GImGui
+    local storage = g.CurrentWindow.DC.StateStorage
+    return (storage[storage_id]) and true or false
+end
+
+--- @param storage_id ImGuiID
+--- @param is_open    bool
+function ImGui.TreeNodeSetOpen(storage_id, is_open)
+    local g = GImGui
+    local storage = g.CurrentWindow.DC.StateStorage
+    storage[storage_id] = is_open
+end
+
+--- @param storage_id ImGuiID
+--- @param flags      ImGuiTreeNodeFlags
+function ImGui.TreeNodeUpdateNextOpen(storage_id, flags)
+    if bit.band(flags, ImGuiTreeNodeFlags.Leaf) ~= 0 then
+        return true
+    end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+    local storage = window.DC.StateStorage
+
+    local is_open
+    if bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasOpen) ~= 0 then
+        if bit.band(g.NextItemData.OpenCond, ImGuiCond.Always) ~= 0 then
+            is_open = g.NextItemData.OpenVal
+            ImGui.TreeNodeSetOpen(storage_id, is_open)
+        else
+            local stored_value = storage[storage_id]
+            if stored_value == nil then
+                is_open = g.NextItemData.OpenVal
+                ImGui.TreeNodeSetOpen(storage_id, is_open)
+            else
+                is_open = stored_value ~= 0
+            end
+        end
+    else
+        is_open = (storage[storage_id] == nil) and (bit.band(flags, ImGuiTreeNodeFlags.DefaultOpen) ~= 0) or storage[storage_id]
+    end
+
+    if g.LogEnabled and bit.band(flags, ImGuiTreeNodeFlags.NoAutoOpenOnLog) == 0 and (window.DC.TreeDepth - g.LogDepthRef) < g.LogDepthToExpand then
+        is_open = true
+    end
+
+    return is_open
+end
+
+--- @param flags ImGuiTreeNodeFlags
+--- @param x1    float
+local function TreeNodeStoreStackData(flags, x1)
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    g.TreeNodeStack:resize(g.TreeNodeStack.Size + 1)
+    local tree_node_data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
+    tree_node_data.ID = g.LastItemData.ID
+    tree_node_data.TreeFlags = flags
+    tree_node_data.ItemFlags = g.LastItemData.ItemFlags
+    ImRect_Copy(tree_node_data.NavRect, g.LastItemData.NavRect)
+
+    local draw_lines = bit.band(flags, bit.bor(ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)) ~= 0
+    tree_node_data.DrawLinesX1 = draw_lines and (x1 + g.FontSize * 0.5 + g.Style.FramePadding.x) or FLT_MAX
+    tree_node_data.DrawLinesTableColumn = (draw_lines and g.CurrentTable) and g.CurrentTable.CurrentColumn or -1
+    tree_node_data.DrawLinesToNodesY2 = -FLT_MAX
+    window.DC.TreeHasStackDataDepthMask = window.DC.TreeHasStackDataDepthMask or bit.lshift(1, window.DC.TreeDepth)
+    if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesToNodes) ~= 0 then
+        window.DC.TreeRecordsClippedNodesY2Mask = window.DC.TreeRecordsClippedNodesY2Mask or bit.lshift(1, window.DC.TreeDepth)
+    end
+end
+
+--- @param id         ImGuiID
+--- @param flags      ImGuiTreeNodeFlags
+--- @param label      string
+--- @param label_end? int
+function ImGui.TreeNodeBehavior(id, flags, label, label_end)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = GImGui
+    local style = g.Style
+
+    local display_frame = bit.band(flags, ImGuiTreeNodeFlags.Framed) ~= 0
+    local use_frame_padding = display_frame or (bit.band(flags, ImGuiTreeNodeFlags.FramePadding) ~= 0)
+    local padding
+    if use_frame_padding then
+        padding = style.FramePadding
+    else
+        padding = ImVec2(style.FramePadding.x, ImMin(window.DC.CurrLineTextBaseOffset, style.FramePadding.y))
+    end
+
+    if label_end == nil then
+        label_end = ImGui.FindRenderedTextEnd(label)
+    end
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
+
+    local text_offset_x = g.FontSize + (display_frame and (padding.x * 3) or (padding.x * 2))
+    local text_offset_y = use_frame_padding and ImMax(style.FramePadding.y, window.DC.CurrLineTextBaseOffset) or window.DC.CurrLineTextBaseOffset
+    local text_width = g.FontSize + label_size.x + padding.x * 2
+
+    local frame_height = label_size.y + padding.y * 2
+    local span_all_columns = bit.band(flags, ImGuiTreeNodeFlags.SpanAllColumns) ~= 0 and (g.CurrentTable ~= nil)
+    local span_all_columns_label = bit.band(flags, ImGuiTreeNodeFlags.LabelSpanAllColumns) ~= 0 and (g.CurrentTable ~= nil)
+    local frame_bb = ImRect()
+    frame_bb.Min.x = span_all_columns and window.ParentWorkRect.Min.x or (bit.band(flags, ImGuiTreeNodeFlags.SpanFullWidth) ~= 0 and window.WorkRect.Min.x or window.DC.CursorPos.x)
+    frame_bb.Min.y = window.DC.CursorPos.y + (text_offset_y - padding.y)
+    frame_bb.Max.x = span_all_columns and window.ParentWorkRect.Max.x or (bit.band(flags, ImGuiTreeNodeFlags.SpanLabelWidth) ~= 0 and window.DC.CursorPos.x + text_width + padding.x or window.WorkRect.Max.x)
+    frame_bb.Max.y = window.DC.CursorPos.y + (text_offset_y - padding.y) + frame_height
+    if display_frame then
+        local outer_extend = IM_TRUNC(window.WindowPadding.x * 0.5)
+        frame_bb.Min.x = frame_bb.Min.x - outer_extend
+        frame_bb.Max.x = frame_bb.Max.x + outer_extend
+    end
+
+    local text_pos = ImVec2(window.DC.CursorPos.x + text_offset_x, window.DC.CursorPos.y + text_offset_y)
+    ImGui.ItemSize(ImVec2(text_width, frame_height), padding.y)
+
+    local interact_bb = ImRect()
+    ImRect_Copy(interact_bb, frame_bb)
+    if bit.band(flags, bit.bor(ImGuiTreeNodeFlags.Framed, ImGuiTreeNodeFlags.SpanAvailWidth, ImGuiTreeNodeFlags.SpanFullWidth, ImGuiTreeNodeFlags.SpanLabelWidth, ImGuiTreeNodeFlags.SpanAllColumns)) == 0 then
+        interact_bb.Max.x = frame_bb.Min.x + text_width + (label_size.x > 0.0 and (style.ItemSpacing.x * 2.0) or 0.0)
+    end
+
+    local storage_id = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasStorageID) ~= 0) and g.NextItemData.StorageId or id
+    local is_open = ImGui.TreeNodeUpdateNextOpen(storage_id, flags)
+
+    local is_visible
+    if span_all_columns or span_all_columns_label then
+        local backup_clip_rect_min_x = window.ClipRect.Min.x
+        local backup_clip_rect_max_x = window.ClipRect.Max.x
+        window.ClipRect.Min.x = window.ParentWorkRect.Min.x
+        window.ClipRect.Max.x = window.ParentWorkRect.Max.x
+        is_visible = ImGui.ItemAdd(interact_bb, id)
+        window.ClipRect.Min.x = backup_clip_rect_min_x
+        window.ClipRect.Max.x = backup_clip_rect_max_x
+    else
+        is_visible = ImGui.ItemAdd(interact_bb, id)
+    end
+    g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasDisplayRect)
+    ImRect_Copy(g.LastItemData.DisplayRect, frame_bb)
+
+    local store_tree_node_stack_data = false
+    if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesMask_) == 0 then
+        flags = bit.bor(flags, g.Style.TreeLinesFlags)
+    end
+    local draw_tree_lines = (bit.band(flags, bit.bor(ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)) ~= 0) and (frame_bb.Min.y < window.ClipRect.Max.y) and (g.Style.TreeLinesSize > 0.0)
+    if bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 then
+        store_tree_node_stack_data = draw_tree_lines
+        if bit.band(flags, ImGuiTreeNodeFlags.NavLeftJumpsToParent) ~= 0 and not g.NavIdIsAlive then
+            if g.NavMoveDir == ImGuiDir.Left and g.NavWindow == window and ImGui.NavMoveRequestButNoResultYet() then
+                store_tree_node_stack_data = true
+            end
+        end
+    end
+
+    local is_leaf = bit.band(flags, ImGuiTreeNodeFlags.Leaf) ~= 0
+    if not is_visible then
+        if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesToNodes) ~= 0 and bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.lshift(1, (window.DC.TreeDepth - 1))) ~= 0 then
+            local parent_data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
+            parent_data.DrawLinesToNodesY2 = ImMax(parent_data.DrawLinesToNodesY2, window.DC.CursorPos.y)
+            if frame_bb.Min.y >= window.ClipRect.Max.y then
+                window.DC.TreeRecordsClippedNodesY2Mask = bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.bnot(bit.lshift(1, (window.DC.TreeDepth - 1))))
+            end
+        end
+        if is_open and store_tree_node_stack_data then
+            ImGui.TreeNodeStoreStackData(flags, text_pos.x - text_offset_x)
+        end
+        if is_open and bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 then
+            ImGui.TreePushOverrideID(id)
+        end
+        -- IMGUI_TEST_ENGINE_ITEM_INFO(g.LastItemData.ID, label, g.LastItemData.StatusFlags | (is_leaf ? 0 : ImGuiItemStatusFlags_Openable) | (is_open ? ImGuiItemStatusFlags_Opened : 0))
+        return is_open
+    end
+
+    if span_all_columns or span_all_columns_label then
+        ImGui.TablePushBackgroundChannel()
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasClipRect)
+        ImRect_Copy(g.LastItemData.ClipRect, window.ClipRect)
+    end
+
+    local button_flags = ImGuiTreeNodeFlags.None
+    if bit.band(flags, ImGuiTreeNodeFlags.AllowOverlap) ~= 0 or bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.AllowOverlap) ~= 0 then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.AllowOverlap)
+    end
+    if not is_leaf then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnDragDropHold)
+    end
+
+    local arrow_hit_x1 = (text_pos.x - text_offset_x) - style.TouchExtraPadding.x
+    local arrow_hit_x2 = (text_pos.x - text_offset_x) + (g.FontSize + padding.x * 2.0) + style.TouchExtraPadding.x
+    local is_mouse_x_over_arrow = (g.IO.MousePos.x >= arrow_hit_x1 and g.IO.MousePos.x < arrow_hit_x2)
+
+    local is_multi_select = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.IsMultiSelect) ~= 0
+    if is_multi_select then
+        flags = bit.bor(flags, (bit.band(flags, ImGuiTreeNodeFlags.OpenOnMask_) == 0) and bit.bor(ImGuiTreeNodeFlags.OpenOnArrow, ImGuiTreeNodeFlags.OpenOnDoubleClick) or ImGuiTreeNodeFlags.OpenOnArrow)
+    end
+
+    if is_mouse_x_over_arrow then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClick)
+    elseif bit.band(flags, ImGuiTreeNodeFlags.OpenOnDoubleClick) ~= 0 then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClickRelease, ImGuiButtonFlags.PressedOnDoubleClick)
+    else
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnClickRelease)
+    end
+    if bit.band(flags, ImGuiTreeNodeFlags.NoNavFocus) ~= 0 then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.NoNavFocus)
+    end
+
+    local selected = bit.band(flags, ImGuiTreeNodeFlags.Selected) ~= 0
+    local was_selected = selected
+
+    if is_multi_select then
+        selected, button_flags = ImGui.MultiSelectItemHeader(id, selected, button_flags)
+        if is_mouse_x_over_arrow then
+            button_flags = bit.band(bit.bor(button_flags, ImGuiButtonFlags.PressedOnClick), bit.bnot(ImGuiButtonFlags.PressedOnClickRelease))
+        end
+    else
+        if window ~= g.HoveredWindow or not is_mouse_x_over_arrow then
+            button_flags = bit.bor(button_flags, ImGuiButtonFlags.NoKeyModsAllowed)
+        end
+    end
+
+    local pressed, hovered, held = ImGui.ButtonBehavior(interact_bb, id, button_flags)
+    local toggled = false
+    if not is_leaf then
+        if pressed and g.DragDropHoldJustPressedId ~= id then
+            if bit.band(flags, ImGuiTreeNodeFlags.OpenOnMask_) == 0 or (g.NavActivateId == id and not is_multi_select) then
+                toggled = true
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.OpenOnArrow) ~= 0 then
+                toggled = toggled or (is_mouse_x_over_arrow and not g.NavHighlightItemUnderNav)
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.OpenOnDoubleClick) ~= 0 and g.IO.MouseClickedCount[0] == 2 then
+                toggled = true
+            end
+        elseif pressed and g.DragDropHoldJustPressedId == id then
+            IM_ASSERT(bit.band(button_flags, ImGuiButtonFlags.PressedOnDragDropHold) ~= 0)
+            if not is_open then
+                toggled = true
+            else
+                pressed = false
+            end
+        end
+
+        if g.NavId == id and g.NavMoveDir == ImGuiDir.Left and is_open then
+            toggled = true
+            ImGui.NavClearPreferredPosForAxis(ImGuiAxis.X)
+            ImGui.NavMoveRequestCancel()
+        end
+        if g.NavId == id and g.NavMoveDir == ImGuiDir.Right and not is_open then
+            toggled = true
+            ImGui.NavClearPreferredPosForAxis(ImGuiAxis.X)
+            ImGui.NavMoveRequestCancel()
+        end
+
+        if toggled then
+            is_open = not is_open
+            window.DC.StateStorage[storage_id] = is_open
+            g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledOpen)
+        end
+    end
+
+    if is_multi_select then
+        local pressed_copy = pressed and not toggled
+        selected, pressed_copy = ImGui.MultiSelectItemFooter(id, selected, pressed_copy)
+        if pressed then
+            ImGui.SetNavID(id, window.DC.NavLayerCurrent, g.CurrentFocusScopeId, interact_bb)
+        end
+    end
+
+    if selected ~= was_selected then
+        g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledSelection)
+    end
+
+    -- Render
+    do
+        local text_col = ImGui.GetColorU32(ImGuiCol.Text)
+        local nav_render_cursor_flags = ImGuiNavRenderCursorFlags.Compact
+        if is_multi_select then
+            nav_render_cursor_flags = bit.bor(nav_render_cursor_flags, ImGuiNavRenderCursorFlags.AlwaysDraw)
+        end
+        if display_frame then
+            local bg_col = ImGui.GetColorU32((held and hovered) and ImGuiCol.HeaderActive or (hovered and ImGuiCol.HeaderHovered or ImGuiCol.Header))
+            ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, bg_col, true, style.FrameRounding)
+            ImGui.RenderNavCursor(frame_bb, id, nav_render_cursor_flags)
+            if span_all_columns and not span_all_columns_label then
+                ImGui.TablePopBackgroundChannel()
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.Bullet) ~= 0 then
+                ImGui.RenderBullet(window.DrawList, ImVec2(text_pos.x - text_offset_x * 0.60, text_pos.y + g.FontSize * 0.5), text_col)
+            elseif not is_leaf then
+                ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x - text_offset_x + padding.x, text_pos.y), text_col, is_open and ((bit.band(flags, ImGuiTreeNodeFlags.UpsideDownArrow) ~= 0) and ImGuiDir.Up or ImGuiDir.Down) or ImGuiDir.Right, 1.0)
+            else
+                text_pos.x = text_pos.x - (text_offset_x - padding.x)
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.ClipLabelForTrailingButton) ~= 0 then
+                frame_bb.Max.x = frame_bb.Max.x - (g.FontSize + style.FramePadding.x)
+            end
+            -- if g.LogEnabled then
+            --     ImGui.LogSetNextTextDecoration("###", "###")
+            -- end
+        else
+            if hovered or selected then
+                local bg_col = ImGui.GetColorU32((held and hovered) and ImGuiCol.HeaderActive or (hovered and ImGuiCol.HeaderHovered or ImGuiCol.Header))
+                ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, bg_col, false)
+            end
+            ImGui.RenderNavCursor(frame_bb, id, nav_render_cursor_flags)
+            if span_all_columns and not span_all_columns_label then
+                ImGui.TablePopBackgroundChannel()
+            end
+            if bit.band(flags, ImGuiTreeNodeFlags.Bullet) ~= 0 then
+                ImGui.RenderBullet(window.DrawList, ImVec2(text_pos.x - text_offset_x * 0.5, text_pos.y + g.FontSize * 0.5), text_col)
+            elseif not is_leaf then
+                ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x - text_offset_x + padding.x, text_pos.y + g.FontSize * 0.15), text_col, is_open and ((bit.band(flags, ImGuiTreeNodeFlags.UpsideDownArrow) ~= 0) and ImGuiDir.Up or ImGuiDir.Down) or ImGuiDir.Right, 0.70)
+            end
+            -- if g.LogEnabled then
+            --     ImGui.LogSetNextTextDecoration(">", nil)
+            -- end
+        end
+
+        if draw_tree_lines then
+            ImGui.TreeNodeDrawLineToChildNode(ImVec2(text_pos.x - text_offset_x + padding.x, text_pos.y + g.FontSize * 0.5))
+        end
+
+        if display_frame then
+            ImGui.RenderTextClipped(text_pos, frame_bb.Max, label, label_end, label_size)
+        else
+            ImGui.RenderText(text_pos, label, 1, label_end, false)
+        end
+
+        if span_all_columns_label then
+            ImGui.TablePopBackgroundChannel()
+        end
+    end
+
+    if is_open and store_tree_node_stack_data then
+        TreeNodeStoreStackData(flags, text_pos.x - text_offset_x)
+    end
+    if is_open and bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 then
+        ImGui.TreePushOverrideID(id)
+    end
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | (is_leaf ? 0 : ImGuiItemStatusFlags_Openable) | (is_open ? ImGuiItemStatusFlags_Opened : 0));
+    return is_open
+end
+
+function ImGui.TreeNodeDrawLineToChildNode(target_pos)
+    -- TODO:
+end
+
+--- @param id ImGuiID
+function ImGui.TreePushOverrideID(id)
+    local g = GImGui
+    local window = g.CurrentWindow
+    ImGui.Indent()
+    window.DC.TreeDepth = window.DC.TreeDepth + 1
+    ImGui.PushOverrideID(id)
+end
+
+function ImGui.TreePop()
+    local g = GImGui
+    local window = g.CurrentWindow
+    ImGui.Unindent()
+
+    window.DC.TreeDepth = window.DC.TreeDepth - 1
+    local tree_depth_mask = bit.lshift(1, window.DC.TreeDepth)
+
+    if bit.band(window.DC.TreeHasStackDataDepthMask, tree_depth_mask) ~= 0 then
+        local data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
+        IM_ASSERT(data.ID == window.IDStack:back())
+
+        if bit.band(data.TreeFlags, ImGuiTreeNodeFlags.NavLeftJumpsToParent) ~= 0 then
+            if g.NavIdIsAlive and g.NavMoveDir == ImGuiDir.Left and g.NavWindow == window and ImGui.NavMoveRequestButNoResultYet() then
+                ImGui.NavMoveRequestResolveWithPastTreeNode(g.NavMoveResultLocal, data)
+            end
+        end
+
+        if data.DrawLinesX1 ~= FLT_MAX and window.DC.CursorPos.y >= window.ClipRect.Min.y then
+            ImGui.TreeNodeDrawLineToTreePop(data)
+        end
+
+        g.TreeNodeStack:pop_back()
+        window.DC.TreeHasStackDataDepthMask = bit.band(window.DC.TreeHasStackDataDepthMask, bit.bnot(tree_depth_mask))
+        window.DC.TreeRecordsClippedNodesY2Mask = bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.bnot(tree_depth_mask))
+    end
+
+    IM_ASSERT(window.IDStack.Size > 1)
+    ImGui.PopID()
+end
+
+--- @param label  string
+--- @param flags? ImGuiTreeNodeFlags
+function ImGui.CollapsingHeader(label, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+    local id = window:GetID(label)
+    return ImGui.TreeNodeBehavior(id, bit.bor(flags, ImGuiTreeNodeFlags.CollapsingHeader), label)
 end
 
 ----------------------------------------------------------------

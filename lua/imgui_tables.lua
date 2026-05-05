@@ -10,3 +10,11 @@ local GImGui
 function ImGui._SetCurrentContext_Tables(ctx)
     GImGui = ctx
 end
+
+function ImGui.TablePushBackgroundChannel()
+    -- TODO:
+end
+
+function ImGui.TablePopBackgroundChannel()
+    -- TODO:
+end
