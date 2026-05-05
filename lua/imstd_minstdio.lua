@@ -38,6 +38,16 @@ local function hex_digit_to_int(c)
     if c >= CHAR_A and c <= CHAR_F then return c - CHAR_A + 10 end
 end
 
+-- we force this behavior by default
+local function clamp_if_overflow(spec, val)
+    if spec == CHAR_d or spec == CHAR_x or spec == CHAR_X then
+        if val > INT_MAX then return INT_MAX end
+        if val < INT_MIN then return INT_MIN end
+    end
+
+    return val
+end
+
 --- @param buffer       char[]
 --- @param buffer_begin int
 --- @param format       string
@@ -109,14 +119,14 @@ local function sscanf(buffer, buffer_begin, format, result)
                 p = p + 1
             end
 
-            local negative = false
+            local sign = 1
             -- optional sign
             if base == 10 then
                 if     buffer[p] == CHAR_PLUS then
                     p = p + 1
                     width = width -1
                 elseif buffer[p] == CHAR_MINUS then
-                    negative = true
+                    sign = -1
                     p = p + 1
                     width = width - 1
                 end
@@ -137,10 +147,10 @@ local function sscanf(buffer, buffer_begin, format, result)
             while p_start < p do
                 local c = buffer[p_start]
                 p_start = p_start + 1
-                val = val * base + hex_digit_to_int(c)
+                val = val * base + sign * hex_digit_to_int(c)
             end
 
-            result[assigned + 1] = negative and -val or val
+            result[assigned + 1] = clamp_if_overflow(spec, val)
             assigned = assigned + 1
             items_matched = items_matched + 1
         end
