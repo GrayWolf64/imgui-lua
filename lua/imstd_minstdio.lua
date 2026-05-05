@@ -1,5 +1,5 @@
 --- ImGui Sincerely
--- This is a minimal Lua impl of C-like sscanf sub-set
+-- This is a minimal Lua impl of C-like sscanf, sprintf sub-set
 
 -- Supports:
 -- - %x, %X, %nx, %nX (where n is a number)
@@ -134,6 +134,10 @@ local function sscanf(buffer, buffer_begin, format, result)
     end
 
     return items_matched
+end
+
+local function sprintf()
+
 end
 
 return sscanf
