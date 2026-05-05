@@ -10,6 +10,8 @@
 local _byte = string.byte
 
 local CHAR_PERCENT = _byte'%'
+local CHAR_PLUS = _byte'+'
+local CHAR_MINUS = _byte'-'
 local CHAR_0 = _byte'0'
 local CHAR_9 = _byte'9'
 local CHAR_a = _byte'a'
@@ -107,6 +109,19 @@ local function sscanf(buffer, buffer_begin, format, result)
                 p = p + 1
             end
 
+            local negative = false
+            -- optional sign
+            if base == 10 then
+                if     buffer[p] == CHAR_PLUS then
+                    p = p + 1
+                    width = width -1
+                elseif buffer[p] == CHAR_MINUS then
+                    negative = true
+                    p = p + 1
+                    width = width - 1
+                end
+            end
+
             local p_start = p
             while width > 0 and buffer[p] and isdigit_under_base(buffer[p], base) do
                 p = p + 1
@@ -125,7 +140,7 @@ local function sscanf(buffer, buffer_begin, format, result)
                 val = val * base + hex_digit_to_int(c)
             end
 
-            result[assigned + 1] = val
+            result[assigned + 1] = negative and -val or val
             assigned = assigned + 1
             items_matched = items_matched + 1
         end
