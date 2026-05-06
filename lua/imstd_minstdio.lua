@@ -148,9 +148,15 @@ local function sscanf(buffer, buffer_begin, format, result)
                 local c = buffer[p_start]
                 p_start = p_start + 1
                 val = val * base + sign * hex_digit_to_int(c)
+
+                local old_val = val
+                val = clamp_if_overflow(spec, val)
+                if old_val ~= val then
+                    break
+                end
             end
 
-            result[assigned + 1] = clamp_if_overflow(spec, val)
+            result[assigned + 1] = val
             assigned = assigned + 1
             items_matched = items_matched + 1
         end
