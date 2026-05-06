@@ -4,6 +4,8 @@
 
 --- @meta
 
+--- @alias ImGuiTableColumnIdx ImS16
+
 -- TODO: Implement actual ImString type
 --- @alias ImString char[]|string
 --- @alias ImStringBuffer char[]
@@ -64,6 +66,30 @@ ImCos   = math.cos
 ImAcos  = math.acos
 ImAtan2 = math.atan2
 ImSqrt  = math.sqrt
+
+--- @generic T: number
+--- @param a  T
+--- @param b  T
+--- @param mn T
+--- @param mx T
+--- @return T
+function ImAddClampOverflow(a, b, mn, mx)
+    if b < 0 and (a < mn - b) then return mn end
+    if b > 0 and (a > mx - b) then return mx end
+    return a + b
+end
+
+--- @generic T: number
+--- @param a  T
+--- @param b  T
+--- @param mn T
+--- @param mx T
+--- @return T
+function ImSubClampOverflow(a, b, mn, mx)
+    if b > 0 and (a < mn + b) then return mn end
+    if b < 0 and (a > mx + b) then return mx end
+    return a - b
+end
 
 --- @param base     table
 --- @param count    int
@@ -915,11 +941,12 @@ function ImGuiStyleMod(idx, v)
     return this
 end
 
---- Type information associated to one ImGuiDataType. Retrieve with DataTypeGetInfo().\
---- Unlike cpp impl, `Size` and `ScanFmt` fields are absent here
+--- Type information associated to one ImGuiDataType. Retrieve with DataTypeGetInfo()
 --- @class ImGuiDataTypeInfo
+--- @field Size     size_t # Size in bytes
 --- @field Name     string # Short descriptive name for the type, for debugging
 --- @field PrintFmt string # Default printf format for the type
+--- @field ScanFmt  string # Default scanf format for the type
 
 --- @class ImGuiLastItemData
 --- @field ID          ImGuiID
@@ -960,6 +987,29 @@ function ImGuiLastItemData_Copy(dest, src)
     dest.Shortcut = src.Shortcut
 end
 
+--- @class ImGuiTreeNodeStackData
+--- @field ID                   ImGuiID
+--- @field TreeFlags            ImGuiTreeNodeFlags
+--- @field ItemFlags            ImGuiItemFlags
+--- @field NavRect              ImRect
+--- @field DrawLinesX1          float
+--- @field DrawLinesToNodesY2   float
+--- @field DrawLinesTableColumn ImGuiTableColumnIdx
+
+--- @return ImGuiTreeNodeStackData
+--- @nodiscard
+local function ImGuiTreeNodeStackData()
+    return {
+        ID                   = nil,
+        TreeFlags            = nil,
+        ItemFlags            = nil,
+        NavRect              = ImRect(),
+        DrawLinesX1          = nil,
+        DrawLinesToNodesY2   = nil,
+        DrawLinesTableColumn = nil
+    }
+end
+
 --- @class ImGuiNextItemData
 --- @field HasFlags          ImGuiNextItemDataFlags
 --- @field ItemFlags         ImGuiItemFlags
@@ -995,7 +1045,7 @@ function ImGuiNextItemData()
         ShortcutFlags     = 0,
         OpenVal           = false,
         OpenCond          = 0,
-        RefVal            = nil,
+        RefVal            = 0,
         StorageId         = 0,
         ColorMarker       = 0
     }, MT.ImGuiNextItemData)
@@ -1128,6 +1178,10 @@ function ImGuiStyle()
         ImageBorderSize = 0.0,
 
         WindowBorderHoverPadding = 4.0,
+
+        TreeLinesFlags = ImGuiTreeNodeFlags.DrawLinesNone,
+        TreeLinesSize  = 1.0,
+        TreeLinesRounding = 0.0,
 
         ColorMarkerSize = 3.0,
         ColorButtonPosition = ImGuiDir.Right,
@@ -1426,6 +1480,9 @@ end
 --- @field FontBakedScale                     float
 --- @field FontRasterizerDensity              float
 --- @field DrawListSharedData                 ImDrawListSharedData
+--- @field NextItemData                       ImGuiNextItemData
+--- @field LastItemData                       ImGuiLastItemData
+--- @field NextWindowData                     ImGuiNextWindowData
 --- @field WithinEndChildID                   ImGuiID
 --- @field WithinEndPopupID                   ImGuiID
 --- @field StyleVarStack                      ImVector
@@ -1439,6 +1496,7 @@ end
 --- @field GroupStack                         ImVector<ImGuiGroupData>
 --- @field OpenPopupStack                     ImVector<ImGuiPopupData>
 --- @field BeginPopupStack                    ImVector<ImGuiPopupData>
+--- @field TreeNodeStack                      ImVector<ImGuiTreeNodeStackData>
 --- @field PlatformIO                         ImGuiPlatformIO
 --- @field Viewports                          ImVector<ImGuiViewportP>
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
@@ -1623,6 +1681,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         OpenPopupStack = ImVector(),
         BeginPopupStack = ImVector(),
 
+        TreeNodeStack = ImVector(ImGuiTreeNodeStackData),
+
         WithinEndChildID = 0, WithinEndPopupID = 0,
 
         BeginMenuDepth = 0, BeginComboDepth = 0,
@@ -1655,6 +1715,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         InputTextLineIndex = ImGuiTextIndex(),
         InputTextDeactivatedState = ImGuiInputTextDeactivatedState(),
         InputTextPasswordFontBackupBaked = ImFontBaked(),
+
+        ActiveIdValueOnActivation = 0,
+        DataTypeZeroValue = 0,
 
         ComboPreviewData = ImGuiComboPreviewData(),
 
@@ -1784,27 +1847,31 @@ local function ImGuiMenuColumns()
 end
 
 --- @class ImGuiWindowTempData
---- @field CursorPos               ImVec2
---- @field CursorPosPrevLine       ImVec2
---- @field CursorStartPos          ImVec2
---- @field CursorMaxPos            ImVec2
---- @field IdealMaxPos             ImVec2
---- @field CurrLineSize            ImVec2
---- @field PrevLineSize            ImVec2
---- @field CurrLineTextBaseOffset  float
---- @field PrevLineTextBaseOffset  float
---- @field IsSameLine              bool
---- @field IsSetPos                bool
---- @field Indent                  ImVec1
---- @field ColumnsOffset           ImVec1
---- @field GroupOffset             ImVec1
---- @field CursorStartPosLossyness ImVec2
---- @field TextWrapPos             float
---- @field TextWrapPosStack        ImVector
---- @field MenuBarAppending        bool
---- @field MenuBarOffset           ImVec2
---- @field ChildWindows            ImVector<ImGuiWindow>
---- @field LayoutType              ImGuiLayoutType
+--- @field CursorPos                     ImVec2
+--- @field CursorPosPrevLine             ImVec2
+--- @field CursorStartPos                ImVec2
+--- @field CursorMaxPos                  ImVec2
+--- @field IdealMaxPos                   ImVec2
+--- @field CurrLineSize                  ImVec2
+--- @field PrevLineSize                  ImVec2
+--- @field CurrLineTextBaseOffset        float
+--- @field PrevLineTextBaseOffset        float
+--- @field IsSameLine                    bool
+--- @field IsSetPos                      bool
+--- @field Indent                        ImVec1
+--- @field ColumnsOffset                 ImVec1
+--- @field GroupOffset                   ImVec1
+--- @field CursorStartPosLossyness       ImVec2
+--- @field TextWrapPos                   float
+--- @field TextWrapPosStack              ImVector
+--- @field MenuBarAppending              bool
+--- @field MenuBarOffset                 ImVec2
+--- @field MenuColumns                   ImGuiMenuColumns
+--- @field TreeDepth                     int
+--- @field TreeHasStackDataDepthMask     ImU32
+--- @field TreeRecordsClippedNodesY2Mask ImU32
+--- @field ChildWindows                  ImVector<ImGuiWindow>
+--- @field LayoutType                    ImGuiLayoutType
 
 --- @return ImGuiWindowTempData
 --- @nodiscard
@@ -1838,8 +1905,12 @@ local function ImGuiWindowTempData()
         MenuBarAppending = false, -- FIXME: Remove this
         MenuBarOffset = ImVec2(),
         MenuColumns = ImGuiMenuColumns(),
+        TreeDepth = 0,
+        TreeHasStackDataDepthMask = nil,
+        TreeRecordsClippedNodesY2Mask = nil,
 
         ChildWindows = ImVector(),
+        StateStorage = nil,
 
         LayoutType = nil
     }
@@ -1880,6 +1951,7 @@ end
 --- @field RootWindow                         ImGuiWindow
 --- @field RootWindowPopupTree                ImGuiWindow
 --- @field RootWindowDockTree                 ImGuiWindow
+--- @field StateStorage                       {[ImGuiID]: bool}
 MT.ImGuiWindow = {}
 MT.ImGuiWindow.__index = MT.ImGuiWindow
 
@@ -2025,6 +2097,8 @@ function ImGuiWindow(ctx, name)
         LastFrameActive = -1,
         LastFrameJustFocused = -1,
         LastTimeActive = -1.0,
+
+        StateStorage = {},
 
         WriteAccessed = false,
 

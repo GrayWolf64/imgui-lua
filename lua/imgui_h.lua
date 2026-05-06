@@ -5,18 +5,21 @@
 
 local _band = bit.band
 
---- @alias ImU8           integer
+--- @class ImU8 : integer
+--- @class ImS8 : integer
 
 --- @class ImU16 : integer
+--- @class ImS16 : integer
 
---- @param val number
---- @return ImU16
-function ImU16(val) return _band(val, 0xFFFF) end
+function ImU8(val) return _band(val, 0xFF) end                                          --- @type fun(val: number): ImU8
+function ImS8(val) return _band(val, 0xFF) - (_band(val, 0x80) ~= 0 and 0x100 or 0) end --- @type fun(val: number): ImS8
 
---- @alias ImS16          integer
+function ImU16(val) return _band(val, 0xFFFF) end                                               --- @type fun(val: number): ImU16
+function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x10000 or 0) end  --- @type fun(val: number): ImS16
+
 --- @alias ImU32          integer
 --- @alias ImU64          integer
---- @alias ImS8           integer
+
 --- @alias ImS64          integer
 --- @alias float          number
 
@@ -2041,3 +2044,37 @@ end
 
 --- @alias ImGuiMemAllocFunc fun(T: function, start_idx: int, end_idx: int, userdata: any): table
 --- @alias ImGuiMemFreeFunc fun(owner: table, field: string, userdata: any)
+
+--- @enum ImGuiTreeNodeFlags
+ImGuiTreeNodeFlags = {
+    None                 = 0,
+    Selected             = bit.lshift(1, 0),
+    Framed               = bit.lshift(1, 1),
+    AllowOverlap         = bit.lshift(1, 2),
+    NoTreePushOnOpen     = bit.lshift(1, 3),
+    NoAutoOpenOnLog      = bit.lshift(1, 4),
+    DefaultOpen          = bit.lshift(1, 5),
+    OpenOnDoubleClick    = bit.lshift(1, 6),
+    OpenOnArrow          = bit.lshift(1, 7),
+    Leaf                 = bit.lshift(1, 8),
+    Bullet               = bit.lshift(1, 9),
+    FramePadding         = bit.lshift(1, 10),
+    SpanAvailWidth       = bit.lshift(1, 11),
+    SpanFullWidth        = bit.lshift(1, 12),
+    SpanLabelWidth       = bit.lshift(1, 13),
+    SpanAllColumns       = bit.lshift(1, 14),
+    LabelSpanAllColumns  = bit.lshift(1, 15),
+    NavLeftJumpsToParent = bit.lshift(1, 17),
+    DrawLinesNone        = bit.lshift(1, 18),
+    DrawLinesFull        = bit.lshift(1, 19),
+    DrawLinesToNodes     = bit.lshift(1, 20),
+
+    NoNavFocus                 = bit.lshift(1, 27),
+    ClipLabelForTrailingButton = bit.lshift(1, 28),
+    UpsideDownArrow            = bit.lshift(1, 29),
+}
+
+ImGuiTreeNodeFlags.CollapsingHeader = bit.bor(ImGuiTreeNodeFlags.Framed, ImGuiTreeNodeFlags.NoTreePushOnOpen, ImGuiTreeNodeFlags.NoAutoOpenOnLog)
+
+ImGuiTreeNodeFlags.OpenOnMask_ = bit.bor(ImGuiTreeNodeFlags.OpenOnDoubleClick, ImGuiTreeNodeFlags.OpenOnArrow)
+ImGuiTreeNodeFlags.DrawLinesMask_ = bit.bor(ImGuiTreeNodeFlags.DrawLinesNone, ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)

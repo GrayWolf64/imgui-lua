@@ -110,7 +110,10 @@ local TOOLTIP_DEFAULT_PIVOT_TOUCH  = ImVec2(0.5, 1.0) -- Multiplied by g.Style.M
 local IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 
 local string = string
-ImFormatString = string.format
+ImFormatString = string.format -- TODO: an simplified version that operates on byte tables directly?
+
+--- @module "imstd_minstdio"
+ImStd.sscanf = IM_INCLUDE"imstd_minstdio.lua"
 
 local math = math
 local bit  = bit
@@ -568,6 +571,22 @@ function ImStd.ImStrbol(str, mid_line, begin)
         mid_line = mid_line - 1
     end
     return mid_line
+end
+
+--- @param buf char[]
+function ImStd.ImStrTrimBlanks(buf)
+    local p = 1
+    while buf[p] == 32 or buf[p] == 9 do
+        p = p + 1
+    end
+    local p_start = p
+    while buf[p] ~= 0 do
+        p = p + 1
+    end
+    while p > p_start and (buf[p - 1] == 32 or buf[p - 1] == 9) do
+        ImStd.memmove(buf, 1, buf, p_start, p - p_start)
+    end
+    buf[p - p_start] = 0
 end
 
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
@@ -1173,8 +1192,10 @@ function ImGui.SameLine(offset_from_start_x, spacing_w)
     window.DC.IsSameLine = true
 end
 
---- @param indent_w float
+--- @param indent_w? float
 function ImGui.Indent(indent_w)
+    if indent_w == nil then indent_w = 0.0 end
+
     local g = GImGui
     local window = ImGui.GetCurrentWindow()
 
@@ -1187,8 +1208,10 @@ function ImGui.Indent(indent_w)
     window.DC.CursorPos.x = window.Pos.x + window.DC.Indent.x + window.DC.ColumnsOffset.x
 end
 
---- @param indent_w float
+--- @param indent_w? float
 function ImGui.Unindent(indent_w)
+    if indent_w == nil then indent_w = 0.0 end
+
     local g = GImGui
     local window = ImGui.GetCurrentWindow()
 
@@ -1752,6 +1775,14 @@ function ImGui.PushID(str_id)
     local g = GImGui
     local window = g.CurrentWindow
     local id = window:GetID(str_id)
+    window.IDStack:push_back(id)
+end
+
+--- @param id ImGuiID
+function ImGui.PushOverrideID(id)
+    local g = GImGui
+    local window = g.CurrentWindow
+    -- TODO: DebugHookIdInfo()
     window.IDStack:push_back(id)
 end
 
@@ -3859,11 +3890,11 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
     end
 end
 
---- @param p_min    ImVec2
---- @param p_max    ImVec2
---- @param fill_col ImU32
---- @param borders  bool
---- @param rounding float
+--- @param p_min     ImVec2
+--- @param p_max     ImVec2
+--- @param fill_col  ImU32
+--- @param borders?  bool
+--- @param rounding? float
 function ImGui.RenderFrame(p_min, p_max, fill_col, borders, rounding)
     if borders  == nil then borders  = true end
     if rounding == nil then rounding = 0.0 end
@@ -5329,7 +5360,8 @@ function ImGui.Begin(name, open, flags)
         window.DC.TreeHasStackDataDepthMask = 0x00
         window.DC.TreeRecordsClippedNodesY2Mask = 0x00
         window.DC.ChildWindows:resize(0)
-        -- TODO: StateStorage, CurrentColumns
+        window.DC.StateStorage = window.StateStorage
+        -- TODO: CurrentColumns
         window.DC.LayoutType = ImGuiLayoutType.Vertical
         window.DC.ParentLayoutType = (parent_window ~= nil) and parent_window.DC.LayoutType or ImGuiLayoutType.Vertical
 
@@ -8382,6 +8414,24 @@ end
 function ImGui.NavMoveRequestButNoResultYet()
     local g = GImGui
     return g.NavMoveScoringItems and g.NavMoveResultLocal.ID == 0 and g.NavMoveResultOther.ID == 0
+end
+
+--- @param result ImGuiNavItemData
+function ImGui.NavApplyItemToResult(result)
+    -- TODO:
+end
+
+--- @param result         ImGuiNavItemData
+--- @param tree_node_data ImGuiTreeNodeStackData
+function ImGui.NavMoveRequestResolveWithPastTreeNode(result, tree_node_data)
+    local g = GImGui
+    g.NavMoveScoringItems = false
+    g.LastItemData.ID = tree_node_data.ID
+    g.LastItemData.ItemFlags = bit.band(tree_node_data.ItemFlags, bit.bnot(ImGuiItemFlags.HasSelectionUserData))
+    ImRect_Copy(g.LastItemData.NavRect, tree_node_data.NavRect)
+    ImGui.NavApplyItemToResult(result)
+    ImGui.NavClearPreferredPosForAxis(ImGuiAxis.Y)
+    ImGui.NavUpdateAnyRequestFlag()
 end
 
 function ImGui.NavMoveRequestCancel()
