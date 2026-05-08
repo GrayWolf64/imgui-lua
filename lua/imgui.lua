@@ -575,7 +575,7 @@ end
 
 --- @param buf char[]
 function ImStd.ImStrTrimBlanks(buf)
-    local p = 1
+    local p = 1 -- buf_begin
     while buf[p] == 32 or buf[p] == 9 do
         p = p + 1
     end
@@ -584,9 +584,12 @@ function ImStd.ImStrTrimBlanks(buf)
         p = p + 1
     end
     while p > p_start and (buf[p - 1] == 32 or buf[p - 1] == 9) do
+        p = p - 1
+    end
+    if p_start > 1 then
         ImStd.memmove(buf, 1, buf, p_start, p - p_start)
     end
-    buf[p - p_start] = 0
+    buf[p - p_start + 1] = 0
 end
 
 function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
