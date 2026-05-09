@@ -1009,7 +1009,7 @@ function ImGui.ImageWithBg(tex_ref, image_size, uv0, uv1, bg_col, tint_col)
         window.DrawList:AddImage(tex_ref, bb.Min + padding, bb.Max - padding, uv0, uv1, ImGui.GetColorU32(tint_col))
     end
     if g.Style.ImageBorderSize > 0.0 then
-        window.DrawList:AddRect(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Border), rounding, ImDrawFlags.None, g.Style.ImageBorderSize)
+        window.DrawList:AddRect(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Border), rounding, g.Style.ImageBorderSize, ImDrawFlags.None)
     end
 end
 
@@ -5476,7 +5476,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
             local vert_start_idx = draw_list.VtxBuffer.Size + 1
 
             draw_list:PathArcTo(wheel_center, (wheel_r_inner + wheel_r_outer) * 0.5, a0, a1, segment_per_arc)
-            draw_list:PathStroke(col_white, 0, wheel_thickness)
+            draw_list:PathStroke(col_white, wheel_thickness)
 
             local vert_end_idx = draw_list.VtxBuffer.Size + 1
 

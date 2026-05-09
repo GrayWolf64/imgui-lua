@@ -2025,7 +2025,7 @@ if not IMGUI_DISABLE_DEBUG_TOOLS then
     if id ~= 0 and g.HoveredIdPreviousFrame == id and bit.band(item_flags, ImGuiItemFlags.AllowDuplicateId) == 0 then
         g.HoveredIdPreviousFrameItemCount = g.HoveredIdPreviousFrameItemCount + 1
         if g.DebugDrawIdConflictsId == id then
-            window.DrawList:AddRect(bb.Min - ImVec2(1, 1), bb.Max + ImVec2(1, 1), IM_COL32(255, 0, 0, 255), 0.0, ImDrawFlags.None, 2.0)
+            window.DrawList:AddRect(bb.Min - ImVec2(1, 1), bb.Max + ImVec2(1, 1), IM_COL32(255, 0, 0, 255), 0.0, 2.0, ImDrawFlags.None)
         end
     end
 end
@@ -3821,7 +3821,7 @@ function ImGui.RenderMouseCursor(base_pos, base_scale, mouse_cursor, col_fill, c
             local a_min = ImFmod(g.Time * 5.0, 2.0 * IM_PI)
             local a_max = a_min + IM_PI * 1.65
             draw_list:PathArcTo(pos + ImVec2(14, -1) * scale, 6.0 * scale, a_min, a_max)
-            draw_list:PathStroke(col_fill, ImDrawFlags.None, 3.0 * scale)
+            draw_list:PathStroke(col_fill, 3.0 * scale)
         end
         draw_list:PopTexture()
 
@@ -3909,8 +3909,8 @@ function ImGui.RenderFrame(p_min, p_max, fill_col, borders, rounding)
 
     local border_size = g.Style.FrameBorderSize
     if borders and border_size > 0 then
-        window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), ImGui.GetColorU32(ImGuiCol.BorderShadow), rounding, 0, border_size)
-        window.DrawList:AddRect(p_min, p_max, ImGui.GetColorU32(ImGuiCol.Border), rounding, 0, border_size)
+        window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), ImGui.GetColorU32(ImGuiCol.BorderShadow), rounding, border_size, 0)
+        window.DrawList:AddRect(p_min, p_max, ImGui.GetColorU32(ImGuiCol.Border), rounding, border_size, 0)
     end
 end
 
@@ -3922,8 +3922,8 @@ function ImGui.RenderFrameBorder(p_min, p_max, rounding)
     local window = g.CurrentWindow
     local border_size = g.Style.FrameBorderSize
     if border_size > 0.0 then
-        window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), ImGui.GetColorU32(ImGuiCol.BorderShadow), rounding, 0, border_size)
-        window.DrawList:AddRect(p_min, p_max, ImGui.GetColorU32(ImGuiCol.Border), rounding, 0, border_size)
+        window.DrawList:AddRect(p_min + ImVec2(1, 1), p_max + ImVec2(1, 1), ImGui.GetColorU32(ImGuiCol.BorderShadow), rounding, border_size, 0)
+        window.DrawList:AddRect(p_min, p_max, ImGui.GetColorU32(ImGuiCol.Border), rounding, border_size, 0)
     end
 end
 
@@ -3949,7 +3949,7 @@ local function RenderWindowOuterSingleBorder(window, border_n, border_col, borde
     local border_r = GetResizeBorderRect(window, border_n, rounding, 0.0)
     window.DrawList:PathArcTo(ImLerpV2V2V2(border_r.Min, border_r.Max, def.SegmentN1) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle - IM_PI * 0.25, def.OuterAngle)
     window.DrawList:PathArcTo(ImLerpV2V2V2(border_r.Min, border_r.Max, def.SegmentN2) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle, def.OuterAngle + IM_PI * 0.25)
-    window.DrawList:PathStroke(border_col, ImDrawFlags.None, border_size)
+    window.DrawList:PathStroke(border_col, border_size)
 end
 
 local function RenderWindowOuterBorders(window)
@@ -3957,7 +3957,7 @@ local function RenderWindowOuterBorders(window)
     local border_size = window.WindowBorderSize
     local border_col = ImGui.GetColorU32(ImGuiCol.Border)
     if border_size > 0.0 and (bit.band(window.Flags, ImGuiWindowFlags.NoBackground) == 0) then
-        window.DrawList:AddRect(window.Pos, window.Pos + window.Size, border_col, window.WindowRounding, 0, window.WindowBorderSize)
+        window.DrawList:AddRect(window.Pos, window.Pos + window.Size, border_col, window.WindowRounding, window.WindowBorderSize, 0)
     elseif border_size > 0.0 then
         if bit.band(window.ChildFlags, ImGuiChildFlags.ResizeX) ~= 0 then
             RenderWindowOuterSingleBorder(window, 1, border_col, border_size)

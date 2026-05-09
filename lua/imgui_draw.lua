@@ -3434,9 +3434,11 @@ end
 --- @param points       ImVec2[]
 --- @param points_count int
 --- @param col          ImU32
---- @param flags        ImDrawFlags
 --- @param thickness    float
-function MT.ImDrawList:AddPolyline(points, points_count, col, flags, thickness)
+--- @param flags?       ImDrawFlags
+function MT.ImDrawList:AddPolyline(points, points_count, col, thickness, flags)
+    if flags == nil then flags = 0 end
+
     if points_count < 2 or bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
@@ -3729,7 +3731,16 @@ function MT.ImDrawList:AddRectFilledMultiColor(p_min, p_max, col_upr_left, col_u
     self:PrimWriteVtx(ImVec2(p_min.x, p_max.y), uv, col_bot_left)
 end
 
-function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
+--- @param p_min      ImVec2
+--- @param p_max      ImVec2
+--- @param col        ImU32
+--- @param rounding   float
+--- @param thickness? float
+--- @param flags?     ImDrawFlags
+function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, thickness, flags)
+    if thickness == nil then thickness = 1.0 end
+    if flags     == nil then flags     = 0   end
+
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
     if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
@@ -3737,7 +3748,7 @@ function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, flags, thickness)
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
     end
 
-    self:PathStroke(col, ImDrawFlags.Closed, thickness)
+    self:PathStroke(col, thickness, ImDrawFlags.Closed)
 end
 
 function MT.ImDrawList:AddLine(p1, p2, col, thickness)
@@ -3745,7 +3756,7 @@ function MT.ImDrawList:AddLine(p1, p2, col, thickness)
 
     self:PathLineTo(p1 + ImVec2(0.5, 0.5))
     self:PathLineTo(p2 + ImVec2(0.5, 0.5))
-    self:PathStroke(col, 0, thickness)
+    self:PathStroke(col, thickness)
 end
 
 --- @param min_x      float
@@ -3761,7 +3772,7 @@ function MT.ImDrawList:AddLineH(min_x, max_x, y, col, thickness)
     end
     self:PathLineTo(ImVec2(min_x + 0.5, y + 0.5))
     self:PathLineTo(ImVec2(max_x + 0.5, y + 0.5))
-    self:PathStroke(col, 0, thickness)
+    self:PathStroke(col, thickness)
 end
 
 --- @param x          float
@@ -3777,7 +3788,7 @@ function MT.ImDrawList:AddLineV(x, min_y, max_y, col, thickness)
     end
     self:PathLineTo(ImVec2(x + 0.5, min_y + 0.5))
     self:PathLineTo(ImVec2(x + 0.5, max_y + 0.5))
-    self:PathStroke(col, 0, thickness)
+    self:PathStroke(col, thickness)
 end
 
 function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness)
@@ -3788,7 +3799,7 @@ function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness)
     self:PathLineTo(p1)
     self:PathLineTo(p2)
     self:PathLineTo(p3)
-    self:PathStroke(col, ImDrawFlags.Closed, thickness)
+    self:PathStroke(col, thickness, ImDrawFlags.Closed)
 end
 
 function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
@@ -3826,7 +3837,7 @@ function MT.ImDrawList:AddCircle(center, radius, col, num_segments, thickness)
         self:PathArcTo(center, radius - 0.5, 0.0, a_max, num_segments - 1)
     end
 
-    self:PathStroke(col, ImDrawFlags.Closed, thickness)
+    self:PathStroke(col, thickness, ImDrawFlags.Closed)
 end
 
 --- @param center       ImVec2
@@ -4418,7 +4429,7 @@ function ImGui.RenderCheckMark(draw_list, pos, col, sz)
     draw_list:PathLineTo(ImVec2(bx - third, by - third))
     draw_list:PathLineTo(ImVec2(bx, by))
     draw_list:PathLineTo(ImVec2(bx + third * 2.0, by - third * 2.0))
-    draw_list:PathStroke(col, 0, thickness)
+    draw_list:PathStroke(col, thickness)
 end
 
 -- Render an arrow. 'pos' is position of the arrow tip. half_sz.x is length from base to tip. half_sz.y is length on each side

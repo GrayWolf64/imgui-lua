@@ -760,11 +760,14 @@ function MT.ImDrawList:PathFillConvex(col)
     self._Path.Size = 0
 end
 
-function MT.ImDrawList:PathStroke(col, flags, thickness)
-    if not flags     then flags     = 0   end
+--- @param col        ImU32
+--- @param thickness? float
+--- @param flags?     ImDrawFlags
+function MT.ImDrawList:PathStroke(col, thickness, flags)
     if not thickness then thickness = 1.0 end
+    if not flags     then flags     = 0   end
 
-    self:AddPolyline(self._Path.Data, self._Path.Size, col, flags, thickness)
+    self:AddPolyline(self._Path.Data, self._Path.Size, col, thickness, flags)
     self._Path.Size = 0
 end
 

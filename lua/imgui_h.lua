@@ -1402,12 +1402,12 @@ ImGuiNextItemDataFlags = {
 --- @enum ImDrawFlags
 ImDrawFlags = {
     None                    = 0,
-    Closed                  = bit.lshift(1, 0),
     RoundCornersTopLeft     = bit.lshift(1, 4),
     RoundCornersTopRight    = bit.lshift(1, 5),
     RoundCornersBottomLeft  = bit.lshift(1, 6),
     RoundCornersBottomRight = bit.lshift(1, 7),
-    RoundCornersNone        = bit.lshift(1, 8)
+    RoundCornersNone        = bit.lshift(1, 8),
+    Closed                  = bit.lshift(1, 9)
 }
 
 ImDrawFlags.RoundCornersTop         = bit.bor(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight)
