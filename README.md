@@ -12,7 +12,7 @@
 | Fonts(otf) | Not planned                      |
 | Viewports  | Completed, syncing with `docking`|
 | Windows    | WIP                              |
-| Docking    | Not planned                      |
+| Docking    | Maybe soon                       |
 | Widgets    | WIP                              |
 | Backends   | Currently only have GMod backend |
 
