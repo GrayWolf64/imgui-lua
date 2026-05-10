@@ -6113,13 +6113,18 @@ function ImGui.UpdateMouseWheel()
         end
     end
 
-    local wheel = ImVec2()
-    wheel.x = ImGui.TestKeyOwner(ImGuiKey.MouseWheelX, ImGuiKeyOwner_NoOwner) and g.IO.MouseWheelH or 0.0
-    wheel.y = ImGui.TestKeyOwner(ImGuiKey.MouseWheelY, ImGuiKeyOwner_NoOwner) and g.IO.MouseWheel or 0.0
-
     local mouse_window = g.WheelingWindow and g.WheelingWindow or g.HoveredWindow
     if not mouse_window or mouse_window.Collapsed then
         return
+    end
+
+    local owner_id = mouse_window.ID
+    local wheel = ImVec2()
+    wheel.x = ImGui.TestKeyOwner(ImGuiKey.MouseWheelX, owner_id) and g.IO.MouseWheelH or 0.0
+    wheel.y = ImGui.TestKeyOwner(ImGuiKey.MouseWheelY, owner_id) and g.IO.MouseWheel or 0.0
+    if g.WheelingWindow ~= nil then
+        ImGui.SetKeyOwner(ImGuiKey.MouseWheelX, owner_id)
+        ImGui.SetKeyOwner(ImGuiKey.MouseWheelY, owner_id)
     end
 
     -- Zoom / Scale window
