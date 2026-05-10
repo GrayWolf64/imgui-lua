@@ -4031,7 +4031,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
             if bit.band(bg_col, IM_COL32_A_MASK) ~= 0 then
                 local bg_rect = ImRect(window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size)
-                local bg_rounding_flags = (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and 0 or ImDrawFlags.RoundCornersBottom
+                local bg_rounding_flags = (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and ImDrawFlags.RoundCornersAll or ImDrawFlags.RoundCornersBottom
                 local bg_draw_list = window.DrawList
                 bg_draw_list:AddRectFilled(bg_rect.Min, bg_rect.Max, bg_col, window_rounding, bg_rounding_flags)
             end
