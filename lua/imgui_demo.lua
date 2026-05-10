@@ -56,9 +56,10 @@ local function ExampleImageViewer_DrawCanvas(data, canvas_size, image_tex_ref, i
     end
     data.ViewReset = false
 
-    ImGui.SetItemKeyOwner(ImGuiKey.MouseWheelY)
-    if ImGui.IsItemHovered() and io.MouseWheel ~= 0.0 then
-        data.Zoom = IM_CLAMP(data.Zoom * (1.0 + io.MouseWheel * 0.10), data.ZoomMin, data.ZoomMax)
+    if ImGui.SetItemKeyOwner(ImGuiKey.MouseWheelY) then
+        if io.MouseWheel ~= 0.0 then
+            data.Zoom = IM_CLAMP(data.Zoom * (1.0 + io.MouseWheel * 0.10), data.ZoomMin, data.ZoomMax)
+        end
     end
     local zoom = data.Zoom
     if ImGui.IsItemActive() and ImGui.IsMouseDragging(0) then

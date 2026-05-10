@@ -3155,7 +3155,7 @@ function ImGui.SetItemKeyOwner(key, flags)
     local g = GImGui
     local id = g.LastItemData.ID
     if id == 0 or (g.HoveredId ~= id and g.ActiveId ~= id) then
-        return
+        return false
     end
     if bit.band(flags, ImGuiInputFlags.CondMask_) == 0 then
         flags = bit.bor(flags, ImGuiInputFlags.CondDefault_)
@@ -3163,7 +3163,9 @@ function ImGui.SetItemKeyOwner(key, flags)
     if (g.HoveredId == id and bit.band(flags, ImGuiInputFlags.CondHovered) ~= 0) or (g.ActiveId == id and bit.band(flags, ImGuiInputFlags.CondActive) ~= 0) then
         IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedBySetItemKeyOwner)) == 0)
         ImGui.SetKeyOwner(key, id, bit.band(flags, bit.bnot(ImGuiInputFlags.CondMask_)))
+        return true
     end
+    return false
 end
 
 --- @param key_chord ImGuiKeyChord
