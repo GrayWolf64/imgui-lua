@@ -3162,6 +3162,9 @@ function ImGui.SetItemKeyOwner(key, flags)
     end
     if (g.HoveredId == id and bit.band(flags, ImGuiInputFlags.CondHovered) ~= 0) or (g.ActiveId == id and bit.band(flags, ImGuiInputFlags.CondActive) ~= 0) then
         IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedBySetItemKeyOwner)) == 0)
+        if not ImGui.TestKeyOwner(key, id) then
+            return false
+        end
         ImGui.SetKeyOwner(key, id, bit.band(flags, bit.bnot(ImGuiInputFlags.CondMask_)))
         return true
     end
