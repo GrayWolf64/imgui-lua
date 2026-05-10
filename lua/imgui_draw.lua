@@ -3907,10 +3907,14 @@ end
 --- @param tex_ref ImTextureRef
 --- @param p_min   ImVec2
 --- @param p_max   ImVec2
---- @param uv_min  ImVec2
---- @param uv_max  ImVec2
---- @param col     ImU32
+--- @param uv_min? ImVec2
+--- @param uv_max? ImVec2
+--- @param col?    ImU32
 function MT.ImDrawList:AddImage(tex_ref, p_min, p_max, uv_min, uv_max, col)
+    if uv_min == nil then uv_min = ImVec2(0, 0)   end
+    if uv_max == nil then uv_max = ImVec2(1, 1)   end
+    if col    == nil then col    = IM_COL32_WHITE end
+
     if bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end

@@ -1,10 +1,7 @@
 # TODOs
 
-- `string.format()` %p get address
-- Remove the usage of `CArray` and `CValue` entirely. Use Lua native tables instead
-- All indices use 1 based!
+- Should make more tables 1-based unless necessary to be 0-based: MouseXXX `table<ImVec2>`
 - All loop var start from 1 unless necessary
-- Project file structure. `include` usage. Use `getfenv` and `setfenv`?
 - Optimize: Deal with GC?
 - Exposed a lot of globals. Quite messy.
 - Don't have overloads for functions. So follow a convention like: if there's a function ImMax for numbers, then ImMaxV2 is for ImVec2s. When it takes in many params, better name it like ImLerpV2V2V2. This helps me avoid type checking in these helper functions and also keep the code clear.

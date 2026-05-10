@@ -5,6 +5,96 @@ local IM_MIN = math.min
 local IM_MAX = math.max
 local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
 
+--- @class ExampleImageViewerData
+
+--- @return ExampleImageViewerData
+--- @nodiscard
+local function ExampleImageViewerData()
+    return {
+        ImageBgColor = IM_COL32(100, 100, 100, 255),
+        GridColor    = IM_COL32(255, 255, 255, 100),
+        GridEnabled  = true,
+        ViewReset    = true,
+        ViewOffset   = ImVec2(0, 0),
+        Zoom         = 10.0,
+        ZoomMin      = 1.0,
+        ZoomMax      = 10000.0
+    }
+end
+
+--- @param data ExampleImageViewerData
+local function ExampleImageViewer_DrawOptions(data)
+    ImGui.SetNextItemShortcut(ImGuiKey.G, ImGuiInputFlags.Tooltip)
+    _, data.GridEnabled = ImGui.Checkbox("Grid", data.GridEnabled)
+    ImGui.SameLine()
+    ImGui.SetNextItemWidth(ImGui.GetFontSize() * 10.0)
+    local zoom_100 = data.Zoom * 100.0
+    local changed
+    zoom_100, changed = ImGui.DragFloat("##Zoom", zoom_100, 5.0, data.ZoomMin * 100.0, data.ZoomMax * 100.0, "%.0f%%", ImGuiSliderFlags.AlwaysClamp)
+    if changed then
+        data.Zoom = zoom_100 / 100.0
+    end
+end
+
+--- @param data          ExampleImageViewerData
+--- @param canvas_size   ImVec2
+--- @param image_tex_ref ImTextureRef
+--- @param image_w       int
+--- @param image_h       int
+local function ExampleImageViewer_DrawCanvas(data, canvas_size, image_tex_ref, image_w, image_h)
+    local io = ImGui.GetIO()
+    local platform_io = ImGui.GetPlatformIO()
+    local draw_list = ImGui.GetWindowDrawList()
+    IM_ASSERT(canvas_size.x >= 0.0 and canvas_size.y >= 0.0)
+
+    ImGui.InvisibleButton("##Canvas", canvas_size)
+    local canvas_min = ImGui.GetItemRectMin()
+    local canvas_max = ImGui.GetItemRectMax()
+
+    if data.ViewReset then
+        data.ViewOffset = ImVec2((canvas_size.x * 0.5 / data.Zoom) - 0.5, (canvas_size.y * 0.5 / data.Zoom) - 0.5)
+    end
+    data.ViewReset = false
+
+    ImGui.SetItemKeyOwner(ImGuiKey.MouseWheelY)
+    if ImGui.IsItemHovered() and io.MouseWheel ~= 0.0 then
+        data.Zoom = IM_CLAMP(data.Zoom * (1.0 + io.MouseWheel * 0.10), data.ZoomMin, data.ZoomMax)
+    end
+    local zoom = data.Zoom
+    if ImGui.IsItemActive() and ImGui.IsMouseDragging(0) then
+        data.ViewOffset.x = data.ViewOffset.x - io.MouseDelta.x / zoom
+        data.ViewOffset.y = data.ViewOffset.y - io.MouseDelta.y / zoom
+    end
+
+    local image_min = ImVec2(); local image_max = ImVec2()
+    image_min.x = math.floor((canvas_min.x - (data.ViewOffset.x * zoom)) + (canvas_size.x * 0.5))
+    image_min.y = math.floor((canvas_min.y - (data.ViewOffset.y * zoom)) + (canvas_size.y * 0.5))
+    image_max.x = image_min.x + image_w * zoom
+    image_max.y = image_min.y + image_h * zoom
+
+    draw_list:AddRect(ImVec2(canvas_min.x - 1.0, canvas_min.y - 1.0), ImVec2(canvas_max.x + 1.0, canvas_max.y + 1.0), IM_COL32(255, 255, 255, 255))
+    draw_list:PushClipRect(canvas_min, canvas_max, true)
+    draw_list:AddRectFilled(image_min, image_max, data.ImageBgColor)
+    if platform_io.DrawCallback_SetSamplerNearest ~= nil then
+        draw_list:AddCallback(platform_io.DrawCallback_SetSamplerNearest)
+    end
+    draw_list:AddImage(image_tex_ref, image_min, image_max)
+    if platform_io.DrawCallback_SetSamplerLinear ~= nil then
+        draw_list:AddCallback(ImGui.GetPlatformIO().DrawCallback_SetSamplerLinear)
+    end
+
+    if data.GridEnabled and zoom > 6.0 then
+        local step = zoom
+        for px = math.floor((canvas_min.x - image_min.x) / step), math.floor((canvas_max.x - image_min.x) / step) do
+            draw_list:AddLineV(image_min.x + px * step, canvas_min.y, canvas_max.y, data.GridColor, 1.0)
+        end
+        for py = math.floor((canvas_min.y - image_min.y) / step), math.floor((canvas_max.y - image_min.y) / step) do
+            draw_list:AddLineH(canvas_min.x, canvas_max.x, image_min.y + py * step, data.GridColor, 1.0)
+        end
+    end
+    draw_list:PopClipRect()
+end
+
 local function ShowExampleMenuFile()
     ImGui.MenuItem("(demo menu)", nil, false, false)
     if ImGui.MenuItem("New") then end
@@ -243,6 +333,8 @@ local DemoWindowWidgetsImages do
 
 local pressed_count = 0
 
+local image_viewer = ExampleImageViewerData()
+
 function DemoWindowWidgetsImages()
     if ImGui.TreeNode("Images") then
         ImGui.TextWrapped(
@@ -253,51 +345,28 @@ function DemoWindowWidgetsImages()
 
         -- Grab the current texture identifier used by the font atlas
         local io = ImGui.GetIO()
-        local my_tex_id = io.Fonts.TexRef
 
-        -- Regular user code should never have to care about TexData-> fields, but since we want to display the entire texture here, we pull Width/Height from it
-        local my_tex_w = io.Fonts.TexData.Width
-        local my_tex_h = io.Fonts.TexData.Height
+        local atlas = io.Fonts
+        local my_tex_id = atlas.TexRef
+        local my_tex_w = atlas.TexData.Width
+        local my_tex_h = atlas.TexData.Height
+        ImGui.Text("%.0fx%.0f", my_tex_w, my_tex_h)
 
-        do
-            ImGui.Text("%.0fx%.0f", my_tex_w, my_tex_h)
-            local pos = ImGui.GetCursorScreenPos()
-            local uv_min = ImVec2(0.0, 0.0) -- Top-left
-            local uv_max = ImVec2(1.0, 1.0) -- Lower-right
+        ImGui.SeparatorText("Image()/ImageWithBg() function")
+        local uv_min = ImVec2(0.0, 0.0)
+        local uv_max = ImVec2(1.0, 1.0)
+        ImGui.PushStyleVar(ImGuiStyleVar.ImageBorderSize, IM_MAX(1.0, ImGui.GetStyle().ImageBorderSize))
+        ImGui.ImageWithBg(my_tex_id, ImVec2(my_tex_w, my_tex_h), uv_min, uv_max, ImVec4(0.0, 0.0, 0.0, 1.0))
+        ImGui.PopStyleVar()
 
-            ImGui.PushStyleVar(ImGuiStyleVar.ImageBorderSize, IM_MAX(1.0, ImGui.GetStyle().ImageBorderSize))
-            ImGui.ImageWithBg(my_tex_id, ImVec2(my_tex_w, my_tex_h), uv_min, uv_max, ImVec4(0.0, 0.0, 0.0, 1.0))
+        -- Fancy widget
+        ImGui.SeparatorText("Interactive Image Viewer")
 
-            if ImGui.BeginItemTooltip() then
-                local region_sz = 32.0
-                local region_x = io.MousePos.x - pos.x - region_sz * 0.5
-                local region_y = io.MousePos.y - pos.y - region_sz * 0.5
-                local zoom = 4.0
+        local canvas_size = ImVec2(ImGui.GetContentRegionAvail().x, my_tex_h * 2.0)
+        ExampleImageViewer_DrawOptions(image_viewer)
+        ExampleImageViewer_DrawCanvas(image_viewer, canvas_size, my_tex_id, my_tex_w, my_tex_h)
 
-                if region_x < 0.0 then
-                    region_x = 0.0
-                elseif region_x > my_tex_w - region_sz then
-                    region_x = my_tex_w - region_sz
-                end
-
-                if region_y < 0.0 then
-                    region_y = 0.0
-                elseif region_y > my_tex_h - region_sz then
-                    region_y = my_tex_h - region_sz
-                end
-
-                ImGui.Text("Min: (%.2f, %.2f)", region_x, region_y)
-                ImGui.Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz)
-
-                local uv0 = ImVec2(region_x / my_tex_w, region_y / my_tex_h)
-                local uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h)
-
-                ImGui.ImageWithBg(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImVec4(0.0, 0.0, 0.0, 1.0))
-                ImGui.EndTooltip()
-            end
-
-            ImGui.PopStyleVar()
-        end
+        ImGui.SeparatorText("Textured Buttons")
 
         ImGui.TextWrapped("And now some textured buttons..")
         for i = 1, 8 do
@@ -466,6 +535,10 @@ local function DemoWindowInputs()
         return
     end
 
+end
+
+local function ShowExampleAppImageViewer()
+    -- TODO:
 end
 
 function ImGui.ShowDemoWindow(open)

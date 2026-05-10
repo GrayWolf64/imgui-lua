@@ -1039,15 +1039,30 @@ end
 
 -- Return if a mouse click/drag went past the given threshold. Valid to call during the MouseReleased frame.
 -- [Internal] This doesn't test if the button is pressed
---- @param button         ImGuiMouseButton
---- @param lock_threshold float
+--- @param button          ImGuiMouseButton
+--- @param lock_threshold? float
 function ImGui.IsMouseDragPastThreshold(button, lock_threshold)
+    if lock_threshold == nil then lock_threshold = -1.0 end
+
     local g = GImGui
     IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
     if lock_threshold < 0.0 then
         lock_threshold = g.IO.MouseDragThreshold
     end
-    return g.IO.MouseDragMaxDistanceSqr[button] >= lock_threshold * lock_threshold
+    return g.IO.MouseDragMaxDistanceSqr[button + 1] >= lock_threshold * lock_threshold -- FIXME: when button becomes 1-based, update this
+end
+
+--- @param button          ImGuiMouseButton
+--- @param lock_threshold? float
+function ImGui.IsMouseDragging(button, lock_threshold)
+    if lock_threshold == nil then lock_threshold = -1.0 end
+
+    local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
+    if not g.IO.MouseDown[button] then
+        return false
+    end
+    return ImGui.IsMouseDragPastThreshold(button, lock_threshold)
 end
 
 --- @param bb           ImRect
@@ -1917,7 +1932,7 @@ function ImGui.IsWindowContentHoverable(window, flags)
     return true
 end
 
---- @param flags ImGuiHoveredFlags
+--- @param flags? ImGuiHoveredFlags
 function ImGui.IsItemHovered(flags)
     if flags == nil then flags = 0 end
 
@@ -3132,6 +3147,25 @@ function ImGui.SetKeyOwnersForKeyChord(key_chord, owner_id, flags)
     end
 end
 
+--- @param key    ImGuiKey
+--- @param flags? ImGuiInputFlags
+function ImGui.SetItemKeyOwner(key, flags)
+    if flags == nil then flags = ImGuiInputFlags.None end
+
+    local g = GImGui
+    local id = g.LastItemData.ID
+    if id == 0 or (g.HoveredId ~= id and g.ActiveId ~= id) then
+        return
+    end
+    if bit.band(flags, ImGuiInputFlags.CondMask_) == 0 then
+        flags = bit.bor(flags, ImGuiInputFlags.CondDefault_)
+    end
+    if (g.HoveredId == id and bit.band(flags, ImGuiInputFlags.CondHovered) ~= 0) or (g.ActiveId == id and bit.band(flags, ImGuiInputFlags.CondActive) ~= 0) then
+        IM_ASSERT(bit.band(flags, bit.bnot(ImGuiInputFlags.SupportedBySetItemKeyOwner)) == 0)
+        ImGui.SetKeyOwner(key, id, bit.band(flags, bit.bnot(ImGuiInputFlags.CondMask_)))
+    end
+end
+
 --- @param key_chord ImGuiKeyChord
 --- @param flags     ImGuiInputFlags
 --- @param owner_id  ImGuiID
@@ -3152,6 +3186,17 @@ function ImGui.IsKeyChordPressed(key_chord, flags, owner_id)
         return false
     end
     return true
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @param flags?    ImGuiInputFlags
+function ImGui.SetNextItemShortcut(key_chord, flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui
+    g.NextItemData.HasFlags = bit.bor(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasShortcut)
+    g.NextItemData.Shortcut = key_chord
+    g.NextItemData.ShortcutFlags = flags
 end
 
 --- @param key_chord ImGuiKeyChord
@@ -4378,6 +4423,11 @@ function ImGui.SetNextWindowBgAlpha(alpha)
     g.NextWindowData.BgAlphaVal = alpha
 end
 
+function ImGui.GetWindowDrawList()
+    local window = ImGui.GetCurrentWindow()
+    return window.DrawList
+end
+
 function ImGui.GetFontSize()
     return GImGui.FontSize
 end
@@ -4395,6 +4445,18 @@ function ImGui.SetActiveIdUsingAllKeyboardKeys()
     g.ActiveIdUsingNavDirMask = (bit.lshift(1, ImGuiDir.COUNT) - 1)
     g.ActiveIdUsingAllKeyboardKeys = true
     ImGui.NavMoveRequestCancel()
+end
+
+--- @return ImVec2 # Ref
+function ImGui.GetItemRectMin()
+    local g = GImGui
+    return g.LastItemData.Rect.Min
+end
+
+--- @return ImVec2 # Ref
+function ImGui.GetItemRectMax()
+    local g = GImGui
+    return g.LastItemData.Rect.Max
 end
 
 --- @param name         string
