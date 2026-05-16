@@ -3450,6 +3450,7 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, thickness, flags)
     local opaque_uv = self._Data.TexUvWhitePixel
     local count = closed and points_count or points_count - 1 -- Number of line segments
     local thick_line = thickness > self._FringeScale
+    IM_ASSERT_USER_ERROR_RET(bit.band(flags, ImDrawFlags.InvalidMask_) == 0, "Incorrect parameter. Did you swap 'thickness' and 'flags'?")
 
     if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
         -- Anti-aliased stroke
@@ -3744,7 +3745,11 @@ function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, thickness, flags)
     if thickness == nil then thickness = 1.0 end
     if flags     == nil then flags     = 0   end
 
-    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
+    IM_ASSERT_USER_ERROR_RET(bit.band(flags, ImDrawFlags.InvalidMask_) == 0, "Incorrect parameter. Did you swap 'thickness' and 'flags'?")
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
     if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
         self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
     else

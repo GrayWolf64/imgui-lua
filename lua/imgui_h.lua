@@ -1410,13 +1410,14 @@ ImDrawFlags = {
     Closed                  = bit.lshift(1, 9)
 }
 
-ImDrawFlags.RoundCornersTop         = bit.bor(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight)
-ImDrawFlags.RoundCornersBottom      = bit.bor(ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersBottomRight)
-ImDrawFlags.RoundCornersLeft        = bit.bor(ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersTopLeft)
-ImDrawFlags.RoundCornersRight       = bit.bor(ImDrawFlags.RoundCornersBottomRight, ImDrawFlags.RoundCornersTopRight)
-ImDrawFlags.RoundCornersAll         = bit.bor(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight, ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersBottomRight)
-ImDrawFlags.RoundCornersMask_       = bit.bor(ImDrawFlags.RoundCornersAll, ImDrawFlags.RoundCornersNone)
-ImDrawFlags.RoundCornersDefault_    = ImDrawFlags.RoundCornersAll
+ImDrawFlags.RoundCornersTop      = bit.bor(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight)
+ImDrawFlags.RoundCornersBottom   = bit.bor(ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersBottomRight)
+ImDrawFlags.RoundCornersLeft     = bit.bor(ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersTopLeft)
+ImDrawFlags.RoundCornersRight    = bit.bor(ImDrawFlags.RoundCornersBottomRight, ImDrawFlags.RoundCornersTopRight)
+ImDrawFlags.RoundCornersAll      = bit.bor(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight, ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersBottomRight)
+ImDrawFlags.RoundCornersDefault_ = ImDrawFlags.RoundCornersAll
+ImDrawFlags.RoundCornersMask_    = bit.bor(ImDrawFlags.RoundCornersAll, ImDrawFlags.RoundCornersNone)
+ImDrawFlags.InvalidMask_         = 0x8000000F
 
 --- @enum ImDrawListFlags
 ImDrawListFlags = {
