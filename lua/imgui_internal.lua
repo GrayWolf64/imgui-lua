@@ -1522,6 +1522,7 @@ end
 --- @field NavFocusRoute                      ImVector<ImGuiFocusScopeData>
 --- @field PlatformImeData                    ImGuiPlatformImeData
 --- @field PlatformImeDataPrev                ImGuiPlatformImeData
+--- @field UserTextures                       ImVector<ImTextureData>
 --- @field DebugAllocInfo                     ImGuiDebugAllocInfo
 
 --- @param shared_font_atlas? ImFontAtlas

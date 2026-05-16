@@ -455,7 +455,7 @@ function MT.ImFontAtlas:ClearFonts()
 end
 
 --- @param tex ImTextureData
-local function ImTextureDataUpdateNewFrame(tex)
+function ImTextureDataUpdateNewFrame(tex)
     local remove_from_list = false
     if tex.Status == ImTextureStatus.OK then
         tex.Updates:resize(0)

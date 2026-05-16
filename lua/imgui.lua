@@ -692,6 +692,10 @@ function ImGui.UpdateTexturesNewFrame()
             IM_ASSERT(atlas.RendererHasTextures == has_textures)
         end
     end
+
+    for _, tex in g.UserTextures:iter() do
+        ImTextureDataUpdateNewFrame(tex)
+    end
 end
 
 function ImGui.UpdateTexturesEndFrame()
