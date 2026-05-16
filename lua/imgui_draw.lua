@@ -454,6 +454,40 @@ function MT.ImFontAtlas:ClearFonts()
     end
 end
 
+--- @param tex ImTextureData
+local function ImTextureDataUpdateNewFrame(tex)
+    local remove_from_list = false
+    if tex.Status == ImTextureStatus.OK then
+        tex.Updates:resize(0)
+        tex.UpdateRect.x = 65535 tex.UpdateRect.y = 65535
+        tex.UpdateRect.w = 0     tex.UpdateRect.h = 0
+    end
+
+    if (tex.WantDestroyNextFrame and tex.Status ~= ImTextureStatus.Destroyed and tex.Status ~= ImTextureStatus.WantDestroy) then
+        IM_ASSERT(tex.Status == ImTextureStatus.OK or tex.Status == ImTextureStatus.WantCreate or tex.Status == ImTextureStatus.WantUpdates)
+        tex.Status = ImTextureStatus.WantDestroy
+    end
+
+    if (tex.Status == ImTextureStatus.WantDestroy and tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil) then
+        tex.Status = ImTextureStatus.Destroyed
+    end
+
+    if (tex.Status == ImTextureStatus.Destroyed) then
+        IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil, "Backend set texture Status to Destroyed but did not clear TexID/BackendUserData!")
+        if (tex.WantDestroyNextFrame) then
+            remove_from_list = true
+        else
+            tex.Status = ImTextureStatus.WantCreate
+        end
+    end
+
+    if (tex.Status == ImTextureStatus.WantDestroy) then
+        tex.UnusedFrames = tex.UnusedFrames + 1
+    end
+
+    return remove_from_list
+end
+
 --- @param atlas                 ImFontAtlas
 --- @param frame_count           int
 --- @param renderer_has_textures any
@@ -509,37 +543,12 @@ function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
     local tex_n = 1
     while tex_n <= atlas.TexList.Size do
         local tex = atlas.TexList.Data[tex_n]
-        local remove_from_list = false
-        if tex.Status == ImTextureStatus.OK then
-            tex.Updates:resize(0)
-            tex.UpdateRect.x = 65535 tex.UpdateRect.y = 65535
-            tex.UpdateRect.w = 0     tex.UpdateRect.h = 0
-        end
+
         if (tex.Status == ImTextureStatus.WantCreate and atlas.RendererHasTextures) then
             IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil, "Backend set texture's TexID/BackendUserData but did not update Status to OK.")
         end
 
-        if (tex.WantDestroyNextFrame and tex.Status ~= ImTextureStatus.Destroyed and tex.Status ~= ImTextureStatus.WantDestroy) then
-            IM_ASSERT(tex.Status == ImTextureStatus.OK or tex.Status == ImTextureStatus.WantCreate or tex.Status == ImTextureStatus.WantUpdates)
-            tex.Status = ImTextureStatus.WantDestroy
-        end
-
-        if (tex.Status == ImTextureStatus.WantDestroy and tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil) then
-            tex.Status = ImTextureStatus.Destroyed
-        end
-
-        if (tex.Status == ImTextureStatus.Destroyed) then
-            IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil, "Backend set texture Status to Destroyed but did not clear TexID/BackendUserData!")
-            if (tex.WantDestroyNextFrame) then
-                remove_from_list = true
-            else
-                tex.Status = ImTextureStatus.WantCreate
-            end
-        end
-
-        if (tex.Status == ImTextureStatus.WantDestroy) then
-            tex.UnusedFrames = tex.UnusedFrames + 1
-        end
+        local remove_from_list = ImTextureDataUpdateNewFrame(tex)
 
         if remove_from_list then
             IM_ASSERT(atlas.TexData ~= tex)
