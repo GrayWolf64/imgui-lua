@@ -1752,7 +1752,8 @@ function ImGui.SetActiveID(id, window)
 
     g.ActiveIdIsJustActivated = (g.ActiveId ~= id)
     if (g.ActiveIdIsJustActivated) then
-        -- IMGUI_DEBUG_LOG_ACTIVEID("SetActiveID() old:0x%08X (window \"%s\") -> new:0x%08X (window \"%s\")\n", g.ActiveId, g.ActiveIdWindow ? g.ActiveIdWindow->Name : "", id, window ? window->Name : "")
+        -- IMGUI_DEBUG_LOG_ACTIVEID("SetActiveID() 0x%08X in \"%s\"%*s(previously 0x%08X in \"%s\")\n", id, window ? window->Name : "",
+        --     ImMax(0, 20 - (int)(window ? strlen(window->Name) : 0)), "", g.ActiveId, g.ActiveIdWindow ? g.ActiveIdWindow->Name : "");
         g.ActiveIdTimer = 0.0
         g.ActiveIdHasBeenPressedBefore = false
         g.ActiveIdHasBeenEditedBefore = false
@@ -6599,7 +6600,7 @@ function ImGui.NewFrame()
     g.CurrentWindowStack:resize(0)
     g.BeginPopupStack:resize(0)
     g.ItemFlagsStack:resize(0)
-    g.ItemFlagsStack:push_back(ImGuiItemFlags.AutoClosePopups)
+    g.ItemFlagsStack:push_back(ImGuiItemFlags.Default_)
     g.CurrentItemFlags = g.ItemFlagsStack:back()
     g.GroupStack:resize(0)
 

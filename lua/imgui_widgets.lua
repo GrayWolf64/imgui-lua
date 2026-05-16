@@ -3709,6 +3709,8 @@ function ImGui.InputTextDeactivateHook(id)
     if id == 0 or state.ID ~= id then
         return
     end
+    -- IMGUI_DEBUG_LOG_ACTIVEID("InputTextDeactivateHook() id = 0x%08X\n", id);
+
     g.InputTextDeactivatedState.ID = state.ID
     if bit.band(state.Flags, ImGuiInputTextFlags.ReadOnly) ~= 0 then
         g.InputTextDeactivatedState.TextA:resize(0) -- In theory this data won't be used, but clear to be neat
@@ -4075,7 +4077,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     local is_osx = io.ConfigMacOSXBehaviors
 
-    if g.ActiveId ~= id and init_make_active then
+    if init_make_active and g.ActiveId ~= id then
         IM_ASSERT(state ~= nil and state.ID == id)
         ImGui.SetActiveID(id, window)
         ImGui.SetFocusID(id, window)
