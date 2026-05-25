@@ -1,5 +1,5 @@
---- ImGui for Garry's Mod written in pure Lua
---
+--- ImGui Sincerely WIP
+-- (Core Code)
 
 --- Set to disable some functions, then you need to write your own
 -- IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS = true // Don't implement ImStd.ImFileOpen/ImStd.ImFileClose/ImStd.ImFileRead/ImFileWrite so you can implement them yourself
