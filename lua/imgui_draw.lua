@@ -367,6 +367,7 @@ local ImFontAtlasBakedDiscard
 local ImFontAtlasBakedGetOrAdd
 local ImFontAtlasBakedGetId
 local ImFontAtlasBakedGetClosestMatch
+local ImFontAtlasBuildInit
 local ImFontAtlasBuildSetTexture
 local ImFontAtlasBuildUpdateLinesTexData
 local ImFontAtlasBuildUpdateBasicTexData
@@ -1868,7 +1869,7 @@ function ImFontAtlasUpdateDrawListsSharedData(atlas)
     end
 end
 
-local function ImFontAtlasBuildInit(atlas)
+function ImFontAtlasBuildInit(atlas)
     if atlas.FontLoader == nil then
         -- IMGUI_ENABLE_STB_TRUETYPE
         atlas:SetFontLoader(ImFontAtlasGetFontLoaderForStbTruetype())
