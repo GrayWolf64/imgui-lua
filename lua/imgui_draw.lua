@@ -369,8 +369,8 @@ local ImFontAtlasBakedGetId
 local ImFontAtlasBakedGetClosestMatch
 local ImFontAtlasBuildInit
 local ImFontAtlasBuildSetTexture
-local ImFontAtlasBuildUpdateLinesTexData
-local ImFontAtlasBuildUpdateBasicTexData
+local ImFontAtlasBuildUpdateTexDataLines
+local ImFontAtlasBuildUpdateTexDataBasic
 local ImFontAtlasBuildSetupFontLoader
 local ImFontAtlasBuildSetupFontSpecialGlyphs
 local ImFontAtlasBuildSetupFontBakedBlanks
@@ -833,8 +833,7 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
         end
     end
 
-    ImFontAtlasBuildUpdateLinesTexData(atlas)
-    ImFontAtlasBuildUpdateBasicTexData(atlas)
+    ImFontAtlasBuildUpdateTexData(atlas)
 
     builder.LockDisableResize = false
     ImFontAtlasUpdateDrawListsSharedData(atlas)
@@ -1618,6 +1617,12 @@ function ImFontAtlasBuildSetTexture(atlas, tex)
     ImFontAtlasUpdateDrawListsTextures(atlas, old_tex_ref, atlas.TexRef)
 end
 
+--- @param atlas ImFontAtlas
+function ImFontAtlasBuildUpdateTexData(atlas)
+    ImFontAtlasBuildUpdateTexDataLines(atlas)
+    ImFontAtlasBuildUpdateTexDataBasic(atlas)
+end
+
 function ImFontAtlasTextureAdd(atlas, w, h)
     local old_tex = atlas.TexData
     local new_tex
@@ -1709,7 +1714,7 @@ function ImFontAtlasPackInit(atlas)
 end
 
 --- @param atlas ImFontAtlas
-function ImFontAtlasBuildUpdateLinesTexData(atlas)
+function ImFontAtlasBuildUpdateTexDataLines(atlas)
     if bit.band(atlas.Flags, ImFontAtlasFlags.NoBakedLines) ~= 0 then
         return
     end
@@ -1837,7 +1842,7 @@ function ImFontAtlasBuildRenderBitmapFromString(atlas, x, y, w, h, in_str, in_ma
 end
 
 --- @param atlas ImFontAtlas
-function ImFontAtlasBuildUpdateBasicTexData(atlas)
+function ImFontAtlasBuildUpdateTexDataBasic(atlas)
     local builder = atlas.Builder
     local pack_size = (bit.band(atlas.Flags, ImFontAtlasFlags.NoMouseCursors) ~= 0) and ImVec2(2, 2) or ImVec2(FONT_ATLAS_DEFAULT_TEX_DATA_W * 2 + 1, FONT_ATLAS_DEFAULT_TEX_DATA_H)
 
@@ -1887,8 +1892,7 @@ function ImFontAtlasBuildInit(atlas)
 
     ImFontAtlasPackInit(atlas)
 
-    ImFontAtlasBuildUpdateLinesTexData(atlas)
-    ImFontAtlasBuildUpdateBasicTexData(atlas)
+    ImFontAtlasBuildUpdateTexData(atlas)
 
     ImFontAtlasBuildUpdatePointers(atlas)
 
