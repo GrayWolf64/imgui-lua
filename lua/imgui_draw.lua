@@ -2851,9 +2851,9 @@ function GetDefaultFontDataProggyClean()
     return ImStd.ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
 end
 
+-- TODO: IMGUI_DISABLE_DEFAULT_FONT, IMGUI_DISABLE_DEFAULT_FONT_BITMAP
 --- @param font_cfg_template ImFontConfig
 function MT.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
-    -- #ifndef IMGUI_DISABLE_DEFAULT_FONT
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
     if not font_cfg_template then
         font_cfg.PixelSnapH  = true -- Will also automatically set OversampleH = OversampleV = 1
@@ -2870,9 +2870,6 @@ function MT.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
 
     local ttf_data, ttf_data_size = GetDefaultFontDataProggyClean()
     return self:AddFontFromMemoryTTF(ttf_data, ttf_data_size, font_cfg.SizePixels, font_cfg)
-    -- #else
-
-    -- #endif
 end
 
 --- @param font_cfg_template ImFontConfig
