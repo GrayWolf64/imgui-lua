@@ -1426,7 +1426,7 @@ ImDrawListFlags = {
     AntiAliasedLinesUseTex = bit.lshift(1, 1),
     AntiAliasedFill        = bit.lshift(1, 2),
     AllowVtxOffset         = bit.lshift(1, 3),
-    NoTextPixelSnap        = bit.lshift(1, 4)
+    TextNoPixelSnap        = bit.lshift(1, 4)
 }
 
 --- @enum ImFontFlags

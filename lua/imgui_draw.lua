@@ -2685,7 +2685,7 @@ function MT.ImFont:RenderChar(draw_list, size, pos, col, c, cpu_fine_clip)
 
     local x = pos.x
     local y = pos.y
-    if bit.band(draw_list.Flags, ImDrawListFlags.NoTextPixelSnap) == 0 then
+    if bit.band(draw_list.Flags, ImDrawListFlags.TextNoPixelSnap) == 0 then
         x = IM_TRUNC(x)
         y = IM_TRUNC(y)
     end
@@ -4222,7 +4222,7 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     if y > clip_rect.w then
         return
     end
-    if bit.band(draw_list.Flags, ImDrawListFlags.NoTextPixelSnap) == 0 then
+    if bit.band(draw_list.Flags, ImDrawListFlags.TextNoPixelSnap) == 0 then
         x = IM_TRUNC(x)
         y = IM_TRUNC(y)
     end
