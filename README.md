@@ -1,10 +1,12 @@
 # ImGui Sincerely
 
-> "Give someone state and they'll have a bug one day, but teach them how to represent state in two separate locations that have to be kept in sync and they'll have bugs for a lifetime." - [ryg](https://twitter.com/rygorous/status/1507178315886444544)
+> "Give someone state and they'll have a bug one day, but teach them how to represent state in two separate locations that have to be kept in sync and they'll have bugs for a lifetime." - ryg
 
 ## Current State
 
 <img src="misc/images/current.png" alt="Example" width="550" height="800">
+
+_This image may be outdated!_ 
 
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
@@ -35,7 +37,7 @@ Please refer to official Dear ImGui docs or src code comments for documentation!
 
 ### My Development Platform
 
-`GMod x86-64 branch (2026.05.14)` with `LuaJIT 2.1.0-beta3`, `Lua 5.1`. Recording this is actually necessary, since who knows how GMod Lua APIs will change in the future!
+GMod: `x86-64 branch` with `LuaJIT 2.1.0-beta3`, `Lua 5.1`.
 
 The core code(code except backend ones) in [lua/](lua) don't and shouldn't use anything that is exclusive in GMod Lua.
 
