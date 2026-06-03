@@ -3990,8 +3990,9 @@ function MT.ImDrawList:AddImageRounded(tex_ref, p_min, p_max, uv_min, uv_max, co
     end
 end
 
+--- @param radius float
 function MT.ImDrawList:_CalcCircleAutoSegmentCount(radius)
-    local radius_idx = ImFloor(radius + 0.999999) + 1
+    local radius_idx = ImFloor(radius + 0.999) + 1
 
     if radius_idx >= 1 and radius_idx <= 64 then -- IM_COUNTOF(_Data->CircleSegmentCounts)
         return self._Data.CircleSegmentCounts[radius_idx]

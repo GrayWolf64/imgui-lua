@@ -6787,7 +6787,7 @@ function ImGui.CalcTextSizeEx(text, text_begin, text_end, hide_text_after_double
     end
     local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, text_begin, text_display_end, nil)
 
-    text_size.x = IM_TRUNC(text_size.x + 0.99999)
+    text_size.x = IM_TRUNC(text_size.x + 0.999)
 
     return text_size
 end

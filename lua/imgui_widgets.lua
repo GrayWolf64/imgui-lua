@@ -1609,7 +1609,7 @@ function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
     local min_size = ImVec2(label_size.x + extra_w + padding.x * 2.0, ImMax(label_size.y + padding.y * 2.0, separator_thickness))
 
     local bb = ImRect(pos, ImVec2(window.WorkRect.Max.x, pos.y + min_size.y))
-    local text_baseline_y = ImTrunc((bb:GetHeight() - label_size.y) * style.SeparatorTextAlign.y + 0.99999)  -- ImMax(padding.y, ImTrunc((style.SeparatorTextSize - label_size.y) * 0.5f))
+    local text_baseline_y = ImTrunc((bb:GetHeight() - label_size.y) * style.SeparatorTextAlign.y + 0.999)  -- ImMax(padding.y, ImTrunc((style.SeparatorTextSize - label_size.y) * 0.5f))
 
     ImGui.ItemSize(min_size, text_baseline_y)
     if not ImGui.ItemAdd(bb, id) then
@@ -1618,7 +1618,7 @@ function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
 
     local sep1_x1 = pos.x
     local sep2_x2 = bb.Max.x
-    local seps_y = ImTrunc((bb.Min.y + bb.Max.y) * 0.5 + 0.99999)
+    local seps_y = ImTrunc((bb.Min.y + bb.Max.y) * 0.5 + 0.999)
 
     local label_avail_w = ImMax(0.0, sep2_x2 - sep1_x1 - padding.x * 2.0)
     local label_pos = ImVec2(pos.x + padding.x + ImMax(0.0, (label_avail_w - label_size.x - extra_w) * style.SeparatorTextAlign.x), pos.y + text_baseline_y)  -- FIXME-ALIGN
@@ -6536,7 +6536,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
         local item_count = values_count + ((plot_type == ImGuiPlotType.Lines) and -1 or 0)
 
         if hovered and inner_bb:ContainsV2(g.IO.MousePos) then
-            local t = ImClamp((g.IO.MousePos.x - inner_bb.Min.x) / (inner_bb.Max.x - inner_bb.Min.x), 0.0, 0.9999)
+            local t = ImClamp((g.IO.MousePos.x - inner_bb.Min.x) / (inner_bb.Max.x - inner_bb.Min.x), 0.0, 0.999)
             local v_idx = math.floor(t * item_count) + 1
             IM_ASSERT(v_idx >= 1 and v_idx <= values_count)
 
