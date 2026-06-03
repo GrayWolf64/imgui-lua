@@ -2799,7 +2799,7 @@ end
 
 --- @param font_cfg ImFontConfig
 function MT.ImFontAtlas:AddFontDefault(font_cfg)
-    if self.OwnerContext == nil or GetExpectedContextFontSize(self.OwnerContext) >= 16.0 then
+    if self.OwnerContext == nil or GetExpectedContextFontSize(self.OwnerContext) >= 15.0 then
         return self:AddFontDefaultVector(font_cfg)
     else
         return self:AddFontDefaultBitmap(font_cfg)
@@ -2820,6 +2820,7 @@ function MT.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pix
     return self:AddFont(font_cfg)
 end
 
+-- TODO: GetDefaultCompressedFontDataProggyClean, GetDefaultCompressedFontDataProggyForever
 function MT.ImFontAtlas:AddFontFromMemoryCompressedTTF()
     -- TODO:
 end
@@ -2855,16 +2856,20 @@ function GetDefaultFontDataProggyClean()
     return ImStd.ImFileLoadToMemory("resource/fonts/ProggyClean.ttf", "rb")
 end
 
+function GetDefaultFontDataProggyForever()
+    return ImStd.ImFileLoadToMemory("resource/fonts/ProggyForever.ttf", "rb")
+end
+
 -- TODO: IMGUI_DISABLE_DEFAULT_FONT, IMGUI_DISABLE_DEFAULT_FONT_BITMAP
 --- @param font_cfg_template ImFontConfig
 function MT.ImFontAtlas:AddFontDefaultBitmap(font_cfg_template)
     local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
     if not font_cfg_template then
-        font_cfg.PixelSnapH  = true -- Will also automatically set OversampleH = OversampleV = 1
+        font_cfg.PixelSnapH = true
     end
     if font_cfg.SizePixels <= 0.0 then
         font_cfg.SizePixels = 13.0
-        font_cfg.Flags = bit.band(font_cfg.Flags, ImFontFlags.ImplicitRefSize)
+        font_cfg.Flags = bit.bor(font_cfg.Flags, ImFontFlags.ImplicitRefSize)
     end
     if not font_cfg.Name or font_cfg.Name == "" then
         font_cfg.Name = "ProggyClean.ttf"
@@ -2878,7 +2883,22 @@ end
 
 --- @param font_cfg_template ImFontConfig
 function MT.ImFontAtlas:AddFontDefaultVector(font_cfg_template)
-    -- TODO:
+    local font_cfg = font_cfg_template and font_cfg_template or ImFontConfig()
+    if not font_cfg_template then
+        font_cfg.PixelSnapH = true
+    end
+    if font_cfg.SizePixels <= 0.0 then
+        font_cfg.SizePixels = 13.0
+        font_cfg.Flags = bit.bor(font_cfg.Flags, ImFontFlags.ImplicitRefSize)
+    end
+    if not font_cfg.Name or font_cfg.Name == "" then
+        font_cfg.Name = "ProggyForever.ttf"
+    end
+    font_cfg.ExtraSizeScale = font_cfg.ExtraSizeScale * 1.015
+    font_cfg.GlyphOffset.y = font_cfg.GlyphOffset.y + 0.5 * (font_cfg.SizePixels / 16.0)
+
+    local ttf_data, ttf_data_size = GetDefaultFontDataProggyForever()
+    return self:AddFontFromMemoryTTF(ttf_data, ttf_data_size, font_cfg.SizePixels, font_cfg)
 end
 
 function MT.ImFontAtlas:GetCustomRect(id, out_r)

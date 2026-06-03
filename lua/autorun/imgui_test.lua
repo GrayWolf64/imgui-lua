@@ -12,7 +12,9 @@ if SERVER then
     AddCSLuaFile"imgui.lua"
     AddCSLuaFile"imgui_demo.lua"
     AddCSLuaFile"backends/imgui_impl_gmod.lua"
+
     resource.AddFile"resource/fonts/ProggyClean.ttf"
+    resource.AddFile"resource/fonts/ProggyForever.ttf"
 else
     include"imgui.lua"
 
@@ -45,6 +47,7 @@ else
     end
 
     local viewport
+    local main_scale = 2.0
 
     concommand.Add("imgui_test", function()
         if IsValid(viewport) then
@@ -59,6 +62,10 @@ else
 
         local io = ImGui.GetIO()
         io.ConfigFlags = bit.bor(io.ConfigFlags, ImGuiConfigFlags.ViewportsEnable)
+
+        local style = ImGui.GetStyle()
+        style:ScaleAllSizes(main_scale)
+        style.FontScaleDpi = main_scale
 
         ImGui_ImplGMOD.Init(viewport, true)
 
