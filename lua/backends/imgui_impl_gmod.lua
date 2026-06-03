@@ -461,7 +461,7 @@ end
 local function ImGui_ImplGMOD_SetWindowFocus(viewport)
     local vd = viewport.PlatformUserData
     IM_ASSERT(IsValid(vd.VGuiWindow))
-    vd.VGuiWindow:MakePopup()
+    vd.VGuiWindow:RequestFocus()
 end
 
 local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
