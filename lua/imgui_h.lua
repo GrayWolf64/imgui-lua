@@ -1422,10 +1422,11 @@ ImDrawFlags.InvalidMask_         = 0x8000000F
 --- @enum ImDrawListFlags
 ImDrawListFlags = {
     None                   = 0,
-    AntiAliasedLines       = bit.lshift(1, 0), -- Enable anti-aliased lines/borders (*2 the number of triangles for 1.0f wide line or lines thin enough to be drawn using textures, otherwise *3 the number of triangles)
-    AntiAliasedLinesUseTex = bit.lshift(1, 1), -- Enable anti-aliased lines/borders using textures when possible. Require backend to render with bilinear filtering (NOT point/nearest filtering)
-    AntiAliasedFill        = bit.lshift(1, 2), -- Enable anti-aliased edge around filled shapes (rounded rectangles, circles)
-    AllowVtxOffset         = bit.lshift(1, 3)  -- Can emit 'VtxOffset > 0' to allow large meshes. Set when 'ImGuiBackendFlags.RendererHasVtxOffset' is enabled
+    AntiAliasedLines       = bit.lshift(1, 0),
+    AntiAliasedLinesUseTex = bit.lshift(1, 1),
+    AntiAliasedFill        = bit.lshift(1, 2),
+    AllowVtxOffset         = bit.lshift(1, 3),
+    NoTextPixelSnap        = bit.lshift(1, 4)
 }
 
 --- @enum ImFontFlags

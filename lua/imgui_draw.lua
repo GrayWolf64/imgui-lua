@@ -2683,8 +2683,12 @@ function MT.ImFont:RenderChar(draw_list, size, pos, col, c, cpu_fine_clip)
         scale = 1.0
     end
 
-    local x = IM_TRUNC(pos.x)
-    local y = IM_TRUNC(pos.y)
+    local x = pos.x
+    local y = pos.y
+    if bit.band(draw_list.Flags, ImDrawListFlags.NoTextPixelSnap) == 0 then
+        x = IM_TRUNC(x)
+        y = IM_TRUNC(y)
+    end
 
     local x1 = x + glyph.X0 * scale
     local x2 = x + glyph.X1 * scale
@@ -4213,10 +4217,14 @@ end
 --- @param flags      ImDrawTextFlags
 function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, flags)
 :: begin ::
-    local x = IM_TRUNC(pos.x)
-    local y = IM_TRUNC(pos.y)
+    local x = pos.x
+    local y = pos.y
     if y > clip_rect.w then
         return
+    end
+    if bit.band(draw_list.Flags, ImDrawListFlags.NoTextPixelSnap) == 0 then
+        x = IM_TRUNC(x)
+        y = IM_TRUNC(y)
     end
 
     -- if not text_end then
