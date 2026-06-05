@@ -2,6 +2,7 @@
 -- won't let users write these complicated stuff in production version
 
 if SERVER then
+    AddCSLuaFile"imstd_minstdio.lua"
     AddCSLuaFile"imstb_truetype.lua"
     AddCSLuaFile"imstb_rectpack.lua"
     AddCSLuaFile"imstb_textedit.lua"
