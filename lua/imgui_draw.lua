@@ -398,6 +398,7 @@ local ImTextClassifierSetCharClassFromStr
 local ImTextureDataGetFormatBytesPerPixel
 
 function MT.ImFontAtlas:Clear()
+    IMGUI_DEBUG_LOG_FONT("[font] ImFontAtlas:Clear()")
     local backup_renderer_has_textures = self.RendererHasTextures
     self.RendererHasTextures = false
     self:ClearFonts()
@@ -435,6 +436,7 @@ function MT.ImFontAtlas:ClearTexData()
 end
 
 function MT.ImFontAtlas:ClearFonts()
+    IMGUI_DEBUG_LOG_FONT("[font] ImFontAtlas:ClearFonts()")
     IM_ASSERT(not self.Locked, "Cannot modify a locked ImFontAtlas!")
 
     for _, font in self.Fonts:iter() do
@@ -496,6 +498,26 @@ function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
     IM_ASSERT(atlas.Builder == nil or atlas.Builder.FrameCount < frame_count)
     atlas.RendererHasTextures = renderer_has_textures
 
+    local tex_n = 1
+    while tex_n <= atlas.TexList.Size do
+        local tex = atlas.TexList.Data[tex_n]
+
+        if (tex.Status == ImTextureStatus.WantCreate and atlas.RendererHasTextures) then
+            IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil, "Backend set texture's TexID/BackendUserData but did not update Status to OK.")
+        end
+
+        local remove_from_list = ImTextureDataUpdateNewFrame(tex)
+
+        if remove_from_list then
+            IM_ASSERT(atlas.TexData ~= tex)
+            tex:DestroyPixels()
+            atlas.TexList:erase(tex_n)
+            tex_n = tex_n - 1
+        end
+
+        tex_n = tex_n + 1
+    end
+
     if (atlas.RendererHasTextures) then
         atlas.TexIsBuilt = true
         if (atlas.Builder == nil) then
@@ -539,26 +561,6 @@ function ImFontAtlasUpdateNewFrame(atlas, frame_count, renderer_has_textures)
 
         builder.BakedPool.Size = builder.BakedPool.Size - builder.BakedDiscardedCount
         builder.BakedDiscardedCount = 0
-    end
-
-    local tex_n = 1
-    while tex_n <= atlas.TexList.Size do
-        local tex = atlas.TexList.Data[tex_n]
-
-        if (tex.Status == ImTextureStatus.WantCreate and atlas.RendererHasTextures) then
-            IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil, "Backend set texture's TexID/BackendUserData but did not update Status to OK.")
-        end
-
-        local remove_from_list = ImTextureDataUpdateNewFrame(tex)
-
-        if remove_from_list then
-            IM_ASSERT(atlas.TexData ~= tex)
-            tex:DestroyPixels()
-            atlas.TexList:erase(tex_n)
-            tex_n = tex_n - 1
-        end
-
-        tex_n = tex_n + 1
     end
 end
 
