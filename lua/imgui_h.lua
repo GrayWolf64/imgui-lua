@@ -1259,7 +1259,7 @@ function ImGuiPlatformIO()
         Textures = ImVector(),
         Viewports = ImVector(),
 
-        Platform_LocaleDecimalPoint = '.',
+        Platform_LocaleDecimalPoint = 46, -- '.'
 
         Platform_OnChangedViewport = nil,
     }
