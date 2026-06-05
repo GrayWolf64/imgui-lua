@@ -3048,19 +3048,19 @@ function MT.ImDrawData:AddDrawList(draw_list)
 end
 
 function MT.ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
-    if self.CircleSegmentMaxError == max_error then
+    if self.CircleTessellationMaxError == max_error then
         return
     end
 
     IM_ASSERT(max_error > 0)
 
-    self.CircleSegmentMaxError = max_error
+    self.CircleTessellationMaxError = max_error
     for i = 1, 64 do -- IM_COUNTOF(CircleSegmentCounts)
         local radius = (i - 1)
-        self.CircleSegmentCounts[i] = (i > 1) and IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self.CircleSegmentMaxError) or IM_DRAWLIST_ARCFAST_SAMPLE_MAX
+        self.CircleSegmentCounts[i] = (i > 1) and IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self.CircleTessellationMaxError) or IM_DRAWLIST_ARCFAST_SAMPLE_MAX
     end
 
-    self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleSegmentMaxError)
+    self.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, self.CircleTessellationMaxError)
 end
 
 --- @param data ImDrawListSharedData
@@ -4032,7 +4032,7 @@ function MT.ImDrawList:_CalcCircleAutoSegmentCount(radius)
     if radius_idx >= 1 and radius_idx <= 64 then -- IM_COUNTOF(_Data->CircleSegmentCounts)
         return self._Data.CircleSegmentCounts[radius_idx]
     else
-        return IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self._Data.CircleSegmentMaxError)
+        return IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(radius, self._Data.CircleTessellationMaxError)
     end
 end
 

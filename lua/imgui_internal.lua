@@ -794,7 +794,7 @@ end
 --- @field FontSize              float
 --- @field FontScale             float
 --- @field CurveTessellationTol  float
---- @field CircleSegmentMaxError float
+--- @field CircleTessellationMaxError float
 --- @field InitialFringeScale    float
 --- @field InitialFlags          ImDrawListFlags
 --- @field ClipRectFullscreen?   ImVec4
@@ -820,7 +820,7 @@ function ImDrawListSharedData()
         FontScale = 0,
 
         CurveTessellationTol  = 0,
-        CircleSegmentMaxError = 0,
+        CircleTessellationMaxError = 0,
         InitialFringeScale    = 1,
 
         InitialFlags          = 0,
@@ -839,8 +839,6 @@ function ImDrawListSharedData()
         local a = ((i - 1) * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
         this.ArcFastVtx[i] = ImVec2(ImCos(a), ImSin(a))
     end
-
-    this.ArcFastRadiusCutoff = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(IM_DRAWLIST_ARCFAST_SAMPLE_MAX, this.CircleSegmentMaxError)
 
     return this
 end
