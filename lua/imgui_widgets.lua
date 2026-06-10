@@ -3269,30 +3269,47 @@ end
 --- @param format      string
 --- @param flags       ImGuiSliderFlags
 --- @param out_grab_bb ImRect
+--- @return T    v
+--- @return bool value_changed
 function ImGui.SliderBehavior(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
     IM_ASSERT(bit.band(flags, ImGuiSliderFlags.WrapAround) == 0)
 
     if     data_type == ImGuiDataType.S8 then
-        local v32 = (ImS32)((ImS8)(v))
+        local v32 = (ImS32)((ImS8)(v)); local r
+        v32, r = ImGui.SliderBehaviorT(bb, id, ImGuiDataType.S32, v32, min, max, format, flags, out_grab_bb)
+        if r then v = (ImS8)(v32) end
+        return v, r
     elseif data_type == ImGuiDataType.U8 then
-
+        local v32 = (ImU32)((ImU8)(v)); local r
+        v32, r = ImGui.SliderBehaviorT(bb, id, ImGuiDataType.U32, v32, min, max, format, flags, out_grab_bb)
+        if r then v = (ImU8)(v32) end
+        return v, r
     elseif data_type == ImGuiDataType.S16 then
-
+        local v32 = (ImS32)((ImS16)(v)); local r
+        v32, r = ImGui.SliderBehaviorT(bb, id, ImGuiDataType.S32, v32, min, max, format, flags, out_grab_bb)
+        if r then v = (ImS16)(v32) end
+        return v, r
     elseif data_type == ImGuiDataType.U16 then
-
+        local v32 = (ImU32)((ImU16)(v)); local r
+        v32, r = ImGui.SliderBehaviorT(bb, id, ImGuiDataType.U32, v32, min, max, format, flags, out_grab_bb)
+        if r then v = (ImU16)(v32) end
+        return v, r
     elseif data_type == ImGuiDataType.S32 then
-
+        IM_ASSERT(v_min >= math.floor(IM_S32_MIN / 2) and v_max <= math.floor(IM_S32_MAX / 2))
+        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.U32 then
-
+        IM_ASSERT(v_max <= math.floor(IM_U32_MAX / 2))
+        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.S64 then
-
-    elseif data_type == ImGuiDataType.U64 then
-
+        IM_ASSERT(v_min >= math.floor(IM_S64_MIN / 2) and v_max <= math.floor(IM_S64_MAX / 2))
+        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.Float then
-
+        IM_ASSERT(v_min >= -FLT_MAX / 2.0 and v_max <= FLT_MAX / 2.0)
+        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.Double then
-
+        IM_ASSERT(v_min >= -DBL_MAX / 2.0 and v_max <= DBL_MAX / 2.0)
+        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
     end
 
     IM_ASSERT(false)
