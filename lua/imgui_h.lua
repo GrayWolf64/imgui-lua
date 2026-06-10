@@ -1793,14 +1793,14 @@ ImGuiPopupFlags.InvalidMask_      = 0x03
 --- @enum ImGuiComboFlags
 ImGuiComboFlags = {
     None            = 0,
-    PopupAlignLeft  = bit.lshift(1, 0), -- Align the popup toward the left by default
-    HeightSmall     = bit.lshift(1, 1), -- Max ~4 items visible. Tip: If you want your combo popup to be a specific size you can use SetNextWindowSizeConstraints() prior to calling BeginCombo()
-    HeightRegular   = bit.lshift(1, 2), -- Max ~8 items visible (default)
-    HeightLarge     = bit.lshift(1, 3), -- Max ~20 items visible
-    HeightLargest   = bit.lshift(1, 4), -- As many fitting items as possible
-    NoArrowButton   = bit.lshift(1, 5), -- Display on the preview box without the square arrow button
-    NoPreview       = bit.lshift(1, 6), -- Display only a square arrow button
-    WidthFitPreview = bit.lshift(1, 7)  -- Width dynamically calculated from preview contents
+    PopupAlignLeft  = bit.lshift(1, 0),
+    HeightSmall     = bit.lshift(1, 1),
+    HeightRegular   = bit.lshift(1, 2),
+    HeightLarge     = bit.lshift(1, 3),
+    HeightLargest   = bit.lshift(1, 4),
+    NoArrowButton   = bit.lshift(1, 5),
+    NoPreview       = bit.lshift(1, 6),
+    WidthFitPreview = bit.lshift(1, 7)
 }
 
 ImGuiComboFlags.HeightMask_ = bit.bor(ImGuiComboFlags.HeightSmall, ImGuiComboFlags.HeightRegular, ImGuiComboFlags.HeightLarge, ImGuiComboFlags.HeightLargest)
@@ -1809,63 +1809,58 @@ ImGuiComboFlags.CustomPreview = bit.lshift(1, 20)
 --- @enum ImGuiSelectableFlags
 ImGuiSelectableFlags = {
     None              = 0,
-    NoAutoClosePopups = bit.lshift(1, 0), -- Clicking this doesn't close parent popup window (overrides ImGuiItemFlags.AutoClosePopups)
-    SpanAllColumns    = bit.lshift(1, 1), -- Frame will span all columns of its container table (text will still fit in current column)
-    AllowDoubleClick  = bit.lshift(1, 2), -- Generate press events on double clicks too
-    Disabled          = bit.lshift(1, 3), -- Cannot be selected, display grayed out text
-    AllowOverlap      = bit.lshift(1, 4), -- Hit testing will allow subsequent widgets to overlap this one. Require previous frame HoveredId to match before being usable. Shortcut to calling SetNextItemAllowOverlap()
-    Highlight         = bit.lshift(1, 5), -- Make the item be displayed as if it is hovered
-    SelectOnNav       = bit.lshift(1, 6), -- Auto-select when moved into, unless Ctrl is held. Automatic when in a BeginMultiSelect() block
+    NoAutoClosePopups = bit.lshift(1, 0),
+    SpanAllColumns    = bit.lshift(1, 1),
+    AllowDoubleClick  = bit.lshift(1, 2),
+    Disabled          = bit.lshift(1, 3),
+    AllowOverlap      = bit.lshift(1, 4),
+    Highlight         = bit.lshift(1, 5),
+    SelectOnNav       = bit.lshift(1, 6),
 
     NoHoldingActiveID    = bit.lshift(1, 20),
-    SelectOnClick        = bit.lshift(1, 22), -- Override button behavior to react on Click (default is Click+Release)
-    SelectOnRelease      = bit.lshift(1, 23), -- Override button behavior to react on Release (default is Click+Release)
-    SpanAvailWidth       = bit.lshift(1, 24), -- Span all avail width even if we declared less for layout purpose. FIXME: We may be able to remove this (added in 6251d379, 2bcafc86 for menus)
-    SetNavIdOnHover      = bit.lshift(1, 25), -- Set Nav/Focus ID on mouse hover (used by MenuItem)
-    NoPadWithHalfSpacing = bit.lshift(1, 26), -- Disable padding each side with ItemSpacing * 0.5f
-    NoSetKeyOwner        = bit.lshift(1, 27), -- Don't set key/input owner on the initial click (note: mouse buttons are keys! often, the key in question will be ImGuiKey_MouseLeft!)
+    SelectOnClick        = bit.lshift(1, 22),
+    SelectOnRelease      = bit.lshift(1, 23),
+    SpanAvailWidth       = bit.lshift(1, 24),
+    SetNavIdOnHover      = bit.lshift(1, 25),
+    NoPadWithHalfSpacing = bit.lshift(1, 26),
+    NoSetKeyOwner        = bit.lshift(1, 27),
 }
 
 -- Flags for ColorEdit3() / ColorEdit4() / ColorPicker3() / ColorPicker4() / ColorButton()
 --- @enum ImGuiColorEditFlags
 ImGuiColorEditFlags = {
     None           = 0,
-    NoAlpha        = bit.lshift(1, 1),  -- ColorEdit, ColorPicker, ColorButton: ignore Alpha component (will only read 3 components from the input pointer)
-    NoPicker       = bit.lshift(1, 2),  -- ColorEdit: disable picker when clicking on color square
-    NoOptions      = bit.lshift(1, 3),  -- ColorEdit: disable toggling options menu when right-clicking on inputs/small preview
-    NoSmallPreview = bit.lshift(1, 4),  -- ColorEdit, ColorPicker: disable color square preview next to the inputs. (e.g. to show only the inputs)
-    NoInputs       = bit.lshift(1, 5),  -- ColorEdit, ColorPicker: disable inputs sliders/text widgets (e.g. to show only the small preview color square)
-    NoTooltip      = bit.lshift(1, 6),  -- ColorEdit, ColorPicker, ColorButton: disable tooltip when hovering the preview
-    NoLabel        = bit.lshift(1, 7),  -- ColorEdit, ColorPicker: disable display of inline text label (the label is still forwarded to the tooltip and picker)
-    NoSidePreview  = bit.lshift(1, 8),  -- ColorPicker: disable bigger color preview on right side of the picker, use small color square preview instead
-    NoDragDrop     = bit.lshift(1, 9),  -- ColorEdit: disable drag and drop target/source. ColorButton: disable drag and drop source
-    NoBorder       = bit.lshift(1, 10), -- ColorButton: disable border (which is enforced by default)
-    NoColorMarkers = bit.lshift(1, 11), -- ColorEdit: disable rendering R/G/B/A color marker. May also be disabled globally by setting style.ColorMarkerSize = 0
+    NoAlpha        = bit.lshift(1, 1),
+    NoPicker       = bit.lshift(1, 2),
+    NoOptions      = bit.lshift(1, 3),
+    NoSmallPreview = bit.lshift(1, 4),
+    NoInputs       = bit.lshift(1, 5),
+    NoTooltip      = bit.lshift(1, 6),
+    NoLabel        = bit.lshift(1, 7),
+    NoSidePreview  = bit.lshift(1, 8),
+    NoDragDrop     = bit.lshift(1, 9),
+    NoBorder       = bit.lshift(1, 10),
+    NoColorMarkers = bit.lshift(1, 11),
 
     -- Alpha preview
-    -- - Prior to 1.91.8 (2025/01/21): alpha was made opaque in the preview by default using old name ImGuiColorEditFlags_AlphaPreview
-    -- - We now display the preview as transparent by default. You can use ImGuiColorEditFlags_AlphaOpaque to use old behavior
-    -- - The new flags may be combined better and allow finer controls
-    AlphaOpaque      = bit.lshift(1, 12), -- ColorEdit, ColorPicker, ColorButton: disable alpha in the preview,. Contrary to _NoAlpha it may still be edited when calling ColorEdit4()/ColorPicker4(). For ColorButton() this does the same as _NoAlpha
-    AlphaNoBg        = bit.lshift(1, 13), -- ColorEdit, ColorPicker, ColorButton: disable rendering a checkerboard background behind transparent color
-    AlphaPreviewHalf = bit.lshift(1, 14), -- ColorEdit, ColorPicker, ColorButton: display half opaque / half transparent preview
+    AlphaOpaque      = bit.lshift(1, 12),
+    AlphaNoBg        = bit.lshift(1, 13),
+    AlphaPreviewHalf = bit.lshift(1, 14),
 
     -- User Options (right-click on widget to change some of them)
-    AlphaBar       = bit.lshift(1, 18), -- ColorEdit, ColorPicker: show vertical alpha bar/gradient in picker
-    HDR            = bit.lshift(1, 19), -- (WIP) ColorEdit: Currently only disable 0.0f..1.0f limits in RGBA edition (note: you probably want to use ImGuiColorEditFlags_Float flag as well)
-    DisplayRGB     = bit.lshift(1, 20), -- [Display]  -- ColorEdit: override _display_ type among RGB/HSV/Hex. ColorPicker: select any combination using one or more of RGB/HSV/Hex
-    DisplayHSV     = bit.lshift(1, 21), -- [Display]
-    DisplayHex     = bit.lshift(1, 22), -- [Display]
-    Uint8          = bit.lshift(1, 23), -- [DataType] -- ColorEdit, ColorPicker, ColorButton: _display_ values formatted as 0..255
-    Float          = bit.lshift(1, 24), -- [DataType] -- ColorEdit, ColorPicker, ColorButton: _display_ values formatted as 0.0f..1.0f floats instead of 0..255 integers. No round-trip of value via integers
-    PickerHueBar   = bit.lshift(1, 25), -- [Picker]   -- ColorPicker: bar for Hue, rectangle for Sat/Value
-    PickerHueWheel = bit.lshift(1, 26), -- [Picker]   -- ColorPicker: wheel for Hue, triangle for Sat/Value
-    InputRGB       = bit.lshift(1, 27), -- [Input]    -- ColorEdit, ColorPicker: input and output data in RGB format
-    InputHSV       = bit.lshift(1, 28)  -- [Input]    -- ColorEdit, ColorPicker: input and output data in HSV format
+    AlphaBar       = bit.lshift(1, 18),
+    HDR            = bit.lshift(1, 19),
+    DisplayRGB     = bit.lshift(1, 20),
+    DisplayHSV     = bit.lshift(1, 21),
+    DisplayHex     = bit.lshift(1, 22),
+    Uint8          = bit.lshift(1, 23),
+    Float          = bit.lshift(1, 24),
+    PickerHueBar   = bit.lshift(1, 25),
+    PickerHueWheel = bit.lshift(1, 26),
+    InputRGB       = bit.lshift(1, 27),
+    InputHSV       = bit.lshift(1, 28)
 }
 
--- Defaults Options. You can set application defaults using SetColorEditOptions(). The intent is that you probably don't want to
--- override them in most of your calls. Let the user choose via the option menu and/or call SetColorEditOptions() once during startup
 ImGuiColorEditFlags.DefaultOptions_ = bit.bor(ImGuiColorEditFlags.Uint8, ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.InputRGB, ImGuiColorEditFlags.PickerHueBar)
 
 ImGuiColorEditFlags.AlphaMask_ = bit.bor(
@@ -1899,21 +1894,21 @@ ImGuiColorEditFlags.InputMask_ = bit.bor(
 --- @enum ImGuiSliderFlags
 ImGuiSliderFlags = {
     None            = 0,
-    Logarithmic     = bit.lshift(1, 5),  -- Make the widget logarithmic (linear otherwise). Consider using ImGuiSliderFlags.NoRoundToFormat with this if using a format-string with small amount of digits
-    NoRoundToFormat = bit.lshift(1, 6),  -- Disable rounding underlying value to match precision of the display format string (e.g. %.3f values are rounded to those 3 digits)
-    NoInput         = bit.lshift(1, 7),  -- Disable Ctrl+Click or Enter key allowing to input text directly into the widget
-    WrapAround      = bit.lshift(1, 8),  -- Enable wrapping around from max to min and from min to max. Only supported by DragXXX() functions for now
-    ClampOnInput    = bit.lshift(1, 9),  -- Clamp value to min/max bounds when input manually with Ctrl+Click. By default Ctrl+Click allows going out of bounds
-    ClampZeroRange  = bit.lshift(1, 10), -- Clamp even if min==max==0.0f. Otherwise due to legacy reason DragXXX functions don't clamp with those values. When your clamping limits are dynamic you almost always want to use it
-    NoSpeedTweaks   = bit.lshift(1, 11), -- Disable keyboard modifiers altering tweak speed. Useful if you want to alter tweak speed yourself based on your own logic
-    ColorMarkers    = bit.lshift(1, 12), -- DragScalarN(), SliderScalarN(): Draw R/G/B/A color markers on each component
-    InvalidMask_    = 0x7000000F,        -- [Internal] We treat using those bits as being potentially a 'float power' argument from legacy API (obsoleted 2020-08) that has got miscast to this enum, and will trigger an assert if needed
+    Logarithmic     = bit.lshift(1, 5),
+    NoRoundToFormat = bit.lshift(1, 6),
+    NoInput         = bit.lshift(1, 7),
+    WrapAround      = bit.lshift(1, 8),
+    ClampOnInput    = bit.lshift(1, 9),
+    ClampZeroRange  = bit.lshift(1, 10),
+    NoSpeedTweaks   = bit.lshift(1, 11),
+    ColorMarkers    = bit.lshift(1, 12),
+    InvalidMask_    = 0x7000000F,
 }
 
-ImGuiSliderFlags.AlwaysClamp        = bit.bor(ImGuiSliderFlags.ClampOnInput, ImGuiSliderFlags.ClampZeroRange)
+ImGuiSliderFlags.AlwaysClamp = bit.bor(ImGuiSliderFlags.ClampOnInput, ImGuiSliderFlags.ClampZeroRange)
 
-ImGuiSliderFlags.Vertical = bit.lshift(1, 20) -- Should this slider be orientated vertically?
-ImGuiSliderFlags.ReadOnly = bit.lshift(1, 21) -- Consider using g.NextItemData.ItemFlags |= ImGuiItemFlags.ReadOnly instead
+ImGuiSliderFlags.Vertical = bit.lshift(1, 20)
+ImGuiSliderFlags.ReadOnly = bit.lshift(1, 21)
 
 --- @class ImGuiWindowClass
 --- @field ClassId                    ImGuiID
@@ -1944,46 +1939,46 @@ ImGuiInputTextFlags = {
     None = 0,
 
     -- Basic filters (also see ImGuiInputTextFlags.CallbackCharFilter)
-    CharsDecimal     = bit.lshift(1, 0), -- Allow 0123456789.+-*/
-    CharsHexadecimal = bit.lshift(1, 1), -- Allow 0123456789ABCDEFabcdef
-    CharsScientific  = bit.lshift(1, 2), -- Allow 0123456789.+-*/eE (Scientific notation input)
-    CharsUppercase   = bit.lshift(1, 3), -- Turn a..z into A..Z
-    CharsNoBlank     = bit.lshift(1, 4), -- Filter out spaces, tabs
+    CharsDecimal     = bit.lshift(1, 0),
+    CharsHexadecimal = bit.lshift(1, 1),
+    CharsScientific  = bit.lshift(1, 2),
+    CharsUppercase   = bit.lshift(1, 3),
+    CharsNoBlank     = bit.lshift(1, 4),
 
     -- Inputs
-    AllowTabInput       = bit.lshift(1, 5), -- Pressing TAB input a '\t' character into the text field
-    EnterReturnsTrue    = bit.lshift(1, 6), -- Return 'true' when Enter is pressed (as opposed to every time the value was modified). Consider using IsItemDeactivatedAfterEdit() instead!
-    EscapeClearsAll     = bit.lshift(1, 7), -- Escape key clears content if not empty, and deactivate otherwise (contrast to default behavior of Escape to revert)
-    CtrlEnterForNewLine = bit.lshift(1, 8), -- In multi-line mode, validate with Enter, add new line with Ctrl+Enter (default is opposite: validate with Ctrl+Enter, add line with Enter).
+    AllowTabInput       = bit.lshift(1, 5),
+    EnterReturnsTrue    = bit.lshift(1, 6),
+    EscapeClearsAll     = bit.lshift(1, 7),
+    CtrlEnterForNewLine = bit.lshift(1, 8),
 
     -- Other options
-    ReadOnly           = bit.lshift(1, 9),  -- Read-only mode
-    Password           = bit.lshift(1, 10), -- Password mode, display all characters as '*', disable copy
-    AlwaysOverwrite    = bit.lshift(1, 11), -- Overwrite mode
-    AutoSelectAll      = bit.lshift(1, 12), -- Select entire text when first taking mouse focus
-    ParseEmptyRefVal   = bit.lshift(1, 13), -- InputFloat(), InputInt(), InputScalar() etc. only: parse empty string as zero value
-    DisplayEmptyRefVal = bit.lshift(1, 14), -- InputFloat(), InputInt(), InputScalar() etc. only: when value is zero, do not display it. Generally used with ImGuiInputTextFlags.ParseEmptyRefVal
-    NoHorizontalScroll = bit.lshift(1, 15), -- Disable following the cursor horizontally
-    NoUndoRedo         = bit.lshift(1, 16), -- Disable undo/redo. Note that input text owns the text data while active, if you want to provide your own undo/redo stack you need e.g. to call ClearActiveID()
+    ReadOnly           = bit.lshift(1, 9),
+    Password           = bit.lshift(1, 10),
+    AlwaysOverwrite    = bit.lshift(1, 11),
+    AutoSelectAll      = bit.lshift(1, 12),
+    ParseEmptyRefVal   = bit.lshift(1, 13),
+    DisplayEmptyRefVal = bit.lshift(1, 14),
+    NoHorizontalScroll = bit.lshift(1, 15),
+    NoUndoRedo         = bit.lshift(1, 16),
 
     -- Elide display / Alignment
-    ElideLeft = bit.lshift(1, 17), -- When text doesn't fit, elide left side to ensure right side stays visible. Useful for path/filenames. Single-line only!
+    ElideLeft = bit.lshift(1, 17),
 
     -- Callback features
-    CallbackCompletion = bit.lshift(1, 18), -- Callback on pressing TAB (for completion handling)
-    CallbackHistory    = bit.lshift(1, 19), -- Callback on pressing Up/Down arrows (for history handling)
-    CallbackAlways     = bit.lshift(1, 20), -- Callback on each iteration. User code may query cursor position, modify text buffer
-    CallbackCharFilter = bit.lshift(1, 21), -- Callback on character inputs to replace or discard them. Modify 'EventChar' to replace or discard, or return 1 in callback to discard
-    CallbackResize     = bit.lshift(1, 22), -- Callback on buffer capacity changes request (beyond 'buf_size' parameter value), allowing the string to grow. Notify when the string wants to be resized (for string types which hold a cache of their Size). You will be provided a new BufSize in the callback and NEED to honor it
-    CallbackEdit       = bit.lshift(1, 23), -- Callback on any edit. Note that InputText() already returns true on edit + you can always use IsItemEdited(). The callback is useful to manipulate the underlying buffer while focus is active
+    CallbackCompletion = bit.lshift(1, 18),
+    CallbackHistory    = bit.lshift(1, 19),
+    CallbackAlways     = bit.lshift(1, 20),
+    CallbackCharFilter = bit.lshift(1, 21),
+    CallbackResize     = bit.lshift(1, 22),
+    CallbackEdit       = bit.lshift(1, 23),
 
     -- Multi-line Word-Wrapping [BETA]
-    WordWrap = bit.lshift(1, 24), -- InputTextMultiline(): word-wrap lines that are too long
+    WordWrap = bit.lshift(1, 24),
 
     -- [Internal]
-    Multiline            = bit.lshift(1, 26), -- For internal use by InputTextMultiline()
-    TempInput            = bit.lshift(1, 27), -- For internal use by TempInputText(), will skip calling ItemAdd(). Require bounding-box to strictly match
-    LocalizeDecimalPoint = bit.lshift(1, 28), -- For internal use by InputScalar() and TempInputScalar()
+    Multiline            = bit.lshift(1, 26),
+    TempInput            = bit.lshift(1, 27),
+    LocalizeDecimalPoint = bit.lshift(1, 28),
 }
 
 --- @class ImGuiInputTextCallbackData
