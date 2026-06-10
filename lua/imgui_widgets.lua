@@ -2238,7 +2238,9 @@ function ImGui.RoundScalarWithFormatT(format, data_type, v)
     -- Currently does nothing to sanitize
 
     local str = ImFormatString(format, v)
-    v = tonumber(str) --[[@as number]]
+    -- This is a temporary solution
+    -- cpp uses ImAtof which scans past prefix...
+    v = tonumber(str:match("[+-]?%d*%.?%d+")) or v
     return v
 end
 
@@ -3298,20 +3300,20 @@ function ImGui.SliderBehavior(bb, id, data_type, v, min, max, format, flags, out
         if r then v = (ImU16)(v32) end
         return v, r
     elseif data_type == ImGuiDataType.S32 then
-        IM_ASSERT(v_min >= math.floor(IM_S32_MIN / 2) and v_max <= math.floor(IM_S32_MAX / 2))
-        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
+        IM_ASSERT(min >= math.floor(IM_S32_MIN / 2) and max <= math.floor(IM_S32_MAX / 2))
+        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.U32 then
-        IM_ASSERT(v_max <= math.floor(IM_U32_MAX / 2))
-        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
+        IM_ASSERT(max <= math.floor(IM_U32_MAX / 2))
+        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.S64 then
-        IM_ASSERT(v_min >= math.floor(IM_S64_MIN / 2) and v_max <= math.floor(IM_S64_MAX / 2))
-        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
+        IM_ASSERT(min >= math.floor(IM_S64_MIN / 2) and max <= math.floor(IM_S64_MAX / 2))
+        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.Float then
-        IM_ASSERT(v_min >= -FLT_MAX / 2.0 and v_max <= FLT_MAX / 2.0)
-        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
+        IM_ASSERT(min >= -FLT_MAX / 2.0 and max <= FLT_MAX / 2.0)
+        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.Double then
-        IM_ASSERT(v_min >= -DBL_MAX / 2.0 and v_max <= DBL_MAX / 2.0)
-        return ImGui.SliderBehaviorT(bb, id, data_type, v32, min, max, format, flags, out_grab_bb)
+        IM_ASSERT(min >= -DBL_MAX / 2.0 and max <= DBL_MAX / 2.0)
+        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     end
 
     IM_ASSERT(false)
@@ -3420,6 +3422,19 @@ function ImGui.SliderScalar(label, data_type, data, min, max, format, flags)
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO()
     return data, value_changed
+end
+
+--- @param label   string
+--- @param v       float
+--- @param v_min   float
+--- @param v_max   float
+--- @param format? string
+--- @param flags?  ImGuiSliderFlags
+function ImGui.SliderFloat(label, v, v_min, v_max, format, flags)
+    if format == nil then format = "%.3f" end
+    if flags  == nil then flags  = 0      end
+
+    return ImGui.SliderScalar(label, ImGuiDataType.Float, v, v_min, v_max, format, flags)
 end
 
 ----------------------------------------------------------------

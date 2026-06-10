@@ -173,6 +173,9 @@ table.insert(hint0, 0)
 
 local i0 = 233
 
+local f1 = 0.123
+local f2 = 0.0
+
 function DemoWindowWidgetsBasic()
     if ImGui.TreeNode("Basic") then
         ImGui.SeparatorText("General")
@@ -245,6 +248,19 @@ function DemoWindowWidgetsBasic()
 
             i0 = ImGui.InputInt("input int", i0)
             -- TODO:
+        end
+
+        ImGui.SeparatorText("Drags")
+
+        do
+            
+        end
+
+        ImGui.SeparatorText("Sliders")
+
+        do
+            f1 = ImGui.SliderFloat("slider float", f1, 0.0, 1.0, "ratio = %.3f")
+            f2 = ImGui.SliderFloat("slider float (log)", f2, -10.0, 10.0, "%.4f", ImGuiSliderFlags.Logarithmic)
         end
 
         ImGui.TreePop()
