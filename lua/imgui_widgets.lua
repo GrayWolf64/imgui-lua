@@ -2901,6 +2901,8 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
         ImGui.MarkItemEdited(id)
     end
 
+    -- TODO: ImGui.DataTypeFormatString() should be used here instead of ImFormatString()
+
     -- Display value using user-provided display format so user can add prefix/suffix/decorations to the value
     ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.5))
 
@@ -3314,6 +3316,110 @@ function ImGui.SliderBehavior(bb, id, data_type, v, min, max, format, flags, out
 
     IM_ASSERT(false)
     return v, false
+end
+
+--- @generic T : number
+--- @param label     string
+--- @param data_type ImGuiDataType
+--- @param data      T
+--- @param min       T
+--- @param max       T
+--- @param format?   string
+--- @param flags?    ImGuiSliderFlags
+function ImGui.SliderScalar(label, data_type, data, min, max, format, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return data, false
+    end
+
+    local g = GImGui
+    local style = g.Style
+    local id = window:GetID(label)
+    local w = ImGui.CalcItemWidth()
+    local color_marker = (bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker) ~= 0) and g.NextItemData.ColorMarker or 0
+
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
+    local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0))
+    local total_bb_x = frame_bb.Max.x + ((label_size.x > 0.0) and (style.ItemInnerSpacing.x + label_size.x) or 0.0)
+    local total_bb = ImRect(frame_bb.Min, ImVec2(total_bb_x, frame_bb.Max.y))
+
+    local temp_input_allowed = bit.band(flags, ImGuiSliderFlags.NoInput) == 0
+    ImGui.ItemSize(total_bb, style.FramePadding.y)
+    local item_flags = temp_input_allowed and ImGuiItemFlags.Inputable or 0
+    if not ImGui.ItemAdd(total_bb, id, frame_bb, item_flags) then
+        return data, false
+    end
+
+    if format == nil then
+        format = ImGui.DataTypeGetInfo(data_type).PrintFmt
+    end
+
+    local hovered = ImGui.ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags)
+    local temp_input_is_active = temp_input_allowed and ImGui.TempInputIsActive(id)
+    if not temp_input_is_active then
+        local clicked = hovered and ImGui.IsMouseClickedEx(0, ImGuiInputFlags.None, id)
+        local make_active = clicked or g.NavActivateId == id
+        if make_active and clicked then
+            ImGui.SetKeyOwner(ImGuiKey.MouseLeft, id)
+        end
+        if make_active and temp_input_allowed then
+            if (clicked and g.IO.KeyCtrl) or (g.NavActivateId == id and bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) then
+                temp_input_is_active = true
+            end
+        end
+
+        if make_active then
+            g.ActiveIdValueOnActivation = data
+        end
+
+        if make_active and not temp_input_is_active then
+            ImGui.SetActiveID(id, window)
+            ImGui.SetFocusID(id, window)
+            ImGui.FocusWindow(window)
+            g.ActiveIdUsingNavDirMask = bit.bor(g.ActiveIdUsingNavDirMask, bit.lshift(1, ImGuiDir.Left), bit.lshift(1, ImGuiDir.Right))
+        end
+    end
+
+    if temp_input_is_active then
+        local clamp_enabled = bit.band(flags, ImGuiSliderFlags.ClampOnInput) ~= 0
+        return ImGui.TempInputScalar(frame_bb, id, label, data_type, data, format, clamp_enabled and min or nil, clamp_enabled and max or nil)
+    end
+
+    local frame_col = ImGui.GetColorU32((g.ActiveId == id) and ImGuiCol.FrameBgActive or (hovered and ImGuiCol.FrameBgHovered or ImGuiCol.FrameBg))
+    ImGui.RenderNavCursor(frame_bb, id)
+    ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, false, style.FrameRounding)
+    if color_marker ~= 0 and style.ColorMarkerSize > 0.0 then
+        ImGui.RenderColorComponentMarker(frame_bb, ImGui.GetColorU32_U32(color_marker), style.FrameRounding)
+    end
+    ImGui.RenderFrameBorder(frame_bb.Min, frame_bb.Max, g.Style.FrameRounding)
+
+    local grab_bb = ImRect()
+    local value_changed
+    data, value_changed = ImGui.SliderBehavior(frame_bb, id, data_type, data, min, max, format, flags, grab_bb)
+    if value_changed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    if grab_bb.Max.x > grab_bb.Min.x then
+        window.DrawList:AddRectFilled(grab_bb.Min, grab_bb.Max, ImGui.GetColorU32((g.ActiveId == id) and ImGuiCol.SliderGrabActive or ImGuiCol.SliderGrab), style.GrabRounding)
+    end
+
+    -- TODO: ImGui.DataTypeFormatString() should be used here instead of ImFormatString()
+
+    -- if g.LogEnabled then
+    --     ImGui.LogSetNextTextDecoration("{", "}")
+    -- end
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.5))
+
+    if label_size.x > 0.0 then
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
+    end
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO()
+    return data, value_changed
 end
 
 ----------------------------------------------------------------
