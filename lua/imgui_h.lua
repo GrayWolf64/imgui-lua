@@ -14,13 +14,30 @@ local _band = bit.band
 --- @class ImU16 : integer
 --- @class ImS16 : integer
 
-function ImU8(val) return _band(val, 0xFF) end                                          --- @type fun(val: number): ImU8
-function ImS8(val) return _band(val, 0xFF) - (_band(val, 0x80) ~= 0 and 0x100 or 0) end --- @type fun(val: number): ImS8
+--- @class ImU32 : integer
+--- @class ImS32 : integer
 
-function ImU16(val) return _band(val, 0xFFFF) end                                               --- @type fun(val: number): ImU16
-function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x10000 or 0) end  --- @type fun(val: number): ImS16
+--- @param val number
+--- @return ImU8
+function ImU8(val) return _band(val, 0xFF) end
+--- @param val number
+--- @return ImS8
+function ImS8(val) return _band(val, 0xFF) - (_band(val, 0x80) ~= 0 and 0x100 or 0) end
 
---- @alias ImU32          integer
+--- @param val number
+--- @return ImU16
+function ImU16(val) return _band(val, 0xFFFF) end
+--- @param val number
+--- @return ImS16
+function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x10000 or 0) end
+
+--- @param val number
+--- @return ImU32
+function ImU32(val) return _band(val, 0xFFFFFFFF) end
+--- @param val number
+--- @return ImS32
+function ImS32(val) return _band(val, 0xFFFFFFFF) - (_band(val, 0x80000000) ~= 0 and 0x100000000 or 0) end
+
 --- @alias ImU64          integer
 
 --- @alias ImS64          integer

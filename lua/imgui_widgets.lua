@@ -3093,6 +3093,212 @@ function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, logarithmic_zero
     return result
 end
 
+--- @generic T : number
+--- @param bb          ImRect
+--- @param id          ImGuiID
+--- @param data_type   ImGuiDataType
+--- @param v           T
+--- @param v_min       T
+--- @param v_max       T
+--- @param format      string
+--- @param flags       ImGuiSliderFlags
+--- @param out_grab_bb ImRect
+--- @return T    v             # updated `v` passed in
+--- @return bool value_changed
+function ImGui.SliderBehaviorT(bb, id, data_type, v, v_min, v_max, format, flags, out_grab_bb)
+    local g = GImGui
+    local style = g.Style
+
+    local axis = (bit.band(flags, ImGuiSliderFlags.Vertical) ~= 0) and ImGuiAxis.Y or ImGuiAxis.X
+    local is_logarithmic = bit.band(flags, ImGuiSliderFlags.Logarithmic) ~= 0
+    local is_floating_point = (data_type == ImGuiDataType.Float) or (data_type == ImGuiDataType.Double)
+    local v_range_f = (v_min < v_max) and (v_max - v_min) or (v_min - v_max)
+
+    local grab_padding = 2.0
+    local slider_sz = (bb.Max[axis] - bb.Min[axis]) - grab_padding * 2.0
+    local grab_sz = style.GrabMinSize
+    if not is_floating_point and v_range_f >= 0.0 then
+        grab_sz = ImMax(slider_sz / (v_range_f + 1), style.GrabMinSize)
+    end
+    grab_sz = ImMin(grab_sz, slider_sz)
+    local slider_usable_sz = slider_sz - grab_sz
+    local slider_usable_pos_min = bb.Min[axis] + grab_padding + grab_sz * 0.5
+    local slider_usable_pos_max = bb.Max[axis] - grab_padding - grab_sz * 0.5
+
+    local logarithmic_zero_epsilon = 0.0
+    local zero_deadzone_halfsize = 0.0
+    if is_logarithmic then
+        local decimal_precision = is_floating_point and ImParseFormatPrecision(format, 3) or 1
+        logarithmic_zero_epsilon = ImPow(0.1, decimal_precision)
+        zero_deadzone_halfsize = (style.LogSliderDeadzone * 0.5) / ImMax(slider_usable_sz, 1.0)
+    end
+
+    local value_changed = false
+    if g.ActiveId == id then
+        local set_new_value = false
+        local clicked_t = 0.0
+        if g.ActiveIdSource == ImGuiInputSource.Mouse then
+            if not g.IO.MouseDown[0] then
+                ImGui.ClearActiveID()
+            else
+                local mouse_abs_pos = g.IO.MousePos[axis]
+                if g.ActiveIdIsJustActivated then
+                    local grab_t = ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+                    if axis == ImGuiAxis.Y then
+                        grab_t = 1.0 - grab_t
+                    end
+                    local grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t)
+                    local clicked_around_grab = (mouse_abs_pos >= grab_pos - grab_sz * 0.5 - 1.0) and (mouse_abs_pos <= grab_pos + grab_sz * 0.5 + 1.0)
+                    g.SliderGrabClickOffset = (clicked_around_grab and is_floating_point) and (mouse_abs_pos - grab_pos) or 0.0
+                end
+                if slider_usable_sz > 0.0 then
+                    clicked_t = ImSaturate((mouse_abs_pos - g.SliderGrabClickOffset - slider_usable_pos_min) / slider_usable_sz)
+                end
+                if axis == ImGuiAxis.Y then
+                    clicked_t = 1.0 - clicked_t
+                end
+                set_new_value = true
+            end
+        elseif g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
+            if g.ActiveIdIsJustActivated then
+                g.SliderCurrentAccum = 0.0
+                g.SliderCurrentAccumDirty = false
+            end
+
+            local input_delta = (axis == ImGuiAxis.X) and ImGui.GetNavTweakPressedAmount(axis) or -ImGui.GetNavTweakPressedAmount(axis)
+            if input_delta ~= 0.0 then
+                local tweak_slow = ImGui.IsKeyDown((g.NavInputSource == ImGuiInputSource.Gamepad) and ImGuiKey.NavGamepadTweakSlow or ImGuiKey.NavKeyboardTweakSlow)
+                local tweak_fast = ImGui.IsKeyDown((g.NavInputSource == ImGuiInputSource.Gamepad) and ImGuiKey.NavGamepadTweakFast or ImGuiKey.NavKeyboardTweakFast)
+                local decimal_precision = is_floating_point and ImParseFormatPrecision(format, 3) or 0
+                if decimal_precision > 0 then
+                    input_delta = input_delta / 100.0
+                    if tweak_slow then
+                        input_delta = input_delta / 10.0
+                    end
+                else
+                    if (v_range_f >= -100.0 and v_range_f <= 100.0 and v_range_f ~= 0.0) or tweak_slow then
+                        input_delta = ((input_delta < 0.0) and -1.0 or 1.0) / v_range_f
+                    else
+                        input_delta = input_delta / 100.0
+                    end
+                end
+                if tweak_fast then
+                    input_delta = input_delta * 10.0
+                end
+
+                g.SliderCurrentAccum = g.SliderCurrentAccum + input_delta
+                g.SliderCurrentAccumDirty = true
+            end
+
+            local delta = g.SliderCurrentAccum
+            if g.NavActivatePressedId == id and not g.ActiveIdIsJustActivated then
+                ImGui.ClearActiveID()
+            elseif g.SliderCurrentAccumDirty then
+                clicked_t = ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+
+                if (clicked_t >= 1.0 and delta > 0.0) or (clicked_t <= 0.0 and delta < 0.0) then
+                    set_new_value = false
+                    g.SliderCurrentAccum = 0.0
+                else
+                    set_new_value = true
+                    local old_clicked_t = clicked_t
+                    clicked_t = ImSaturate(clicked_t + delta)
+
+                    local v_new = ImGui.ScaleValueFromRatioT(data_type, clicked_t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+                    if is_floating_point and bit.band(flags, ImGuiSliderFlags.NoRoundToFormat) == 0 then
+                        v_new = ImGui.RoundScalarWithFormatT(format, data_type, v_new)
+                    end
+                    local new_clicked_t = ImGui.ScaleRatioFromValueT(data_type, v_new, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+
+                    if delta > 0 then
+                        g.SliderCurrentAccum = g.SliderCurrentAccum - ImMin(new_clicked_t - old_clicked_t, delta)
+                    else
+                        g.SliderCurrentAccum = g.SliderCurrentAccum - ImMax(new_clicked_t - old_clicked_t, delta)
+                    end
+                end
+
+                g.SliderCurrentAccumDirty = false
+            end
+        end
+
+        if set_new_value then
+            if (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.ReadOnly) ~= 0) or (bit.band(flags, ImGuiSliderFlags.ReadOnly) ~= 0) then
+                set_new_value = false
+            end
+        end
+
+        if set_new_value then
+            local v_new = ImGui.ScaleValueFromRatioT(data_type, clicked_t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+
+            if is_floating_point and bit.band(flags, ImGuiSliderFlags.NoRoundToFormat) == 0 then
+                v_new = ImGui.RoundScalarWithFormatT(format, data_type, v_new)
+            end
+
+            if v ~= v_new then
+                v = v_new
+                value_changed = true
+            end
+        end
+    end
+
+    if slider_sz < 1.0 then
+        ImRect_Copy(out_grab_bb, ImRect(bb.Min, bb.Min))
+    else
+        local grab_t = ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        if axis == ImGuiAxis.Y then
+            grab_t = 1.0 - grab_t
+        end
+        local grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t)
+        if axis == ImGuiAxis.X then
+            ImRect_Copy(out_grab_bb, ImRect(grab_pos - grab_sz * 0.5, bb.Min.y + grab_padding, grab_pos + grab_sz * 0.5, bb.Max.y - grab_padding))
+        else
+            ImRect_Copy(out_grab_bb, ImRect(bb.Min.x + grab_padding, grab_pos - grab_sz * 0.5, bb.Max.x - grab_padding, grab_pos + grab_sz * 0.5))
+        end
+    end
+
+    return v, value_changed
+end
+
+--- @generic T : number
+--- @param bb          ImRect
+--- @param id          ImGuiID
+--- @param data_type   ImGuiDataType
+--- @param v           T
+--- @param min         T
+--- @param max         T
+--- @param format      string
+--- @param flags       ImGuiSliderFlags
+--- @param out_grab_bb ImRect
+function ImGui.SliderBehavior(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
+    IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
+    IM_ASSERT(bit.band(flags, ImGuiSliderFlags.WrapAround) == 0)
+
+    if     data_type == ImGuiDataType.S8 then
+        local v32 = (ImS32)((ImS8)(v))
+    elseif data_type == ImGuiDataType.U8 then
+
+    elseif data_type == ImGuiDataType.S16 then
+
+    elseif data_type == ImGuiDataType.U16 then
+
+    elseif data_type == ImGuiDataType.S32 then
+
+    elseif data_type == ImGuiDataType.U32 then
+
+    elseif data_type == ImGuiDataType.S64 then
+
+    elseif data_type == ImGuiDataType.U64 then
+
+    elseif data_type == ImGuiDataType.Float then
+
+    elseif data_type == ImGuiDataType.Double then
+
+    end
+
+    IM_ASSERT(false)
+    return v, false
+end
+
 ----------------------------------------------------------------
 -- [SECTION] INPUT TEXT
 ----------------------------------------------------------------
