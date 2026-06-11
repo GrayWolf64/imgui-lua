@@ -176,6 +176,10 @@ local i0 = 233
 local f1 = 0.123
 local f2 = 0.0
 
+local Element = { Fire = 1, Earth = 2, Air = 3, Water = 4, COUNT = 5 }
+local elems_names = { "Fire", "Earth", "Air", "Water" }
+local elem = Element.Fire
+
 function DemoWindowWidgetsBasic()
     if ImGui.TreeNode("Basic") then
         ImGui.SeparatorText("General")
@@ -261,6 +265,9 @@ function DemoWindowWidgetsBasic()
         do
             f1 = ImGui.SliderFloat("slider float", f1, 0.0, 1.0, "ratio = %.3f")
             f2 = ImGui.SliderFloat("slider float (log)", f2, -10.0, 10.0, "%.4f", ImGuiSliderFlags.Logarithmic)
+
+            local elem_name = (elem >= 1 and elem < Element.COUNT) and elems_names[elem] or "Unknown"
+            elem = ImGui.SliderInt("slider enum", elem, 1, Element.COUNT - 1, elem_name)
         end
 
         ImGui.TreePop()

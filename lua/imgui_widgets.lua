@@ -3435,6 +3435,19 @@ function ImGui.SliderFloat(label, v, v_min, v_max, format, flags)
     return ImGui.SliderScalar(label, ImGuiDataType.Float, v, v_min, v_max, format, flags)
 end
 
+--- @param label   string
+--- @param v       int
+--- @param v_min   int
+--- @param v_max   int
+--- @param format? string
+--- @param flags?  ImGuiSliderFlags
+function ImGui.SliderInt(label, v, v_min, v_max, format, flags)
+    if format == nil then format = "%d" end
+    if flags  == nil then flags  = 0    end
+
+    return ImGui.SliderScalar(label, ImGuiDataType.S32, v, v_min, v_max, format, flags)
+end
+
 ----------------------------------------------------------------
 -- [SECTION] INPUT TEXT
 ----------------------------------------------------------------
