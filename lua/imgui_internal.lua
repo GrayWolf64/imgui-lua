@@ -187,6 +187,12 @@ function ImStd.ImExponentialMovingAverage(avg, sample, n)
     return avg
 end
 
+-- Uses `string.match` internally
+--- @param str string
+function ImAtof(str)
+    return tonumber(string.match(str, "[+-]?%d*%.?%d+"))
+end
+
 --- @param s table # 1-based
 --- @param c any
 --- @param n int

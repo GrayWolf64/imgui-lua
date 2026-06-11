@@ -2234,13 +2234,11 @@ function ImGui.RoundScalarWithFormatT(format, data_type, v)
         return v -- Don't apply if the value is not visible in the format string
     end
 
-    -- Sanitize format
-    -- Currently does nothing to sanitize
+    -- TODO: Sanitize format
 
     local str = ImFormatString(format, v)
-    -- This is a temporary solution
-    -- cpp uses ImAtof which scans past prefix...
-    v = tonumber(str:match("[+-]?%d*%.?%d+")) or v
+
+    v = ImAtof(str) or v
     return v
 end
 
