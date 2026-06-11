@@ -2321,7 +2321,7 @@ local function ImParseFormatTrimDecorations(fmt, buf, buf_size)
     if string.byte(fmt, fmt_end) ~= 37 then
         return fmt_start
     end
-    local n = ImMin((size_t)(fmt_end - fmt_start) + 1, buf_size)
+    local n = ImMin((fmt_end - fmt_start) + 1, buf_size)
     ImStd.ImStrncpy(buf, 1, { string.byte(fmt, fmt_start, fmt_start + n - 1) }, 1, n)
     return 1
 end
@@ -2946,14 +2946,20 @@ function ImGui.DragFloat(label, v, v_speed, v_min, v_max, format, flags)
     return ImGui.DragScalar(label, ImGuiDataType.Float, v, v_speed, v_min, v_max, format, flags)
 end
 
---- @param label   string
---- @param v       int
---- @param v_speed float
---- @param v_min   int
---- @param v_max   int
---- @param format  string
---- @param flags   ImGuiSliderFlags
+--- @param label    string
+--- @param v        int
+--- @param v_speed? float
+--- @param v_min?   int
+--- @param v_max?   int
+--- @param format?  string
+--- @param flags?   ImGuiSliderFlags
 function ImGui.DragInt(label, v, v_speed, v_min, v_max, format, flags)
+    if v_speed == nil then v_speed = 1.0  end
+    if v_min   == nil then v_min   = 0    end
+    if v_max   == nil then v_max   = 0    end
+    if format  == nil then format  = "%d" end
+    if flags   == nil then flags   = 0    end
+
     return ImGui.DragScalar(label, ImGuiDataType.S32, v, v_speed, v_min, v_max, format, flags)
 end
 

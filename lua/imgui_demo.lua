@@ -1,6 +1,8 @@
 --- ImGui Sincerely WIP
 -- (Demo Code)
 
+local static = {}
+
 local IM_MIN = math.min
 local IM_MAX = math.max
 local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
@@ -172,6 +174,8 @@ local hint0 = {string.byte("enter text here", 1, 15)}
 table.insert(hint0, 0)
 
 local i0 = 233
+static.i1 = 50
+static.i2 = 42
 
 local f1 = 0.123
 local f2 = 0.0
@@ -257,7 +261,8 @@ function DemoWindowWidgetsBasic()
         ImGui.SeparatorText("Drags")
 
         do
-            
+            static.i1 = ImGui.DragInt("drag int", static.i1, 1)
+            static.i2 = ImGui.DragInt("drag int 0..100", static.i2, 1, 0, 100, "%d%%", ImGuiSliderFlags.AlwaysClamp)
         end
 
         ImGui.SeparatorText("Sliders")
