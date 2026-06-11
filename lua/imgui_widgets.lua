@@ -1947,6 +1947,28 @@ end
 -- [SECTION] DATA TYPE & DATA FORMATTING [Internal]
 ----------------------------------------------------------------
 
+local DATA_TYPE, TYPE, SIGNEDTYPE do
+    local _TYPE = nil
+
+    --- @param data_type ImGuiDataType
+    function DATA_TYPE(data_type)
+        _TYPE = data_type
+    end
+
+    --- @generic T : number
+    --- @param val T
+    --- @return T
+    function TYPE(val)
+        IM_ASSERT(_TYPE ~= nil)
+        if _TYPE ~= ImGuiDataType.Float and _TYPE ~= ImGuiDataType.Double then
+            return ImTrunc(val)
+        end
+        return val
+    end
+
+    SIGNEDTYPE = TYPE
+end
+
 local GDefaultRgbaColorMarkers = {
     IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
 }
@@ -3022,6 +3044,7 @@ end
 --- @param logarithmic_zero_epsilon float
 --- @param zero_deadzone_halfsize   float
 function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+DATA_TYPE(data_type)
     -- We special-case the extents because otherwise our logarithmic fudging can lead to "mathematically correct"
     -- but non-intuitive behaviors like a fully-left slider not actually reaching the minimum value. Also generally simpler.
     if t <= 0.0 or v_min == v_max then
@@ -3065,21 +3088,16 @@ function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, logarithmic_zero
             local zero_point_snap_R = zero_point_center + zero_deadzone_halfsize
 
             if t_with_flip >= zero_point_snap_L and t_with_flip <= zero_point_snap_R then
-                result = 0.0 -- Special case to make getting exactly zero possible (the epsilon prevents it otherwise)
+                result = (TYPE)(0.0) -- Special case to make getting exactly zero possible (the epsilon prevents it otherwise)
             elseif t_with_flip < zero_point_center then
-                result = -(logarithmic_zero_epsilon * ImPow(-v_min_fudged / logarithmic_zero_epsilon, 1.0 - (t_with_flip / zero_point_snap_L)))
+                result = (TYPE)(-(logarithmic_zero_epsilon * ImPow(-v_min_fudged / logarithmic_zero_epsilon, 1.0 - (t_with_flip / zero_point_snap_L))))
             else
-                result = logarithmic_zero_epsilon * ImPow(v_max_fudged / logarithmic_zero_epsilon, (t_with_flip - zero_point_snap_R) / (1.0 - zero_point_snap_R))
+                result = (TYPE)(logarithmic_zero_epsilon * ImPow(v_max_fudged / logarithmic_zero_epsilon, (t_with_flip - zero_point_snap_R) / (1.0 - zero_point_snap_R)))
             end
         elseif v_min < 0.0 or v_max < 0.0 then  -- Entirely negative slider
-            result = -(-v_max_fudged * ImPow(-v_min_fudged / -v_max_fudged, 1.0 - t_with_flip))
+            result = (TYPE)(-(-v_max_fudged * ImPow(-v_min_fudged / -v_max_fudged, 1.0 - t_with_flip)))
         else
-            result = v_min_fudged * ImPow(v_max_fudged / v_min_fudged, t_with_flip)
-        end
-
-        -- LUA: simulate cpp template `TYPE` return cast for integer types
-        if data_type ~= ImGuiDataType.Float and data_type ~= ImGuiDataType.Double then
-            result = ImTrunc(result)
+            result = (TYPE)(v_min_fudged * ImPow(v_max_fudged / v_min_fudged, t_with_flip))
         end
     else
         -- Linear slider
@@ -3091,10 +3109,8 @@ function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, logarithmic_zero
             --   This code is carefully tuned to work with large values (e.g. high ranges of U64) while preserving this property..
             -- - Not doing a *1.0 multiply at the end of a range as it tends to be lossy. While absolute aiming at a large s64/u64
             --   range is going to be imprecise anyway, with this check we at least make the edge values matches expected limits.
-
-            -- LUA: use `ImTrunc` explicitly here to get close to `SIGNEDTYPE` template type cast in cpp
-            local v_new_off_f = ImTrunc((v_max - v_min) * t)
-            result = ImTrunc(v_min) + ImTrunc(v_new_off_f + ((v_min > v_max) and -0.5 or 0.5))
+            local v_new_off_f = (SIGNEDTYPE)((v_max - v_min)) * t
+            result = (TYPE)((SIGNEDTYPE)(v_min) + (SIGNEDTYPE)(v_new_off_f + ((v_min > v_max) and -0.5 or 0.5)))
         end
     end
 
