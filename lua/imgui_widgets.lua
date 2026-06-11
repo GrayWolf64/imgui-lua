@@ -3076,6 +3076,11 @@ function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, logarithmic_zero
         else
             result = v_min_fudged * ImPow(v_max_fudged / v_min_fudged, t_with_flip)
         end
+
+        -- LUA: simulate cpp template `TYPE` return cast for integer types
+        if data_type ~= ImGuiDataType.Float and data_type ~= ImGuiDataType.Double then
+            result = ImTrunc(result)
+        end
     else
         -- Linear slider
         local is_floating_point = (data_type == ImGuiDataType.Float) or (data_type == ImGuiDataType.Double)
@@ -3086,9 +3091,10 @@ function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, logarithmic_zero
             --   This code is carefully tuned to work with large values (e.g. high ranges of U64) while preserving this property..
             -- - Not doing a *1.0 multiply at the end of a range as it tends to be lossy. While absolute aiming at a large s64/u64
             --   range is going to be imprecise anyway, with this check we at least make the edge values matches expected limits.
-            local v_new_off_f = (v_max - v_min) * t
-            local offset = (v_min > v_max) and -0.5 or 0.5
-            result = v_min + v_new_off_f + offset
+
+            -- LUA: use `ImTrunc` explicitly here to get close to `SIGNEDTYPE` template type cast in cpp
+            local v_new_off_f = ImTrunc((v_max - v_min) * t)
+            result = ImTrunc(v_min) + ImTrunc(v_new_off_f + ((v_min > v_max) and -0.5 or 0.5))
         end
     end
 
