@@ -173,9 +173,10 @@ str1[1] = 0
 local hint0 = {string.byte("enter text here", 1, 15)}
 table.insert(hint0, 0)
 
-local i0 = 233
+static.i0 = 233
 static.i1 = 50
 static.i2 = 42
+static.i3 = 128
 
 local f1 = 0.123
 local f2 = 0.0
@@ -254,7 +255,7 @@ function DemoWindowWidgetsBasic()
 
             ImGui.InputTextWithHint("input text (w/ hint)", hint0, str1, 128)
 
-            i0 = ImGui.InputInt("input int", i0)
+            static.i0 = ImGui.InputInt("input int", static.i0)
             -- TODO:
         end
 
@@ -263,6 +264,7 @@ function DemoWindowWidgetsBasic()
         do
             static.i1 = ImGui.DragInt("drag int", static.i1, 1)
             static.i2 = ImGui.DragInt("drag int 0..100", static.i2, 1, 0, 100, "%d%%", ImGuiSliderFlags.AlwaysClamp)
+            static.i3 = ImGui.DragInt("drag int wrap 100..200", static.i3, 1, 100, 200, "%d", ImGuiSliderFlags.WrapAround)
         end
 
         ImGui.SeparatorText("Sliders")
