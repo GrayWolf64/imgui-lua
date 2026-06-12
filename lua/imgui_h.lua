@@ -38,9 +38,6 @@ function ImU32(val) return _band(val, 0xFFFFFFFF) end
 --- @return ImS32
 function ImS32(val) return _band(val, 0xFFFFFFFF) - (_band(val, 0x80000000) ~= 0 and 0x100000000 or 0) end
 
---- @alias ImU64          integer
-
---- @alias ImS64          integer
 --- @alias float          number
 
 --- @alias int            integer
@@ -58,7 +55,7 @@ function ImS32(val) return _band(val, 0xFFFFFFFF) - (_band(val, 0x80000000) ~= 0
 
 --- @alias ImGuiID unsigned_int
 
---- @alias ImTextureID ImU64
+--- @alias ImTextureID integer
 
 --- @alias ImGuiKeyChord int
 
@@ -1757,21 +1754,20 @@ ImGuiDragDropFlags = {
 
 ImGuiDragDropFlags.AcceptPeekOnly = bit.bor(ImGuiDragDropFlags.AcceptBeforeDelivery, ImGuiDragDropFlags.AcceptNoDrawDefaultRect)
 
---- Note that `U64` isn't supported
+--- Note that `S64` and `U64` are not supported
 --- @enum ImGuiDataType
 ImGuiDataType = {
-    S8     = 1,  -- signed char / char
-    U8     = 2,  -- unsigned char
-    S16    = 3,  -- short
-    U16    = 4,  -- unsigned short
-    S32    = 5,  -- int
-    U32    = 6,  -- unsigned int
-    S64    = 7,  -- long long / __int64
-    Float  = 8,  -- float
-    Double = 9,  -- double
-    Bool   = 10, -- bool (provided for user convenience, not supported by scalar widgets)
-    String = 11, -- string (provided for user convenience, not supported by scalar widgets)
-    COUNT  = 11
+    S8     = 0,  -- signed char / char
+    U8     = 1,  -- unsigned char
+    S16    = 2,  -- short
+    U16    = 3,  -- unsigned short
+    S32    = 4,  -- int
+    U32    = 5,  -- unsigned int
+    Float  = 6,  -- float
+    Double = 7,  -- double
+    Bool   = 8, -- bool (provided for user convenience, not supported by scalar widgets)
+    String = 9, -- string (provided for user convenience, not supported by scalar widgets)
+    COUNT  = 10
 }
 
 IM_COL32_R_SHIFT = 0

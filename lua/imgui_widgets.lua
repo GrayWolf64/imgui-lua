@@ -25,8 +25,6 @@ local IM_S32_MIN = INT_MIN
 local IM_S32_MAX = INT_MAX
 local IM_U32_MIN = 0
 local IM_U32_MAX = UINT_MAX
-local IM_S64_MIN = LLONG_MIN
-local IM_S64_MAX = LLONG_MAX
 
 ----------------------------------------------------------------
 -- [SECTION] TEXT
@@ -818,12 +816,12 @@ end
 --- @param bb_frame            ImRect
 --- @param id                  ImGuiID
 --- @param axis                ImGuiAxis
---- @param p_scroll_v          ImS64
---- @param size_visible_v      ImS64
---- @param size_contents_v     ImS64
+--- @param p_scroll_v          number
+--- @param size_visible_v      number
+--- @param size_contents_v     number
 --- @param draw_rounding_flags ImDrawFlags
---- @return bool  is_held
---- @return ImS64 scroll_v # Updated p_scroll_v
+--- @return bool   is_held
+--- @return number scroll_v # Updated p_scroll_v
 function ImGui.ScrollbarEx(bb_frame, id, axis, p_scroll_v, size_visible_v, size_contents_v, draw_rounding_flags)
     local g = GImGui
     local window = g.CurrentWindow
@@ -1991,7 +1989,6 @@ local GDataTypeInfo = {
     ImGuiDataTypeInfo(2, "U16",    "%u",   "%u"),
     ImGuiDataTypeInfo(4, "S32",    "%d",   "%d"),
     ImGuiDataTypeInfo(4, "U32",    "%u",   "%u"),
-    ImGuiDataTypeInfo(8, "S64",    "%lld", "%lld"),
     ImGuiDataTypeInfo(4, "float",  "%.3f", "%f"),
     ImGuiDataTypeInfo(8, "double", "%f",   "%lf"),
     ImGuiDataTypeInfo(1, "bool",   "%d",   "%d"),
@@ -2000,8 +1997,8 @@ local GDataTypeInfo = {
 
 --- @param data_type ImGuiDataType
 function ImGui.DataTypeGetInfo(data_type)
-    IM_ASSERT(data_type >= 1 and data_type <= ImGuiDataType.COUNT)
-    return GDataTypeInfo[data_type]
+    IM_ASSERT(data_type >= 0 and data_type < ImGuiDataType.COUNT)
+    return GDataTypeInfo[data_type + 1]
 end
 
 --- @param buf       char[]
@@ -2012,8 +2009,6 @@ end
 function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     local str
     if     data_type == ImGuiDataType.S32 or data_type == ImGuiDataType.U32 then
-        str = ImFormatString(format, data)
-    elseif data_type == ImGuiDataType.S64 then
         str = ImFormatString(format, data)
     elseif data_type == ImGuiDataType.Float then
         str = ImFormatString(format, data)
@@ -2075,12 +2070,6 @@ function ImGui.DataTypeApplyOp(data_type, op, arg1, arg2)
             return ImAddClampOverflow(arg1, arg2, IM_U32_MIN, IM_U32_MAX)
         elseif op == 45 then
             return ImSubClampOverflow(arg1, arg2, IM_U32_MIN, IM_U32_MAX)
-        end
-    elseif data_type == ImGuiDataType.S64 then
-        if op == 43 then
-            return ImAddClampOverflow(arg1, arg2, IM_S64_MIN, IM_S64_MAX)
-        elseif op == 45 then
-            return ImSubClampOverflow(arg1, arg2, IM_S64_MIN, IM_S64_MAX)
         end
     elseif data_type == ImGuiDataType.Float then
         if op == 43 then
@@ -2177,9 +2166,8 @@ function ImGui.DataTypeCompare(data_type, arg1, arg2)
     elseif data_type == ImGuiDataType.U8  then return DataTypeCompareT((ImU8)(arg1), (ImU8)(arg2))
     elseif data_type == ImGuiDataType.S16 then return DataTypeCompareT((ImS16)(arg1), (ImS16)(arg2))
     elseif data_type == ImGuiDataType.U16 then return DataTypeCompareT((ImU16)(arg1), (ImU16)(arg2))
-    elseif data_type == ImGuiDataType.S32 then return DataTypeCompareT((arg1), (arg2))
-    elseif data_type == ImGuiDataType.U32 then return DataTypeCompareT((arg1), (arg2))
-    elseif data_type == ImGuiDataType.S64 then return DataTypeCompareT((arg1), (arg2))
+    elseif data_type == ImGuiDataType.S32 then return DataTypeCompareT((ImS32)(arg1), (ImS32)(arg2))
+    elseif data_type == ImGuiDataType.U32 then return DataTypeCompareT((ImU32)(arg1), (ImU32)(arg2))
     elseif data_type == ImGuiDataType.Float  then return DataTypeCompareT(arg1, arg2)
     elseif data_type == ImGuiDataType.Double then return DataTypeCompareT(arg1, arg2)
     end
@@ -2207,9 +2195,8 @@ function ImGui.DataTypeClamp(data_type, data, min, max)
     elseif data_type == ImGuiDataType.U8  then return DataTypeClampT((ImU8)(data),  min and (ImU8)(min),  max and (ImU8)(max))
     elseif data_type == ImGuiDataType.S16 then return DataTypeClampT((ImS16)(data), min and (ImS16)(min), max and (ImS16)(max))
     elseif data_type == ImGuiDataType.U16 then return DataTypeClampT((ImU16)(data), min and (ImU16)(min), max and (ImU16)(max))
-    elseif data_type == ImGuiDataType.S32 then return DataTypeClampT(data, min, max)
-    elseif data_type == ImGuiDataType.U32 then return DataTypeClampT(data, min, max)
-    elseif data_type == ImGuiDataType.S64 then return DataTypeClampT(data, min, max)
+    elseif data_type == ImGuiDataType.S32 then return DataTypeClampT((ImS32)(data), min and (ImS32)(min), max and (ImS32)(max))
+    elseif data_type == ImGuiDataType.U32 then return DataTypeClampT((ImU32)(data), min and (ImU32)(min), max and (ImU32)(max))
     elseif data_type == ImGuiDataType.Float  then return DataTypeClampT(data, min, max)
     elseif data_type == ImGuiDataType.Double then return DataTypeClampT(data, min, max)
     end
@@ -2795,8 +2782,6 @@ function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S32_MIN, max and max or IM_S32_MAX, format, flags)
     elseif data_type == ImGuiDataType.U32 then
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_U32_MIN, max and max or IM_U32_MAX, format, flags)
-    elseif data_type == ImGuiDataType.S64 then
-        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S64_MIN, max and max or IM_S64_MAX, format, flags)
     elseif data_type == ImGuiDataType.Float then
         return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -FLT_MAX, max and max or FLT_MAX, format, flags)
     elseif data_type == ImGuiDataType.Double then
@@ -3330,9 +3315,6 @@ function ImGui.SliderBehavior(bb, id, data_type, v, min, max, format, flags, out
         return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.U32 then
         IM_ASSERT(max <= math.floor(IM_U32_MAX / 2))
-        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
-    elseif data_type == ImGuiDataType.S64 then
-        IM_ASSERT(min >= math.floor(IM_S64_MIN / 2) and max <= math.floor(IM_S64_MAX / 2))
         return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.Float then
         IM_ASSERT(min >= -FLT_MAX / 2.0 and max <= FLT_MAX / 2.0)
