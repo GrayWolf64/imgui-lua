@@ -2008,16 +2008,18 @@ end
 --- @param format    string
 function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     local str
-    if     data_type == ImGuiDataType.S32 or data_type == ImGuiDataType.U32 then
-        str = ImFormatString(format, data)
+    if     data_type == ImGuiDataType.S32 then
+        str = ImFormatString(format, (ImS32)(data))
+    elseif data_type == ImGuiDataType.U32 then
+        str = ImFormatString(format, (ImU32)(data))
     elseif data_type == ImGuiDataType.Float then
         str = ImFormatString(format, data)
     elseif data_type == ImGuiDataType.Double then
         str = ImFormatString(format, data)
     elseif data_type == ImGuiDataType.S8 then
-        str = ImFormatString(format, data)
+        str = ImFormatString(format, (ImS8)(data))
     elseif data_type == ImGuiDataType.U8 then
-        str = ImFormatString(format, data)
+        str = ImFormatString(format, (ImU8)(data))
     elseif data_type == ImGuiDataType.S16 then
         str = ImFormatString(format, (ImS16)(data))
     elseif data_type == ImGuiDataType.U16 then

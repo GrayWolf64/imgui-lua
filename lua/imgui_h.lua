@@ -1757,14 +1757,14 @@ ImGuiDragDropFlags.AcceptPeekOnly = bit.bor(ImGuiDragDropFlags.AcceptBeforeDeliv
 --- Note that `S64` and `U64` are not supported
 --- @enum ImGuiDataType
 ImGuiDataType = {
-    S8     = 0,  -- signed char / char
-    U8     = 1,  -- unsigned char
-    S16    = 2,  -- short
-    U16    = 3,  -- unsigned short
-    S32    = 4,  -- int
-    U32    = 5,  -- unsigned int
-    Float  = 6,  -- float
-    Double = 7,  -- double
+    S8     = 0, -- signed char / char
+    U8     = 1, -- unsigned char
+    S16    = 2, -- short
+    U16    = 3, -- unsigned short
+    S32    = 4, -- int
+    U32    = 5, -- unsigned int
+    Float  = 6, -- float
+    Double = 7, -- double
     Bool   = 8, -- bool (provided for user convenience, not supported by scalar widgets)
     String = 9, -- string (provided for user convenience, not supported by scalar widgets)
     COUNT  = 10
