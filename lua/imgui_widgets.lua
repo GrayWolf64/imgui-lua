@@ -2576,17 +2576,18 @@ function ImGui.InputInt(label, v, step, step_fast, flags)
 end
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
---- @param TYPE       function
---- @param SIGNEDTYPE function
+--- @generic T : number
+--- @param TYPE       fun(val: number): T
+--- @param SIGNEDTYPE fun(val: number): T
 --- @param data_type  ImGuiDataType
---- @param v          number
+--- @param v          T
 --- @param v_speed    float
---- @param v_min      number
---- @param v_max      number
+--- @param v_min      T
+--- @param v_max      T
 --- @param format     string
 --- @param flags      ImGuiSliderFlags
---- @return number new_v   # Updated `v`
---- @return bool   changed
+--- @return T    new_v   # Updated `v`
+--- @return bool changed
 function ImGui.DragBehaviorT(TYPE, SIGNEDTYPE, data_type, v, v_speed, v_min, v_max, format, flags)
     local g = GImGui
     local axis = (bit.band(flags, ImGuiSliderFlags.Vertical) ~= 0) and ImGuiAxis.Y or ImGuiAxis.X
