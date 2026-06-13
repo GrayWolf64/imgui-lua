@@ -2911,14 +2911,20 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     return data, value_changed
 end
 
---- @param label   string
---- @param v       float
---- @param v_speed float
---- @param v_min   float
---- @param v_max   float
---- @param format  string
---- @param flags   ImGuiSliderFlags
+--- @param label    string
+--- @param v        float
+--- @param v_speed? float
+--- @param v_min?   float
+--- @param v_max?   float
+--- @param format?  string
+--- @param flags?   ImGuiSliderFlags
 function ImGui.DragFloat(label, v, v_speed, v_min, v_max, format, flags)
+    if v_speed == nil then v_speed = 1.0    end
+    if v_min   == nil then v_min   = 0.0    end
+    if v_max   == nil then v_max   = 0.0    end
+    if format  == nil then format  = "%.3f" end
+    if flags   == nil then flags   = 0      end
+
     return ImGui.DragScalar(label, ImGuiDataType.Float, v, v_speed, v_min, v_max, format, flags)
 end
 

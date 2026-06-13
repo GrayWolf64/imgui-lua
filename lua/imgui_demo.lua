@@ -178,6 +178,9 @@ static.i1 = 50
 static.i2 = 42
 static.i3 = 128
 
+static.f1 = 1.00
+static.f2 = 0.0067
+
 local f1 = 0.123
 local f2 = 0.0
 
@@ -265,6 +268,9 @@ function DemoWindowWidgetsBasic()
             static.i1 = ImGui.DragInt("drag int", static.i1, 1)
             static.i2 = ImGui.DragInt("drag int 0..100", static.i2, 1, 0, 100, "%d%%", ImGuiSliderFlags.AlwaysClamp)
             static.i3 = ImGui.DragInt("drag int wrap 100..200", static.i3, 1, 100, 200, "%d", ImGuiSliderFlags.WrapAround)
+
+            static.f1 = ImGui.DragFloat("drag float", static.f1, 0.005)
+            static.f2 = ImGui.DragFloat("drag small float", static.f2, 0.0001, 0.0, 0.0, "%.06f ns")
         end
 
         ImGui.SeparatorText("Sliders")
