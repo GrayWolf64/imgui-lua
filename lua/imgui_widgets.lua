@@ -3094,12 +3094,8 @@ function ImGui.ScaleValueFromRatioT(TYPE, SIGNEDTYPE, data_type, t, v_min, v_max
         if is_floating_point then
             result = ImLerp(v_min, v_max, t)
         elseif t < 1.0 then
-            -- - For integer values we want the clicking position to match the grab box so we round above
-            --   This code is carefully tuned to work with large values (e.g. high ranges of U64) while preserving this property..
-            -- - Not doing a *1.0 multiply at the end of a range as it tends to be lossy. While absolute aiming at a large s64/u64
-            --   range is going to be imprecise anyway, with this check we at least make the edge values matches expected limits.
             local v_new_off_f = (SIGNEDTYPE)((v_max - v_min)) * t
-            result = (TYPE)((SIGNEDTYPE)(v_min) + (SIGNEDTYPE)(v_new_off_f + ((v_min > v_max) and -0.5 or 0.5)))
+            result = (TYPE)((SIGNEDTYPE)(v_min) + (SIGNEDTYPE)(v_new_off_f + 0)) -- LUA: + 0 instead of + ((v_min > v_max) and -0.5 or 0.5)
         end
     end
 
