@@ -3,6 +3,7 @@
 
 --- @meta
 
+-- [LuaBitOp](https://bitop.luajit.org/semantics.html)
 local _band = bit.band
 
 --- @class char          : integer
@@ -36,7 +37,7 @@ function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x1
 function ImU32(val) return _band(val, 0xFFFFFFFF) end
 --- @param val number
 --- @return ImS32
-function ImS32(val) return _band(val, 0xFFFFFFFF) - (_band(val, 0x80000000) ~= 0 and 0x100000000 or 0) end
+function ImS32(val) return _band(val, 0xFFFFFFFF) end
 
 --- @alias float          number
 

@@ -1945,27 +1945,8 @@ end
 -- [SECTION] DATA TYPE & DATA FORMATTING [Internal]
 ----------------------------------------------------------------
 
-local DATA_TYPE, TYPE, SIGNEDTYPE do
-    local _TYPE = nil
-
-    --- @param data_type ImGuiDataType
-    function DATA_TYPE(data_type)
-        _TYPE = data_type
-    end
-
-    --- @generic T : number
-    --- @param val T
-    --- @return T
-    function TYPE(val)
-        IM_ASSERT(_TYPE ~= nil)
-        if _TYPE ~= ImGuiDataType.Float and _TYPE ~= ImGuiDataType.Double then
-            return ImTrunc(val)
-        end
-        return val
-    end
-
-    SIGNEDTYPE = TYPE
-end
+local function float(val) return val end
+local function double(val) return val end
 
 local GDefaultRgbaColorMarkers = {
     IM_COL32(240, 20, 20, 255), IM_COL32(20, 240, 20, 255), IM_COL32(20, 20, 240, 255), IM_COL32(140, 140, 140, 255)
@@ -2595,16 +2576,18 @@ function ImGui.InputInt(label, v, step, step_fast, flags)
 end
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
---- @param data_type ImGuiDataType
---- @param v         number
---- @param v_speed   float
---- @param v_min     number
---- @param v_max     number
---- @param format    string
---- @param flags     ImGuiSliderFlags
+--- @param TYPE       function
+--- @param SIGNEDTYPE function
+--- @param data_type  ImGuiDataType
+--- @param v          number
+--- @param v_speed    float
+--- @param v_min      number
+--- @param v_max      number
+--- @param format     string
+--- @param flags      ImGuiSliderFlags
 --- @return number new_v   # Updated `v`
 --- @return bool   changed
-function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
+function ImGui.DragBehaviorT(TYPE, SIGNEDTYPE, data_type, v, v_speed, v_min, v_max, format, flags)
     local g = GImGui
     local axis = (bit.band(flags, ImGuiSliderFlags.Vertical) ~= 0) and ImGuiAxis.Y or ImGuiAxis.X
     local is_bounded = (v_min < v_max) or ((v_min == v_max) and (v_min ~= 0.0 or (bit.band(flags, ImGuiSliderFlags.ClampZeroRange) ~= 0)))
@@ -2679,7 +2662,7 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
         return v, false
     end
 
-    local v_cur = v
+    local v_cur = (TYPE)(v)
     local v_old_ref_for_accum_remainder = 0.0
 
     local logarithmic_zero_epsilon = 0.0 -- Only valid when is_logarithmic is true
@@ -2697,10 +2680,10 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
         -- Convert to parametric space, apply delta, convert back
         local v_old_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
         local v_new_parametric = v_old_parametric + g.DragCurrentAccum
-        v_cur = ImGui.ScaleValueFromRatioT(data_type, v_new_parametric, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+        v_cur = ImGui.ScaleValueFromRatioT(TYPE, SIGNEDTYPE, data_type, v_new_parametric, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
         v_old_ref_for_accum_remainder = v_old_parametric
     else
-        v_cur = v_cur + g.DragCurrentAccum
+        v_cur = (TYPE)(v_cur + (SIGNEDTYPE)(g.DragCurrentAccum))
     end
 
     -- Round to user desired precision based on format string
@@ -2713,27 +2696,32 @@ function ImGui.DragBehaviorT(data_type, v, v_speed, v_min, v_max, format, flags)
     if is_logarithmic then
         -- Convert to parametric space, apply delta, convert back
         local v_new_parametric = ImGui.ScaleRatioFromValueT(data_type, v_cur, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
-        g.DragCurrentAccum = v_new_parametric - v_old_ref_for_accum_remainder
+        g.DragCurrentAccum = g.DragCurrentAccum - (v_new_parametric - v_old_ref_for_accum_remainder)
     else
-        g.DragCurrentAccum = v_cur - v
+        g.DragCurrentAccum = g.DragCurrentAccum - ((SIGNEDTYPE)(v_cur) - (SIGNEDTYPE)(v))
+    end
+
+    -- This does nothing
+    if v_cur == (TYPE)(-0) then
+        v_cur = (TYPE)(0)
     end
 
     if v ~= v_cur and is_bounded then
         if is_wrapped then
             -- Wrap values
             if v_cur < v_min then
-                v_cur = v_cur + (v_max - v_min) + (is_floating_point and 0 or 1)
+                v_cur = (TYPE)(v_cur + (TYPE)((TYPE)(v_max - v_min) + (is_floating_point and 0 or 1)))
             end
             if v_cur > v_max then
-                v_cur = v_cur - (v_max - v_min) - (is_floating_point and 0 or 1)
+                v_cur = (TYPE)(v_cur - (TYPE)((TYPE)(v_max - v_min) - (is_floating_point and 0 or 1)))
             end
         else
             -- Clamp values + handle overflow/wrap-around for integer types
             if v_cur < v_min or (v_cur > v and adjust_delta < 0.0 and not is_floating_point) then
-                v_cur = v_min
+                v_cur = (TYPE)(v_min)
             end
             if v_cur > v_max or (v_cur < v and adjust_delta > 0.0 and not is_floating_point) then
-                v_cur = v_max
+                v_cur = (TYPE)(v_max)
             end
         end
     end
@@ -2773,21 +2761,21 @@ function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
     end
 
     if data_type == ImGuiDataType.S8 then
-        return ImGui.DragBehaviorT(ImGuiDataType.S32, v, v_speed, min and min or IM_S8_MIN, max and max or IM_S8_MAX, format, flags)
+        return ImGui.DragBehaviorT(ImS32, ImS32, ImGuiDataType.S32, v, v_speed, min and min or IM_S8_MIN, max and max or IM_S8_MAX, format, flags)
     elseif data_type == ImGuiDataType.U8 then
-        return ImGui.DragBehaviorT(ImGuiDataType.U32, v, v_speed, min and min or IM_U8_MIN, max and max or IM_U8_MAX, format, flags)
+        return ImGui.DragBehaviorT(ImU32, ImS32, ImGuiDataType.U32, v, v_speed, min and min or IM_U8_MIN, max and max or IM_U8_MAX, format, flags)
     elseif data_type == ImGuiDataType.S16 then
-        return ImGui.DragBehaviorT(ImGuiDataType.S32, v, v_speed, min and min or IM_S16_MIN, max and max or IM_S16_MAX, format, flags)
+        return ImGui.DragBehaviorT(ImS32, ImS32, ImGuiDataType.S32, v, v_speed, min and min or IM_S16_MIN, max and max or IM_S16_MAX, format, flags)
     elseif data_type == ImGuiDataType.U16 then
-        return ImGui.DragBehaviorT(ImGuiDataType.U32, v, v_speed, min and min or IM_U16_MIN, max and max or IM_U16_MAX, format, flags)
+        return ImGui.DragBehaviorT(ImU32, ImS32, ImGuiDataType.U32, v, v_speed, min and min or IM_U16_MIN, max and max or IM_U16_MAX, format, flags)
     elseif data_type == ImGuiDataType.S32 then
-        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_S32_MIN, max and max or IM_S32_MAX, format, flags)
+        return ImGui.DragBehaviorT(ImS32, ImS32, data_type, v, v_speed, min and min or IM_S32_MIN, max and max or IM_S32_MAX, format, flags)
     elseif data_type == ImGuiDataType.U32 then
-        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or IM_U32_MIN, max and max or IM_U32_MAX, format, flags)
+        return ImGui.DragBehaviorT(ImU32, ImS32, data_type, v, v_speed, min and min or IM_U32_MIN, max and max or IM_U32_MAX, format, flags)
     elseif data_type == ImGuiDataType.Float then
-        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -FLT_MAX, max and max or FLT_MAX, format, flags)
+        return ImGui.DragBehaviorT(float, float, data_type, v, v_speed, min and min or -FLT_MAX, max and max or FLT_MAX, format, flags)
     elseif data_type == ImGuiDataType.Double then
-        return ImGui.DragBehaviorT(data_type, v, v_speed, min and min or -DBL_MAX, max and max or DBL_MAX, format, flags)
+        return ImGui.DragBehaviorT(double, double, data_type, v, v_speed, min and min or -DBL_MAX, max and max or DBL_MAX, format, flags)
     end
 
     IM_ASSERT(false)
@@ -3030,14 +3018,15 @@ function ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, logarithmic_zero
 end
 
 -- Convert a parametric position on a slider into a value v in the output space (the logical opposite of ScaleRatioFromValueT)
+--- @param TYPE                     fun(val: number): number
+--- @param SIGNEDTYPE               fun(val: number): number
 --- @param data_type                ImGuiDataType
 --- @param t                        float
 --- @param v_min                    number
 --- @param v_max                    number
 --- @param logarithmic_zero_epsilon float
 --- @param zero_deadzone_halfsize   float
-function ImGui.ScaleValueFromRatioT(data_type, t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
-DATA_TYPE(data_type)
+function ImGui.ScaleValueFromRatioT(TYPE, SIGNEDTYPE, data_type, t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
     -- We special-case the extents because otherwise our logarithmic fudging can lead to "mathematically correct"
     -- but non-intuitive behaviors like a fully-left slider not actually reaching the minimum value. Also generally simpler.
     if t <= 0.0 or v_min == v_max then
@@ -3111,6 +3100,8 @@ DATA_TYPE(data_type)
 end
 
 --- @generic T : number
+--- @param TYPE        fun(val: number): T
+--- @param SIGNEDTYPE  fun(val: number): T
 --- @param bb          ImRect
 --- @param id          ImGuiID
 --- @param data_type   ImGuiDataType
@@ -3122,7 +3113,7 @@ end
 --- @param out_grab_bb ImRect
 --- @return T    v             # updated `v` passed in
 --- @return bool value_changed
-function ImGui.SliderBehaviorT(bb, id, data_type, v, v_min, v_max, format, flags, out_grab_bb)
+function ImGui.SliderBehaviorT(TYPE, SIGNEDTYPE, bb, id, data_type, v, v_min, v_max, format, flags, out_grab_bb)
     local g = GImGui
     local style = g.Style
 
@@ -3221,7 +3212,7 @@ function ImGui.SliderBehaviorT(bb, id, data_type, v, v_min, v_max, format, flags
                     local old_clicked_t = clicked_t
                     clicked_t = ImSaturate(clicked_t + delta)
 
-                    local v_new = ImGui.ScaleValueFromRatioT(data_type, clicked_t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+                    local v_new = ImGui.ScaleValueFromRatioT(TYPE, SIGNEDTYPE, data_type, clicked_t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
                     if is_floating_point and bit.band(flags, ImGuiSliderFlags.NoRoundToFormat) == 0 then
                         v_new = ImGui.RoundScalarWithFormatT(format, data_type, v_new)
                     end
@@ -3245,7 +3236,7 @@ function ImGui.SliderBehaviorT(bb, id, data_type, v, v_min, v_max, format, flags
         end
 
         if set_new_value then
-            local v_new = ImGui.ScaleValueFromRatioT(data_type, clicked_t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+            local v_new = ImGui.ScaleValueFromRatioT(TYPE, SIGNEDTYPE, data_type, clicked_t, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
 
             if is_floating_point and bit.band(flags, ImGuiSliderFlags.NoRoundToFormat) == 0 then
                 v_new = ImGui.RoundScalarWithFormatT(format, data_type, v_new)
@@ -3294,36 +3285,36 @@ function ImGui.SliderBehavior(bb, id, data_type, v, min, max, format, flags, out
 
     if     data_type == ImGuiDataType.S8 then
         local v32 = (ImS32)((ImS8)(v)); local r
-        v32, r = ImGui.SliderBehaviorT(bb, id, ImGuiDataType.S32, v32, min, max, format, flags, out_grab_bb)
+        v32, r = ImGui.SliderBehaviorT(ImS32, ImS32, bb, id, ImGuiDataType.S32, v32, min, max, format, flags, out_grab_bb)
         if r then v = (ImS8)(v32) end
         return v, r
     elseif data_type == ImGuiDataType.U8 then
         local v32 = (ImU32)((ImU8)(v)); local r
-        v32, r = ImGui.SliderBehaviorT(bb, id, ImGuiDataType.U32, v32, min, max, format, flags, out_grab_bb)
+        v32, r = ImGui.SliderBehaviorT(ImU32, ImS32, bb, id, ImGuiDataType.U32, v32, min, max, format, flags, out_grab_bb)
         if r then v = (ImU8)(v32) end
         return v, r
     elseif data_type == ImGuiDataType.S16 then
         local v32 = (ImS32)((ImS16)(v)); local r
-        v32, r = ImGui.SliderBehaviorT(bb, id, ImGuiDataType.S32, v32, min, max, format, flags, out_grab_bb)
+        v32, r = ImGui.SliderBehaviorT(ImS32, ImS32, bb, id, ImGuiDataType.S32, v32, min, max, format, flags, out_grab_bb)
         if r then v = (ImS16)(v32) end
         return v, r
     elseif data_type == ImGuiDataType.U16 then
         local v32 = (ImU32)((ImU16)(v)); local r
-        v32, r = ImGui.SliderBehaviorT(bb, id, ImGuiDataType.U32, v32, min, max, format, flags, out_grab_bb)
+        v32, r = ImGui.SliderBehaviorT(ImU32, ImS32, bb, id, ImGuiDataType.U32, v32, min, max, format, flags, out_grab_bb)
         if r then v = (ImU16)(v32) end
         return v, r
     elseif data_type == ImGuiDataType.S32 then
         IM_ASSERT(min >= math.floor(IM_S32_MIN / 2) and max <= math.floor(IM_S32_MAX / 2))
-        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
+        return ImGui.SliderBehaviorT(ImS32, ImS32, bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.U32 then
         IM_ASSERT(max <= math.floor(IM_U32_MAX / 2))
-        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
+        return ImGui.SliderBehaviorT(ImU32, ImS32, bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.Float then
         IM_ASSERT(min >= -FLT_MAX / 2.0 and max <= FLT_MAX / 2.0)
-        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
+        return ImGui.SliderBehaviorT(float, float, bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     elseif data_type == ImGuiDataType.Double then
         IM_ASSERT(min >= -DBL_MAX / 2.0 and max <= DBL_MAX / 2.0)
-        return ImGui.SliderBehaviorT(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
+        return ImGui.SliderBehaviorT(double, double, bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     end
 
     IM_ASSERT(false)
