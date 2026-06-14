@@ -32,8 +32,6 @@ DBL_MAX = 1.7976931348623e+308
 INT_MIN = -0x7fffffff - 1
 INT_MAX = 0x7fffffff
 UINT_MAX = 0x7fffffff * 2 + 1
-LLONG_MIN = -9223372036854775807 - 1
-LLONG_MAX = 9223372036854775807
 
 IM_PI  = math.pi
 ImPow  = math.pow
@@ -185,6 +183,12 @@ function ImStd.ImExponentialMovingAverage(avg, sample, n)
     avg = avg - avg / n
     avg = avg + sample / n
     return avg
+end
+
+-- Uses `string.match` internally
+--- @param str string
+function ImAtof(str)
+    return tonumber(string.match(str, "[+-]?%d*%.?%d+"))
 end
 
 --- @param s table # 1-based

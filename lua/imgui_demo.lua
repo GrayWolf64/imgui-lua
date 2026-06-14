@@ -1,6 +1,8 @@
 --- ImGui Sincerely WIP
 -- (Demo Code)
 
+local static = {}
+
 local IM_MIN = math.min
 local IM_MAX = math.max
 local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
@@ -171,7 +173,20 @@ str1[1] = 0
 local hint0 = {string.byte("enter text here", 1, 15)}
 table.insert(hint0, 0)
 
-local i0 = 233
+static.i0 = 233
+static.i1 = 50
+static.i2 = 42
+static.i3 = 128
+
+static.f1 = 1.00
+static.f2 = 0.0067
+
+local f1 = 0.123
+local f2 = 0.0
+
+local Element = { Fire = 1, Earth = 2, Air = 3, Water = 4, COUNT = 5 }
+local elems_names = { "Fire", "Earth", "Air", "Water" }
+local elem = Element.Fire
 
 function DemoWindowWidgetsBasic()
     if ImGui.TreeNode("Basic") then
@@ -243,8 +258,29 @@ function DemoWindowWidgetsBasic()
 
             ImGui.InputTextWithHint("input text (w/ hint)", hint0, str1, 128)
 
-            i0 = ImGui.InputInt("input int", i0)
+            static.i0 = ImGui.InputInt("input int", static.i0)
             -- TODO:
+        end
+
+        ImGui.SeparatorText("Drags")
+
+        do
+            static.i1 = ImGui.DragInt("drag int", static.i1, 1)
+            static.i2 = ImGui.DragInt("drag int 0..100", static.i2, 1, 0, 100, "%d%%", ImGuiSliderFlags.AlwaysClamp)
+            static.i3 = ImGui.DragInt("drag int wrap 100..200", static.i3, 1, 100, 200, "%d", ImGuiSliderFlags.WrapAround)
+
+            static.f1 = ImGui.DragFloat("drag float", static.f1, 0.005)
+            static.f2 = ImGui.DragFloat("drag small float", static.f2, 0.0001, 0.0, 0.0, "%.06f ns")
+        end
+
+        ImGui.SeparatorText("Sliders")
+
+        do
+            f1 = ImGui.SliderFloat("slider float", f1, 0.0, 1.0, "ratio = %.3f")
+            f2 = ImGui.SliderFloat("slider float (log)", f2, -10.0, 10.0, "%.4f", ImGuiSliderFlags.Logarithmic)
+
+            local elem_name = (elem >= 1 and elem < Element.COUNT) and elems_names[elem] or "Unknown"
+            elem = ImGui.SliderInt("slider enum", elem, 1, Element.COUNT - 1, elem_name)
         end
 
         ImGui.TreePop()
