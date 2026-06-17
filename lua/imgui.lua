@@ -5513,7 +5513,7 @@ function ImGui.Begin(name, open, flags)
         -- Default item width. Make it proportional to window size if window can be manually resized.
         -- (we cannot use AutoFitFramesX/AutoFitFramesY which is a temporary state)
         local is_resizable_width
-        if bit.band(flags, ImGuiWindowFlags.ChildWindow) ~= 0 then
+        if bit.band(flags, ImGuiWindowFlags.ChildWindow) ~= 0 and not window.DockIsActive then
             is_resizable_width = (window.Size.x > 0.0) and (bit.band(window.ChildFlags, bit.bor(ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AlwaysAutoResize)) == 0)
         else
             is_resizable_width = (window.Size.x > 0.0) and (bit.band(flags, ImGuiWindowFlags.AlwaysAutoResize) == 0)
