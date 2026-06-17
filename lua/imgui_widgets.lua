@@ -3441,6 +3441,29 @@ function ImGui.SliderFloat(label, v, v_min, v_max, format, flags)
     return ImGui.SliderScalar(label, ImGuiDataType.Float, v, v_min, v_max, format, flags)
 end
 
+--- @param label          string
+--- @param v_rad          float
+--- @param v_degrees_min? float
+--- @param v_degrees_max? float
+--- @param format?        string
+--- @param flags?         ImGuiSliderFlags
+--- @return float v_rad         # updated `v_rad`
+--- @return bool  value_changed
+function ImGui.SliderAngle(label, v_rad, v_degrees_min, v_degrees_max, format, flags)
+    if v_degrees_min == nil then v_degrees_min = -360.0     end
+    if v_degrees_max == nil then v_degrees_max =  360.0     end
+    if format        == nil then format        = "%.0f deg" end
+    if flags         == nil then flags         = 0          end
+
+    local v_deg = v_rad * 360.0 / (2 * IM_PI)
+    local value_changed
+    v_deg, value_changed = ImGui.SliderFloat(label, v_deg, v_degrees_min, v_degrees_max, format, flags)
+    if value_changed then
+        v_rad = v_deg * (2 * IM_PI) / 360.0
+    end
+    return v_rad, value_changed
+end
+
 --- @param label   string
 --- @param v       int
 --- @param v_min   int

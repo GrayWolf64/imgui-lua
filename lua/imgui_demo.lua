@@ -1,6 +1,7 @@
 --- ImGui Sincerely WIP
 -- (Demo Code)
 
+-- FIXME: this is problematic
 local static = {}
 
 local IM_MIN = math.min
@@ -183,6 +184,7 @@ static.f2 = 0.0067
 
 local f1 = 0.123
 local f2 = 0.0
+local angle = 0.0
 
 local Element = { Fire = 1, Earth = 2, Air = 3, Water = 4, COUNT = 5 }
 local elems_names = { "Fire", "Earth", "Air", "Water" }
@@ -278,6 +280,8 @@ function DemoWindowWidgetsBasic()
         do
             f1 = ImGui.SliderFloat("slider float", f1, 0.0, 1.0, "ratio = %.3f")
             f2 = ImGui.SliderFloat("slider float (log)", f2, -10.0, 10.0, "%.4f", ImGuiSliderFlags.Logarithmic)
+
+            angle = ImGui.SliderAngle("slider angle", angle)
 
             local elem_name = (elem >= 1 and elem < Element.COUNT) and elems_names[elem] or "Unknown"
             elem = ImGui.SliderInt("slider enum", elem, 1, Element.COUNT - 1, elem_name)
