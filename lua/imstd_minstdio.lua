@@ -10,17 +10,12 @@
 local _byte = string.byte
 
 local CHAR_PERCENT = _byte'%'
-local CHAR_PLUS = _byte'+'
-local CHAR_MINUS = _byte'-'
-local CHAR_0 = _byte'0'
-local CHAR_9 = _byte'9'
-local CHAR_a = _byte'a'
-local CHAR_A = _byte'A'
+local CHAR_PLUS, CHAR_MINUS = _byte'+', _byte'-'
+local CHAR_0, CHAR_9 = _byte'0', _byte'9'
+local CHAR_a, CHAR_A = _byte'a', _byte'A'
 local CHAR_d = _byte'd'
-local CHAR_f = _byte'f'
-local CHAR_F = _byte'F'
-local CHAR_x = _byte'x'
-local CHAR_X = _byte'X'
+local CHAR_f, CHAR_F = _byte'f', _byte'F'
+local CHAR_x, CHAR_X = _byte'x', _byte'X'
 
 local function isspace(c) return c == 32 or c == 9 end
 local function isdigit(c) return c >= CHAR_0 and c <= CHAR_9 end
