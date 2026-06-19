@@ -112,6 +112,7 @@ local IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 local string = string
 ImFormatString = string.format -- TODO: an simplified version that operates on byte tables directly?
 
+--- @deprecated
 --- @module "imstd_minstdio"
 ImStd.sscanf = IM_INCLUDE"imstd_minstdio.lua"
 
