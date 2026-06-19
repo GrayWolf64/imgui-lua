@@ -2278,22 +2278,19 @@ local function ImParseFormatFindEnd(fmt, pos)
     return len + 1
 end
 
---- @param fmt      string
---- @param buf      char[]
---- @param buf_size int
-local function ImParseFormatTrimDecorations(fmt, buf, buf_size)
+-- TODO: temporary patch. does not look good
+--- @param fmt string
+local function ImParseFormatTrimDecorations(fmt)
     local fmt_start = ImParseFormatFindStart(fmt)
     if string.byte(fmt, fmt_start) ~= 37 then -- '%'
-        return nil
+        return ""
     end
     --- @cast fmt_start int
     local fmt_end = ImParseFormatFindEnd(fmt, fmt_start)
     if string.byte(fmt, fmt_end) ~= 37 then
-        return fmt_start
+        return string.sub(fmt, fmt_start)
     end
-    local n = ImMin((fmt_end - fmt_start) + 1, buf_size)
-    ImStd.ImStrncpy(buf, 1, { string.byte(fmt, fmt_start, fmt_start + n - 1) }, 1, n)
-    return 1
+    return string.sub(fmt, fmt_start, fmt_end)
 end
 
 --- @param fmt_in       string
@@ -2428,10 +2425,9 @@ end
 function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min, clamp_max)
     local g = GImGui
     local type_info = ImGui.DataTypeGetInfo(data_type)
-    local fmt_buf, fmt_buf_size = {}, 32
     local data_buf, data_buf_size = {}, 32
-    local fmt_start = ImParseFormatTrimDecorations(format, fmt_buf, fmt_buf_size)
-    if fmt_buf[fmt_start] == 0 then
+    format = ImParseFormatTrimDecorations(format)
+    if format == "" then
         format = type_info.PrintFmt
     end
     ImGui.DataTypeFormatString(data_buf, data_buf_size, data_type, data, format)
