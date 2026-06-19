@@ -3428,6 +3428,84 @@ function ImGui.SliderScalar(label, data_type, data, min, max, format, flags)
     return data, value_changed
 end
 
+--- @param label      string
+--- @param data_type  ImGuiDataType
+--- @param v          table
+--- @param components int
+--- @param v_min      number
+--- @param v_max      number
+--- @param format?    string
+--- @param flags?     ImGuiSliderFlags
+function ImGui.SliderScalarN(label, data_type, v, components, v_min, v_max, format, flags)
+    if flags == nil then flags = 0 end
+
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = GImGui
+    local value_changed = false
+    ImGui.BeginGroup()
+    ImGui.PushID(label)
+    ImGui.PushMultiItemsWidths(components, ImGui.CalcItemWidth())
+
+    for i = 1, components do
+        ImGui.PushID(i - 1)
+        if i > 1 then
+            ImGui.SameLine(0, g.Style.ItemInnerSpacing.x)
+        end
+        if bit.band(flags, ImGuiSliderFlags.ColorMarkers) ~= 0 then
+            ImGui.SetNextItemColorMarker(GDefaultRgbaColorMarkers[i])
+        end
+        local changed
+        v[i], changed = ImGui.SliderScalar("", data_type, v[i], v_min, v_max, format, flags)
+        value_changed = value_changed or changed
+        ImGui.PopID()
+        ImGui.PopItemWidth()
+    end
+    ImGui.PopID()
+
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    if label_end > 1 then
+        ImGui.SameLine(0, g.Style.ItemInnerSpacing.x)
+        ImGui.TextEx(label, label_end)
+    end
+
+    ImGui.EndGroup()
+    return value_changed
+end
+
+--- @param label   string
+--- @param v       [float, float]
+--- @param v_min   float
+--- @param v_max   float
+--- @param format? string
+--- @param flags?  ImGuiSliderFlags
+function ImGui.SliderFloat2(label, v, v_min, v_max, format, flags)
+    return ImGui.SliderScalarN(label, ImGuiDataType.Float, v, 2, v_min, v_max, format, flags)
+end
+
+--- @param label   string
+--- @param v       [float, float, float]
+--- @param v_min   float
+--- @param v_max   float
+--- @param format? string
+--- @param flags?  ImGuiSliderFlags
+function ImGui.SliderFloat3(label, v, v_min, v_max, format, flags)
+    return ImGui.SliderScalarN(label, ImGuiDataType.Float, v, 3, v_min, v_max, format, flags)
+end
+
+--- @param label   string
+--- @param v       [float, float, float, float]
+--- @param v_min   float
+--- @param v_max   float
+--- @param format? string
+--- @param flags?  ImGuiSliderFlags
+function ImGui.SliderFloat4(label, v, v_min, v_max, format, flags)
+    return ImGui.SliderScalarN(label, ImGuiDataType.Float, v, 4, v_min, v_max, format, flags)
+end
+
 --- @param label   string
 --- @param v       float
 --- @param v_min   float
