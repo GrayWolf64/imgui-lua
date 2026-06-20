@@ -4,7 +4,7 @@
 -- Supports:
 -- - %x, %X, %nx, %nX (where n is a number)
 -- - %d, %nd (where n is a number)
--- - %f (very limited)
+-- - %f, %lf (very limited)
 --
 -- Returns items_matched instead of EOF on error
 
@@ -16,6 +16,7 @@ local CHAR_PLUS, CHAR_MINUS = _byte'+', _byte'-'
 local CHAR_0, CHAR_9 = _byte'0', _byte'9'
 local CHAR_a, CHAR_A = _byte'a', _byte'A'
 local CHAR_d = _byte'd'
+local CHAR_l = _byte'l'
 local CHAR_f, CHAR_F = _byte'f', _byte'F'
 local CHAR_x, CHAR_X = _byte'x', _byte'X'
 
@@ -111,6 +112,13 @@ local function sscanf(buffer, buffer_begin, format, result)
             base = 10
         elseif spec == CHAR_f or spec == CHAR_F then
             is_float = true
+        elseif spec == CHAR_l then
+            f = f + 1
+            if _byte(format, f, f) == CHAR_f then
+                is_float = true -- TODO: distinguish from float?
+            else
+                return items_matched
+            end
         else
             return items_matched
         end

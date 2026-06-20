@@ -175,6 +175,8 @@ local hint0 = {string.byte("enter text here", 1, 15)}
 table.insert(hint0, 0)
 
 static.i0 = 233
+static.f0 = 0.001
+static.d0 = 999999.00000001
 static.i1 = 50
 static.i2 = 42
 static.i3 = 128
@@ -261,6 +263,10 @@ function DemoWindowWidgetsBasic()
             ImGui.InputTextWithHint("input text (w/ hint)", hint0, str1, 128)
 
             static.i0 = ImGui.InputInt("input int", static.i0)
+
+            static.f0 = ImGui.InputFloat("input float", static.f0, 0.01, 1.0)
+
+            static.d0 = ImGui.InputDouble("input double", static.d0, 0.01, 1.0, "%.8f")
             -- TODO:
         end
 

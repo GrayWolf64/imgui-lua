@@ -2571,6 +2571,34 @@ function ImGui.InputInt(label, v, step, step_fast, flags)
     return ImGui.InputScalar(label, ImGuiDataType.S32, v, (step > 0) and step or nil, (step_fast > 0) and step_fast or nil, format, flags)
 end
 
+--- @param label      string
+--- @param v          float
+--- @param step?      float
+--- @param step_fast? float
+--- @param format?    string
+--- @param flags?     ImGuiInputTextFlags
+function ImGui.InputFloat(label, v, step, step_fast, format, flags)
+    if step      == nil then step      = .0     end
+    if step_fast == nil then step_fast = .0     end
+    if format    == nil then format    = "%.3f" end
+
+    return ImGui.InputScalar(label, ImGuiDataType.Float, v, (step > 0.0 and step or nil), (step_fast > 0.0 and step_fast or nil), format, flags)
+end
+
+--- @param label      string
+--- @param v          double
+--- @param step?      double
+--- @param step_fast? double
+--- @param format?    string
+--- @param flags?     ImGuiInputTextFlags
+function ImGui.InputDouble(label, v, step, step_fast, format, flags)
+    if step      == nil then step      = .0     end
+    if step_fast == nil then step_fast = .0     end
+    if format    == nil then format    = "%.6f" end
+
+    return ImGui.InputScalar(label, ImGuiDataType.Double, v, (step > 0.0 and step or nil), (step_fast > 0.0 and step_fast or nil), format, flags)
+end
+
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
 --- @generic T : number
 --- @param TYPE       fun(val: number): T

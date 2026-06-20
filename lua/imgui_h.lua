@@ -40,6 +40,7 @@ function ImU32(val) return _band(val, 0xFFFFFFFF) end
 function ImS32(val) return _band(val, 0xFFFFFFFF) end
 
 --- @alias float          number
+--- @class double : number
 
 --- @alias int            integer
 --- @alias unsigned_int   integer
