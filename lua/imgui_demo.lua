@@ -181,6 +181,8 @@ static.i1 = 50
 static.i2 = 42
 static.i3 = 128
 
+local vec4a = { 0.10, 0.20, 0.30, 0.44 }
+
 static.f1 = 1.00
 static.f2 = 0.0067
 
@@ -268,6 +270,8 @@ function DemoWindowWidgetsBasic()
 
             static.d0 = ImGui.InputDouble("input double", static.d0, 0.01, 1.0, "%.8f")
             -- TODO:
+
+            ImGui.InputFloat3("input float3", vec4a)
         end
 
         ImGui.SeparatorText("Drags")

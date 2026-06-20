@@ -2558,6 +2558,60 @@ function ImGui.InputScalar(label, data_type, data, step, step_fast, format, flag
 end
 
 --- @param label      string
+--- @param data_type  ImGuiDataType
+--- @param data       number[]
+--- @param components int
+--- @param step?      number
+--- @param step_fast? number
+--- @param format?    string
+--- @param flags?     ImGuiInputTextFlags
+function ImGui.InputScalarN(label, data_type, data, components, step, step_fast, format, flags)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return false
+    end
+
+    local g = GImGui
+    local value_changed = false
+    ImGui.BeginGroup()
+    ImGui.PushID(label)
+    ImGui.PushMultiItemsWidths(components, ImGui.CalcItemWidth())
+    for i = 1, components do
+        ImGui.PushID(i - 1)
+        if i > 1 then
+            ImGui.SameLine(0, g.Style.ItemInnerSpacing.x)
+        end
+        local changed
+        data[i], changed = ImGui.InputScalar("", data_type, data[i], step, step_fast, format, flags)
+        if changed then
+            value_changed = true
+        end
+        ImGui.PopID()
+        ImGui.PopItemWidth()
+    end
+    ImGui.PopID()
+
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    if label_end > 1 then
+        ImGui.SameLine(0.0, g.Style.ItemInnerSpacing.x)
+        ImGui.TextEx(label, label_end)
+    end
+
+    ImGui.EndGroup()
+    return value_changed
+end
+
+--- @param label   string
+--- @param v       [float, float, float]
+--- @param format? string
+--- @param flags?  ImGuiInputTextFlags
+function ImGui.InputFloat3(label, v, format, flags)
+    if format == nil then format = "%.3f" end
+
+    return ImGui.InputScalarN(label, ImGuiDataType.Float, v, 3, nil, nil, format, flags)
+end
+
+--- @param label      string
 --- @param v          int
 --- @param step?      int
 --- @param step_fast? int
