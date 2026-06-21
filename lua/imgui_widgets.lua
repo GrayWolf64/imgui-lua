@@ -2235,7 +2235,7 @@ function ImGui.RoundScalarWithFormatT(format, data_type, v)
 end
 
 ----------------------------------------------------------------
--- [SECTION] DRAGXXX
+-- [SECTION] INPUTXXX
 ----------------------------------------------------------------
 
 --- @param fmt string
@@ -2652,6 +2652,10 @@ function ImGui.InputDouble(label, v, step, step_fast, format, flags)
 
     return ImGui.InputScalar(label, ImGuiDataType.Double, v, (step > 0.0 and step or nil), (step_fast > 0.0 and step_fast or nil), format, flags)
 end
+
+----------------------------------------------------------------
+-- [SECTION] DRAGXXX
+----------------------------------------------------------------
 
 -- This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
 --- @generic T : number
@@ -3631,6 +3635,102 @@ function ImGui.SliderInt(label, v, v_min, v_max, format, flags)
     if flags  == nil then flags  = 0    end
 
     return ImGui.SliderScalar(label, ImGuiDataType.S32, v, v_min, v_max, format, flags)
+end
+
+--- @param label     string
+--- @param size      ImVec2
+--- @param data_type ImGuiDataType
+--- @param data      number
+--- @param min       number
+--- @param max       number
+--- @param format?   string
+--- @param flags?    ImGuiSliderFlags
+function ImGui.VSliderScalar(label, size, data_type, data, min, max, format, flags)
+    local window = ImGui.GetCurrentWindow()
+    if window.SkipItems then
+        return data, false
+    end
+
+    local g = GImGui
+    local style = g.Style
+    local id = window:GetID(label)
+
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
+    local frame_bb = ImRect(window.DC.CursorPos, window.DC.CursorPos + size)
+    local bb = ImRect(frame_bb.Min, ImVec2(frame_bb.Max.x + (label_size.x > 0.0 and (style.ItemInnerSpacing.x + label_size.x) or 0.0), frame_bb.Max.y))
+
+    ImGui.ItemSize(bb, style.FramePadding.y)
+    if not ImGui.ItemAdd(frame_bb, id) then
+        return data, false
+    end
+
+    if format == nil then
+        format = ImGui.DataTypeGetInfo(data_type).PrintFmt
+    end
+
+    local hovered = ImGui.ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags)
+    local clicked = hovered and ImGui.IsMouseClickedEx(0, ImGuiInputFlags.None, id)
+    if clicked or g.NavActivateId == id then
+        if clicked then
+            ImGui.SetKeyOwner(ImGuiKey.MouseLeft, id)
+        end
+        ImGui.SetActiveID(id, window)
+        ImGui.SetFocusID(id, window)
+        ImGui.FocusWindow(window)
+        g.ActiveIdUsingNavDirMask = bit.bor(g.ActiveIdUsingNavDirMask, bit.lshift(1, ImGuiDir.Up), bit.lshift(1, ImGuiDir.Down))
+    end
+
+    local frame_col = ImGui.GetColorU32((g.ActiveId == id) and ImGuiCol.FrameBgActive or (hovered and ImGuiCol.FrameBgHovered or ImGuiCol.FrameBg))
+    ImGui.RenderNavCursor(frame_bb, id)
+    ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, true, g.Style.FrameRounding)
+
+    local grab_bb = ImRect()
+    local value_changed
+    data, value_changed = ImGui.SliderBehavior(frame_bb, id, data_type, data, min, max, format, bit.bor(flags or 0, ImGuiSliderFlags.Vertical), grab_bb)
+    if value_changed then
+        ImGui.MarkItemEdited(id)
+    end
+
+    if grab_bb.Max.y > grab_bb.Min.y then
+        window.DrawList:AddRectFilled(grab_bb.Min, grab_bb.Max, ImGui.GetColorU32((g.ActiveId == id) and ImGuiCol.SliderGrabActive or ImGuiCol.SliderGrab), style.GrabRounding)
+    end
+
+    -- local value_buf, value_buf_size = {}, 64
+    -- TODO: ImGui.DataTypeFormatString()
+    ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.0))
+    if label_size.x > 0.0 then
+        ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
+    end
+
+    -- IMGUI_TEST_ENGINE_ITEM_INFO()
+    return data, value_changed
+end
+
+--- @param label   string
+--- @param size    ImVec2
+--- @param v       float
+--- @param v_min   float
+--- @param v_max   float
+--- @param format? string
+--- @param flags?  ImGuiSliderFlags
+function ImGui.VSliderFloat(label, size, v, v_min, v_max, format, flags)
+    if format == nil then format = "%.3f" end
+
+    return ImGui.VSliderScalar(label, size, ImGuiDataType.Float, v, v_min, v_max, format, flags)
+end
+
+--- @param label   string
+--- @param size    ImVec2
+--- @param v       int
+--- @param v_min   int
+--- @param v_max   int
+--- @param format? string
+--- @param flags?  ImGuiSliderFlags
+function ImGui.VSliderInt(label, size, v, v_min, v_max, format, flags)
+    if format == nil then format = "%d" end
+
+    return ImGui.VSliderScalar(label, size, ImGuiDataType.S32, v, v_min, v_max, format, flags)
 end
 
 ----------------------------------------------------------------

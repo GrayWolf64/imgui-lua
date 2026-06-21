@@ -9,6 +9,7 @@ local IM_MAX = math.max
 local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
 
 -- TODO: HelpMarker()
+-- TODO: ImColor helpers?
 
 --- @class ImGuiDemoWindowData
 
@@ -572,6 +573,86 @@ end
 
 end
 
+local DemoWindowWidgetsVerticalSliders do
+
+local int_value = 0
+local values = { 0.0, 0.60, 0.35, 0.9, 0.70, 0.20, 0.0 }
+local values2 = { 0.20, 0.80, 0.40, 0.25 }
+
+local col0 = ImVec4(0, 0, 0, 1)
+local col1 = ImVec4(0, 0, 0, 1)
+local col2 = ImVec4(0, 0, 0, 1)
+local col3 = ImVec4(0, 0, 0, 1)
+
+function DemoWindowWidgetsVerticalSliders()
+    if ImGui.TreeNode("Vertical Sliders") then
+        local spacing = 4
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, ImVec2(spacing, spacing))
+
+        int_value = ImGui.VSliderInt("##int", ImVec2(18, 160), int_value, 0, 5)
+        ImGui.SameLine()
+
+        ImGui.PushID("set1")
+        for i = 1, 7 do
+            if i > 1 then ImGui.SameLine() end
+            ImGui.PushID(i)
+            local hue = (i - 1) / 7.0
+            col0.x, col0.y, col0.z = ImGui.ColorConvertHSVtoRGB(hue, 0.5, 0.5)
+            col1.x, col1.y, col1.z = ImGui.ColorConvertHSVtoRGB(hue, 0.6, 0.5)
+            col2.x, col2.y, col2.z = ImGui.ColorConvertHSVtoRGB(hue, 0.7, 0.5)
+            col3.x, col3.y, col3.z = ImGui.ColorConvertHSVtoRGB(hue, 0.9, 0.9)
+            ImGui.PushStyleColor(ImGuiCol.FrameBg, col0)
+            ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, col1)
+            ImGui.PushStyleColor(ImGuiCol.FrameBgActive, col2)
+            ImGui.PushStyleColor(ImGuiCol.SliderGrab, col3)
+            values[i] = ImGui.VSliderFloat("##v", ImVec2(18, 160), values[i], 0.0, 1.0, "")
+            if ImGui.IsItemActive() or ImGui.IsItemHovered() then
+                ImGui.SetTooltip("%.3f", values[i])
+            end
+            ImGui.PopStyleColor(4)
+            ImGui.PopID()
+        end
+        ImGui.PopID()
+
+        ImGui.SameLine()
+        ImGui.PushID("set2")
+        local rows = 3
+        local small_slider_size = ImVec2(18, math.floor((160.0 - (rows - 1) * spacing) / rows))
+        for nx = 1, 4 do
+            if nx > 1 then ImGui.SameLine() end
+            ImGui.BeginGroup()
+            for ny = 1, rows do
+                ImGui.PushID((nx - 1) * rows + ny)
+                values2[nx] = ImGui.VSliderFloat("##v", small_slider_size, values2[nx], 0.0, 1.0, "")
+                if ImGui.IsItemActive() or ImGui.IsItemHovered() then
+                    ImGui.SetTooltip("%.3f", values2[nx])
+                end
+                ImGui.PopID()
+            end
+            ImGui.EndGroup()
+        end
+        ImGui.PopID()
+
+        ImGui.SameLine()
+        ImGui.PushID("set3")
+        for i = 1, 4 do
+            if i > 1 then ImGui.SameLine() end
+            ImGui.PushID(i)
+            ImGui.PushStyleVar(ImGuiStyleVar.GrabMinSize, 40)
+            values[i] = ImGui.VSliderFloat("##v", ImVec2(40, 160), values[i], 0.0, 1.0, "%.2f\nsec")
+            ImGui.PopStyleVar()
+            ImGui.PopID()
+        end
+        ImGui.PopID()
+
+        ImGui.PopStyleVar()
+
+        ImGui.TreePop()
+    end
+end
+
+end
+
 local function DemoWindowWidgets()
     if not ImGui.CollapsingHeader("Widgets") then
         return
@@ -583,6 +664,7 @@ local function DemoWindowWidgets()
     DemoWindowWidgetsImages()
     DemoWindowWidgetsPlotting()
     DemoWindowWidgetsProgressBars()
+    DemoWindowWidgetsVerticalSliders()
 end
 
 local function DemoWindowLayout()
