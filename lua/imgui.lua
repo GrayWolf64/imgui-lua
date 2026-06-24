@@ -8767,13 +8767,15 @@ function ImGui.UpdateTryMergeWindowIntoHostViewport(window, viewport_dst)
         if viewport_obstructing == viewport_src or viewport_obstructing == viewport_dst or not viewport_obstructing.PlatformWindowCreated then
             --[[continue]]
         else
-            if viewport_obstructing:GetMainRect():Overlaps(window:Rect()) then
-                if ImGui.IsViewportAbove(viewport_obstructing, viewport_dst) then
-                    if viewport_src == nil or ImGui.IsViewportAbove(viewport_src, viewport_obstructing) then
-                        return false  -- viewport_obstructing is between viewport_src and viewport_dst -> Cannot merge.
-                    end
+
+        if viewport_obstructing:GetMainRect():Overlaps(window:Rect()) then
+            if ImGui.IsViewportAbove(viewport_obstructing, viewport_dst) then
+                if viewport_src == nil or ImGui.IsViewportAbove(viewport_src, viewport_obstructing) then
+                    return false  -- viewport_obstructing is between viewport_src and viewport_dst -> Cannot merge.
                 end
             end
+        end
+
         end
     end
 
