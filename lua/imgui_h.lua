@@ -3,6 +3,7 @@
 
 --- @meta
 
+-- [LuaBitOp](https://bitop.luajit.org/semantics.html)
 local _band = bit.band
 
 --- @class char          : integer
@@ -14,17 +15,32 @@ local _band = bit.band
 --- @class ImU16 : integer
 --- @class ImS16 : integer
 
-function ImU8(val) return _band(val, 0xFF) end                                          --- @type fun(val: number): ImU8
-function ImS8(val) return _band(val, 0xFF) - (_band(val, 0x80) ~= 0 and 0x100 or 0) end --- @type fun(val: number): ImS8
+--- @class ImU32 : integer
+--- @class ImS32 : integer
 
-function ImU16(val) return _band(val, 0xFFFF) end                                               --- @type fun(val: number): ImU16
-function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x10000 or 0) end  --- @type fun(val: number): ImS16
+--- @param val number
+--- @return ImU8
+function ImU8(val) return _band(val, 0xFF) end
+--- @param val number
+--- @return ImS8
+function ImS8(val) return _band(val, 0xFF) - (_band(val, 0x80) ~= 0 and 0x100 or 0) end
 
---- @alias ImU32          integer
---- @alias ImU64          integer
+--- @param val number
+--- @return ImU16
+function ImU16(val) return _band(val, 0xFFFF) end
+--- @param val number
+--- @return ImS16
+function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x10000 or 0) end
 
---- @alias ImS64          integer
+--- @param val number
+--- @return ImU32
+function ImU32(val) return _band(val, 0xFFFFFFFF) end
+--- @param val number
+--- @return ImS32
+function ImS32(val) return _band(val, 0xFFFFFFFF) end
+
 --- @alias float          number
+--- @class double : number
 
 --- @alias int            integer
 --- @alias unsigned_int   integer
@@ -41,7 +57,7 @@ function ImS16(val) return _band(val, 0xFFFF) - (_band(val, 0x8000) ~= 0 and 0x1
 
 --- @alias ImGuiID unsigned_int
 
---- @alias ImTextureID ImU64
+--- @alias ImTextureID integer
 
 --- @alias ImGuiKeyChord int
 
@@ -1740,21 +1756,20 @@ ImGuiDragDropFlags = {
 
 ImGuiDragDropFlags.AcceptPeekOnly = bit.bor(ImGuiDragDropFlags.AcceptBeforeDelivery, ImGuiDragDropFlags.AcceptNoDrawDefaultRect)
 
---- Note that `U64` isn't supported
+--- Note that `S64` and `U64` are not supported
 --- @enum ImGuiDataType
 ImGuiDataType = {
-    S8     = 1,  -- signed char / char
-    U8     = 2,  -- unsigned char
-    S16    = 3,  -- short
-    U16    = 4,  -- unsigned short
-    S32    = 5,  -- int
-    U32    = 6,  -- unsigned int
-    S64    = 7,  -- long long / __int64
-    Float  = 8,  -- float
-    Double = 9,  -- double
-    Bool   = 10, -- bool (provided for user convenience, not supported by scalar widgets)
-    String = 11, -- string (provided for user convenience, not supported by scalar widgets)
-    COUNT  = 11
+    S8     = 0, -- signed char / char
+    U8     = 1, -- unsigned char
+    S16    = 2, -- short
+    U16    = 3, -- unsigned short
+    S32    = 4, -- int
+    U32    = 5, -- unsigned int
+    Float  = 6, -- float
+    Double = 7, -- double
+    Bool   = 8, -- bool (provided for user convenience, not supported by scalar widgets)
+    String = 9, -- string (provided for user convenience, not supported by scalar widgets)
+    COUNT  = 10
 }
 
 IM_COL32_R_SHIFT = 0

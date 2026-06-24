@@ -4,23 +4,21 @@
 -- Supports:
 -- - %x, %X, %nx, %nX (where n is a number)
 -- - %d, %nd (where n is a number)
+-- - %f, %lf (very limited)
 --
 -- Returns items_matched instead of EOF on error
 
 local _byte = string.byte
 
 local CHAR_PERCENT = _byte'%'
-local CHAR_PLUS = _byte'+'
-local CHAR_MINUS = _byte'-'
-local CHAR_0 = _byte'0'
-local CHAR_9 = _byte'9'
-local CHAR_a = _byte'a'
-local CHAR_A = _byte'A'
+local CHAR_DOT = _byte'.'
+local CHAR_PLUS, CHAR_MINUS = _byte'+', _byte'-'
+local CHAR_0, CHAR_9 = _byte'0', _byte'9'
+local CHAR_a, CHAR_A = _byte'a', _byte'A'
 local CHAR_d = _byte'd'
-local CHAR_f = _byte'f'
-local CHAR_F = _byte'F'
-local CHAR_x = _byte'x'
-local CHAR_X = _byte'X'
+local CHAR_l = _byte'l'
+local CHAR_f, CHAR_F = _byte'f', _byte'F'
+local CHAR_x, CHAR_X = _byte'x', _byte'X'
 
 local function isspace(c) return c == 32 or c == 9 end
 local function isdigit(c) return c >= CHAR_0 and c <= CHAR_9 end
@@ -91,6 +89,8 @@ local function sscanf(buffer, buffer_begin, format, result)
             else
                 return items_matched
             end
+
+            goto outer_continue
         end
 
         -- handle optional width
@@ -105,26 +105,72 @@ local function sscanf(buffer, buffer_begin, format, result)
 
         local spec = _byte(format, f, f)
         local base
+        local is_float = false
         if     spec == CHAR_x or spec == CHAR_X then
             base = 16
         elseif spec == CHAR_d then
             base = 10
+        elseif spec == CHAR_f or spec == CHAR_F then
+            is_float = true
+        elseif spec == CHAR_l then
+            f = f + 1
+            if _byte(format, f, f) == CHAR_f then
+                is_float = true -- TODO: distinguish from float?
+            else
+                return items_matched
+            end
         else
             return items_matched
         end
         f = f + 1
 
-        do
-            while isspace(buffer[p]) do
+        while isspace(buffer[p]) do
+            p = p + 1
+        end
+
+        local val
+        if is_float then
+            local sign = 1
+            if     buffer[p] == CHAR_PLUS then
+                p = p + 1
+            elseif buffer[p] == CHAR_MINUS then
+                sign = -1
                 p = p + 1
             end
 
+            -- inf, nan are not handled
+
+            local p_start = p
+            local int_part = 0
+
+            while isdigit(buffer[p]) do
+                int_part = int_part * 10 + (buffer[p] - CHAR_0)
+                p = p + 1
+            end
+
+            local frac_part = 0
+            local frac_div = 1
+            if buffer[p] == CHAR_DOT then
+                p = p + 1
+                while isdigit(buffer[p]) do
+                    frac_part = frac_part * 10 + (buffer[p] - CHAR_0)
+                    frac_div = frac_div * 10
+                    p = p + 1
+                end
+            end
+
+            if p == p_start then
+                return items_matched
+            end
+
+            val = sign * (int_part + frac_part / frac_div)
+        else
             local sign = 1
             -- optional sign
             if base == 10 then
                 if     buffer[p] == CHAR_PLUS then
                     p = p + 1
-                    width = width -1
+                    width = width - 1
                 elseif buffer[p] == CHAR_MINUS then
                     sign = -1
                     p = p + 1
@@ -143,7 +189,7 @@ local function sscanf(buffer, buffer_begin, format, result)
                 return items_matched
             end
 
-            local val = 0
+            val = 0
             while p_start < p do
                 local c = buffer[p_start]
                 p_start = p_start + 1
@@ -155,11 +201,11 @@ local function sscanf(buffer, buffer_begin, format, result)
                     break
                 end
             end
-
-            result[assigned + 1] = val
-            assigned = assigned + 1
-            items_matched = items_matched + 1
         end
+
+        result[assigned + 1] = val
+        assigned = assigned + 1
+        items_matched = items_matched + 1
 
         :: outer_continue ::
     end

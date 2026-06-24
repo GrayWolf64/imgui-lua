@@ -861,7 +861,9 @@ local GLocalizationEntriesEnUS = {
     ImGuiLocEntry(ImGuiLocKey.TableSizeOne,                  "Size column to fit###SizeOne"),
     ImGuiLocEntry(ImGuiLocKey.TableSizeAllFit,               "Size all columns to fit###SizeAll"),
     ImGuiLocEntry(ImGuiLocKey.TableSizeAllDefault,           "Size all columns to default###SizeAll"),
+    ImGuiLocEntry(ImGuiLocKey.TableReset,                    "Reset"),
     ImGuiLocEntry(ImGuiLocKey.TableResetOrder,               "Reset order###ResetOrder"),
+    ImGuiLocEntry(ImGuiLocKey.TableResetVisibility,          "Reset visibility###ResetVisibility"),
     ImGuiLocEntry(ImGuiLocKey.WindowingMainMenuBar,          "(Main menu bar)"),
     ImGuiLocEntry(ImGuiLocKey.WindowingPopup,                "(Popup)"),
     ImGuiLocEntry(ImGuiLocKey.WindowingUntitled,             "(Untitled)"),
@@ -1316,7 +1318,7 @@ end
 function ImGui.PushItemWidth(item_width)
     local g = GImGui
     local window = g.CurrentWindow
-    window.DC.ItemWidthStack:push_back(window.DC.ItemWidth)  -- Backup current width
+    window.DC.ItemWidthStack:push_back(window.DC.ItemWidth)
     window.DC.ItemWidth = (item_width == 0.0) and window.DC.ItemWidthDefault or item_width
     g.NextItemData.HasFlags = bit.band(g.NextItemData.HasFlags, bit.bnot(ImGuiNextItemDataFlags.HasWidth))
 end
@@ -1330,6 +1332,25 @@ function ImGui.PopItemWidth()
     end
     window.DC.ItemWidth = window.DC.ItemWidthStack:back()
     window.DC.ItemWidthStack:pop_back()
+end
+
+--- @param components int
+--- @param w_full     float
+function ImGui.PushMultiItemsWidths(components, w_full)
+    local g = GImGui
+    local window = g.CurrentWindow
+    IM_ASSERT(components > 0)
+    local style = g.Style
+    window.DC.ItemWidthStack:push_back(window.DC.ItemWidth)
+    local w_items = w_full - style.ItemInnerSpacing.x * (components - 1)
+    local prev_split = w_items
+    for i = components - 1, 1, -1 do
+        local next_split = IM_TRUNC(w_items * i / components)
+        window.DC.ItemWidthStack:push_back(ImMax(prev_split - next_split, 1.0))
+        prev_split = next_split
+    end
+    window.DC.ItemWidth = ImMax(prev_split, 1.0)
+    g.NextItemData.HasFlags = bit.band(g.NextItemData.HasFlags, bit.bnot(ImGuiNextItemDataFlags.HasWidth))
 end
 
 --- @return float
@@ -5504,7 +5525,7 @@ function ImGui.Begin(name, open, flags)
         -- Default item width. Make it proportional to window size if window can be manually resized.
         -- (we cannot use AutoFitFramesX/AutoFitFramesY which is a temporary state)
         local is_resizable_width
-        if bit.band(flags, ImGuiWindowFlags.ChildWindow) ~= 0 then
+        if bit.band(flags, ImGuiWindowFlags.ChildWindow) ~= 0 and not window.DockIsActive then
             is_resizable_width = (window.Size.x > 0.0) and (bit.band(window.ChildFlags, bit.bor(ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AlwaysAutoResize)) == 0)
         else
             is_resizable_width = (window.Size.x > 0.0) and (bit.band(flags, ImGuiWindowFlags.AlwaysAutoResize) == 0)

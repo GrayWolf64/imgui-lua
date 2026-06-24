@@ -32,8 +32,6 @@ DBL_MAX = 1.7976931348623e+308
 INT_MIN = -0x7fffffff - 1
 INT_MAX = 0x7fffffff
 UINT_MAX = 0x7fffffff * 2 + 1
-LLONG_MIN = -9223372036854775807 - 1
-LLONG_MAX = 9223372036854775807
 
 IM_PI  = math.pi
 ImPow  = math.pow
@@ -185,6 +183,12 @@ function ImStd.ImExponentialMovingAverage(avg, sample, n)
     avg = avg - avg / n
     avg = avg + sample / n
     return avg
+end
+
+-- Uses `string.match` internally
+--- @param str string
+function ImAtof(str)
+    return tonumber(string.match(str, "[+-]?%d*%.?%d+"))
 end
 
 --- @param s table # 1-based
@@ -2675,6 +2679,7 @@ ImGuiDebugLogFlags = {
     EventInputRouting = bit.lshift(1, 9),
     EventDocking      = bit.lshift(1, 10),
     EventViewport     = bit.lshift(1, 11),
+    EventTable        = bit.lshift(1, 12),
 
     OutputToTTY        = bit.lshift(1, 20), -- Also send output to TTY
     OutputToDebugger   = bit.lshift(1, 21), -- Also send output to Debugger Console
@@ -2689,6 +2694,7 @@ ImGuiDebugLogFlags.EventMask_ = bit.bor(
     ImGuiDebugLogFlags.EventNav,
     ImGuiDebugLogFlags.EventClipper,
     ImGuiDebugLogFlags.EventSelection,
+    ImGuiDebugLogFlags.EventTable,
     ImGuiDebugLogFlags.EventIO,
     ImGuiDebugLogFlags.EventFont,
     ImGuiDebugLogFlags.EventInputRouting,
@@ -2702,16 +2708,18 @@ ImGuiLocKey = {
     TableSizeOne                  = 2,
     TableSizeAllFit               = 3,
     TableSizeAllDefault           = 4,
-    TableResetOrder               = 5,
-    WindowingMainMenuBar          = 6,
-    WindowingPopup                = 7,
-    WindowingUntitled             = 8,
-    OpenLink_s                    = 9,
-    CopyLink                      = 10,
-    DockingHideTabBar             = 11,
-    DockingHoldShiftToDock        = 12,
-    DockingDragToUndockOrMoveNode = 13,
-    COUNT                         = 13
+    TableReset                    = 5,
+    TableResetOrder               = 6,
+    TableResetVisibility          = 7,
+    WindowingMainMenuBar          = 8,
+    WindowingPopup                = 9,
+    WindowingUntitled             = 10,
+    OpenLink_s                    = 11,
+    CopyLink                      = 12,
+    DockingHideTabBar             = 13,
+    DockingHoldShiftToDock        = 14,
+    DockingDragToUndockOrMoveNode = 15,
+    COUNT                         = 15
 }
 
 --- @class ImGuiLocEntry

@@ -71,13 +71,13 @@ local function STBTT__NOTUSED(_) return end
 
 --- @alias stbtt_int32 int
 
-local function stbtt_int32(val)   return bit.band(val, 0xFFFFFFFF) - (bit.band(val, 0x80000000) ~= 0 and 0x100000000 or 0) end
-local function stbtt_uint32(val)  return bit.band(val, 0xFFFFFFFF) end
-local function stbtt_int16(val)   return bit.band(val, 0xFFFF) - (bit.band(val, 0x8000) ~= 0 and 0x10000 or 0) end
-local function stbtt_uint16(val)  return bit.band(val, 0xFFFF) end
-local function stbtt_int8(val)    return bit.band(val, 0xFF) - (bit.band(val, 0x80) ~= 0 and 0x100 or 0) end
-local function stbtt_uint8(val)   return bit.band(val, 0xFF) end
-local function unsigned_char(val) return bit.band(val, 0xFF) end
+local stbtt_int32   = ImS32
+local stbtt_uint32  = ImU32
+local stbtt_int16   = ImS16
+local stbtt_uint16  = ImU16
+local stbtt_int8    = ImS8
+local stbtt_uint8   = ImU8
+local unsigned_char = stbtt_uint8
 
 --- @class stbtt__buf
 --- @field data?  table # 1-based byte table
