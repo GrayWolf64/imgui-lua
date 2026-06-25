@@ -63,10 +63,4 @@ Previous Attempts at immediate-mode UIs in GMod:
 - [wyozi's *imgui*](https://github.com/wyozi-gmod/imgui)
 - [Artemking4's fun-project-gmod/*imgui*](https://github.com/fun-project-gmod/imgui)
 
-AIs:
-
-- [DeepSeek](https://www.deepseek.com/)
-- [KIMI K2 Thinking](https://www.kimi.com/)
-- [TRAE](https://www.trae.ai/)
-
-for helping me avoid those areas involving a lot of repeatitive work!
+AIs: for helping me avoid those areas involving a lot of repeatitive work!
