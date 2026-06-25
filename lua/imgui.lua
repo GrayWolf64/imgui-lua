@@ -923,7 +923,7 @@ end
 function ImGui.FindWindowSettingsByWindow(window)
     local g = GImGui
     if window.SettingsOffset ~= -1 then
-        return g.SettingsWindows:ptr_from_offset(window.SettingsOffset)
+        return g.SettingsWindows[window.SettingsOffset + 1]
     end
     return ImGui.FindWindowSettingsByID(window.ID)
 end
