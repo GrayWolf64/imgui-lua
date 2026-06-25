@@ -1434,7 +1434,7 @@ function ImGui.TextLinkOpenURL(label, url)
         g.PlatformIO.Platform_OpenInShellFn(g, url)
     end
 
-    ImGui.SetItemTooltip(ImGui.LocalizeGetMsg(ImGuiLocKey.OpenLink_s), url) -- It is more reassuring for user to _always_ display URL when we same as label
+    ImGui.SetItemTooltip(ImGui.LocalizeGetMsg(ImGuiLocKey.OpenLink_s), url)
 
     -- TODO:
     -- if ImGui.BeginPopupContextItem() then
@@ -6792,9 +6792,9 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
         else
             if hovered or selected then
                 local bg_col = ImGui.GetColorU32((held and hovered) and ImGuiCol.HeaderActive or (hovered and ImGuiCol.HeaderHovered or ImGuiCol.Header))
-                ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, bg_col, false)
+                ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, bg_col, false, 0.0)
             end
-            ImGui.RenderNavCursor(frame_bb, id, nav_render_cursor_flags)
+            ImGui.RenderNavCursor(frame_bb, id, bit.bor(nav_render_cursor_flags, ImGuiNavRenderCursorFlags.NoRounding))
             if span_all_columns and not span_all_columns_label then
                 ImGui.TablePopBackgroundChannel()
             end

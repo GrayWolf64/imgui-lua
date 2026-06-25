@@ -5129,9 +5129,20 @@ function ImGui.Begin(name, open, flags)
             window.MenuBarHeight = 0.0
         end
 
+        window.TitleBarHeight = (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and 0 or g.FontSize + g.Style.FramePadding.y * 2
+
         window.FontRefSize = g.FontSize  -- Lock this to discourage calling window:CalcFontSize() outside of current window.
 
-        window.TitleBarHeight = (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and 0 or g.FontSize + g.Style.FramePadding.y * 2
+        local use_current_size_for_scrollbar_x = window_just_created
+        local use_current_size_for_scrollbar_y = window_just_created
+        if window_size_x_set_by_api and window.ContentSizeExplicit.x ~= 0.0 then
+            use_current_size_for_scrollbar_x = true
+        end
+        if window_size_y_set_by_api and window.ContentSizeExplicit.y ~= 0.0 then
+            use_current_size_for_scrollbar_y = true
+        end
+
+        -- TODO: Collapse window by double-clicking on title bar
 
         local scrollbar_sizes_from_last_frame = ImVec2()
         ImVec2_Copy(scrollbar_sizes_from_last_frame, window.ScrollbarSizes)
