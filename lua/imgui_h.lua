@@ -2001,6 +2001,8 @@ end
 --- @alias ImGuiMemAllocFunc fun(T: function, start_idx: int, end_idx: int, userdata: any): table
 --- @alias ImGuiMemFreeFunc fun(owner: table, field: string, userdata: any)
 
+--- @alias ImDrawCallback fun(parent_list: ImDrawList, cmd: ImDrawCmd)
+
 --- @enum ImGuiTreeNodeFlags
 ImGuiTreeNodeFlags = {
     None                 = 0,

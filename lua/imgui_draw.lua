@@ -3153,6 +3153,35 @@ function MT.ImDrawList:_PopUnusedDrawCmd()
     end
 end
 
+--- @param callback       ImDrawCallback
+--- @param userdata       any
+--- @param userdata_size? size_t
+function MT.ImDrawList:AddCallback(callback, userdata, userdata_size)
+    if userdata_size == nil then userdata_size = 0 end
+
+    IM_ASSERT(callback ~= nil)
+    IM_ASSERT_PARANOID(self.CmdBuffer.Size > 0)
+
+    local curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    IM_ASSERT(curr_cmd.UserCallback == nil)
+    if curr_cmd.ElemCount ~= 0 then
+        self:AddDrawCmd()
+        curr_cmd = self.CmdBuffer.Data[self.CmdBuffer.Size]
+    end
+    curr_cmd.UserCallback = callback
+    -- TODO: _CallbacksDataBuf?
+    if userdata_size == 0 then
+        curr_cmd.UserCallbackData = userdata
+
+    else
+        IM_ASSERT(userdata ~= nil)
+        IM_ASSERT(userdata_size < bit.lshift(1, 31))
+
+    end
+
+    self:AddDrawCmd()
+end
+
 --- Compare ClipRect, TexRef, VtxOffset
 --- @param CMD_LHS ImDrawCmd|ImDrawCmdHeader
 --- @param CMD_RHS ImDrawCmd|ImDrawCmdHeader

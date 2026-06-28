@@ -87,8 +87,8 @@ local function ExampleImageViewer_DrawCanvas(data, canvas_size, image_tex_ref, i
     local image_min = ImVec2(); local image_max = ImVec2()
     image_min.x = math.floor((canvas_min.x - (data.ViewOffset.x * zoom)) + (canvas_size.x * 0.5))
     image_min.y = math.floor((canvas_min.y - (data.ViewOffset.y * zoom)) + (canvas_size.y * 0.5))
-    image_max.x = image_min.x + image_w * zoom
-    image_max.y = image_min.y + image_h * zoom
+    image_max.x = math.floor(image_min.x + image_w * zoom)
+    image_max.y = math.floor(image_min.y + image_h * zoom)
 
     draw_list:AddRect(ImVec2(canvas_min.x - 1.0, canvas_min.y - 1.0), ImVec2(canvas_max.x + 1.0, canvas_max.y + 1.0), IM_COL32(255, 255, 255, 255))
     draw_list:PushClipRect(canvas_min, canvas_max, true)

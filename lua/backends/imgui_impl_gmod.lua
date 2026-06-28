@@ -546,10 +546,6 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
     platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
 
-    platform_io.Platform_SetImeDataFn = ImGui_ImplGMOD_PlatformSetImeData
-    platform_io.Platform_SetClipboardTextFn = ImGui_ImplGMOD_PlatformSetClipboardText
-    platform_io.Platform_OpenInShellFn = ImGui_ImplGMOD_OpenInShellFn
-
     local main_viewport = ImGui.GetMainViewport()
     local bd = ImGui_ImplGMOD_GetBackendData()
     local vd = ImGui_ImplGMOD_ViewportData()
@@ -576,6 +572,18 @@ local function ImGui_ImplGMOD_UpdateMonitors()
     bd.WantUpdateMonitors = false
 end
 
+local g_CurrentSampler = TEXFILTER.LINEAR
+
+local function ImGui_ImplGMOD_DrawCallback_ResetRenderState() end
+
+local function ImGui_ImplGMOD_DrawCallback_SetSamplerNearest()
+    g_CurrentSampler = TEXFILTER.POINT
+end
+
+local function ImGui_ImplGMOD_DrawCallback_SetSamplerLinear()
+    g_CurrentSampler = TEXFILTER.LINEAR
+end
+
 --- @param window Panel
 local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     local io = ImGui.GetIO()
@@ -592,6 +600,15 @@ local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasTextures)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.RendererHasViewports)
+
+    local platform_io = ImGui.GetPlatformIO()
+    platform_io.Platform_SetImeDataFn = ImGui_ImplGMOD_PlatformSetImeData
+    platform_io.Platform_SetClipboardTextFn = ImGui_ImplGMOD_PlatformSetClipboardText
+    platform_io.Platform_OpenInShellFn = ImGui_ImplGMOD_OpenInShellFn
+
+    platform_io.DrawCallback_ResetRenderState = ImGui_ImplGMOD_DrawCallback_ResetRenderState
+    platform_io.DrawCallback_SetSamplerLinear = ImGui_ImplGMOD_DrawCallback_SetSamplerLinear
+    platform_io.DrawCallback_SetSamplerNearest = ImGui_ImplGMOD_DrawCallback_SetSamplerNearest
 
     ImGui_ImplGMOD_UpdateMonitors()
 
@@ -677,16 +694,13 @@ local function ImGui_ImplGMOD_SetupRenderState()
     render.SetStencilEnable(false)
     render.EnableClipping(true)
     render.SuppressEngineLighting(true)
-    render.PushFilterMin(TEXFILTER.LINEAR)
-    render.PushFilterMag(TEXFILTER.LINEAR)
+    g_CurrentSampler = TEXFILTER.LINEAR
 end
 
 local function ImGui_ImplGMOD_RestoreRenderState()
     render.OverrideBlend(false)
     render.EnableClipping(false)
     render.SuppressEngineLighting(false)
-    render.PopFilterMin()
-    render.PopFilterMag()
 end
 
 local meshPosition = mesh.Position
@@ -724,7 +738,13 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
         idx_data = draw_list.IdxBuffer; vtx_data = draw_list.VtxBuffer
 
         for _, pcmd in draw_list.CmdBuffer:iter() do
-            if pcmd.ElemCount > 0 then
+            if pcmd.UserCallback ~= nil then
+                if pcmd.UserCallback == ImGui_ImplGMOD_DrawCallback_ResetRenderState then
+                    ImGui_ImplGMOD_SetupRenderState()
+                else
+                    pcmd.UserCallback(draw_list, pcmd)
+                end
+            elseif pcmd.ElemCount > 0 then
                 if pcmd.ClipRect.z <= pcmd.ClipRect.x or pcmd.ClipRect.w <= pcmd.ClipRect.y then
                     continue
                 end
@@ -766,7 +786,14 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     meshAdvVtx()
                 end
 
+                -- FIXME: this is currently broken, does not work!
+                render.PushFilterMin(g_CurrentSampler)
+                render.PushFilterMag(g_CurrentSampler)
+
                 mesh.End()
+
+                render.PopFilterMin()
+                render.PopFilterMag()
 
                 render.SetScissorRect(0, 0, 0, 0, false)
             end
