@@ -1742,17 +1742,17 @@ function ImGui.FocusTopMostWindowUnderOne(under_this_window, ignore_window, filt
     for i = start_idx, 1, -1 do
         local window = g.WindowsFocusOrder.Data[i]
         if window == ignore_window or not window.WasActive then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
         if filter_viewport ~= nil and window.Viewport ~= filter_viewport then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
         if bit.band(window.Flags, bit.bor(ImGuiWindowFlags.NoMouseInputs, ImGuiWindowFlags.NoNavInputs)) ~= bit.bor(ImGuiWindowFlags.NoMouseInputs, ImGuiWindowFlags.NoNavInputs) then
             ImGui.FocusWindow(window, flags)
             return
         end
 
-        end end
+        :: __CONTINUE__ ::
     end
     ImGui.FocusWindow(nil, flags)
 end
@@ -2770,8 +2770,8 @@ function ImGui.UpdateKeyRoutingTable(rt)
             routing_entry.RoutingNext = ImGuiKeyOwner_NoOwner
             routing_entry.RoutingNextScore = 0
             if routing_entry.RoutingCurr == ImGuiKeyOwner_NoOwner then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             rt.EntriesNext:push_back(routing_entry)
 
@@ -2782,7 +2782,8 @@ function ImGui.UpdateKeyRoutingTable(rt)
                 end
             end
 
-            end
+            :: __CONTINUE__ ::
+
             old_routing_idx = routing_entry.NextEntryIndex
         end
 
@@ -3079,8 +3080,8 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         local e = g.InputEventsQueue.Data[event_n]
         if e.Type == ImGuiInputEventType.MousePos then
             if g.IO.WantSetMousePos then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             if trickle_fast_inputs and (mouse_button_changed ~= 0 or mouse_wheeled or key_changed or text_inputted) then
                 break
@@ -3089,8 +3090,6 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             io.MousePos =  event_pos
             io.MouseSource = e.MousePos.MouseSource
             mouse_moved = true
-
-            end
         elseif e.Type == ImGuiInputEventType.MouseButton then
             local button = e.MouseButton.Button
             IM_ASSERT(button >= 0 and button < ImGuiMouseButton.COUNT)
@@ -3118,8 +3117,8 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
         elseif e.Type == ImGuiInputEventType.Key then
             -- Trickling Rule: Stop processing queued events if we got multiple action on the same button
             if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) ~= 0 then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             local key = e.Key.Key
             IM_ASSERT(key ~= ImGuiKey.None)
@@ -3146,12 +3145,10 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
 
             key_data.Down = e.Key.Down
             key_data.AnalogValue = e.Key.AnalogValue
-
-            end
         elseif e.Type == ImGuiInputEventType.Text then
             if bit.band(io.ConfigFlags, ImGuiConfigFlags.NoKeyboard) ~= 0 then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             if trickle_fast_inputs and (mouse_button_changed ~= 0 or mouse_moved or mouse_wheeled) then
                 break
@@ -3164,13 +3161,13 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             if trickle_interleaved_nonchar_keys_and_text then
                 text_inputted = true
             end
-
-            end
         elseif e.Type == ImGuiInputEventType.Focus then
             -- TODO:
         else
             IM_ASSERT(false, "Unknown event!")
         end
+
+        :: __CONTINUE__ ::
 
         event_n = event_n + 1
     end
@@ -3654,8 +3651,8 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
     end
     for border_n = 0, 3 do
         if bit.band(resize_border_mask, bit.lshift(1, border_n)) == 0 then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
         local def = ImGuiResizeBorderDef[border_n + 1]
         local axis
@@ -3733,7 +3730,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             border_held = border_n
         end
 
-        end
+        :: __CONTINUE__ ::
     end
     ImGui.PopID()
 
@@ -3933,14 +3930,14 @@ function ImGui.RenderMouseCursor(base_pos, base_scale, mouse_cursor, col_fill, c
 
     for _, viewport in g.Viewports:iter() do
         if not ImFontAtlasGetMouseCursorTexData(font_atlas, mouse_cursor, offset, size, uv_border, uv_fill) then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
         local pos = base_pos - offset
         local scale = base_scale * viewport.DpiScale
         if not viewport:GetMainRect():Overlaps(ImRect(pos, pos + ImVec2(size.x + 2, size.y + 2) * scale)) then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
         local draw_list = ImGui.GetForegroundDrawList(viewport)
         local tex_ref = font_atlas.TexRef
@@ -3957,7 +3954,7 @@ function ImGui.RenderMouseCursor(base_pos, base_scale, mouse_cursor, col_fill, c
         end
         draw_list:PopTexture()
 
-        end end
+        :: __CONTINUE__ ::
     end
 end
 
@@ -5816,16 +5813,16 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
     for i = g.Windows.Size, 1, -1 do
         window = g.Windows.Data[i]
         if not window.WasActive or window.Hidden then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
         if bit.band(window.Flags, ImGuiWindowFlags.NoMouseInputs) ~= 0 then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
         IM_ASSERT(window.Viewport)
         if (window.Viewport ~= g.MouseViewport) then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
         local hit_padding
         if bit.band(window.Flags, bit.bor(ImGuiWindowFlags.NoResize, ImGuiWindowFlags.AlwaysAutoResize)) ~= 0 then
             hit_padding = padding_regular
@@ -5833,8 +5830,8 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
             hit_padding = padding_for_resize
         end
         if not window.OuterRectClipped:ContainsWithPad(pos, hit_padding) then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
         if window.HitTestHoleSize.x ~= 0 then
             -- TODO: hit test hole
@@ -5857,7 +5854,7 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
             end
         end
 
-        end end end end
+        :: __CONTINUE__ ::
     end
 
     if (find_first_and_in_any_viewport == false and g.MovingWindow) then
@@ -6752,10 +6749,12 @@ function ImGui.EndFrame()
     g.WindowsTempSortBuffer:reserve(g.Windows.Size)
     for _, window in g.Windows:iter() do
         if window.Active and bit.band(window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0 then -- if a child is active its parent will add it
-            --[[continue]]
-        else
-            AddWindowToSortBuffer(g.WindowsTempSortBuffer, window)
+            goto __CONTINUE__
         end
+
+        AddWindowToSortBuffer(g.WindowsTempSortBuffer, window)
+
+        :: __CONTINUE__ ::
     end
 
     IM_ASSERT(g.Windows.Size == g.WindowsTempSortBuffer.Size)
@@ -7529,21 +7528,21 @@ function ImGui.FindBlockingModal(window)
         local popup_data = g.OpenPopupStack.Data[i]
         local popup_window = popup_data.Window
         if popup_window == nil or bit.band(popup_window.Flags, ImGuiWindowFlags.Modal) == 0 then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
         if not popup_window.Active and not popup_window.WasActive then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
         if window == nil then
             return popup_window
         end
         if ImGui.IsWindowWithinBeginStackOf(window, popup_window) then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
-        return popup_window
+        do return popup_window end
 
-        end end end
+        :: __CONTINUE__ ::
     end
     return nil
 end
@@ -7640,8 +7639,8 @@ function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_p
         while popup_count_to_keep < g.OpenPopupStack.Size do
             local popup = g.OpenPopupStack.Data[popup_count_to_keep + 1]
             if not popup.Window then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             IM_ASSERT(bit.band(popup.Window.Flags, ImGuiWindowFlags.Popup) ~= 0)
 
@@ -7666,7 +7665,7 @@ function ImGui.ClosePopupsOverWindow(ref_window, restore_focus_to_window_under_p
                 break
             end
 
-            end
+            :: __CONTINUE__ ::
 
             popup_count_to_keep = popup_count_to_keep + 1
         end
@@ -7861,8 +7860,8 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             local dir = (n == 0) and last_dir or dir_preferred_order[n]
 
             if n ~= 0 and dir == last_dir then -- Already tried this direction?
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             local pos
             if     dir == ImGuiDir.Down  then pos = ImVec2(r_avoid.Min.x, r_avoid.Max.y)                   -- Below, Toward Right (default)
@@ -7872,13 +7871,13 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             end
 
             if not r_outer:Contains(ImRect(pos, pos + size)) then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             last_dir = dir
-            return pos, last_dir
+            do return pos, last_dir end
 
-            end end
+            :: __CONTINUE__ ::
         end
     end
 
@@ -7891,20 +7890,20 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             local dir = (n == 0) and last_dir or dir_preferred_order[n]
 
             if n ~= 0 and dir == last_dir then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             local avail_w = ((dir == ImGuiDir.Left) and r_avoid.Min.x or r_outer.Max.x) - ((dir == ImGuiDir.Right) and r_avoid.Max.x or r_outer.Min.x)
             local avail_h = ((dir == ImGuiDir.Up)   and r_avoid.Min.y or r_outer.Max.y) - ((dir == ImGuiDir.Down)  and r_avoid.Max.y or r_outer.Min.y)
 
             -- If there's not enough room on one axis, there's no point in positioning on a side on this axis (e.g. when not enough width, use a top/bottom position to maximize available width)
             if avail_w < size.x and (dir == ImGuiDir.Left or dir == ImGuiDir.Right) then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             if avail_h < size.y and (dir == ImGuiDir.Up or dir == ImGuiDir.Down) then
-                --[[continue]]
-            else
+                goto __CONTINUE__
+            end
 
             local pos = ImVec2()
             pos.x = (dir == ImGuiDir.Left) and (r_avoid.Min.x - size.x) or ((dir == ImGuiDir.Right) and r_avoid.Max.x or base_pos_clamped.x)
@@ -7915,9 +7914,9 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
             pos.y = ImMax(pos.y, r_outer.Min.y)
 
             last_dir = dir
-            return pos, last_dir
+            do return pos, last_dir end
 
-            end end end
+            :: __CONTINUE__ ::
         end
     end
 
@@ -8797,8 +8796,8 @@ function ImGui.UpdateTryMergeWindowIntoHostViewport(window, viewport_dst)
 
     for _, viewport_obstructing in g.Viewports:iter() do
         if viewport_obstructing == viewport_src or viewport_obstructing == viewport_dst or not viewport_obstructing.PlatformWindowCreated then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
         if viewport_obstructing:GetMainRect():Overlaps(window:Rect()) then
             if ImGui.IsViewportAbove(viewport_obstructing, viewport_dst) then
@@ -8808,7 +8807,7 @@ function ImGui.UpdateTryMergeWindowIntoHostViewport(window, viewport_dst)
             end
         end
 
-        end
+        :: __CONTINUE__ ::
     end
 
     -- Move to the existing viewport, Move child/hosted windows as well (FIXME-OPT: iterate child)
@@ -9174,17 +9173,17 @@ function ImGui.UpdateViewportsEndFrame()
         ImVec2_Copy(viewport.LastSize, ImVec2(viewport.Size.x, viewport.Size.y))
 
         if (viewport.LastFrameActive < g.FrameCount or viewport.Size.x <= 0.0 or viewport.Size.y <= 0.0) and (i > 1) then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
         if viewport.Window and not ImGui.IsWindowActiveAndVisible(viewport.Window) then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
         if i > 1 then
             IM_ASSERT(viewport.Window ~= nil)
         end
         g.PlatformIO.Viewports:push_back(viewport)
 
-        end end
+        :: __CONTINUE__ ::
     end
 
     g.Viewports.Data[1]:ClearRequestFlags()  -- Clear main viewport flags because UpdatePlatformWindows() won't do it and may not even be called
@@ -9551,13 +9550,13 @@ function ImGui.UpdatePlatformWindows()
         destroy_platform_window = destroy_platform_window or (viewport.Window and not ImGui.IsWindowActiveAndVisible(viewport.Window)) --[[@as bool]]
         if destroy_platform_window then
             ImGui.DestroyPlatformWindow(viewport)
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
         -- New windows that appears directly in a new viewport won't always have a size on their first frame
         if viewport.LastFrameActive < g.FrameCount or viewport.Size.x <= 0 or viewport.Size.y <= 0 then
-            --[[continue]]
-        else
+            goto __CONTINUE__
+        end
 
         -- Create window
         local is_new_platform_window = not viewport.PlatformWindowCreated
@@ -9627,7 +9626,7 @@ function ImGui.UpdatePlatformWindows()
         -- Clear request flags
         viewport:ClearRequestFlags()
 
-        end end
+        :: __CONTINUE__ ::
     end
 end
 
