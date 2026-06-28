@@ -2469,7 +2469,6 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
             next_s = s + wanted
         end
 
-        local _continue = false
         if c < 32 then
             if c == 10 then -- '\n'
                 return s
@@ -2477,13 +2476,9 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
             if c == 13 then -- '\r'
                 s = next_s
 
-                --[[continue]]
-                _continue = true
+                goto __CONTINUE__
             end
         end
-
-        if _continue then
-        else
 
         local char_width = (c < baked.IndexAdvanceX.Size) and baked.IndexAdvanceX.Data[c + 1] or -1.0
         if char_width < 0.0 then
@@ -2534,7 +2529,7 @@ function ImFontCalcWordWrapPositionEx(font, size, text, pos, text_end, wrap_widt
         prev_type = curr_type
         s = next_s
 
-        end
+        :: __CONTINUE__ ::
     end
 
     if s == pos and s < text_end then
@@ -2578,7 +2573,6 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
 
     local s = text_begin
     while s < text_end_display do
-        local _continue = false
         if word_wrap_enabled then
             if not word_wrap_eol then
                 word_wrap_eol = ImFontCalcWordWrapPositionEx(font, size, text, s, text_end, wrap_width - line_width, flags)
@@ -2596,13 +2590,9 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
                 end
                 word_wrap_eol = nil
 
-                --[[continue]]
-                _continue = true
+                goto __CONTINUE__
             end
         end
-
-        if _continue then
-        else
 
         local prev_s = s
         local c = ImStrByte(text, s)
@@ -2622,17 +2612,12 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
                 break
             end
 
-            --[[continue]]
-            _continue = true
+            goto __CONTINUE__
         end
 
         if c == 13 then -- '\r'
-            --[[continue]]
-            _continue = true
+            goto __CONTINUE__
         end
-
-        if _continue then
-        else
 
         local char_width = (c < baked.IndexAdvanceX.Size) and baked.IndexAdvanceX.Data[c + 1] or -1.0
         if (char_width < 0.0) then
@@ -2647,7 +2632,7 @@ function ImFontCalcTextSizeEx(font, size, max_width, wrap_width, text, text_begi
 
         line_width = line_width + char_width
 
-        end end
+        :: __CONTINUE__ ::
     end
 
     if (text_size.x < line_width) then
@@ -4284,6 +4269,7 @@ end
 --- @param wrap_width float
 --- @param flags      ImDrawTextFlags
 function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, flags)
+:: begin ::
     local x = pos.x
     local y = pos.y
     if y > clip_rect.w then
@@ -4352,7 +4338,6 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     local word_wrap_eol
 
     while s < text_end do
-        local _continue = false
         if word_wrap_enabled then
             if not word_wrap_eol then
                 word_wrap_eol = ImFontCalcWordWrapPositionEx(self, size, text, s, text_end, wrap_width - (x - origin_x), flags)
@@ -4367,13 +4352,9 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                 word_wrap_eol = nil
                 s = ImTextCalcWordWrapNextLineStart(text, s, text_end, flags)
 
-                --[[continue]]
-                _continue = true
+                goto __CONTINUE__
             end
         end
-
-        if _continue then
-        else
 
         local c = ImStrByte(text, s)
         if c < 0x80 then
@@ -4392,18 +4373,13 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                     break
                 end
 
-                --[[continue]]
-                _continue = true
+                goto __CONTINUE__
             end
 
             if c == 13 then -- '\r'
-                --[[continue]]
-                _continue = true
+                goto __CONTINUE__
             end
         end
-
-        if _continue then
-        else
 
         local glyph = baked:FindGlyph(c)
 
@@ -4439,13 +4415,9 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                     if (y1 >= y2) then
                         x = x + char_width
 
-                        --[[continue]]
-                        _continue = true
+                        goto __CONTINUE__
                     end
                 end
-
-                if _continue then
-                else
 
                 local glyph_col = glyph.Colored and color_untinted or col
 
@@ -4460,19 +4432,12 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                     vtx_index = vtx_index + 4
                     idx_write = idx_write + 6
                 end
-
-                end
             end
         end
 
-        if _continue then
-        else
-
         x = x + char_width
 
-        end
-
-        end end
+        :: __CONTINUE__ ::
     end
 
     -- Edge case: calling RenderText() with unloaded glyphs triggering texture change. It doesn't happen via ImGui.* calls because CalcTextSize() is always used
@@ -4481,7 +4446,9 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
         draw_list.CmdBuffer:pop_back()
         draw_list:PrimUnreserve(idx_count_max, vtx_count_max)
         draw_list:AddDrawCmd()
-        self:RenderText(draw_list, size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, flags)
+
+        -- self:RenderText(draw_list, size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, flags)
+        goto begin
     end
 
     draw_list.VtxBuffer.Size = vtx_write - 1
