@@ -144,7 +144,7 @@ local function DemoWindowMenuBar(demo_data)
         end
         if ImGui.BeginMenu("Examples") then
             ImGui.SeparatorText("Concepts")
-            demo_data.ShowAppFullscreen = ImGui.MenuItem("Fullscreen window", nil, demo_data.ShowAppFullscreen)
+            _, demo_data.ShowAppFullscreen = ImGui.MenuItem("Fullscreen window", nil, demo_data.ShowAppFullscreen)
 
             ImGui.EndMenu()
         end

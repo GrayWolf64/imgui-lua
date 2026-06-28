@@ -7697,9 +7697,12 @@ end
 --- @param label     string
 --- @param icon?     string
 --- @param shortcut? string
---- @param selected  bool
---- @param enabled   bool
+--- @param selected? bool
+--- @param enabled?  bool
 function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
+    if selected == nil then selected = false end
+    if enabled  == nil then enabled  = true  end
+
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return false
@@ -7793,8 +7796,13 @@ end
 --- @param selected? bool
 --- @param enabled?  bool
 function ImGui.MenuItem(label, shortcut, selected, enabled)
-    if selected == nil then selected = false end
-    if enabled  == nil then enabled  = true  end
+    if ImGui.MenuItemEx(label, nil, shortcut, selected, enabled) then
+        if selected ~= nil then
+            selected = not selected
+        end
 
-    return ImGui.MenuItemEx(label, nil, shortcut, selected, enabled)
+        return true, selected
+    end
+
+    return false, selected
 end

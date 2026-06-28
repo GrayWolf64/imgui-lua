@@ -2459,6 +2459,15 @@ function ImGuiInputEventText()
     return { Char = nil }
 end
 
+--- @class ImGuiInputEventAppFocused
+--- @field Focused bool
+
+--- @return ImGuiInputEventAppFocused
+--- @nodiscard
+function ImGuiInputEventAppFocused()
+    return { Focused = nil }
+end
+
 --- @class ImGuiInputEventMouseViewport
 --- @field HoveredViewportID ImGuiID
 

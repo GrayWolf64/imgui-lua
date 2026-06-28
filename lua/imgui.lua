@@ -2439,6 +2439,11 @@ function MT.ImGuiIO:AddMouseViewportEvent(viewport_id)
     g.InputEventsQueue:push_back(e)
 end
 
+--- @param focused bool
+function MT.ImGuiIO:AddFocusEvent(focused)
+    -- TODO:
+end
+
 --- @param x float
 --- @param y float
 function MT.ImGuiIO:AddMousePosEvent(x, y)
@@ -3162,7 +3167,8 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
                 text_inputted = true
             end
         elseif e.Type == ImGuiInputEventType.Focus then
-            -- TODO:
+            local focus_lost = not e.AppFocused.Focused
+            io.AppFocusLost = focus_lost
         else
             IM_ASSERT(false, "Unknown event!")
         end
