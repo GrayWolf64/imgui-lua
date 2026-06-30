@@ -786,7 +786,8 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     meshAdvVtx()
                 end
 
-                -- FIXME: this is currently broken, does not work!
+                -- FIXME: this is currently broken!
+                -- https://github.com/Facepunch/garrysmod-issues/issues/6918
                 render.PushFilterMin(g_CurrentSampler)
                 render.PushFilterMag(g_CurrentSampler)
 
