@@ -1129,6 +1129,16 @@ function ImGui.IsMouseDragging(button, lock_threshold)
     return ImGui.IsMouseDragPastThreshold(button, lock_threshold)
 end
 
+--- @param pos ImVec2
+function ImGui.TeleportMousePos(pos)
+    local g = GImGui
+    ImVec2_Copy(g.IO.MousePos, pos)
+    ImVec2_Copy(g.IO.MousePosPrev, pos)
+    ImVec2_CopyV(g.IO.MouseDelta, 0.0, 0.0)
+    g.IO.WantSetMousePos = true
+    -- IMGUI_DEBUG_LOG_IO("TeleportMousePos: (%.1f,%.1f)", io.MousePos.x, io.MousePos.y)
+end
+
 --- @param bb           ImRect
 --- @param id           ImGuiID
 --- @param nav_bb_arg?  ImRect
@@ -4370,7 +4380,7 @@ function ImGui.UpdateWindowSkipRefresh(window)
     end
 end
 
---- static void SetCurrentWindow
+--- @param window ImGuiWindow
 local function SetCurrentWindow(window)
     local g = GImGui
     g.CurrentWindow = window
@@ -4385,6 +4395,7 @@ local function SetCurrentWindow(window)
         window.SkipItems = false
         ImGui.UpdateCurrentFontSize(0.0)
         window.SkipItems = backup_skip_items
+        ImGui.NavUpdateCurrentWindowIsScrollPushableX()
     end
 end
 
@@ -6492,7 +6503,7 @@ local function GetWindowDisplayLayer(window)
     return (bit.band(window.Flags, ImGuiWindowFlags.Tooltip) ~= 0) and 2 or 1
 end
 
---- static inline void AddRootWindowToDrawData(ImGuiWindow* window)
+--- @param window ImGuiWindow
 local function AddRootWindowToDrawData(window)
     AddWindowToDrawData(window, GetWindowDisplayLayer(window))
 end
@@ -7347,7 +7358,8 @@ function ImGui.IsWindowAbove(potential_above, potential_below)
     return false
 end
 
---- static void ScaleWindow(ImGuiWindow* window, float scale)
+--- @param window ImGuiWindow
+--- @param scale  float
 local function ScaleWindow(window, scale)
     local origin = window.Viewport.Pos
     window.Pos.x = ImFloor((window.Pos.x - origin.x) * scale + origin.x) -- TODO: those for vecs
@@ -7360,13 +7372,19 @@ local function ScaleWindow(window, scale)
     window.ContentSize.y = ImTrunc(window.ContentSize.y * scale)
 end
 
---- void ImGui::ScaleWindowsInViewport(ImGuiViewportP* viewport, float scale)
+--- @param viewport ImGuiViewportP
+--- @param scale    float
 function ImGui.ScaleWindowsInViewport(viewport, scale)
     local g = GImGui
+    -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] ScaleWindowsInViewport 0x%08X", viewport.ID)
 
-    for _, window in g.Windows:iter() do
-        if window.Viewport == viewport then
-            ScaleWindow(window, scale)
+    if viewport.Window then
+        ScaleWindow(viewport.Window, scale)
+    else
+        for _, window in g.Windows:iter() do
+            if window.Viewport == viewport then
+                ScaleWindow(window, scale)
+            end
         end
     end
 end
@@ -8504,9 +8522,9 @@ function ImGui.NavUpdate()
         set_mouse_pos = false
     end
 
-    -- if set_mouse_pos and io.ConfigNavMoveSetMousePos and bit.band(io.BackendFlags, ImGuiBackendFlags.HasSetMousePos) ~= 0 then
-    --     ImGui.TeleportMousePos(ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Popup))
-    -- end
+    if set_mouse_pos and io.ConfigNavMoveSetMousePos and bit.band(io.BackendFlags, ImGuiBackendFlags.HasSetMousePos) ~= 0 then
+        ImGui.TeleportMousePos(ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Popup))
+    end
 
     g.NavScoringDebugCount = 0
 end
@@ -8569,6 +8587,12 @@ function ImGui.NavApplyItemToResult(result)
         IM_ASSERT(g.NextItemData.SelectionUserData ~= ImGuiSelectionUserData_Invalid)
         result.SelectionUserData = g.NextItemData.SelectionUserData
     end
+end
+
+function ImGui.NavUpdateCurrentWindowIsScrollPushableX()
+    local g = GImGui
+    local window = g.CurrentWindow
+    window.DC.NavIsScrollPushableX = (g.CurrentTable == nil and window.DC.CurrentColumns == nil)
 end
 
 --- @param result         ImGuiNavItemData
