@@ -876,10 +876,14 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
             local row, row_base = tex:GetPixelsAt(0, y)
             for x = 0, tex.Width - 1 do
                 local pixelOffset = x * 4
+                local a = row[row_base + pixelOffset + 3]
+                if a <= 0 then
+                    continue -- Can skip. We have already cleared the RT
+                end
+
                 local r = row[row_base + pixelOffset + 0]
                 local g = row[row_base + pixelOffset + 1]
                 local b = row[row_base + pixelOffset + 2]
-                local a = row[row_base + pixelOffset + 3]
 
                 surface.SetDrawColor(r, g, b, a)
                 surface.DrawRect(x, y, 1, 1)
@@ -916,10 +920,14 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
                 for x_offset = 0, r.w - 1 do
                     local pixel_offset = x_offset * 4
+                    local a_byte = row[row_base + pixel_offset + 3]
+                    if a_byte <= 0 then
+                        continue -- Safe to skip, since the region isn't used before. All zero
+                    end
+
                     local r_byte = row[row_base + pixel_offset + 0]
                     local g_byte = row[row_base + pixel_offset + 1]
                     local b_byte = row[row_base + pixel_offset + 2]
-                    local a_byte = row[row_base + pixel_offset + 3]
 
                     surface.SetDrawColor(r_byte, g_byte, b_byte, a_byte)
                     surface.DrawRect(r.x + x_offset, y, 1, 1)

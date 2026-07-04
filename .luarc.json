@@ -14,6 +14,9 @@
         "include": "dofile",
         "IncludeCS": "dofile"
     },
+    "runtime.nonstandardSymbol": [
+        "continue"
+    ],
     "workspace.library": [
         "${addons}/garrysmod/module/library"
     ],
