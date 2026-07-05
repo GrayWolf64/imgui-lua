@@ -1,8 +1,7 @@
 --- ImGui Sincerely WIP
 -- (Demo Code)
 
--- FIXME: this is problematic
-local static = {}
+-- NOTE: Make sure to use fields with different names inside `static`!
 
 local IM_MIN = math.min
 local IM_MAX = math.max
@@ -156,6 +155,8 @@ end
 local DemoWindowWidgetsBasic
 do
 
+local static = {}
+
 local clicked = 0
 local checked = true
 local radio_v = 0
@@ -175,25 +176,10 @@ str1[1] = 0
 local hint0 = {string.byte("enter text here", 1, 15)}
 table.insert(hint0, 0)
 
-static.i0 = 233
-static.f0 = 0.001
-static.d0 = 999999.00000001
-static.i1 = 50
-static.i2 = 42
-static.i3 = 128
-
 local vec4a = { 0.10, 0.20, 0.30, 0.44 }
-
-static.f1 = 1.00
-static.f2 = 0.0067
-
-local f1 = 0.123
-local f2 = 0.0
-local angle = 0.0
 
 local Element = { Fire = 1, Earth = 2, Air = 3, Water = 4, COUNT = 5 }
 local elems_names = { "Fire", "Earth", "Air", "Water" }
-local elem = Element.Fire
 
 function DemoWindowWidgetsBasic()
     if ImGui.TreeNode("Basic") then
@@ -265,10 +251,13 @@ function DemoWindowWidgetsBasic()
 
             ImGui.InputTextWithHint("input text (w/ hint)", hint0, str1, 128)
 
+            if not static.i0 then static.i0 = 233 end
             static.i0 = ImGui.InputInt("input int", static.i0)
 
+            if not static.f0 then static.f0 = 0.001 end
             static.f0 = ImGui.InputFloat("input float", static.f0, 0.01, 1.0)
 
+            if not static.d0 then static.d0 = 999999.00000001 end
             static.d0 = ImGui.InputDouble("input double", static.d0, 0.01, 1.0, "%.8f")
             -- TODO:
 
@@ -278,10 +267,15 @@ function DemoWindowWidgetsBasic()
         ImGui.SeparatorText("Drags")
 
         do
+            if not static.i1 then static.i1 = 50  end
+            if not static.i2 then static.i2 = 42  end
+            if not static.i3 then static.i3 = 128 end
             static.i1 = ImGui.DragInt("drag int", static.i1, 1)
             static.i2 = ImGui.DragInt("drag int 0..100", static.i2, 1, 0, 100, "%d%%", ImGuiSliderFlags.AlwaysClamp)
             static.i3 = ImGui.DragInt("drag int wrap 100..200", static.i3, 1, 100, 200, "%d", ImGuiSliderFlags.WrapAround)
 
+            if not static.f1 then static.f1 = 1.00   end
+            if not static.f2 then static.f2 = 0.0067 end
             static.f1 = ImGui.DragFloat("drag float", static.f1, 0.005)
             static.f2 = ImGui.DragFloat("drag small float", static.f2, 0.0001, 0.0, 0.0, "%.06f ns")
         end
@@ -289,13 +283,17 @@ function DemoWindowWidgetsBasic()
         ImGui.SeparatorText("Sliders")
 
         do
-            f1 = ImGui.SliderFloat("slider float", f1, 0.0, 1.0, "ratio = %.3f")
-            f2 = ImGui.SliderFloat("slider float (log)", f2, -10.0, 10.0, "%.4f", ImGuiSliderFlags.Logarithmic)
+            if not static.f01 then static.f01 = 0.123 end
+            if not static.f02 then static.f02 = 0.0   end
+            static.f01 = ImGui.SliderFloat("slider float", static.f01, 0.0, 1.0, "ratio = %.3f")
+            static.f02 = ImGui.SliderFloat("slider float (log)", static.f02, -10.0, 10.0, "%.4f", ImGuiSliderFlags.Logarithmic)
 
-            angle = ImGui.SliderAngle("slider angle", angle)
+            if not static.angle then static.angle = 0.0 end
+            static.angle = ImGui.SliderAngle("slider angle", static.angle)
 
-            local elem_name = (elem >= 1 and elem < Element.COUNT) and elems_names[elem] or "Unknown"
-            elem = ImGui.SliderInt("slider enum", elem, 1, Element.COUNT - 1, elem_name)
+            if not static.elem then static.elem = Element.Fire end
+            local elem_name = (static.elem >= 1 and static.elem < Element.COUNT) and elems_names[static.elem] or "Unknown"
+            static.elem = ImGui.SliderInt("slider enum", static.elem, 1, Element.COUNT - 1, elem_name)
         end
 
         ImGui.TreePop()
