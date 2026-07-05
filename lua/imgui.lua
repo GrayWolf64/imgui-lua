@@ -4399,6 +4399,11 @@ local function SetCurrentWindow(window)
     end
 end
 
+function ImGui.GetWindowWidth()
+    local window = GImGui.CurrentWindow
+    return window.Size.x
+end
+
 --- @param window ImGuiWindow
 --- @param pos    ImVec2
 --- @param cond?  ImGuiCond
@@ -8159,6 +8164,10 @@ function ImGui.SetNavFocusScope(focus_scope_id)
         window = window.ParentWindowForFocusRoute
     end
     IM_ASSERT(g.NavFocusRoute.Size < 100)
+end
+
+-- TODO:
+function ImGui.SetItemDefaultFocus()
 end
 
 function ImGui.SetNavCursorVisibleAfterMove()

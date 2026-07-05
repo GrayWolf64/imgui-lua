@@ -18,6 +18,8 @@ local function ImGuiDemoWindowData()
     return {
         ShowAppImageViewer = false,
         ShowAppFullscreen = false,
+
+        ShowStyleEditor = false,
     }
 end
 
@@ -144,6 +146,11 @@ local function DemoWindowMenuBar(demo_data)
         if ImGui.BeginMenu("Examples") then
             ImGui.SeparatorText("Concepts")
             _, demo_data.ShowAppFullscreen = ImGui.MenuItem("Fullscreen window", nil, demo_data.ShowAppFullscreen)
+
+            ImGui.EndMenu()
+        end
+        if ImGui.BeginMenu("Tools") then
+            _, demo_data.ShowStyleEditor = ImGui.MenuItem("Style Editor", nil, demo_data.ShowStyleEditor)
 
             ImGui.EndMenu()
         end
@@ -693,6 +700,55 @@ local function DemoWindowInputs()
 
 end
 
+do
+
+local static = {}
+
+local style_idx = -1
+local style_names = { "Dark", "Light", "Classic" }
+
+--- @param label string
+function ImGui.ShowStyleSelector(label)
+    local ret = false
+    if ImGui.BeginCombo(label, (style_idx >= 1 and style_idx <= #style_names) and style_names[style_idx] or "") then
+        for n = 1, #style_names do
+            if ImGui.Selectable(style_names[n], style_idx == n, ImGuiSelectableFlags.SelectOnNav) then
+                style_idx = n
+                ret = true
+
+                if style_idx == 1 then ImGui.StyleColorsDark() end
+                if style_idx == 2 then ImGui.StyleColorsLight() end
+                if style_idx == 3 then ImGui.StyleColorsClassic() end
+
+            elseif style_idx == n then
+                ImGui.SetItemDefaultFocus()
+            end
+        end
+        ImGui.EndCombo()
+    end
+    return ret
+end
+
+--- @param ref ImGuiStyle?
+function ImGui.ShowStyleEditor(ref)
+    local style = ImGui.GetStyle()
+
+    local default_border_size = ImTrunc(style._MainScale)
+    local max_border_size = ImMax(default_border_size, 2.0)
+
+    ImGui.PushItemWidth(ImGui.GetWindowWidth() * 0.50)
+
+    do
+        if ImGui.ShowStyleSelector("Colors##Selector") then
+            
+        end
+    end
+
+    ImGui.PopItemWidth()
+end
+
+end
+
 local function ShowExampleAppImageViewer()
     -- TODO:
 end
@@ -751,6 +807,12 @@ local unsaved_document  = false
 
 function ImGui.ShowDemoWindow(open)
     if demo_data.ShowAppFullscreen then demo_data.ShowAppFullscreen = ShowExampleAppFullscreen(demo_data.ShowAppFullscreen) end
+
+    if demo_data.ShowStyleEditor then
+        demo_data.ShowStyleEditor = ImGui.Begin("ImGui Sincerely Style Editor", demo_data.ShowStyleEditor)
+        ImGui.ShowStyleEditor()
+        ImGui.End()
+    end
 
     local window_flags = 0
     if no_titlebar       then window_flags = bit.bor(window_flags, ImGuiWindowFlags.NoTitleBar) end
