@@ -739,6 +739,8 @@ function ImGui.ShowStyleEditor(ref)
     ImGui.PushItemWidth(ImGui.GetWindowWidth() * 0.50)
 
     do
+        ImGui.SeparatorText("General")
+
         if ImGui.ShowStyleSelector("Colors##Selector") then
             
         end
