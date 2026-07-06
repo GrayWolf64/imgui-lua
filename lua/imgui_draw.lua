@@ -3073,7 +3073,9 @@ function MT.ImDrawList:_ResetForNewFrame()
     self.IdxBuffer:resize(0)
     self.VtxBuffer:resize(0)
     self.Flags = self._Data.InitialFlags
-    -- memset(&_CmdHeader, 0, sizeof(_CmdHeader))
+
+    self._CmdHeader = ImDrawCmdHeader() -- memset(&_CmdHeader, 0, sizeof(_CmdHeader))
+
     self._VtxCurrentIdx = 1
     self._VtxWritePtr = 1
     self._IdxWritePtr = 1
