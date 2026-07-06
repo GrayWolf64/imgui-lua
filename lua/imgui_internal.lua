@@ -569,12 +569,12 @@ ImWcharClass = {
 
 --- @class ImVec1
 --- @field x number
-MT.ImVec1 = {}
-MT.ImVec1.__index = MT.ImVec1
+local IM_VEC1 = {}
+IM_VEC1.__index = IM_VEC1
 
-local function ImVec1(x) return setmetatable({x = x or 0}, MT.ImVec1) end
+local function ImVec1(x) return setmetatable({x = x or 0}, IM_VEC1) end
 
-function MT.ImVec1:__tostring() return string.format("ImVec1(%g)", self.x) end
+function IM_VEC1:__tostring() return string.format("ImVec1(%g)", self.x) end
 
 --- @param dest ImVec1
 --- @param src  ImVec1
@@ -585,28 +585,28 @@ end
 --- @class ImRect
 --- @field Min ImVec2
 --- @field Max ImVec2
-MT.ImRect = {}
-MT.ImRect.__index = MT.ImRect
+local IM_RECT = {}
+IM_RECT.__index = IM_RECT
 
 --- @nodiscard
-function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, MT.ImRect) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, MT.ImRect) end
+function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, IM_RECT) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, IM_RECT) end
 
-function MT.ImRect:__eq(other) return self.Min == other.Min and self.Max == other.Max end
-function MT.ImRect:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+function IM_RECT:__eq(other) return self.Min == other.Min and self.Max == other.Max end
+function IM_RECT:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 
 --- @param other ImRect
-function MT.ImRect:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
+function IM_RECT:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
 
 --- @param p ImVec2
-function MT.ImRect:ContainsV2(p) return p.x >= self.Min.x and p.y >= self.Min.y and p.x < self.Max.x and p.y < self.Max.y end
+function IM_RECT:ContainsV2(p) return p.x >= self.Min.x and p.y >= self.Min.y and p.x < self.Max.x and p.y < self.Max.y end
 
 --- @param p   ImVec2
 --- @param pad ImVec2
-function MT.ImRect:ContainsWithPad(p, pad)
+function IM_RECT:ContainsWithPad(p, pad)
     return p.x >= self.Min.x - pad.x and p.y >= self.Min.y - pad.y and p.x < self.Max.x + pad.x and p.y < self.Max.y + pad.y
 end
 
-function MT.ImRect:Overlaps(other)
+function IM_RECT:Overlaps(other)
     local min_x, min_y, max_x, max_y
 
     if other.Min then
@@ -623,17 +623,17 @@ function MT.ImRect:Overlaps(other)
 
     return self.Min.x <= max_x and self.Max.x >= min_x and self.Min.y <= max_y and self.Max.y >= min_y
 end
-function MT.ImRect:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
-function MT.ImRect:GetWidth() return self.Max.x - self.Min.x end
-function MT.ImRect:GetHeight() return self.Max.y - self.Min.y end
-function MT.ImRect:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
-function MT.ImRect:GetTL() return ImVec2(self.Min.x, self.Min.y) end
-function MT.ImRect:GetTR() return ImVec2(self.Max.x, self.Min.y) end
-function MT.ImRect:GetBL() return ImVec2(self.Min.x, self.Max.y) end
-function MT.ImRect:GetBR() return ImVec2(self.Max.x, self.Max.y) end
+function IM_RECT:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
+function IM_RECT:GetWidth() return self.Max.x - self.Min.x end
+function IM_RECT:GetHeight() return self.Max.y - self.Min.y end
+function IM_RECT:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
+function IM_RECT:GetTL() return ImVec2(self.Min.x, self.Min.y) end
+function IM_RECT:GetTR() return ImVec2(self.Max.x, self.Min.y) end
+function IM_RECT:GetBL() return ImVec2(self.Min.x, self.Max.y) end
+function IM_RECT:GetBR() return ImVec2(self.Max.x, self.Max.y) end
 
 --- @param r ImRect|ImVec4
-function MT.ImRect:ClipWith(r)
+function IM_RECT:ClipWith(r)
     if r.Min then
         --- @cast r ImRect
         self.Min.x = ImMax(self.Min.x, r.Min.x) self.Min.y = ImMax(self.Min.y, r.Min.y)
@@ -647,13 +647,13 @@ function MT.ImRect:ClipWith(r)
     end
 end
 
-function MT.ImRect:ClipWithFull(r)
+function IM_RECT:ClipWithFull(r)
     self.Min.x = ImClamp(self.Min.x, r.Min.x, r.Max.x) self.Min.y = ImClamp(self.Min.y, r.Min.y, r.Max.y)
     self.Max.x = ImClamp(self.Max.x, r.Min.x, r.Max.x) self.Max.y = ImClamp(self.Max.y, r.Min.y, r.Max.y)
 end
 
 --- @param p ImRect|ImVec2
-function MT.ImRect:Add(p)
+function IM_RECT:Add(p)
     if p.Min then
         --- @cast p ImRect
         self:Add(p.Min)
@@ -668,31 +668,31 @@ function MT.ImRect:Add(p)
 end
 
 --- @param amount float
-function MT.ImRect:Expand(amount)
+function IM_RECT:Expand(amount)
     self.Min.x = self.Min.x - amount; self.Min.y = self.Min.y - amount
     self.Max.x = self.Max.x + amount; self.Max.y = self.Max.y + amount
 end
 
 --- @param amount ImVec2
-function MT.ImRect:ExpandV2(amount)
+function IM_RECT:ExpandV2(amount)
     self.Min.x = self.Min.x - amount.x; self.Min.y = self.Min.y - amount.y
     self.Max.x = self.Max.x + amount.x; self.Max.y = self.Max.y + amount.y
 end
 
-function MT.ImRect:ToVec4()
+function IM_RECT:ToVec4()
     return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y)
 end
 
 --- @param d ImVec2
-function MT.ImRect:Translate(d)
+function IM_RECT:Translate(d)
     self.Min.x = self.Min.x + d.x; self.Min.y = self.Min.y + d.y
     self.Max.x = self.Max.x + d.x; self.Max.y = self.Max.y + d.y
 end
 
-function MT.ImRect:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
+function IM_RECT:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
 
 --- @nodiscard
-function MT.ImRect:AsVec4() return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+function IM_RECT:AsVec4() return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 
 --- @param dest ImRect
 --- @param src  ImRect
