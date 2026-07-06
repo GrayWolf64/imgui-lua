@@ -5062,6 +5062,7 @@ function ImGui.Begin(name, open, flags)
 
     if first_begin_of_the_frame and not window.SkipRefresh then
         local window_is_child_tooltip = (bit.band(flags, ImGuiWindowFlags.ChildWindow) ~= 0 and bit.band(flags, ImGuiWindowFlags.Tooltip) ~= 0)
+        local window_just_appearing_after_hidden_for_resize = (window.HiddenFramesCannotSkipItems > 0)
 
         window.Active = true
         window.HasCloseButton = (open ~= nil)

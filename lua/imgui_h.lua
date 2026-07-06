@@ -140,11 +140,11 @@ local rawget = rawget; local rawset = rawset
 --- @field [2] number
 --- @field x number
 --- @field y number
-MT.ImVec2 = {}
+local IM_VEC2 = {}
 
 --- @param t ImVec2
 --- @param k int
-MT.ImVec2.__index = function(t, k)
+IM_VEC2.__index = function(t, k)
     if     k == "x" then return rawget(t, 1)
     elseif k == "y" then return rawget(t, 2)
     end
@@ -153,7 +153,7 @@ end
 --- @param t ImVec2
 --- @param k int
 --- @param v number
-MT.ImVec2.__newindex = function(t, k, v)
+IM_VEC2.__newindex = function(t, k, v)
     if     k == "x" then rawset(t, 1, v)
     elseif k == "y" then rawset(t, 2, v)
     end
@@ -163,14 +163,14 @@ end
 --- @param y? number
 --- @return ImVec2
 --- @nodiscard
-function ImVec2(x, y) return setmetatable({x or 0, y or 0}, MT.ImVec2) end
+function ImVec2(x, y) return setmetatable({x or 0, y or 0}, IM_VEC2) end
 
-function MT.ImVec2.__add(lhs, rhs) return ImVec2(lhs[1] + rhs[1], lhs[2] + rhs[2]) end
-function MT.ImVec2.__sub(lhs, rhs) return ImVec2(lhs[1] - rhs[1], lhs[2] - rhs[2]) end
-function MT.ImVec2.__mul(lhs, rhs) return ImVec2(lhs[1] * rhs, lhs[2] * rhs) end
-function MT.ImVec2.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] end
+function IM_VEC2.__add(lhs, rhs) return ImVec2(lhs[1] + rhs[1], lhs[2] + rhs[2]) end
+function IM_VEC2.__sub(lhs, rhs) return ImVec2(lhs[1] - rhs[1], lhs[2] - rhs[2]) end
+function IM_VEC2.__mul(lhs, rhs) return ImVec2(lhs[1] * rhs, lhs[2] * rhs) end
+function IM_VEC2.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] end
 
-function MT.ImVec2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
+function IM_VEC2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
 
 --- @param dest ImVec2
 --- @param src  ImVec2
@@ -232,11 +232,11 @@ local function ImVec2_TCopy(t, k, v) local dest = t[k]; dest[1] = v[1]; dest[2] 
 --- @field y number
 --- @field z number
 --- @field w number
-MT.ImVec4 = {}
+local IM_VEC4 = {}
 
 --- @param t ImVec4
 --- @param k int
-MT.ImVec4.__index = function(t, k)
+IM_VEC4.__index = function(t, k)
     if     k == "x" then return rawget(t, 1)
     elseif k == "y" then return rawget(t, 2)
     elseif k == "z" then return rawget(t, 3)
@@ -247,7 +247,7 @@ end
 --- @param t ImVec4
 --- @param k int
 --- @param v number
-MT.ImVec4.__newindex = function(t, k, v)
+IM_VEC4.__newindex = function(t, k, v)
     if     k == "x" then rawset(t, 1, v)
     elseif k == "y" then rawset(t, 2, v)
     elseif k == "z" then rawset(t, 3, v)
@@ -261,14 +261,14 @@ end
 --- @param w? number
 --- @return ImVec4
 --- @nodiscard
-function ImVec4(x, y, z, w) return setmetatable({x or 0, y or 0, z or 0, w or 0}, MT.ImVec4) end
+function ImVec4(x, y, z, w) return setmetatable({x or 0, y or 0, z or 0, w or 0}, IM_VEC4) end
 
-function MT.ImVec4.__add(lhs, rhs) return ImVec4(lhs[1] + rhs[1], lhs[2] + rhs[2], lhs[3] + rhs[3], lhs[4] + rhs[4]) end
-function MT.ImVec4.__sub(lhs, rhs) return ImVec4(lhs[1] - rhs[1], lhs[2] - rhs[2], lhs[3] - rhs[3], lhs[4] - rhs[4]) end
-function MT.ImVec4.__mul(lhs, rhs) return ImVec4(lhs[1] * rhs, lhs[2] * rhs, lhs[3] * rhs, lhs[4] * rhs) end
-function MT.ImVec4.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] and lhs[3] == rhs[3] and lhs[4] == rhs[4] end
+function IM_VEC4.__add(lhs, rhs) return ImVec4(lhs[1] + rhs[1], lhs[2] + rhs[2], lhs[3] + rhs[3], lhs[4] + rhs[4]) end
+function IM_VEC4.__sub(lhs, rhs) return ImVec4(lhs[1] - rhs[1], lhs[2] - rhs[2], lhs[3] - rhs[3], lhs[4] - rhs[4]) end
+function IM_VEC4.__mul(lhs, rhs) return ImVec4(lhs[1] * rhs, lhs[2] * rhs, lhs[3] * rhs, lhs[4] * rhs) end
+function IM_VEC4.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] and lhs[3] == rhs[3] and lhs[4] == rhs[4] end
 
-function MT.ImVec4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", self.x, self.y, self.z, self.w) end
+function IM_VEC4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", self.x, self.y, self.z, self.w) end
 
 --- @param dest ImVec4
 --- @param src  ImVec4
@@ -280,20 +280,20 @@ function ImVec4_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2]; dest[3] = sr
 --- @field Size          int # >= 0
 --- @field _Constructor  function
 --- @field _CopyFunc     function
-MT.ImVector = {}
+local IM_VECTOR = {}
 
 -- Support 1-based number key indexing while keep method accessing speed
 --- @param t ImVector
 --- @param k string|int
 --- @return any
-MT.ImVector.__index = function(t, k)
-    return MT.ImVector[k] or t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] -- if the mt access turns out nil, the k must be int index into Data
+IM_VECTOR.__index = function(t, k)
+    return IM_VECTOR[k] or t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] -- if the mt access turns out nil, the k must be int index into Data
 end
 
 --- @param t ImVector
 --- @param k int
 --- @param v any
-MT.ImVector.__newindex = function(t, k, v)
+IM_VECTOR.__newindex = function(t, k, v)
     IM_ASSERT(k >= 1 and k <= t.Size)
     t.Data[k] = v
 end
@@ -307,24 +307,24 @@ local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and 
 --- @param COPY_FUNC? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T, COPY_FUNC) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, MT.ImVector) end
+function ImVector(T, COPY_FUNC) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, IM_VECTOR) end
 
-function MT.ImVector:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self._CopyFunc(self.Data, self.Size + 1, value); self.Size = self.Size + 1; return value end
-function MT.ImVector:pop_back() IM_ASSERT(self.Size > 0); self.Size = self.Size - 1; end
-function MT.ImVector:push_front(value) if self.Size == 0 then self:push_back(value) else self:insert(1, value) end end
-function MT.ImVector:clear() self.Size = 0 end
-function MT.ImVector:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
-function MT.ImVector:empty() return self.Size == 0 end
-function MT.ImVector:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
-function MT.ImVector:erase(i) IM_ASSERT(i >= 1 and i <= self.Size) local removed = (table.remove(self.Data, i)) ~= nil self.Size = self.Size - 1 return removed end
+function IM_VECTOR:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self._CopyFunc(self.Data, self.Size + 1, value); self.Size = self.Size + 1; return value end
+function IM_VECTOR:pop_back() IM_ASSERT(self.Size > 0); self.Size = self.Size - 1; end
+function IM_VECTOR:push_front(value) if self.Size == 0 then self:push_back(value) else self:insert(1, value) end end
+function IM_VECTOR:clear() self.Size = 0 end
+function IM_VECTOR:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
+function IM_VECTOR:empty() return self.Size == 0 end
+function IM_VECTOR:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
+function IM_VECTOR:erase(i) IM_ASSERT(i >= 1 and i <= self.Size) local removed = (table.remove(self.Data, i)) ~= nil self.Size = self.Size - 1 return removed end
 local function _iter(v, i) i = i + 1 if i <= v.Size then return i, v.Data[i] end end
-function MT.ImVector:iter() return _iter, self, 0 end
-function MT.ImVector:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end
-function MT.ImVector:erase_unsorted(index) IM_ASSERT(index >= 1 and index <= self.Size) local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
-function MT.ImVector:find_erase(value) local idx = self:find_index(value) if idx then return self:erase(idx) end return false end
-function MT.ImVector:find_erase_unsorted(value) local idx = self:find_index(value) if idx then return self:erase_unsorted(idx) end return false end
+function IM_VECTOR:iter() return _iter, self, 0 end
+function IM_VECTOR:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end
+function IM_VECTOR:erase_unsorted(index) IM_ASSERT(index >= 1 and index <= self.Size) local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
+function IM_VECTOR:find_erase(value) local idx = self:find_index(value) if idx then return self:erase(idx) end return false end
+function IM_VECTOR:find_erase_unsorted(value) local idx = self:find_index(value) if idx then return self:erase_unsorted(idx) end return false end
 
-function MT.ImVector:reserve(new_capacity)
+function IM_VECTOR:reserve(new_capacity)
     if new_capacity <= self.Capacity then return end
     local new_data = IM_ALLOC(self._Constructor, self.Size + 1, new_capacity)
     if self.Data then
@@ -335,16 +335,16 @@ function MT.ImVector:reserve(new_capacity)
     self.Capacity = new_capacity
 end
 
-function MT.ImVector:reserve_discard(new_capacity)
+function IM_VECTOR:reserve_discard(new_capacity)
     if new_capacity <= self.Capacity then return end
     if self.Data then IM_FREE(self, "Data") end
     self.Data = IM_ALLOC(self._Constructor, 1, new_capacity)
     self.Capacity = new_capacity
 end
 
-function MT.ImVector:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
+function IM_VECTOR:shrink(new_size) IM_ASSERT(new_size <= self.Size) self.Size = new_size end
 
-function MT.ImVector:resize(new_size, v)
+function IM_VECTOR:resize(new_size, v)
     if new_size > self.Capacity then self:reserve(_grow_capacity(self, new_size)) end
     if v ~= nil and new_size > self.Size then
         local data = self.Data
@@ -353,18 +353,18 @@ function MT.ImVector:resize(new_size, v)
     self.Size = new_size
 end
 
-function MT.ImVector:swap(other) self.Size, other.Size = other.Size, self.Size; self.Capacity, other.Capacity = other.Capacity, self.Capacity; self.Data, other.Data = other.Data, self.Data end
-function MT.ImVector:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end end return false end
+function IM_VECTOR:swap(other) self.Size, other.Size = other.Size, self.Size; self.Capacity, other.Capacity = other.Capacity, self.Capacity; self.Data, other.Data = other.Data, self.Data end
+function IM_VECTOR:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end end return false end
 
 --- NOTE: This currently does not use type-aware copy!
-function MT.ImVector:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1); if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
+function IM_VECTOR:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1); if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
 
 --- @nodiscard
-function MT.ImVector:copy() local other = ImVector() other.Size = self.Size for i = 1, self.Size do other.Data[i] = self.Data[i] end return other end
+function IM_VECTOR:copy() local other = ImVector() other.Size = self.Size for i = 1, self.Size do other.Data[i] = self.Data[i] end return other end
 
 -- Not keeping value-key records inside `ImVector`, instead just find it
 --- @return int # 0-based index
-function MT.ImVector:index_from_ptr(p)
+function IM_VECTOR:index_from_ptr(p)
     local data = self.Data
     local size = self.Size
     local mid = bit.rshift(size, 1)
