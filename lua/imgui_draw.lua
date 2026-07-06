@@ -3065,9 +3065,6 @@ function MT.ImDrawList:_SetDrawListSharedData(data)
     if self._Data ~= nil then
         self._Data.DrawLists:push_back(self)
     end
-
-    -- LUA: Keep Reference
-    if data then self._CmdHeader.TexRef = data.FontAtlas.TexRef end
 end
 
 -- TODO:
@@ -3076,12 +3073,7 @@ function MT.ImDrawList:_ResetForNewFrame()
     self.IdxBuffer:resize(0)
     self.VtxBuffer:resize(0)
     self.Flags = self._Data.InitialFlags
-
-    -- LUA: Keep Reference
-    local tex_ref = self._CmdHeader.TexRef
-    self._CmdHeader = ImDrawCmdHeader()
-    self._CmdHeader.TexRef = tex_ref
-
+    -- memset(&_CmdHeader, 0, sizeof(_CmdHeader))
     self._VtxCurrentIdx = 1
     self._VtxWritePtr = 1
     self._IdxWritePtr = 1
@@ -3089,10 +3081,7 @@ function MT.ImDrawList:_ResetForNewFrame()
     self._TextureStack:resize(0)
     self._Path:resize(0)
 
-    -- LUA: Keep Reference
-    local draw_cmd = ImDrawCmd()
-    draw_cmd.TexRef = tex_ref
-    self.CmdBuffer:push_back(draw_cmd)
+    self.CmdBuffer:push_back(ImDrawCmd())
 
     self._FringeScale = self._Data.InitialFringeScale
 end
