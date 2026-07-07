@@ -2453,7 +2453,22 @@ end
 
 --- @param focused bool
 function MT.ImGuiIO:AddFocusEvent(focused)
-    -- TODO:
+    IM_ASSERT(self.Ctx ~= nil)
+    local g = self.Ctx
+
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Focus)
+    local latest_focused = latest_event and latest_event.AppFocused.Focused or (not g.IO.AppFocusLost)
+    if latest_focused == focused or (self.ConfigDebugIgnoreFocusLoss and not focused) then
+        return
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType.Focus
+    e.EventId = g.InputEventsNextEventId
+    g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.AppFocused = ImGuiInputEventAppFocused()
+    e.AppFocused.Focused = focused
+    g.InputEventsQueue:push_back(e)
 end
 
 --- @param x float

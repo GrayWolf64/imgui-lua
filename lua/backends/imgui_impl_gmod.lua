@@ -1,7 +1,9 @@
 --- All the things strongly related to GMod go here
 
--- `input.GetCursorPos()` has issues in MacOS:
+-- FIXME: `input.GetCursorPos()` has issues in MacOS:
 -- https://github.com/Facepunch/garrysmod-issues/issues/4964
+
+-- TODO: utilize `io.AddFocusEvent()`
 
 -- e.g. DFrame default `GetSize()` and `GetPos()` doesn't take titlebar and border into consideration, so
 -- we need to solve this manually. This is probably not perfect, but definitely better than hardcoding
