@@ -147,9 +147,7 @@ end
 --- @param nodes     stbrp_node[]
 --- @param num_nodes int
 function stbrp_init_target(context, width, height, nodes, num_nodes)
-    nodes[1] = stbrp_node()
     for i = 1, num_nodes - 1 do
-        nodes[i + 1] = stbrp_node()
         nodes[i].next = nodes[i + 1]
     end
     nodes[num_nodes].next = nil
