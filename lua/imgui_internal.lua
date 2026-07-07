@@ -175,6 +175,17 @@ function ImUpperPowerOfTwo(v)
     return v + 1
 end
 
+--- @param v unsigned_int
+--- @return unsigned_int
+function ImCountSetBits(v)
+    local count = 0
+    while v > 0 do
+        v = bit.band(v, v - 1)
+        count = count + 1
+    end
+    return count
+end
+
 --- @param avg    float
 --- @param sample float
 --- @param n      int

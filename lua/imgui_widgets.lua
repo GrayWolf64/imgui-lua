@@ -11,6 +11,7 @@ function ImGui._SetCurrentContext_Widgets(ctx)
     GImGui = ctx
 end
 
+local DRAGDROP_HOLD_TO_OPEN_TIMER = 0.70 -- Time for drag-hold to activate items accepting the ImGuiButtonFlags.PressedOnDragDropHold button behavior
 local DRAG_MOUSE_THRESHOLD_FACTOR = 0.50 -- Multiplier for the default value of io.MouseDragThreshold to make DragFloat/DragInt react faster to mouse drags
 
 local IM_S8_MIN = -128
@@ -4743,7 +4744,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         end
         -- FIXME: May be a problem to always steal Alt on OSX, would ideally still allow an uninterrupted Alt down-up to toggle menu
         if is_osx then
-            ImGui.SetKeyOwner(ImGuiMod.Alt, id)
+            ImGui.SetKeyOwner(ImGuiMod_Alt, id)
         end
 
         -- Expose scroll in a manner that is agnostic to us using a child window
@@ -5186,7 +5187,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             callback_data.Ctx = g
             callback_data.ID = id
             callback_data.Flags = flags
-            callback_data.EventFlag = ImGuiInputTextFlags_CallbackResize
+            callback_data.EventFlag = ImGuiInputTextFlags.CallbackResize
             callback_data.EventActivated = (g.ActiveId == state.ID and g.ActiveIdIsJustActivated)
             callback_data.Buf = buf
             callback_data.BufTextLen = apply_new_text_length
@@ -7775,7 +7776,7 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
     local id = g.LastItemData.ID
     if g.ActiveId == id and g.HoveredId ~= id and g.ActiveIdSource == ImGuiInputSource.Mouse and ImGui.IsMouseDragging(0) then
         ImGui.ClearActiveID()
-        ImGui.SetKeyOwner(ImGuiKey.MouseLeft, ImGuiKeyOwner.NoOwner)
+        ImGui.SetKeyOwner(ImGuiKey.MouseLeft, ImGuiKeyOwner_NoOwner)
     end
 
     -- IMGUI_TEST_ENGINE_ITEM_INFO()

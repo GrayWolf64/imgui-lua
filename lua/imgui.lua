@@ -1,11 +1,13 @@
 --- ImGui Sincerely WIP
 -- (Core Code)
 
---- Set to disable some functions, then you need to write your own
--- IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS = true // Don't implement ImStd.ImFileOpen/ImStd.ImFileClose/ImStd.ImFileRead/ImFileWrite so you can implement them yourself
--- NOTE: you must implement ImStd.ImFileOpen if you are not in GMod
+--- Flags:
+-- IMGUI_DISABLE_OBSOLETE_FUNCTIONS = true -- This flag is not implemented
 
--- IMGUI_DISABLE_DEBUG_TOOLS = true // Disable metrics/debugger and other debug tools: ShowMetricsWindow(), ShowDebugLogWindow() and ShowIDStackToolWindow() will be empty
+-- NOTE: you must implement ImStd.ImFileOpen if you are not in GMod
+IMGUI_DISABLE_DEFAULT_FILE_FUNCTIONS = false -- Don't implement ImStd.ImFileOpen/ImStd.ImFileClose/ImStd.ImFileRead/ImFileWrite so you can implement them yourself
+
+IMGUI_DISABLE_DEBUG_TOOLS = false -- Disable metrics/debugger and other debug tools: ShowMetricsWindow(), ShowDebugLogWindow() and ShowIDStackToolWindow() will be empty
 
 --- @type ImGuiContext?
 local GImGui = nil
@@ -4381,8 +4383,21 @@ function ImGui.UpdateWindowSkipRefresh(window)
 end
 
 --- @param window ImGuiWindow
+local function SetWindowActiveForSkipRefresh(window)
+    window.Active = true
+    for _, child in window.DC.ChildWindows:iter() do
+        if not child.Hidden then
+            child.Active = true
+            child.SkipRefresh = true
+            SetWindowActiveForSkipRefresh(child)
+        end
+    end
+end
+
+--- @param window ImGuiWindow?
 local function SetCurrentWindow(window)
     local g = GImGui
+    --- @diagnostic disable-next-line
     g.CurrentWindow = window
 
     if window then
@@ -7735,9 +7750,9 @@ function ImGui.ClosePopupToLevel(remaining, restore_focus_to_window_under_popup)
         end
 
         if focus_window and not focus_window.WasActive then
-            ImGui.FocusTopMostWindowUnderOne(popup_window, nil, nil, ImGuiFocusRequestFlags_RestoreFocusedChild) -- Fallback
+            ImGui.FocusTopMostWindowUnderOne(popup_window, nil, nil, ImGuiFocusRequestFlags.RestoreFocusedChild) -- Fallback
         else
-            local focus_flags = (g.NavLayer == ImGuiNavLayer_Main) and ImGuiFocusRequestFlags.RestoreFocusedChild or ImGuiFocusRequestFlags.None
+            local focus_flags = (g.NavLayer == ImGuiNavLayer.Main) and ImGuiFocusRequestFlags.RestoreFocusedChild or ImGuiFocusRequestFlags.None
             ImGui.FocusWindow(focus_window, focus_flags)
         end
     end
@@ -8059,13 +8074,7 @@ end
 --- @param flags ImGuiPopupFlags
 --- @return ImGuiMouseButton
 function ImGui.GetMouseButtonFromPopupFlags(flags)
-if not IMGUI_DISABLE_OBSOLETE_FUNCTIONS then
-    if bit.band(flags, ImGuiPopupFlags.InvalidMask_) ~= 0 then
-        return bit.band(flags, ImGuiPopupFlags.InvalidMask_)
-    end
-else
     IM_ASSERT(bit.band(flags, ImGuiPopupFlags.InvalidMask_) == 0)
-end
 
     if bit.band(flags, ImGuiPopupFlags.MouseButtonMask_) ~= 0 then
         return bit.rshift(bit.band(flags, ImGuiPopupFlags.MouseButtonMask_), ImGuiPopupFlags.MouseButtonShift_) - 1
@@ -8545,7 +8554,7 @@ function ImGui.NavUpdateCancelRequest()
     local g = GImGui
     local nav_gamepad_active = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0
     local nav_keyboard_active = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) ~= 0
-    if not (nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Escape, 0, ImGuiKeyOwner.NoOwner)) and not (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey.NavGamepadCancel, 0, ImGuiKeyOwner.NoOwner)) then
+    if not (nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Escape, 0, ImGuiKeyOwner_NoOwner)) and not (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey.NavGamepadCancel, 0, ImGuiKeyOwner_NoOwner)) then
         return
     end
 
@@ -8987,7 +8996,7 @@ function ImGui.UpdateViewportsNewFrame()
             if apply_imgui_focus_on_focused_viewport and g.IO.ConfigViewportsPlatformFocusSetsImGuiFocus then
                 focused_viewport.LastFocusedHadNavWindow = focused_viewport.LastFocusedHadNavWindow or (g.NavWindow ~= nil and g.NavWindow.Viewport == focused_viewport)  -- Update so a window changing viewport won't lose focus.
 
-                local focus_request_flags = bit.bor(ImGuiFocusRequestFlags_UnlessBelowModal, ImGuiFocusRequestFlags_RestoreFocusedChild)
+                local focus_request_flags = bit.bor(ImGuiFocusRequestFlags.UnlessBelowModal, ImGuiFocusRequestFlags.RestoreFocusedChild)
                 if focused_viewport.Window ~= nil then
                     ImGui.FocusWindow(focused_viewport.Window, focus_request_flags)
                 elseif focused_viewport.LastFocusedHadNavWindow then

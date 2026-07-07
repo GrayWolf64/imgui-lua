@@ -1,6 +1,8 @@
 --- A crappy Bad Apple player using windows
 -- https://github.com/mon/bad_apple_virus
 
+--- @diagnostic disable
+
 local raw_frames, size = ImStd.ImFileLoadToMemory("data/boxes_badapple.dat", "rb")
 
 local curr_frame = 0

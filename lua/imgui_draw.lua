@@ -1937,7 +1937,7 @@ function ImFontAtlasBuildNotifySetFont(atlas, old_font, new_font)
                 ctx.IO.FontDefault = new_font
             end
             if ctx.Font == old_font then
-                local curr_ctx = GImGui
+                local curr_ctx = ImGui.GetCurrentContext()
                 local need_bind_ctx = ctx ~= curr_ctx
                 if need_bind_ctx then
                     ImGui.SetCurrentContext(ctx)
@@ -2264,7 +2264,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
         end
     end
 
-    -- local loader_user_data_p = baked.FontLoaderDatas
+    local loader_user_data_p = baked.FontLoaderDatas
     local src_n = 1
     for _, src in font.Sources:iter() do
         local loader = src.FontLoader and src.FontLoader or atlas.FontLoader
