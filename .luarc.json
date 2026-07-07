@@ -1,13 +1,9 @@
 {
     "diagnostics.disable": [
-        "undefined-global",
-        "exp-in-action",
         "need-check-nil",
         "undefined-field",
         "inject-field",
-        "lowercase-global",
-        "unused-function",
-        "unused-local"
+        "lowercase-global"
     ],
     "checkThirdParty": false,
     "runtime.special": {
