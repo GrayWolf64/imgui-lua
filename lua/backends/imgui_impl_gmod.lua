@@ -851,6 +851,56 @@ local function CreateEngineResource(bd, backend_tex, tex)
     return rt
 end
 
+-- Uses RLE to reduce calls of `surface.DrawRect()` in most cases, since we don't have efficient ITexture pixel upload APIs yet.
+--- @param tex     ImTextureData
+--- @param start_x int
+--- @param start_y int
+--- @param w       int
+local function UploadPixelDataRowToTexture(tex, start_x, start_y, w)
+    local row, row_base = tex:GetPixelsAt(start_x, start_y)
+    local x_end = start_x + w
+
+    local x = start_x
+    while x < x_end do
+        local x_off = x - start_x
+        local pixel_off = x_off * 4
+        local a = row[row_base + pixel_off + 3]
+
+        if a <= 0 then
+            x = x + 1
+            continue -- The dest texture region should be blank already, so it's safe to skip alpha=0 draws
+        end
+
+        local r = row[row_base + pixel_off + 0]
+        local g = row[row_base + pixel_off + 1]
+        local b = row[row_base + pixel_off + 2]
+
+        local run_len = 1
+        while x + run_len < x_end do
+            local next_off = (x_off + run_len) * 4
+            local a_next = row[row_base + next_off + 3]
+            if a_next <= 0 then
+                break
+            end
+
+            if     (r ~= row[row_base + next_off + 0])
+                or (g ~= row[row_base + next_off + 1])
+                or (b ~= row[row_base + next_off + 2])
+                or (a ~= a_next) then
+
+                break
+            end
+
+            run_len = run_len + 1
+        end
+
+        surface.SetDrawColor(r, g, b, a) -- We can also skip these calls when colors don't change, but it's unlikely to have a major impact
+        surface.DrawRect(x, start_y, run_len, 1)
+
+        x = x + run_len
+    end
+end
+
 --- @param tex ImTextureData
 function ImGui_ImplGMOD_UpdateTexture(tex)
     local bd = ImGui_ImplGMOD_GetBackendData() --[[@as ImGui_ImplGMOD_Data]]
@@ -875,21 +925,7 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         cam.Start2D()
 
         for y = 0, tex.Height - 1 do
-            local row, row_base = tex:GetPixelsAt(0, y)
-            for x = 0, tex.Width - 1 do
-                local pixelOffset = x * 4
-                local a = row[row_base + pixelOffset + 3]
-                if a <= 0 then
-                    continue -- Can skip. We have already cleared the RT
-                end
-
-                local r = row[row_base + pixelOffset + 0]
-                local g = row[row_base + pixelOffset + 1]
-                local b = row[row_base + pixelOffset + 2]
-
-                surface.SetDrawColor(r, g, b, a)
-                surface.DrawRect(x, y, 1, 1)
-            end
+            UploadPixelDataRowToTexture(tex, 0, y, tex.Width)
         end
 
         cam.End2D()
@@ -918,22 +954,7 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         for _, r in tex.Updates:iter() do
             for y = r.y, r.y + r.h - 1 do
-                local row, row_base = tex:GetPixelsAt(r.x, y)
-
-                for x_offset = 0, r.w - 1 do
-                    local pixel_offset = x_offset * 4
-                    local a_byte = row[row_base + pixel_offset + 3]
-                    if a_byte <= 0 then
-                        continue -- Safe to skip, since the region isn't used before. All zero
-                    end
-
-                    local r_byte = row[row_base + pixel_offset + 0]
-                    local g_byte = row[row_base + pixel_offset + 1]
-                    local b_byte = row[row_base + pixel_offset + 2]
-
-                    surface.SetDrawColor(r_byte, g_byte, b_byte, a_byte)
-                    surface.DrawRect(r.x + x_offset, y, 1, 1)
-                end
+                UploadPixelDataRowToTexture(tex, r.x, y, r.w)
             end
         end
 
