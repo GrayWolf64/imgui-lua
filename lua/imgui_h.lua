@@ -703,6 +703,7 @@ MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
 
 function MT.ImFont:IsLoaded() return self.OwnerAtlas ~= nil end
+function MT.ImFont:GetDebugName() if self.Sources.Size > 0 then return self.Sources[1].Name else return "<unknown>" end end
 
 --- @return ImFont
 --- @nodiscard

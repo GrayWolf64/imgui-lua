@@ -729,6 +729,25 @@ function ImGui.ShowStyleSelector(label)
     return ret
 end
 
+--- @param label string
+function ImGui.ShowFontSelector(label)
+    local io = ImGui.GetIO()
+    local font_current = ImGui.GetFont()
+    if ImGui.BeginCombo(label, font_current:GetDebugName()) then
+        for _, font in io.Fonts.Fonts:iter() do
+            ImGui.PushID(tostring(font):match("0x%x+")) -- (void*)font
+            if ImGui.Selectable(font:GetDebugName(), font == font_current, ImGuiSelectableFlags.SelectOnNav) then
+                io.FontDefault = font
+            end
+            if font == font_current then
+                ImGui.SetItemDefaultFocus()
+            end
+            ImGui.PopID()
+        end
+        ImGui.EndCombo()
+    end
+end
+
 --- @param ref ImGuiStyle?
 function ImGui.ShowStyleEditor(ref)
     local style = ImGui.GetStyle()
@@ -738,13 +757,57 @@ function ImGui.ShowStyleEditor(ref)
 
     ImGui.PushItemWidth(ImGui.GetWindowWidth() * 0.50)
 
+    ImGui.SeparatorText("General")
     do
-        ImGui.SeparatorText("General")
-
         if ImGui.ShowStyleSelector("Colors##Selector") then
-            
+            -- TODO:
+        end
+        ImGui.ShowFontSelector("Fonts##Selector")
+
+        local ret0
+        style.FontSizeBase, ret0 = ImGui.DragFloat("FontSizeBase", style.FontSizeBase, 0.20, 5.0, 100.0, "%.0f")
+        if ret0 then
+            style._NextFrameFontSizeBase = style.FontSizeBase -- FIXME: Temporary hack until we finish remaining work.
+        end
+        ImGui.SameLine(0.0, 0.0); ImGui.Text(" (out %.2f)", ImGui.GetFontSize())
+
+        style.FontScaleMain = ImGui.DragFloat("FontScaleMain", style.FontScaleMain, 0.02, 0.5, 4.0)
+
+        ImGui.BeginDisabled(ImGui.GetIO().ConfigDpiScaleFonts)
+            style.FontScaleDpi = ImGui.DragFloat("FontScaleDpi", style.FontScaleDpi, 0.02, 0.5, 4.0)
+            ImGui.SetItemTooltip("When io.ConfigDpiScaleFonts is set, this value is automatically overwritten.")
+        ImGui.EndDisabled()
+
+        local ret1
+        style.FrameRounding, ret1 = ImGui.SliderFloat("FrameRounding", style.FrameRounding, 0.0, 12.0, "%.0f")
+        if ret1 then
+            style.GrabRounding = style.FrameRounding -- Make GrabRounding always the same value as FrameRounding
+        end
+
+        do
+            local border = (style.WindowBorderSize > 0.0)
+            local pressed
+            pressed, border = ImGui.Checkbox("WindowBorder", border)
+            if pressed then style.WindowBorderSize = (border and default_border_size or 0.0) end
+        end
+        ImGui.SameLine()
+        do
+            local border = (style.FrameBorderSize > 0.0)
+            local pressed
+            pressed, border = ImGui.Checkbox("FrameBorder", border)
+            if pressed then style.FrameBorderSize = (border and default_border_size or 0.0) end
+        end
+        ImGui.SameLine()
+        do
+            local border = (style.PopupBorderSize > 0.0)
+            local pressed
+            pressed, border = ImGui.Checkbox("PopupBorder", border)
+            if pressed then style.PopupBorderSize = (border and default_border_size or 0.0) end
         end
     end
+
+    ImGui.SeparatorText("Details")
+    -- TODO:
 
     ImGui.PopItemWidth()
 end

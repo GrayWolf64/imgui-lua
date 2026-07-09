@@ -4568,6 +4568,10 @@ function ImGui.GetWindowDrawList()
     return window.DrawList
 end
 
+function ImGui.GetFont()
+    return GImGui.Font
+end
+
 function ImGui.GetFontSize()
     return GImGui.FontSize
 end

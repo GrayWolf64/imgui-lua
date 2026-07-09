@@ -1545,6 +1545,7 @@ end
 --- @field OpenPopupStack                     ImVector<ImGuiPopupData>
 --- @field BeginPopupStack                    ImVector<ImGuiPopupData>
 --- @field TreeNodeStack                      ImVector<ImGuiTreeNodeStackData>
+--- @field IO                                 ImGuiIO
 --- @field PlatformIO                         ImGuiPlatformIO
 --- @field Viewports                          ImVector<ImGuiViewportP>
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
