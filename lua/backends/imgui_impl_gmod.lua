@@ -22,7 +22,6 @@ end
 
 local cam     = cam
 local render  = render
-local surface = surface
 local mesh    = mesh
 
 local GMOD_StartTextInput

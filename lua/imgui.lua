@@ -258,6 +258,8 @@ function MT.ImGuiStyle:ScaleAllSizes(scale_factor)
     self.TabBarOverlineSize       = ImTrunc(self.TabBarOverlineSize * scale_factor)
     self.TreeLinesSize            = ImTrunc(self.TreeLinesSize * scale_factor)
     self.TreeLinesRounding        = ImTrunc(self.TreeLinesRounding * scale_factor)
+    self.MenuItemRounding         = ImTrunc(self.MenuItemRounding * scale_factor)
+    self.SelectableRounding       = ImTrunc(self.SelectableRounding * scale_factor)
     self.DragDropTargetRounding   = ImTrunc(self.DragDropTargetRounding * scale_factor)
     self.DragDropTargetBorderSize = ImTrunc(self.DragDropTargetBorderSize * scale_factor)
     self.DragDropTargetPadding    = ImTrunc(self.DragDropTargetPadding * scale_factor)
@@ -3938,7 +3940,7 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_
     --     ImGui.LogRenderedText(&pos_min, text, text_display_end);
 end
 
-function ImGui.RenderNavCursor(bb, id, flags)
+function ImGui.RenderNavCursor(bb, id, flags, rounding)
     -- TODO:
 end
 
@@ -6418,6 +6420,12 @@ local function InitViewportDrawData(viewport)
     draw_data.Textures         = ImGui.GetPlatformIO().Textures
 end
 
+-- FIXME-DPI:
+function ImGui.GetScale()
+    local g = GImGui
+    return g.Style._MainScale
+end
+
 --- @return ImGuiWindow
 function ImGui.GetCurrentWindowRead()
     local g = GImGui
@@ -6954,8 +6962,11 @@ function ImGui.Shutdown()
 
     for _, atlas in g.FontAtlases:iter() do
         ImGui.UnregisterFontAtlas(atlas)
-        if atlas.RefCount == 0 and atlas.OwnerContext == g then
-            atlas.Locked = false
+        if atlas.OwnerContext == g then
+            IM_ASSERT(atlas.RefCount == 0, "Destroying context owning a ImFontAtlas which is still used elsewhere!")
+            if atlas.RefCount == 0 then
+                atlas.Locked = false
+            end
         end
     end
     g.DrawListSharedData.TempBuffer:clear()
@@ -7225,6 +7236,8 @@ local GStyleVarsInfo = {
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "TableAngledHeadersTextAlign"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesSize"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "MenuItemRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "SelectableRounding"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "DragDropTargetRounding"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ButtonTextAlign"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SelectableTextAlign"),

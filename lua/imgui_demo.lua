@@ -357,9 +357,13 @@ function DemoWindowWidgetsColorAndPickers()
         ImGui.Text("Color widget HSV with Alpha:")
         ImGui.ColorEdit4("MyColor##2", color, bit.bor(ImGuiColorEditFlags.DisplayHSV, base_flags))
 
+        ImGui.Text("Color widget with Float Display:")
+        ImGui.ColorEdit4("MyColor##2f", color, bit.bor(ImGuiColorEditFlags.Float, base_flags))
+
+        ImGui.Text("Color button with Picker:")
+        ImGui.ColorEdit4("MyColor##3", color, bit.bor(ImGuiColorEditFlags.NoInputs, ImGuiColorEditFlags.NoLabel, base_flags))
+
         -- TODO:
-        -- ImGui.Text("Color widget with Float Display:")
-        -- ImGui.ColorEdit4("MyColor##2f", color, bit.bor(ImGuiColorEditFlags.Float, base_flags))
 
         ImGui.SeparatorText("Color picker")
 

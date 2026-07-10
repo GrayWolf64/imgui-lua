@@ -993,6 +993,8 @@ function ImGuiIO()
 
         MouseWheelRequestAxisSwap = false,
 
+        ConfigColorEditFlags = ImGuiColorEditFlags.DefaultOptions_,
+
         ConfigMacOSXBehaviors = false,
         ConfigNavCursorVisibleAuto = true,
         ConfigInputTrickleEventQueue = true,
@@ -1497,13 +1499,15 @@ ImGuiStyleVar = {
     TableAngledHeadersTextAlign = 32,
     TreeLinesSize               = 33,
     TreeLinesRounding           = 34,
-    DragDropTargetRounding      = 35,
-    ButtonTextAlign             = 36,
-    SelectableTextAlign         = 37,
-    SeparatorTextBorderSize     = 38,
-    SeparatorTextAlign          = 39,
-    SeparatorTextPadding        = 40,
-    COUNT                       = 41
+    MenuItemRounding            = 35,
+    SelectableRounding          = 36,
+    DragDropTargetRounding      = 37,
+    ButtonTextAlign             = 38,
+    SelectableTextAlign         = 39,
+    SeparatorTextBorderSize     = 40,
+    SeparatorTextAlign          = 41,
+    SeparatorTextPadding        = 42,
+    COUNT                       = 43
 }
 
 --- @enum ImGuiHoveredFlags
