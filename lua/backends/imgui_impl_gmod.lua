@@ -894,8 +894,10 @@ local function UploadPixelDataRowToTexture(tex, start_x, start_y, w)
             run_len = run_len + 1
         end
 
-        surface.SetDrawColor(r, g, b, a) -- We can also skip these calls when colors don't change, but it's unlikely to have a major impact
-        surface.DrawRect(x, start_y, run_len, 1)
+        local prev_w, prev_h = ScrW(), ScrH()
+        render.SetViewPort(x, start_y, run_len, 1)
+            render.Clear(r, g, b, a) -- Set pixels in the restricted region
+        render.SetViewPort(0, 0, prev_w, prev_h)
 
         x = x + run_len
     end
