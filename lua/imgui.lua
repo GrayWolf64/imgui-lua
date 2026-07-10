@@ -917,7 +917,8 @@ function ImGui.DestroyContext(ctx)
         ctx = prev_ctx
     end
     ImGui.SetCurrentContext(ctx)
-    -- TODO:
+    ImGui.Shutdown()
+    ImGui.SetCurrentContext((prev_ctx ~= ctx) and prev_ctx or nil)
 end
 
 --- @param window ImGuiWindow
@@ -6949,6 +6950,18 @@ function ImGui.Shutdown()
     for _, viewport in g.Viewports:iter() do
         -- IM_UNUSED(viewport)
         IM_ASSERT_USER_ERROR(viewport.RendererUserData == nil and viewport.PlatformUserData == nil and viewport.PlatformHandle == nil, "Backend or app forgot to call DestroyPlatformWindows()?")
+    end
+
+    for _, atlas in g.FontAtlases:iter() do
+        ImGui.UnregisterFontAtlas(atlas)
+        if atlas.RefCount == 0 and atlas.OwnerContext == g then
+            atlas.Locked = false
+        end
+    end
+    g.DrawListSharedData.TempBuffer:clear()
+
+    if not g.Initialized then
+        return
     end
     -- TODO:
 

@@ -791,7 +791,7 @@ end
 --- @param atlas ImFontAtlas
 --- @param data  ImDrawListSharedData
 function ImFontAtlasRemoveDrawListSharedData(atlas, data)
-    IM_ASSERT(not atlas.DrawListSharedDatas:contains(data))
+    IM_ASSERT(atlas.DrawListSharedDatas:contains(data))
     atlas.DrawListSharedDatas:find_erase(data)
 end
 

@@ -274,7 +274,6 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
 
     if is_main_viewport then
         VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
-        VGUI_Hook(panel, "OnRemove", function() ImGui_ImplGMOD_Shutdown(); end)
     end
 end
 
@@ -851,7 +850,7 @@ local function CreateEngineResource(bd, backend_tex, tex)
     return rt
 end
 
--- Uses RLE to reduce calls of `surface.DrawRect()` in most cases, since we don't have efficient ITexture pixel upload APIs yet.
+-- Uses RLE to reduce render calls in most cases, since we don't have efficient ITexture pixel upload APIs yet.
 --- @param tex     ImTextureData
 --- @param start_x int
 --- @param start_y int
@@ -946,21 +945,16 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 
         render.PushRenderTarget(backend_tex.RenderTarget)
 
-        local update_x, update_y, update_w, update_h = tex.UpdateRect.x, tex.UpdateRect.y, tex.UpdateRect.w, tex.UpdateRect.h
         render.OverrideAlphaWriteEnable(true, true)
         render.ClearDepth()
 
         cam.Start2D()
-
-        render.SetScissorRect(update_x, update_y, update_x + update_w, update_y + update_h, true)
 
         for _, r in tex.Updates:iter() do
             for y = r.y, r.y + r.h - 1 do
                 UploadPixelDataRowToTexture(tex, r.x, y, r.w)
             end
         end
-
-        render.SetScissorRect(0, 0, 0, 0, false)
 
         cam.End2D()
 
