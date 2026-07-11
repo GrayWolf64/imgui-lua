@@ -301,12 +301,12 @@ local function stbtt__bitmap()
 end
 
 --- @class stbtt__point
---- @field [1] number
---- @field [2] number
+--- @field x number
+--- @field y number
 
 --- @return stbtt__point
 --- @nodiscard
-local function stbtt__point() return { nil, nil } end
+local function stbtt__point() return { x = nil, y = nil } end
 
 ----------------------------------------------
 ----------------------------------------------
@@ -2019,29 +2019,29 @@ local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y,
             local a = k
             local b = j
             -- skip the edge if horizontal
-            if pts[p + j][2] == pts[p + k][2] then
+            if pts[p + j].y == pts[p + k].y then
                 goto inner_continue
             end
             -- add edge from j to k to the list
             n = n + 1
             e[n].invert = false
             if invert then
-                if pts[p + j][2] > pts[p + k][2] then
+                if pts[p + j].y > pts[p + k].y then
                     e[n].invert = true
                     a = j
                     b = k
                 end
             else
-                if pts[p + j][2] < pts[p + k][2] then
+                if pts[p + j].y < pts[p + k].y then
                     e[n].invert = true
                     a = j
                     b = k
                 end
             end
-            e[n].x0 = pts[p + a][1] * scale_x + shift_x
-            e[n].y0 = (pts[p + a][2] * y_scale_inv + shift_y) * vsubsample
-            e[n].x1 = pts[p + b][1] * scale_x + shift_x
-            e[n].y1 = (pts[p + b][2] * y_scale_inv + shift_y) * vsubsample
+            e[n].x0 = pts[p + a].x * scale_x + shift_x
+            e[n].y0 = (pts[p + a].y * y_scale_inv + shift_y) * vsubsample
+            e[n].x1 = pts[p + b].x * scale_x + shift_x
+            e[n].y1 = (pts[p + b].y * y_scale_inv + shift_y) * vsubsample
 
             :: inner_continue ::
             j = k
@@ -2061,8 +2061,8 @@ end
 --- @param y       float
 local function stbtt__add_point(points, n, x, y)
     if points == nil then return end -- during first pass, it's unallocated
-    points[n + 1][1] = x
-    points[n + 1][2] = y
+    points[n + 1].x = x
+    points[n + 1].y = y
 end
 
 -- tessellate until threshold p is happy... @TODO warped to compensate for non-linear stretching
