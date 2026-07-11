@@ -20,9 +20,8 @@ local function VGUI_GetClientAreaOffset(panel)
     return panel:GetDockPadding()
 end
 
-local cam     = cam
-local render  = render
-local mesh    = mesh
+local render = render
+local mesh   = mesh
 
 local GMOD_StartTextInput
 local GMOD_StopTextInput
@@ -922,13 +921,9 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         render.ClearDepth()
         render.Clear(0, 0, 0, 0)
 
-        cam.Start2D()
-
         for y = 0, tex.Height - 1 do
             UploadPixelDataRowToTexture(tex, 0, y, tex.Width)
         end
-
-        cam.End2D()
 
         render.OverrideAlphaWriteEnable(false, false)
 
@@ -947,15 +942,11 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
         render.OverrideAlphaWriteEnable(true, true)
         render.ClearDepth()
 
-        cam.Start2D()
-
         for _, r in tex.Updates:iter() do
             for y = r.y, r.y + r.h - 1 do
                 UploadPixelDataRowToTexture(tex, r.x, y, r.w)
             end
         end
-
-        cam.End2D()
 
         render.OverrideAlphaWriteEnable(false, false)
         render.PopRenderTarget()
