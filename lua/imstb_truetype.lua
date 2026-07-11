@@ -1998,21 +1998,18 @@ end
 --- @param invert   bool
 local function stbtt__rasterize(result, pts, wcount, windings, scale_x, scale_y, shift_x, shift_y, off_x, off_y, invert)
     local y_scale_inv = (invert) and -scale_y or scale_y
-    local e
-    local n, m
-
     local vsubsample = 1 -- STBTT_RASTERIZER_VERSION == 2
 
     -- now we have to blow out the windings into explicit edge lists
-    n = 0
+    local n = 0
     for i = 1, windings do
         n = n + wcount[i]
     end
 
-    e = {} for i = 1, n + 1 do e[i] = stbtt__edge() end -- add an extra one as a sentinel
+    local e = {} for i = 1, n + 1 do e[i] = stbtt__edge() end -- add an extra one as a sentinel
     n = 0
 
-    m = 0
+    local m = 0
     local j
     for i = 1, windings do
         local p = m
