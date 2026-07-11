@@ -258,6 +258,8 @@ function MT.ImGuiStyle:ScaleAllSizes(scale_factor)
     self.TabBarOverlineSize       = ImTrunc(self.TabBarOverlineSize * scale_factor)
     self.TreeLinesSize            = ImTrunc(self.TreeLinesSize * scale_factor)
     self.TreeLinesRounding        = ImTrunc(self.TreeLinesRounding * scale_factor)
+    self.MenuItemRounding         = ImTrunc(self.MenuItemRounding * scale_factor)
+    self.SelectableRounding       = ImTrunc(self.SelectableRounding * scale_factor)
     self.DragDropTargetRounding   = ImTrunc(self.DragDropTargetRounding * scale_factor)
     self.DragDropTargetBorderSize = ImTrunc(self.DragDropTargetBorderSize * scale_factor)
     self.DragDropTargetPadding    = ImTrunc(self.DragDropTargetPadding * scale_factor)
@@ -917,7 +919,8 @@ function ImGui.DestroyContext(ctx)
         ctx = prev_ctx
     end
     ImGui.SetCurrentContext(ctx)
-    -- TODO:
+    ImGui.Shutdown()
+    ImGui.SetCurrentContext((prev_ctx ~= ctx) and prev_ctx or nil)
 end
 
 --- @param window ImGuiWindow
@@ -2453,7 +2456,22 @@ end
 
 --- @param focused bool
 function MT.ImGuiIO:AddFocusEvent(focused)
-    -- TODO:
+    IM_ASSERT(self.Ctx ~= nil)
+    local g = self.Ctx
+
+    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Focus)
+    local latest_focused = latest_event and latest_event.AppFocused.Focused or (not g.IO.AppFocusLost)
+    if latest_focused == focused or (self.ConfigDebugIgnoreFocusLoss and not focused) then
+        return
+    end
+
+    local e = ImGuiInputEvent()
+    e.Type = ImGuiInputEventType.Focus
+    e.EventId = g.InputEventsNextEventId
+    g.InputEventsNextEventId = g.InputEventsNextEventId + 1
+    e.AppFocused = ImGuiInputEventAppFocused()
+    e.AppFocused.Focused = focused
+    g.InputEventsQueue:push_back(e)
 end
 
 --- @param x float
@@ -3922,7 +3940,7 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_
     --     ImGui.LogRenderedText(&pos_min, text, text_display_end);
 end
 
-function ImGui.RenderNavCursor(bb, id, flags)
+function ImGui.RenderNavCursor(bb, id, flags, rounding)
     -- TODO:
 end
 
@@ -4414,6 +4432,11 @@ local function SetCurrentWindow(window)
     end
 end
 
+function ImGui.GetWindowWidth()
+    local window = GImGui.CurrentWindow
+    return window.Size.x
+end
+
 --- @param window ImGuiWindow
 --- @param pos    ImVec2
 --- @param cond?  ImGuiCond
@@ -4546,6 +4569,10 @@ end
 function ImGui.GetWindowDrawList()
     local window = ImGui.GetCurrentWindow()
     return window.DrawList
+end
+
+function ImGui.GetFont()
+    return GImGui.Font
 end
 
 function ImGui.GetFontSize()
@@ -6393,6 +6420,12 @@ local function InitViewportDrawData(viewport)
     draw_data.Textures         = ImGui.GetPlatformIO().Textures
 end
 
+-- FIXME-DPI:
+function ImGui.GetScale()
+    local g = GImGui
+    return g.Style._MainScale
+end
+
 --- @return ImGuiWindow
 function ImGui.GetCurrentWindowRead()
     local g = GImGui
@@ -6631,6 +6664,11 @@ function ImGui.NewFrame()
     if g.ActiveId then
         g.ActiveIdTimer = g.ActiveIdTimer + g.IO.DeltaTime
     end
+    if g.ActiveId and g.ActiveId == g.LastActiveId then
+        g.LastActiveIdWasSelected = g.ActiveIdWasSelected
+        g.LastActiveIdWasSoleSelected = g.ActiveIdWasSoleSelected
+    end
+
     g.LastActiveIdTimer = g.LastActiveIdTimer + g.IO.DeltaTime
     g.ActiveIdPreviousFrame = g.ActiveId
     g.ActiveIdIsAlive = 0
@@ -6926,6 +6964,21 @@ function ImGui.Shutdown()
         -- IM_UNUSED(viewport)
         IM_ASSERT_USER_ERROR(viewport.RendererUserData == nil and viewport.PlatformUserData == nil and viewport.PlatformHandle == nil, "Backend or app forgot to call DestroyPlatformWindows()?")
     end
+
+    for _, atlas in g.FontAtlases:iter() do
+        ImGui.UnregisterFontAtlas(atlas)
+        if atlas.OwnerContext == g then
+            IM_ASSERT(atlas.RefCount == 0, "Destroying context owning a ImFontAtlas which is still used elsewhere!")
+            if atlas.RefCount == 0 then
+                atlas.Locked = false
+            end
+        end
+    end
+    g.DrawListSharedData.TempBuffer:clear()
+
+    if not g.Initialized then
+        return
+    end
     -- TODO:
 
     g.MenusIdSubmittedThisFrame:clear()
@@ -7188,6 +7241,8 @@ local GStyleVarsInfo = {
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "TableAngledHeadersTextAlign"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesSize"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "TreeLinesRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "MenuItemRounding"),
+    ImGuiStyleVarInfo(1, ImGuiDataType.Float, "SelectableRounding"),
     ImGuiStyleVarInfo(1, ImGuiDataType.Float, "DragDropTargetRounding"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "ButtonTextAlign"),
     ImGuiStyleVarInfo(2, ImGuiDataType.Float, "SelectableTextAlign"),
@@ -8169,6 +8224,10 @@ function ImGui.SetNavFocusScope(focus_scope_id)
         window = window.ParentWindowForFocusRoute
     end
     IM_ASSERT(g.NavFocusRoute.Size < 100)
+end
+
+-- TODO:
+function ImGui.SetItemDefaultFocus()
 end
 
 function ImGui.SetNavCursorVisibleAfterMove()

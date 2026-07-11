@@ -703,6 +703,7 @@ MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
 
 function MT.ImFont:IsLoaded() return self.OwnerAtlas ~= nil end
+function MT.ImFont:GetDebugName() if self.Sources.Size > 0 then return self.Sources[1].Name else return "<unknown>" end end
 
 --- @return ImFont
 --- @nodiscard
@@ -992,10 +993,14 @@ function ImGuiIO()
 
         MouseWheelRequestAxisSwap = false,
 
+        ConfigColorEditFlags = ImGuiColorEditFlags.DefaultOptions_,
+
         ConfigMacOSXBehaviors = false,
         ConfigNavCursorVisibleAuto = true,
         ConfigInputTrickleEventQueue = true,
         ConfigWindowsResizeFromEdges = true,
+
+        ConfigDebugIniSettings = false,
 
         ConfigViewportsNoAutoMerge = false,
         ConfigViewportsNoTaskBarIcon = false,
@@ -1496,13 +1501,15 @@ ImGuiStyleVar = {
     TableAngledHeadersTextAlign = 32,
     TreeLinesSize               = 33,
     TreeLinesRounding           = 34,
-    DragDropTargetRounding      = 35,
-    ButtonTextAlign             = 36,
-    SelectableTextAlign         = 37,
-    SeparatorTextBorderSize     = 38,
-    SeparatorTextAlign          = 39,
-    SeparatorTextPadding        = 40,
-    COUNT                       = 41
+    MenuItemRounding            = 35,
+    SelectableRounding          = 36,
+    DragDropTargetRounding      = 37,
+    ButtonTextAlign             = 38,
+    SelectableTextAlign         = 39,
+    SeparatorTextBorderSize     = 40,
+    SeparatorTextAlign          = 41,
+    SeparatorTextPadding        = 42,
+    COUNT                       = 43
 }
 
 --- @enum ImGuiHoveredFlags
@@ -1834,7 +1841,6 @@ ImGuiSelectableFlags = {
     NoSetKeyOwner        = bit.lshift(1, 27),
 }
 
--- Flags for ColorEdit3() / ColorEdit4() / ColorPicker3() / ColorPicker4() / ColorButton()
 --- @enum ImGuiColorEditFlags
 ImGuiColorEditFlags = {
     None           = 0,
@@ -1865,8 +1871,9 @@ ImGuiColorEditFlags = {
     Float          = bit.lshift(1, 24),
     PickerHueBar   = bit.lshift(1, 25),
     PickerHueWheel = bit.lshift(1, 26),
-    InputRGB       = bit.lshift(1, 27),
-    InputHSV       = bit.lshift(1, 28)
+    PickerNoRotate = bit.lshift(1, 27),
+    InputRGB       = bit.lshift(1, 28),
+    InputHSV       = bit.lshift(1, 29)
 }
 
 ImGuiColorEditFlags.DefaultOptions_ = bit.bor(ImGuiColorEditFlags.Uint8, ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.InputRGB, ImGuiColorEditFlags.PickerHueBar)

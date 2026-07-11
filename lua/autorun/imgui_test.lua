@@ -120,7 +120,13 @@ else
             end
         end
 
+        local function on_removal()
+            ImGui_ImplGMOD.Shutdown()
+            ImGui.DestroyContext()
+        end
+
         ImGui_ImplGMOD.VGUI_Hook(viewport, "Think", main_logic)
         ImGui_ImplGMOD.VGUI_Hook(viewport, "PaintOver", main_render)
+        ImGui_ImplGMOD.VGUI_Hook(viewport, "OnRemove", on_removal)
     end)
 end

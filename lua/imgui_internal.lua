@@ -1208,6 +1208,8 @@ function ImGuiStyle()
         TreeLinesFlags = ImGuiTreeNodeFlags.DrawLinesNone,
         TreeLinesSize  = 1.0,
         TreeLinesRounding = 0.0,
+        MenuItemRounding = 0.0,
+        SelectableRounding = 0.0,
 
         ColorMarkerSize = 3.0,
         ColorButtonPosition = ImGuiDir.Right,
@@ -1545,11 +1547,11 @@ end
 --- @field OpenPopupStack                     ImVector<ImGuiPopupData>
 --- @field BeginPopupStack                    ImVector<ImGuiPopupData>
 --- @field TreeNodeStack                      ImVector<ImGuiTreeNodeStackData>
+--- @field IO                                 ImGuiIO
 --- @field PlatformIO                         ImGuiPlatformIO
 --- @field Viewports                          ImVector<ImGuiViewportP>
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
 --- @field DebugFlashStyleColorIdx            ImGuiCol
---- @field ColorEditOptions                   ImGuiColorEditFlags            # Store user options for color edit widgets
 --- @field ColorEditCurrentID                 ImGuiID                        # Set temporarily while inside of the parent-most ColorEdit4/ColorPicker4 (because they call each others)
 --- @field ColorEditSavedID                   ImGuiID                        # ID we are saving/restoring HS for
 --- @field ColorEditSavedHue                  float                          # Backup of last Hue associated to LastColor, so we can restore Hue in lossy RGB<>HSV round trips
@@ -1637,6 +1639,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         ActiveIdMouseButton = -1,
 
         ActiveIdIsJustActivated = false,
+
+        ActiveIdWasSelected = false, ActiveIdWasSoleSelected = false,
+        LastActiveIdWasSelected = false, LastActiveIdWasSoleSelected = false,
 
         ActiveIdNoClearOnFocusLoss = false,
         ActiveIdHasBeenPressedBefore = false,
@@ -1735,7 +1740,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         WithinEndChildID = 0, WithinEndPopupID = 0,
 
         BeginMenuDepth = 0, BeginComboDepth = 0,
-        ColorEditOptions = ImGuiColorEditFlags.DefaultOptions_,
+
         ColorEditCurrentID = 0, ColorEditSavedID = 0,
         ColorEditSavedHue = 0.0, ColorEditSavedSat = 0.0,
         ColorEditSavedColor = 0,
@@ -2680,7 +2685,6 @@ ImGuiNavRenderCursorFlags = {
     None       = 0,
     Compact    = bit.lshift(1, 1), -- Compact highlight, no padding/distance from focused item
     AlwaysDraw = bit.lshift(1, 2), -- Draw rectangular highlight if (g.NavId == id) even when g.NavCursorVisible == false, aka even when using the mouse
-    NoRounding = bit.lshift(1, 3),
 }
 
 --- @enum ImGuiDebugLogFlags

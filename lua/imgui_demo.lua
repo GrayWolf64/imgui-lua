@@ -18,6 +18,8 @@ local function ImGuiDemoWindowData()
     return {
         ShowAppImageViewer = false,
         ShowAppFullscreen = false,
+
+        ShowStyleEditor = false,
     }
 end
 
@@ -144,6 +146,11 @@ local function DemoWindowMenuBar(demo_data)
         if ImGui.BeginMenu("Examples") then
             ImGui.SeparatorText("Concepts")
             _, demo_data.ShowAppFullscreen = ImGui.MenuItem("Fullscreen window", nil, demo_data.ShowAppFullscreen)
+
+            ImGui.EndMenu()
+        end
+        if ImGui.BeginMenu("Tools") then
+            _, demo_data.ShowStyleEditor = ImGui.MenuItem("Style Editor", nil, demo_data.ShowStyleEditor)
 
             ImGui.EndMenu()
         end
@@ -350,9 +357,13 @@ function DemoWindowWidgetsColorAndPickers()
         ImGui.Text("Color widget HSV with Alpha:")
         ImGui.ColorEdit4("MyColor##2", color, bit.bor(ImGuiColorEditFlags.DisplayHSV, base_flags))
 
+        ImGui.Text("Color widget with Float Display:")
+        ImGui.ColorEdit4("MyColor##2f", color, bit.bor(ImGuiColorEditFlags.Float, base_flags))
+
+        ImGui.Text("Color button with Picker:")
+        ImGui.ColorEdit4("MyColor##3", color, bit.bor(ImGuiColorEditFlags.NoInputs, ImGuiColorEditFlags.NoLabel, base_flags))
+
         -- TODO:
-        -- ImGui.Text("Color widget with Float Display:")
-        -- ImGui.ColorEdit4("MyColor##2f", color, bit.bor(ImGuiColorEditFlags.Float, base_flags))
 
         ImGui.SeparatorText("Color picker")
 
@@ -369,6 +380,7 @@ function DemoWindowWidgetsColorAndPickers()
                 ImGui.ColorEdit4("##RefColor", ref_color_v, bit.bor(ImGuiColorEditFlags.NoInputs, base_flags))
             end
         end
+        _, color_picker_flags = ImGui.CheckboxFlags("ImGuiColorEditFlags.PickerNoRotate", color_picker_flags, ImGuiColorEditFlags.PickerNoRotate)
 
         if ImGui.BeginCombo("Picker Mode", picker_mode_names[picker_mode + 1], ImGuiComboFlags.None) then
             for mode_idx, mode_name in ipairs(picker_mode_names) do
@@ -693,6 +705,120 @@ local function DemoWindowInputs()
 
 end
 
+do
+
+local static = {}
+
+local style_idx = -1
+local style_names = { "Dark", "Light", "Classic" }
+
+--- @param label string
+function ImGui.ShowStyleSelector(label)
+    local ret = false
+    if ImGui.BeginCombo(label, (style_idx >= 1 and style_idx <= #style_names) and style_names[style_idx] or "") then
+        for n = 1, #style_names do
+            if ImGui.Selectable(style_names[n], style_idx == n, ImGuiSelectableFlags.SelectOnNav) then
+                style_idx = n
+                ret = true
+
+                if style_idx == 1 then ImGui.StyleColorsDark() end
+                if style_idx == 2 then ImGui.StyleColorsLight() end
+                if style_idx == 3 then ImGui.StyleColorsClassic() end
+
+            elseif style_idx == n then
+                ImGui.SetItemDefaultFocus()
+            end
+        end
+        ImGui.EndCombo()
+    end
+    return ret
+end
+
+--- @param label string
+function ImGui.ShowFontSelector(label)
+    local io = ImGui.GetIO()
+    local font_current = ImGui.GetFont()
+    if ImGui.BeginCombo(label, font_current:GetDebugName()) then
+        for _, font in io.Fonts.Fonts:iter() do
+            ImGui.PushID(tostring(font):match("0x%x+")) -- (void*)font
+            if ImGui.Selectable(font:GetDebugName(), font == font_current, ImGuiSelectableFlags.SelectOnNav) then
+                io.FontDefault = font
+            end
+            if font == font_current then
+                ImGui.SetItemDefaultFocus()
+            end
+            ImGui.PopID()
+        end
+        ImGui.EndCombo()
+    end
+end
+
+--- @param ref ImGuiStyle?
+function ImGui.ShowStyleEditor(ref)
+    local style = ImGui.GetStyle()
+
+    local default_border_size = ImTrunc(style._MainScale)
+    local max_border_size = ImMax(default_border_size, 2.0)
+
+    ImGui.PushItemWidth(ImGui.GetWindowWidth() * 0.50)
+
+    ImGui.SeparatorText("General")
+    do
+        if ImGui.ShowStyleSelector("Colors##Selector") then
+            -- TODO:
+        end
+        ImGui.ShowFontSelector("Fonts##Selector")
+
+        local ret0
+        style.FontSizeBase, ret0 = ImGui.DragFloat("FontSizeBase", style.FontSizeBase, 0.20, 5.0, 100.0, "%.0f")
+        if ret0 then
+            style._NextFrameFontSizeBase = style.FontSizeBase -- FIXME: Temporary hack until we finish remaining work.
+        end
+        ImGui.SameLine(0.0, 0.0); ImGui.Text(" (out %.2f)", ImGui.GetFontSize())
+
+        style.FontScaleMain = ImGui.DragFloat("FontScaleMain", style.FontScaleMain, 0.02, 0.5, 4.0)
+
+        ImGui.BeginDisabled(ImGui.GetIO().ConfigDpiScaleFonts)
+            style.FontScaleDpi = ImGui.DragFloat("FontScaleDpi", style.FontScaleDpi, 0.02, 0.5, 4.0)
+            ImGui.SetItemTooltip("When io.ConfigDpiScaleFonts is set, this value is automatically overwritten.")
+        ImGui.EndDisabled()
+
+        local ret1
+        style.FrameRounding, ret1 = ImGui.SliderFloat("FrameRounding", style.FrameRounding, 0.0, 12.0, "%.0f")
+        if ret1 then
+            style.GrabRounding = style.FrameRounding -- Make GrabRounding always the same value as FrameRounding
+        end
+
+        do
+            local border = (style.WindowBorderSize > 0.0)
+            local pressed
+            pressed, border = ImGui.Checkbox("WindowBorder", border)
+            if pressed then style.WindowBorderSize = (border and default_border_size or 0.0) end
+        end
+        ImGui.SameLine()
+        do
+            local border = (style.FrameBorderSize > 0.0)
+            local pressed
+            pressed, border = ImGui.Checkbox("FrameBorder", border)
+            if pressed then style.FrameBorderSize = (border and default_border_size or 0.0) end
+        end
+        ImGui.SameLine()
+        do
+            local border = (style.PopupBorderSize > 0.0)
+            local pressed
+            pressed, border = ImGui.Checkbox("PopupBorder", border)
+            if pressed then style.PopupBorderSize = (border and default_border_size or 0.0) end
+        end
+    end
+
+    ImGui.SeparatorText("Details")
+    -- TODO:
+
+    ImGui.PopItemWidth()
+end
+
+end
+
 local function ShowExampleAppImageViewer()
     -- TODO:
 end
@@ -751,6 +877,12 @@ local unsaved_document  = false
 
 function ImGui.ShowDemoWindow(open)
     if demo_data.ShowAppFullscreen then demo_data.ShowAppFullscreen = ShowExampleAppFullscreen(demo_data.ShowAppFullscreen) end
+
+    if demo_data.ShowStyleEditor then
+        demo_data.ShowStyleEditor = ImGui.Begin("ImGui Sincerely Style Editor", demo_data.ShowStyleEditor)
+        ImGui.ShowStyleEditor()
+        ImGui.End()
+    end
 
     local window_flags = 0
     if no_titlebar       then window_flags = bit.bor(window_flags, ImGuiWindowFlags.NoTitleBar) end

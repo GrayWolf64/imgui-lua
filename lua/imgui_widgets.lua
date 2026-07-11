@@ -1121,13 +1121,13 @@ function ImGui.Checkbox(label, v)
 
     local checked = v
     if is_multi_select then
-        -- TODO: MultiSelectItemHeader(id, &checked, NULL)
+        -- TODO: MultiSelectItemHeader()
     end
 
     local pressed, hovered, held = ImGui.ButtonBehavior(total_bb, id)
 
     if is_multi_select then
-        -- MultiSelectItemFooter(id, &checked, &pressed);
+        -- TODO: MultiSelectItemFooter()
     elseif pressed then
         checked = not checked
     end
@@ -5555,18 +5555,18 @@ function ImGui.ColorEdit4(label, col, flags)
 
     -- Read stored options
     if bit.band(flags, ImGuiColorEditFlags.DisplayMask_) == 0 then
-        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.DisplayMask_))
+        flags = bit.bor(flags, bit.band(g.IO.ConfigColorEditFlags, ImGuiColorEditFlags.DisplayMask_))
     end
     if bit.band(flags, ImGuiColorEditFlags.DataTypeMask_) == 0 then
-        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.DataTypeMask_))
+        flags = bit.bor(flags, bit.band(g.IO.ConfigColorEditFlags, ImGuiColorEditFlags.DataTypeMask_))
     end
     if bit.band(flags, ImGuiColorEditFlags.PickerMask_) == 0 then
-        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.PickerMask_))
+        flags = bit.bor(flags, bit.band(g.IO.ConfigColorEditFlags, ImGuiColorEditFlags.PickerMask_))
     end
     if bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
-        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.InputMask_))
+        flags = bit.bor(flags, bit.band(g.IO.ConfigColorEditFlags, ImGuiColorEditFlags.InputMask_))
     end
-    flags = bit.bor(flags, bit.band(g.ColorEditOptions, bit.bnot(bit.bor(ImGuiColorEditFlags.DisplayMask_, ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.PickerMask_, ImGuiColorEditFlags.InputMask_))))
+    flags = bit.bor(flags, bit.band(g.IO.ConfigColorEditFlags, bit.bnot(bit.bor(ImGuiColorEditFlags.DisplayMask_, ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.PickerMask_, ImGuiColorEditFlags.InputMask_))))
     IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.DisplayMask_))) -- Check that only 1 is selected
     IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.InputMask_)))   -- Check that only 1 is selected
 
@@ -5831,7 +5831,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
 
     -- Read stored options
     if bit.band(flags, ImGuiColorEditFlags.PickerMask_) == 0 then
-        local picker_flags = bit.band(g.ColorEditOptions, ImGuiColorEditFlags.PickerMask_)
+        local picker_flags = bit.band(g.IO.ConfigColorEditFlags, ImGuiColorEditFlags.PickerMask_)
         if picker_flags ~= 0 then
             flags = bit.bor(flags, picker_flags)
         else
@@ -5839,7 +5839,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
         end
     end
     if bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
-        local input_flags = bit.band(g.ColorEditOptions, ImGuiColorEditFlags.InputMask_)
+        local input_flags = bit.band(g.IO.ConfigColorEditFlags, ImGuiColorEditFlags.InputMask_)
         if input_flags ~= 0 then
             flags = bit.bor(flags, input_flags)
         else
@@ -5849,7 +5849,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.PickerMask_))) -- Check that only 1 is selected
     IM_ASSERT(ImIsPowerOfTwo(bit.band(flags, ImGuiColorEditFlags.InputMask_)))  -- Check that only 1 is selected
     if bit.band(flags, ImGuiColorEditFlags.NoOptions) == 0 then
-        flags = bit.bor(flags, bit.band(g.ColorEditOptions, ImGuiColorEditFlags.AlphaBar))
+        flags = bit.bor(flags, bit.band(g.IO.ConfigColorEditFlags, ImGuiColorEditFlags.AlphaBar))
     end
 
     -- Setup
@@ -5872,10 +5872,12 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     local wheel_center = ImVec2(picker_pos.x + (sv_picker_size + bars_width) * 0.5, picker_pos.y + sv_picker_size * 0.5)
 
     -- Note: the triangle is displayed rotated with triangle_pa pointing to Hue, but most coordinates stays unrotated for logic.
+    local triangle_rotate = bit.band(flags, ImGuiColorEditFlags.PickerNoRotate) == 0
     local triangle_r = wheel_r_inner - math.floor(sv_picker_size * 0.027)
-    local triangle_pa = ImVec2(triangle_r, 0.0)  -- Hue point.
-    local triangle_pb = ImVec2(triangle_r * -0.5, triangle_r * -0.866025) -- Black point
-    local triangle_pc = ImVec2(triangle_r * -0.5, triangle_r *  0.866025) -- White point
+    local triangle_pa, triangle_pb, triangle_pc
+    if triangle_rotate then triangle_pa = ImVec2(       triangle_r,                 0.0) else triangle_pa = ImVec2( triangle_r * 0.866, triangle_r * 0.5) end -- Hue point
+    if triangle_rotate then triangle_pb = ImVec2(triangle_r * -0.5, triangle_r * -0.866) else triangle_pb = ImVec2(                0.0,      -triangle_r) end -- Black point
+    if triangle_rotate then triangle_pc = ImVec2(triangle_r * -0.5, triangle_r *  0.866) else triangle_pc = ImVec2(triangle_r * -0.866, triangle_r * 0.5) end -- White point
 
     local H = col[1]; local S = col[2]; local V = col[3]
     local R = col[1]; local G = col[2]; local B = col[3]
@@ -5908,8 +5910,9 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
                 value_changed_h = true
             end
 
-            local cos_hue_angle = ImCos(-H * 2.0 * IM_PI)
-            local sin_hue_angle = ImSin(-H * 2.0 * IM_PI)
+            local cos_hue_angle = triangle_rotate and ImCos(-H * 2.0 * IM_PI) or 1.0
+            local sin_hue_angle = triangle_rotate and ImSin(-H * 2.0 * IM_PI) or 0.0
+
             if ImStd.ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, ImRotate(initial_off, cos_hue_angle, sin_hue_angle)) then
                 -- Interacting with SV triangle
                 local current_off_unrotated = ImRotate(current_off, cos_hue_angle, sin_hue_angle)
@@ -6127,6 +6130,11 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
         draw_list:AddCircleFilled(hue_cursor_pos, hue_cursor_rad, hue_color32, hue_cursor_segments)
         draw_list:AddCircle(hue_cursor_pos, hue_cursor_rad + 1, col_midgrey, hue_cursor_segments)
         draw_list:AddCircle(hue_cursor_pos, hue_cursor_rad, col_white, hue_cursor_segments)
+
+        if triangle_rotate == false then
+            cos_hue_angle = 1.0
+            sin_hue_angle = 0.0
+        end
 
         -- Render SV triangle (rotated according to hue)
         local tra = wheel_center + ImRotate(triangle_pa, cos_hue_angle, sin_hue_angle)
@@ -6354,7 +6362,7 @@ function ImGui.ColorEditOptionsPopup(col, flags)
 
     local g = GImGui
     ImGui.PushItemFlag(ImGuiItemFlags.NoMarkEdited, true)
-    local opts = g.ColorEditOptions
+    local opts = g.IO.ConfigColorEditFlags
     if allow_opt_inputs then
         if ImGui.RadioButtonEx("RGB", bit.band(opts, ImGuiColorEditFlags.DisplayRGB) ~= 0) then
             opts = bit.bor(bit.band(opts, bit.bnot(ImGuiColorEditFlags.DisplayMask_)), ImGuiColorEditFlags.DisplayRGB)
@@ -6413,7 +6421,7 @@ function ImGui.ColorEditOptionsPopup(col, flags)
         ImGui.EndPopup()
     end
 
-    g.ColorEditOptions = opts
+    g.IO.ConfigColorEditFlags = opts
     ImGui.PopItemFlag()
     ImGui.EndPopup()
 end
@@ -6448,7 +6456,7 @@ function ImGui.ColorPickerOptionsPopup(ref_col, flags)
             local backup_pos = ImGui.GetCursorScreenPos()
             -- By default, Selectable() is closing popup
             if ImGui.Selectable("##selectable", false, 0, picker_size) then
-                g.ColorEditOptions = bit.bor(bit.band(g.ColorEditOptions, bit.bnot(ImGuiColorEditFlags.PickerMask_)), bit.band(picker_flags, ImGuiColorEditFlags.PickerMask_))
+                g.IO.ConfigColorEditFlags = bit.bor(bit.band(g.IO.ConfigColorEditFlags, bit.bnot(ImGuiColorEditFlags.PickerMask_)), bit.band(picker_flags, ImGuiColorEditFlags.PickerMask_))
             end
             ImGui.SetCursorScreenPos(backup_pos)
             local previewing_ref_col = ImVec4()
@@ -6464,7 +6472,7 @@ function ImGui.ColorPickerOptionsPopup(ref_col, flags)
         if allow_opt_picker then
             ImGui.Separator()
         end
-        _, g.ColorEditOptions = ImGui.CheckboxFlags("Alpha Bar", g.ColorEditOptions, ImGuiColorEditFlags.AlphaBar)
+        _, g.IO.ConfigColorEditFlags = ImGui.CheckboxFlags("Alpha Bar", g.IO.ConfigColorEditFlags, ImGuiColorEditFlags.AlphaBar)
     end
     ImGui.PopItemFlag()
     ImGui.EndPopup()
@@ -6795,7 +6803,7 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
                 local bg_col = ImGui.GetColorU32((held and hovered) and ImGuiCol.HeaderActive or (hovered and ImGuiCol.HeaderHovered or ImGuiCol.Header))
                 ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, bg_col, false, 0.0)
             end
-            ImGui.RenderNavCursor(frame_bb, id, bit.bor(nav_render_cursor_flags, ImGuiNavRenderCursorFlags.NoRounding))
+            ImGui.RenderNavCursor(frame_bb, id, nav_render_cursor_flags, 0.0)
             if span_all_columns and not span_all_columns_label then
                 ImGui.TablePopBackgroundChannel()
             end
@@ -7060,6 +7068,10 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     if selected ~= was_selected then
         g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledSelection)
     end
+    if g.ActiveId == id and g.ActiveIdIsJustActivated then
+        g.ActiveIdWasSelected = was_selected
+        g.ActiveIdWasSoleSelected = was_selected and (not is_multi_select or g.CurrentMultiSelect.IsSoleOrUnknownSelectionSize)
+    end
 
     -- Render
     if is_visible then
@@ -7075,15 +7087,15 @@ function ImGui.Selectable(label, selected, flags, size_arg)
             else
                 col = ImGui.GetColorU32(ImGuiCol.Header)
             end
-            ImGui.RenderFrame(bb.Min, bb.Max, col, false, 0.0)
+            ImGui.RenderFrame(bb.Min, bb.Max, col, false, style.SelectableRounding)
         end
 
         if g.NavId == id then
-            local nav_render_cursor_flags = bit.bor(ImGuiNavRenderCursorFlags.Compact, ImGuiNavRenderCursorFlags.NoRounding)
+            local nav_render_cursor_flags = ImGuiNavRenderCursorFlags.Compact
             if is_multi_select then
                 nav_render_cursor_flags = bit.bor(nav_render_cursor_flags, ImGuiNavRenderCursorFlags.AlwaysDraw) -- Always show the nav rectangle
             end
-            ImGui.RenderNavCursor(bb, id, nav_render_cursor_flags)
+            ImGui.RenderNavCursor(bb, id, nav_render_cursor_flags, style.SelectableRounding)
         end
     end
 
@@ -7506,7 +7518,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
 
     local menuset_is_open = IsRootOfOpenMenuSet()
     if menuset_is_open then
-        ImGui.PushItemFlag(ImGuiItemFlags.NoWindowHoverableCheck, true)
+        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.NoWindowHoverableCheck)
     end
 
     local popup_pos
@@ -7519,6 +7531,8 @@ function ImGui.BeginMenuEx(label, icon, enabled)
 
     local pressed
 
+    local backup_rounding = style.SelectableRounding
+    style.SelectableRounding = style.MenuItemRounding
     local selectable_flags = bit.bor(ImGuiSelectableFlags.SelectOnClick, ImGuiSelectableFlags.NoAutoClosePopups)
     local offsets = window.DC.MenuColumns
     if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
@@ -7548,6 +7562,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x + offsets.OffsetMark + extra_w + g.FontSize * 0.30, text_pos.y), ImGui.GetColorU32(ImGuiCol.Text), ImGuiDir.Right)
         popup_pos = ImVec2(pos.x, text_pos.y - style.WindowPadding.y)
     end
+    style.SelectableRounding = backup_rounding
 
     if not enabled then
         ImGui.EndDisabled()
@@ -7559,9 +7574,6 @@ function ImGui.BeginMenuEx(label, icon, enabled)
     end
 
     local hovered = g.HoveredId == id and enabled and not g.NavHighlightItemUnderNav
-    if menuset_is_open then
-        ImGui.PopItemFlag()
-    end
 
     local want_open = false
     local want_open_nav_init = false
@@ -7718,7 +7730,7 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
 
     local menuset_is_open = IsRootOfOpenMenuSet()
     if menuset_is_open then
-        ImGui.PushItemFlag(ImGuiItemFlags.NoWindowHoverableCheck, true)
+        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.NoWindowHoverableCheck)
     end
 
     ImGui.PushID(label)
@@ -7728,6 +7740,8 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
 
     local pressed
 
+    local backup_rounding = style.SelectableRounding
+    style.SelectableRounding = style.MenuItemRounding
     local selectable_flags = bit.bor(ImGuiSelectableFlags.SelectOnRelease, ImGuiSelectableFlags.SetNavIdOnHover)
     local offsets = window.DC.MenuColumns
     if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
@@ -7772,6 +7786,7 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
             end
         end
     end
+    style.SelectableRounding = backup_rounding
 
     local id = g.LastItemData.ID
     if g.ActiveId == id and g.HoveredId ~= id and g.ActiveIdSource == ImGuiInputSource.Mouse and ImGui.IsMouseDragging(0) then
@@ -7785,9 +7800,6 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
         ImGui.EndDisabled()
     end
     ImGui.PopID()
-    if menuset_is_open then
-        ImGui.PopItemFlag()
-    end
 
     return pressed
 end
