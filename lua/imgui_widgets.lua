@@ -6241,7 +6241,7 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
         return false
     end
 
-    local pressed, hovered, held = ImGui.ButtonBehavior(bb, id)
+    local pressed, hovered, _ = ImGui.ButtonBehavior(bb, id)
 
     if bit.band(flags, bit.bor(ImGuiColorEditFlags.NoAlpha, ImGuiColorEditFlags.AlphaOpaque)) ~= 0 then
         flags = bit.band(flags, bit.bnot(bit.bor(ImGuiColorEditFlags.AlphaNoBg, ImGuiColorEditFlags.AlphaPreviewHalf)))
@@ -6305,6 +6305,8 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
     if bit.band(flags, ImGuiColorEditFlags.NoTooltip) == 0 and hovered and ImGui.IsItemHovered(ImGuiHoveredFlags.ForTooltip) then
         ImGui.ColorTooltip(desc_id, col, bit.band(flags, bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.AlphaMask_)))
     end
+
+    return pressed
 end
 
 --- @param text? string
