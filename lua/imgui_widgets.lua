@@ -5872,10 +5872,12 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     local wheel_center = ImVec2(picker_pos.x + (sv_picker_size + bars_width) * 0.5, picker_pos.y + sv_picker_size * 0.5)
 
     -- Note: the triangle is displayed rotated with triangle_pa pointing to Hue, but most coordinates stays unrotated for logic.
+    local triangle_rotate = bit.band(flags, ImGuiColorEditFlags.PickerNoRotate) == 0
     local triangle_r = wheel_r_inner - math.floor(sv_picker_size * 0.027)
-    local triangle_pa = ImVec2(triangle_r, 0.0)  -- Hue point.
-    local triangle_pb = ImVec2(triangle_r * -0.5, triangle_r * -0.866025) -- Black point
-    local triangle_pc = ImVec2(triangle_r * -0.5, triangle_r *  0.866025) -- White point
+    local triangle_pa, triangle_pb, triangle_pc
+    if triangle_rotate then triangle_pa = ImVec2(       triangle_r,                 0.0) else triangle_pa = ImVec2( triangle_r * 0.866, triangle_r * 0.5) end -- Hue point
+    if triangle_rotate then triangle_pb = ImVec2(triangle_r * -0.5, triangle_r * -0.866) else triangle_pb = ImVec2(                0.0,      -triangle_r) end -- Black point
+    if triangle_rotate then triangle_pc = ImVec2(triangle_r * -0.5, triangle_r *  0.866) else triangle_pc = ImVec2(triangle_r * -0.866, triangle_r * 0.5) end -- White point
 
     local H = col[1]; local S = col[2]; local V = col[3]
     local R = col[1]; local G = col[2]; local B = col[3]
@@ -5908,8 +5910,9 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
                 value_changed_h = true
             end
 
-            local cos_hue_angle = ImCos(-H * 2.0 * IM_PI)
-            local sin_hue_angle = ImSin(-H * 2.0 * IM_PI)
+            local cos_hue_angle = triangle_rotate and ImCos(-H * 2.0 * IM_PI) or 1.0
+            local sin_hue_angle = triangle_rotate and ImSin(-H * 2.0 * IM_PI) or 0.0
+
             if ImStd.ImTriangleContainsPoint(triangle_pa, triangle_pb, triangle_pc, ImRotate(initial_off, cos_hue_angle, sin_hue_angle)) then
                 -- Interacting with SV triangle
                 local current_off_unrotated = ImRotate(current_off, cos_hue_angle, sin_hue_angle)
@@ -6127,6 +6130,11 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
         draw_list:AddCircleFilled(hue_cursor_pos, hue_cursor_rad, hue_color32, hue_cursor_segments)
         draw_list:AddCircle(hue_cursor_pos, hue_cursor_rad + 1, col_midgrey, hue_cursor_segments)
         draw_list:AddCircle(hue_cursor_pos, hue_cursor_rad, col_white, hue_cursor_segments)
+
+        if triangle_rotate == false then
+            cos_hue_angle = 1.0
+            sin_hue_angle = 0.0
+        end
 
         -- Render SV triangle (rotated according to hue)
         local tra = wheel_center + ImRotate(triangle_pa, cos_hue_angle, sin_hue_angle)
@@ -7059,6 +7067,10 @@ function ImGui.Selectable(label, selected, flags, size_arg)
 
     if selected ~= was_selected then
         g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledSelection)
+    end
+    if g.ActiveId == id and g.ActiveIdIsJustActivated then
+        g.ActiveIdWasSelected = was_selected
+        g.ActiveIdWasSoleSelected = was_selected and (not is_multi_select or g.CurrentMultiSelect.IsSoleOrUnknownSelectionSize)
     end
 
     -- Render

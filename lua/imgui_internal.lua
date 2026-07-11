@@ -1640,6 +1640,9 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         ActiveIdIsJustActivated = false,
 
+        ActiveIdWasSelected = false, ActiveIdWasSoleSelected = false,
+        LastActiveIdWasSelected = false, LastActiveIdWasSoleSelected = false,
+
         ActiveIdNoClearOnFocusLoss = false,
         ActiveIdHasBeenPressedBefore = false,
 

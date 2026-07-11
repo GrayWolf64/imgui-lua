@@ -6664,6 +6664,11 @@ function ImGui.NewFrame()
     if g.ActiveId then
         g.ActiveIdTimer = g.ActiveIdTimer + g.IO.DeltaTime
     end
+    if g.ActiveId and g.ActiveId == g.LastActiveId then
+        g.LastActiveIdWasSelected = g.ActiveIdWasSelected
+        g.LastActiveIdWasSoleSelected = g.ActiveIdWasSoleSelected
+    end
+
     g.LastActiveIdTimer = g.LastActiveIdTimer + g.IO.DeltaTime
     g.ActiveIdPreviousFrame = g.ActiveId
     g.ActiveIdIsAlive = 0

@@ -380,6 +380,7 @@ function DemoWindowWidgetsColorAndPickers()
                 ImGui.ColorEdit4("##RefColor", ref_color_v, bit.bor(ImGuiColorEditFlags.NoInputs, base_flags))
             end
         end
+        _, color_picker_flags = ImGui.CheckboxFlags("ImGuiColorEditFlags.PickerNoRotate", color_picker_flags, ImGuiColorEditFlags.PickerNoRotate)
 
         if ImGui.BeginCombo("Picker Mode", picker_mode_names[picker_mode + 1], ImGuiComboFlags.None) then
             for mode_idx, mode_name in ipairs(picker_mode_names) do

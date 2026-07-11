@@ -1000,6 +1000,8 @@ function ImGuiIO()
         ConfigInputTrickleEventQueue = true,
         ConfigWindowsResizeFromEdges = true,
 
+        ConfigDebugIniSettings = false,
+
         ConfigViewportsNoAutoMerge = false,
         ConfigViewportsNoTaskBarIcon = false,
         ConfigViewportsNoDecoration = true,
@@ -1839,7 +1841,6 @@ ImGuiSelectableFlags = {
     NoSetKeyOwner        = bit.lshift(1, 27),
 }
 
--- Flags for ColorEdit3() / ColorEdit4() / ColorPicker3() / ColorPicker4() / ColorButton()
 --- @enum ImGuiColorEditFlags
 ImGuiColorEditFlags = {
     None           = 0,
@@ -1870,8 +1871,9 @@ ImGuiColorEditFlags = {
     Float          = bit.lshift(1, 24),
     PickerHueBar   = bit.lshift(1, 25),
     PickerHueWheel = bit.lshift(1, 26),
-    InputRGB       = bit.lshift(1, 27),
-    InputHSV       = bit.lshift(1, 28)
+    PickerNoRotate = bit.lshift(1, 27),
+    InputRGB       = bit.lshift(1, 28),
+    InputHSV       = bit.lshift(1, 29)
 }
 
 ImGuiColorEditFlags.DefaultOptions_ = bit.bor(ImGuiColorEditFlags.Uint8, ImGuiColorEditFlags.DisplayRGB, ImGuiColorEditFlags.InputRGB, ImGuiColorEditFlags.PickerHueBar)
