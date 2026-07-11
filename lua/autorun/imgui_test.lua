@@ -24,42 +24,35 @@ else
 
     include("imgui_demo.lua")
 
-    local function CreateHostWindow()
-        local derma_window = vgui.Create("DFrame")
-
-        derma_window:SetSizable(true)
-        derma_window:SetSize(ScrW() / 2, ScrH() / 2)
-        derma_window:MakePopup()
-        derma_window:SetDraggable(true)
-        derma_window:Center()
-        derma_window:SetTitle("ImGui Example")
-        derma_window:SetIcon("icon16/application.png")
-        derma_window:SetDeleteOnClose(true)
-
-        local clear_color = Color(0.45 * 255, 0.55 * 255, 0.60 * 255, 1.00 * 255)
-        local left, top, right, bottom = derma_window:GetDockPadding()
-        local old_Paint = derma_window.Paint
-        derma_window.Paint = function(self, w, h)
-            old_Paint(self, w, h)
-            draw.RoundedBoxEx(4, left, top, w - (left + right), h - (top + bottom), clear_color, false, false, true, true)
-        end
-
-        return derma_window
-    end
-
-    local viewport
     local main_scale = 2.0
-
+    local window
     concommand.Add("imgui_test", function()
-        if IsValid(viewport) then
+        if IsValid(window) then
             return
         end
 
-        viewport = CreateHostWindow()
-        ImGui_ImplGMOD.SetupPanelHooks(viewport, true)
+        window = vgui.Create("DFrame")
+        window:SetSizable(true)
+        window:SetDraggable(true)
+        window:SetSize(ScrW() / 2, ScrH() / 2)
+        window:MakePopup()
+        window:Center()
+        window:SetTitle(string.format("ImGui Sincerely GMod(DXLevel=%d) Example", render.GetDXLevel()))
+        window:SetIcon("icon16/application.png")
+        window:SetDeleteOnClose(true)
+
+        local clear_color = ImVec4(0.45, 0.55, 0.60, 1.00)
+
+        local left, top, right, bottom = window:GetDockPadding()
+        local old_Paint = window.Paint
+        window.Paint = function(self, w, h)
+            old_Paint(self, w, h)
+            draw.RoundedBoxEx(4, left, top, w - (left + right), h - (top + bottom), Color(clear_color.x * 255, clear_color.y * 255, clear_color.z * 255, clear_color.w * 255), false, false, true, true)
+        end
+
+        ImGui_ImplGMOD.SetupPanelHooks(window, true)
 
         ImGui.CreateContext()
-        local g = ImGui.GetCurrentContext()
 
         local io = ImGui.GetIO()
         io.ConfigFlags = bit.bor(io.ConfigFlags, ImGuiConfigFlags.ViewportsEnable)
@@ -68,7 +61,7 @@ else
         style:ScaleAllSizes(main_scale)
         style.FontScaleDpi = main_scale
 
-        ImGui_ImplGMOD.Init(viewport, true)
+        ImGui_ImplGMOD.Init(window, true)
 
         local show_demo_window = true
         local show_another_window = false
@@ -93,6 +86,9 @@ else
                 ImGui.Text("This is some useful text.")
                 _, show_demo_window = ImGui.Checkbox("Demo Window", show_demo_window)
                 _, show_another_window = ImGui.Checkbox("Another Window", show_another_window)
+
+                f = ImGui.SliderFloat("float", f, 0.0, 1.0)
+                ImGui.ColorEdit3("clear color", clear_color)
 
                 if ImGui.Button("Button") then
                     counter = counter + 1
@@ -125,8 +121,8 @@ else
             ImGui.DestroyContext()
         end
 
-        ImGui_ImplGMOD.VGUI_Hook(viewport, "Think", main_logic)
-        ImGui_ImplGMOD.VGUI_Hook(viewport, "PaintOver", main_render)
-        ImGui_ImplGMOD.VGUI_Hook(viewport, "OnRemove", on_removal)
+        ImGui_ImplGMOD.VGUI_Hook(window, "Think", main_logic)
+        ImGui_ImplGMOD.VGUI_Hook(window, "PaintOver", main_render)
+        ImGui_ImplGMOD.VGUI_Hook(window, "OnRemove", on_removal)
     end)
 end

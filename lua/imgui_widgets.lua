@@ -5769,10 +5769,12 @@ end
 
 end
 
---- @param label string
---- @param col   [float, float, float]
---- @param flags ImGuiColorEditFlags
+--- @param label  string
+--- @param col    [float, float, float]
+--- @param flags? ImGuiColorEditFlags
 function ImGui.ColorEdit3(label, col, flags)
+    if flags == nil then flags = 0 end
+
     return ImGui.ColorEdit4(label, col, bit.bor(flags, ImGuiColorEditFlags.NoAlpha))
 end
 
