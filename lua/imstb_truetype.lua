@@ -52,12 +52,8 @@ local STBTT_assert = assert
 local STBTT_sort = table.sort
 local STBTT_sqrt = math.sqrt
 local STBTT_fabs = math.abs
-local STBTT_pow = math.pow
-local STBTT_cos = math.cos
-local STBTT_acos = math.acos
 local STBTT_ifloor = math.floor
 local STBTT_iceil = math.ceil
-local STBTT_fmod = math.fmod
 
 local trunc = function(x)
     if x >= 0 then
@@ -524,6 +520,8 @@ end
 ---     stbtt_GetCodepointBitmapBox
 ---     stbtt_GetCodepointBitmapBoxSubpixel
 ---     stbtt_GetCodepointBox
+---     stbtt_GetNumberOfFonts_internal
+---     stbtt__get_svg
 
 local function ttUSHORT(p, offset) return stbtt_uint16(p[offset + 1] * 256 + p[offset + 2]) end
 local function ttSHORT(p, offset)  return stbtt_int16(p[offset + 1] * 256 + p[offset + 2]) end
@@ -575,21 +573,9 @@ local function stbtt_GetFontOffsetForIndex_internal(font_collection, index)
     return -1
 end
 
-local function stbtt_GetNumberOfFonts_internal(font_collection)
-    if stbtt__isfont(font_collection) then
-        return 1
-    end
-
-    if stbtt_tag(font_collection, "ttcf") then
-        if ttULONG(font_collection, 4) == 0x00010000 or ttULONG(font_collection, 4) == 0x00020000 then
-            return ttLONG(font_collection, 8)
-        end
-    end
-
-    return 0
-end
-
-local function stbtt__get_subrs(cff, fontdict) -- stbtt__buf cff, stbtt__buf fontdict
+--- @param cff      stbtt__buf
+--- @param fontdict stbtt__buf
+local function stbtt__get_subrs(cff, fontdict)
     local private_loc = stbtt__dict_get_ints(fontdict, 18, 2)
     if (private_loc[2] == 0 or private_loc[1] == 0) then
         return stbtt__new_buf(nil, 0)
@@ -601,21 +587,6 @@ local function stbtt__get_subrs(cff, fontdict) -- stbtt__buf cff, stbtt__buf fon
     end
     stbtt__buf_seek(cff, private_loc[2] + subrsoff[1])
     return stbtt__cff_get_index(cff)
-end
-
---- @param info stbtt_fontinfo
-local function stbtt__get_svg(info)
-    local t
-    if info.svg < 0 then
-        t = stbtt__find_table(info.data, info.fontstart, "SVG ")
-        if t ~= 0 then
-            local offset = ttULONG(info.data, t + 2)
-            info.svg = t + offset
-        else
-            info.svg = 0
-        end
-    end
-    return info.svg
 end
 
 --- @return bool
