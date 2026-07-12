@@ -368,6 +368,7 @@ local ImFontAtlasTextureBlockConvert
 local ImFontAtlasTextureBlockPostProcess
 local ImFontAtlasTextureBlockPostProcessMultiply
 local ImFontAtlasTextureBlockQueueUpload
+local ImFontAtlasTextureCompact
 local ImFontAtlasPackInit
 local ImFontAtlasPackAddRect
 local ImFontAtlasPackGetRect
@@ -445,6 +446,10 @@ function MT.ImFontAtlas:ClearTexData()
     for _, tex in self.TexList:iter() do
         tex:DestroyPixels()
     end
+end
+
+function MT.ImFontAtlas:CompactCache()
+    ImFontAtlasTextureCompact(self)
 end
 
 function MT.ImFontAtlas:ClearFonts()
@@ -1726,6 +1731,21 @@ local function ImFontAtlasBuildClear(atlas)
             ImFontAtlasFontSourceAddToFont(atlas, font, src)
         end
     end
+end
+
+--- @param atlas ImFontAtlas
+function ImFontAtlasTextureCompact(atlas)
+    local builder = atlas.Builder
+    ImFontAtlasBuildDiscardBakes(atlas, 1)
+
+    local old_tex = atlas.TexData
+    local old_tex_size = ImVec2(old_tex.Width, old_tex.Height)
+    local new_tex_size = ImFontAtlasTextureGetSizeEstimate(atlas)
+    if (builder.RectsDiscardedCount == 0 and new_tex_size.x == old_tex_size.x and new_tex_size.y == old_tex_size.y) then
+        return
+    end
+
+    ImFontAtlasTextureRepack(atlas, new_tex_size.x, new_tex_size.y)
 end
 
 --- @param atlas ImFontAtlas

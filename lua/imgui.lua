@@ -4429,12 +4429,15 @@ local function SetCurrentWindow(window)
     end
 end
 
+-- TODO:
 function ImGui.GcCompactTransientMiscBuffers()
     local g = GImGui
     g.ItemFlagsStack:clear()
     g.GroupStack:clear()
     g.InputTextLineIndex:clear()
-    -- TODO:
+    for _, atlas in g.FontAtlases:iter() do
+        atlas:CompactCache()
+    end
 end
 
 function ImGui.GetWindowWidth()
