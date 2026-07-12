@@ -19,6 +19,7 @@ local function ImGuiDemoWindowData()
         ShowAppImageViewer = false,
         ShowAppFullscreen = false,
 
+        ShowMetrics = false,
         ShowStyleEditor = false,
     }
 end
@@ -150,6 +151,13 @@ local function DemoWindowMenuBar(demo_data)
             ImGui.EndMenu()
         end
         if ImGui.BeginMenu("Tools") then
+
+local has_debug_tools = false
+if not IMGUI_DISABLE_DEBUG_TOOLS then
+    has_debug_tools = true
+end
+
+            _, demo_data.ShowMetrics = ImGui.MenuItem("Metrics/Debugger", nil, demo_data.ShowMetrics, has_debug_tools)
             _, demo_data.ShowStyleEditor = ImGui.MenuItem("Style Editor", nil, demo_data.ShowStyleEditor)
 
             ImGui.EndMenu()
@@ -878,6 +886,9 @@ local unsaved_document  = false
 function ImGui.ShowDemoWindow(open)
     if demo_data.ShowAppFullscreen then demo_data.ShowAppFullscreen = ShowExampleAppFullscreen(demo_data.ShowAppFullscreen) end
 
+    if demo_data.ShowMetrics then
+        demo_data.ShowMetrics = ImGui.ShowMetricsWindow(demo_data.ShowMetrics)
+    end
     if demo_data.ShowStyleEditor then
         demo_data.ShowStyleEditor = ImGui.Begin("ImGui Sincerely Style Editor", demo_data.ShowStyleEditor)
         ImGui.ShowStyleEditor()

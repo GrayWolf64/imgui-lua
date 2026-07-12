@@ -1456,23 +1456,22 @@ end
 --- @class ImGuiTextIndex
 --- @field Offsets   ImVector<int>
 --- @field EndOffset int
-local _ImGuiTextIndex = {}
-_ImGuiTextIndex.__index = _ImGuiTextIndex
+local IMGUI_TEXTINDEX = {}
+IMGUI_TEXTINDEX.__index = IMGUI_TEXTINDEX
 
-function _ImGuiTextIndex:get_line_begin(base, n)
+function IMGUI_TEXTINDEX:clear() self.Offsets:clear(); self.EndOffset = 0; end
+
+function IMGUI_TEXTINDEX:get_line_begin(base, n)
     return base + (self.Offsets.Size ~= 0 and self.Offsets[n] or 0)
 end
 
-function _ImGuiTextIndex:get_line_end(base, n)
+function IMGUI_TEXTINDEX:get_line_end(base, n)
     return base + ((n + 1 < self.Offsets.Size) and (self.Offsets[n + 1] - 1) or self.EndOffset)
 end
 
 --- @return ImGuiTextIndex
 local function ImGuiTextIndex()
-    return setmetatable({
-        Offsets = ImVector(),
-        EndOffset = 0
-    }, _ImGuiTextIndex)
+    return setmetatable({ Offsets = ImVector(), EndOffset = 0 }, IMGUI_TEXTINDEX)
 end
 
 --- @class ImGuiDebugAllocEntry
@@ -1717,6 +1716,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         Viewports = ImVector(),
 
         FallbackMonitor = nil,
+
+        GcCompactAll = false,
 
         CurrentViewport = nil,
         MouseViewport = nil, MouseLastHoveredViewport = nil,

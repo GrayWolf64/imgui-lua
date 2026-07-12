@@ -973,6 +973,8 @@ function ImGuiIO()
         ConfigViewportsNoDefaultParent = true,
         ConfigViewportsPlatformFocusSetsImGuiFocus = true,
 
+        ConfigMemoryCompactTimer = 60.0,
+
         MouseDrawCursor = false,
 
         MouseClicked          = {[0] = false, [1] = false, [2] = false},

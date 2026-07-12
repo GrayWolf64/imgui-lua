@@ -67,7 +67,7 @@ end
 function ImGui.DebugAllocHook(info, frame_count, ptr, size)
     local entry = info.LastEntriesBuf[info.LastEntriesIdx]
     if entry.FrameCount ~= frame_count then
-        info.LastEntriesIdx = info.LastEntriesIdx % (#info.LastEntriesBuf)
+        info.LastEntriesIdx = info.LastEntriesIdx % (#info.LastEntriesBuf) + 1
         entry = info.LastEntriesBuf[info.LastEntriesIdx]
         entry.FrameCount = frame_count
         entry.AllocCount = 0
@@ -4429,6 +4429,14 @@ local function SetCurrentWindow(window)
     end
 end
 
+function ImGui.GcCompactTransientMiscBuffers()
+    local g = GImGui
+    g.ItemFlagsStack:clear()
+    g.GroupStack:clear()
+    g.InputTextLineIndex:clear()
+    -- TODO:
+end
+
 function ImGui.GetWindowWidth()
     local window = GImGui.CurrentWindow
     return window.Size.x
@@ -6747,6 +6755,11 @@ function ImGui.NewFrame()
     g.PlatformImeData.WantTextInput = false
 
     ImGui.UpdateMouseWheel()
+
+    if g.GcCompactAll then
+        ImGui.GcCompactTransientMiscBuffers()
+    end
+    g.GcCompactAll = false
 
     if (g.NavWindow and not g.NavWindow.WasActive) then
         ImGui.FocusTopMostWindowUnderOne(nil, nil, nil, ImGuiFocusRequestFlags.RestoreFocusedChild)
@@ -9876,4 +9889,44 @@ function ImGui.DestroyPlatformWindows()
     for _, viewport in g.Viewports:iter() do
         ImGui.DestroyPlatformWindow(viewport)
     end
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] METRICS/DEBUGGER WINDOW
+---------------------------------------------------------------------------------------
+
+--- @param open bool?
+function ImGui.ShowMetricsWindow(open)
+    local g = GImGui
+
+    local ret
+    open, ret = ImGui.Begin("Dear ImGui Metrics/Debugger", open)
+    if not ret or ImGui.GetCurrentWindow().BeginCount > 1 then
+        ImGui.End()
+        return open
+    end
+
+    if ImGui.TreeNode("Memory allocations") then
+        local info = g.DebugAllocInfo
+        ImGui.Text("%d current allocations", info.TotalAllocCount - info.TotalFreeCount)
+        ImGui.Text("Releasing selected unused buffers after: %.2f secs", g.IO.ConfigMemoryCompactTimer)
+        if ImGui.SmallButton("GC now") then
+            g.GcCompactAll = true
+        end
+        ImGui.Text("Recent frames with allocations:")
+        local buf_size = #info.LastEntriesBuf
+        for n = buf_size - 1, 0, -1 do
+            local idx = (info.LastEntriesIdx - n + buf_size) % buf_size + 1
+            local entry = info.LastEntriesBuf[idx]
+            ImGui.BulletText("Frame %06d: %+3d ( %2d alloc, %2d free )", entry.FrameCount, entry.AllocCount - entry.FreeCount, entry.AllocCount, entry.FreeCount)
+            if n == 0 then
+                ImGui.SameLine()
+                ImGui.Text("<- %d frames ago", g.FrameCount - entry.FrameCount)
+            end
+        end
+        ImGui.TreePop()
+    end
+
+    ImGui.End()
+    return open
 end
