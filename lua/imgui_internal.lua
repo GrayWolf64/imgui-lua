@@ -605,7 +605,7 @@ local IM_RECT = {}
 IM_RECT.__index = IM_RECT
 
 --- @nodiscard
-function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, IM_RECT) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, IM_RECT) end
+function ImRect(a, b, c, d) IMGUI_TABNEW_HOOK"ImRect" if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, IM_RECT) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, IM_RECT) end
 
 function IM_RECT:__eq(other) return self.Min == other.Min and self.Max == other.Max end
 function IM_RECT:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
@@ -1489,6 +1489,7 @@ end
 --- @field TotalFreeCount  int
 --- @field LastEntriesIdx  ImS16
 --- @field LastEntriesBuf  ImGuiDebugAllocEntry[]
+--- @field AllocCountByStruct { [string]: int } # LUA: structs(tables) are created frequently!
 
 --- @return ImGuiDebugAllocInfo
 local function ImGuiDebugAllocInfo()
@@ -1496,7 +1497,8 @@ local function ImGuiDebugAllocInfo()
         TotalAllocCount = 0,
         TotalFreeCount = 0,
         LastEntriesIdx = 1,
-        LastEntriesBuf = {nil, nil, nil, nil, nil, nil}
+        LastEntriesBuf = {nil, nil, nil, nil, nil, nil},
+        AllocCountByStruct = {}
     }
 
     for i = 1, 6 do
