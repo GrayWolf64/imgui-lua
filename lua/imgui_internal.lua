@@ -2014,6 +2014,9 @@ end
 --- @field RootWindowPopupTree                ImGuiWindow
 --- @field RootWindowDockTree                 ImGuiWindow
 --- @field StateStorage                       {[ImGuiID]: bool}
+--- @field MemoryDrawListIdxCapacity          int
+--- @field MemoryDrawListVtxCapacity          int
+--- @field MemoryCompacted                    bool
 MT.ImGuiWindow = {}
 MT.ImGuiWindow.__index = MT.ImGuiWindow
 

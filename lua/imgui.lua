@@ -4451,6 +4451,27 @@ function ImGui.GcCompactTransientMiscBuffers()
     end
 end
 
+--- @param window ImGuiWindow
+function ImGui.GcCompactTransientWindowBuffers(window)
+    window.MemoryCompacted = true
+    window.MemoryDrawListIdxCapacity = ImMin(math.floor(window.DrawList.IdxBuffer.Size * 1.05), window.DrawList.IdxBuffer.Capacity)
+    window.MemoryDrawListVtxCapacity = ImMin(math.floor(window.DrawList.VtxBuffer.Size * 1.05), window.DrawList.VtxBuffer.Capacity)
+    window.IDStack:clear()
+    window.DrawList:_ClearFreeMemory()
+    window.DC.ChildWindows:clear()
+    window.DC.ItemWidthStack:clear()
+    window.DC.TextWrapPosStack:clear()
+end
+
+--- @param window ImGuiWindow
+function ImGui.GcAwakeTransientWindowBuffers(window)
+    window.MemoryCompacted = false
+    window.DrawList.IdxBuffer:reserve(window.MemoryDrawListIdxCapacity)
+    window.DrawList.VtxBuffer:reserve(window.MemoryDrawListVtxCapacity)
+    window.MemoryDrawListIdxCapacity = 0
+    window.MemoryDrawListVtxCapacity = 0
+end
+
 function ImGui.GetWindowWidth()
     local window = GImGui.CurrentWindow
     return window.Size.x
@@ -5132,6 +5153,10 @@ function ImGui.Begin(name, open, flags)
         window.IDStack:resize(1)
 
         window.DrawList:_ResetForNewFrame()
+
+        if window.MemoryCompacted then
+            ImGui.GcAwakeTransientWindowBuffers(window)
+        end
 
         -- UPDATE CONTENTS SIZE, UPDATE HIDDEN STATUS
         -- Update contents size from last frame for auto-fitting (or use explicit size)
@@ -6743,8 +6768,9 @@ function ImGui.NewFrame()
 
     ImGui.UpdateMouseInputs()
 
-    -- TODO: GC
     IM_ASSERT(g.WindowsFocusOrder.Size <= g.Windows.Size)
+    local gc_all = g.GcCompactAll or g.IO.ConfigMemoryCompactTimer < 0.0
+    local memory_compact_start_time = gc_all and FLT_MAX or (g.Time - g.IO.ConfigMemoryCompactTimer)
 
     for _, window in g.Windows:iter() do
         window.WasActive = window.Active
@@ -6752,6 +6778,10 @@ function ImGui.NewFrame()
         window.WriteAccessed = false
         window.BeginCountPreviousFrame = window.BeginCount
         window.BeginCount = 0
+
+        if (not window.WasActive or gc_all) and not window.MemoryCompacted and window.LastTimeActive < memory_compact_start_time then
+            ImGui.GcCompactTransientWindowBuffers(window)
+        end
     end
 
     ImGui.UpdateHoveredWindowAndCaptureFlags(g.IO.MousePos)
