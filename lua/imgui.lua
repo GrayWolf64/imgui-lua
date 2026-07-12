@@ -9915,7 +9915,7 @@ function ImGui.ShowMetricsWindow(open)
         end
         ImGui.Text("Recent frames with allocations:")
         local buf_size = #info.LastEntriesBuf
-        for n = buf_size - 1, 0, -1 do
+        for n = buf_size, 1, -1 do
             local idx = (info.LastEntriesIdx - n + buf_size) % buf_size + 1
             local entry = info.LastEntriesBuf[idx]
             ImGui.BulletText("Frame %06d: %+3d ( %2d alloc, %2d free )", entry.FrameCount, entry.AllocCount - entry.FreeCount, entry.AllocCount, entry.FreeCount)
