@@ -855,7 +855,7 @@ ImFontAtlasRectId_Invalid = -1
 
 --- @return ImFontAtlasRect
 --- @nodiscard
-function ImFontAtlasRect() IMGUI_TABNEW_HOOK"ImFontAtlasRect"
+function ImFontAtlasRect()
     return {
         x = nil, y = nil,
         w = nil, h = nil,

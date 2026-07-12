@@ -84,10 +84,6 @@ function ImGui.DebugAllocHook(info, frame_count, ptr, size)
     end
 end
 
-do
-
-local last_record = -math.huge
-
 -- Hook when and where `TDUP` bytecode(luajit) is likely to be called\
 -- NOTE: in envs without luajit, it should be `NEWTABLE` + `SETTABLE/SETFIELD`s
 --- @param t_name string
@@ -96,16 +92,7 @@ function IMGUI_TABNEW_HOOK(t_name)
     if ctx == nil then return end -- some structures can be used when no ctx is present
 
     local info = ctx.DebugAllocInfo
-    if last_record < ctx.FrameCount then
-        for name in pairs(info.AllocCountByStruct) do
-            info.AllocCountByStruct[name] = 0
-        end
-    end
-    last_record = ctx.FrameCount
-
     info.AllocCountByStruct[t_name] = (info.AllocCountByStruct[t_name] or 0) + 1
-end
-
 end
 
 IM_INCLUDE"imgui_h.lua"
@@ -9952,9 +9939,9 @@ function ImGui.ShowMetricsWindow(open)
             end
         end
 
-        ImGui.Text("Lua table creations (this frame):")
+        ImGui.Text("Lua table creations (total):")
         for type, count in pairs(info.AllocCountByStruct) do
-            ImGui.BulletText("type %16s: %06d new", type, count)
+            ImGui.BulletText("type %16s: %16d new", type, count)
         end
 
         ImGui.TreePop()
