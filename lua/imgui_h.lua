@@ -301,7 +301,7 @@ end
 local _default_constructor = function() return nil end
 local _default_copyfunc = function(t, k, v) t[k] = v end
 
-local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and (v.Capacity + v.Capacity / 2) or 8; return (new_capacity > sz) and new_capacity or sz; end
+local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and math.floor(v.Capacity + v.Capacity / 2) or 8; return (new_capacity > sz) and new_capacity or sz; end
 
 --- @param T?         function
 --- @param COPY_FUNC? function
