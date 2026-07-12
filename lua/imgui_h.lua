@@ -377,8 +377,17 @@ function IM_VECTOR:index_from_ptr(p)
 end
 
 --- @class ImDrawCmd
-MT.ImDrawCmd = {}
-MT.ImDrawCmd.__index = MT.ImDrawCmd
+--- @field ClipRect               ImVec4
+--- @field TexRef                 ImTextureRef
+--- @field VtxOffset              unsigned_int
+--- @field IdxOffset              unsigned_int
+--- @field ElemCount              unsigned_int
+--- @field UserCallback           ImDrawCallback
+--- @field UserCallbackData       any
+--- @field UserCallbackDataSize   int
+--- @field UserCallbackDataOffset int
+local IM_DRAWCMD = {}
+IM_DRAWCMD.__index = IM_DRAWCMD
 
 --- @return ImDrawCmd
 --- @nodiscard
@@ -393,11 +402,11 @@ function ImDrawCmd()
         UserCallbackData       = nil,
         UserCallbackDataSize   = 0,
         UserCallbackDataOffset = 0
-    }, MT.ImDrawCmd)
+    }, IM_DRAWCMD)
 end
 
 --- @return ImTextureID
-function MT.ImDrawCmd:GetTexID()
+function IM_DRAWCMD:GetTexID()
     local tex_id = (self.TexRef._TexData) and self.TexRef._TexData.TexID or self.TexRef._TexID
     if self.TexRef._TexData ~= nil then
         IM_ASSERT(tex_id ~= ImTextureID_Invalid, "ImDrawCmd is referring to ImTextureData that wasn't uploaded to graphics system. Backend must call ImTextureData::SetTexID() after handling ImTextureStatus_WantCreate request!")
@@ -418,18 +427,10 @@ function ImDrawVert() return { ImVec2(), ImVec2(), nil } end
 --- @field ClipRect  ImVec4
 --- @field TexRef    ImTextureRef
 --- @field VtxOffset unsigned_int
-MT.ImDrawCmdHeader = {}
-MT.ImDrawCmdHeader.__index = MT.ImDrawCmdHeader
 
 --- @return ImDrawCmdHeader
 --- @nodiscard
-function ImDrawCmdHeader()
-    return setmetatable({
-        ClipRect  = ImVec4(),
-        TexRef    = nil,
-        VtxOffset = 0
-    }, MT.ImDrawCmdHeader)
-end
+function ImDrawCmdHeader() return { ClipRect = ImVec4(), TexRef = nil, VtxOffset = 0 } end
 
 --- @class ImDrawChannel
 --- @field _CmdBuffer ImVector<ImDrawCmd>
@@ -437,12 +438,7 @@ end
 
 --- @return ImDrawChannel
 --- @nodiscard
-function ImDrawChannel()
-    return {
-        _CmdBuffer = ImVector(),
-        _IdxBuffer = ImVector()
-    }
-end
+function ImDrawChannel() return { _CmdBuffer = ImVector(), _IdxBuffer = ImVector() } end
 
 --- @class ImDrawListSplitter
 --- @field _Current  int
@@ -451,13 +447,7 @@ end
 
 --- @return ImDrawListSplitter
 --- @nodiscard
-function ImDrawListSplitter()
-    return {
-        _Current  = 0,
-        _Count    = 0,
-        _Channels = ImVector()
-    }
-end
+function ImDrawListSplitter() return { _Current = 0, _Count = 0, _Channels = ImVector() } end
 
 --- @class ImDrawList
 --- @field CmdBuffer         ImVector<ImDrawCmd>
@@ -943,14 +933,14 @@ end
 --- @enum ImGuiConfigFlags
 ImGuiConfigFlags = {
     None                = 0,
-    NavEnableKeyboard   = bit.lshift(1, 0),  -- Master keyboard navigation enable flag. Enable full Tabbing + directional arrows + space/enter to activate
-    NavEnableGamepad    = bit.lshift(1, 1),  -- Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags.HasGamepad
-    NoMouse             = bit.lshift(1, 4),  -- Instruct dear imgui to disable mouse inputs and interactions
-    NoMouseCursorChange = bit.lshift(1, 5),  -- Instruct backend to not alter mouse cursor shape and visibility. Use if the backend cursor changes are interfering with yours and you don't want to use SetMouseCursor() to change mouse cursor. You may want to honor requests from imgui by reading GetMouseCursor() yourself instead
-    NoKeyboard          = bit.lshift(1, 6),  -- Instruct dear imgui to disable keyboard inputs and interactions. This is done by ignoring keyboard events and clearing existing states
+    NavEnableKeyboard   = bit.lshift(1, 0),
+    NavEnableGamepad    = bit.lshift(1, 1),
+    NoMouse             = bit.lshift(1, 4),
+    NoMouseCursorChange = bit.lshift(1, 5),
+    NoKeyboard          = bit.lshift(1, 6),
     ViewportsEnable     = bit.lshift(1, 10),
-    IsSRGB              = bit.lshift(1, 20), -- Application is SRGB-aware
-    IsTouchScreen       = bit.lshift(1, 21)  -- Application is using a touch screen instead of a mouse
+    IsSRGB              = bit.lshift(1, 20),
+    IsTouchScreen       = bit.lshift(1, 21)
 }
 
 --- @class ImGuiIO
@@ -1412,11 +1402,11 @@ ImGuiMouseSource = {
 
 --- @enum ImGuiCond
 ImGuiCond = {
-    None          = 0,                -- No condition (always set the variable), same as .Always
-    Always        = bit.lshift(1, 0), -- No condition (always set the variable), same as .None
-    Once          = bit.lshift(1, 1), -- Set the variable once per runtime session (only the first call will succeed)
-    FirstUseEver  = bit.lshift(1, 2), -- Set the variable if the object/window has no persistently saved data (no entry in .ini file)
-    Appearing     = bit.lshift(1, 3)  -- Set the variable if the object/window is appearing after being hidden/inactive (or the first time)
+    None          = 0,
+    Always        = bit.lshift(1, 0),
+    Once          = bit.lshift(1, 1),
+    FirstUseEver  = bit.lshift(1, 2),
+    Appearing     = bit.lshift(1, 3)
 }
 
 --- @enum ImGuiInputFlags

@@ -2136,7 +2136,6 @@ function ImGuiWindow(ctx, name)
         ViewportPos = ImVec2(FLT_MAX, FLT_MAX),
         ViewportOwned = nil,
 
-        --- struct IMGUI_API ImGuiWindowTempData
         DC = ImGuiWindowTempData(),
 
         OuterRectClipped  = ImRect(),
@@ -2504,13 +2503,13 @@ function ImGuiInputEvent()
         EventId = 0,
 
         -- union
-        MousePos      = nil,   -- if Type == ImGuiInputEventType.MousePos
-        MouseWheel    = nil,   -- if Type == ImGuiInputEventType.MouseWheel
-        MouseButton   = nil,   -- if Type == ImGuiInputEventType.MouseButton
-        MouseViewport = nil,   -- if Type == ImGuiInputEventType.MouseViewport
-        Key           = nil,   -- if Type == ImGuiInputEventType.Key
-        Text          = nil,   -- if Type == ImGuiInputEventType.Text
-        AppFocused    = nil,   -- if Type == ImGuiInputEventType.Focus
+        MousePos      = nil, -- if Type == ImGuiInputEventType.MousePos
+        MouseWheel    = nil, -- if Type == ImGuiInputEventType.MouseWheel
+        MouseButton   = nil, -- if Type == ImGuiInputEventType.MouseButton
+        MouseViewport = nil, -- if Type == ImGuiInputEventType.MouseViewport
+        Key           = nil, -- if Type == ImGuiInputEventType.Key
+        Text          = nil, -- if Type == ImGuiInputEventType.Text
+        AppFocused    = nil, -- if Type == ImGuiInputEventType.Focus
     }
 end
 
@@ -2574,12 +2573,12 @@ ImGuiPlotType = { Lines = 0, Histogram = 1 } --- @enum ImGuiPlotType
 --- @enum ImGuiActivateFlags
 ImGuiActivateFlags = {
     None               = 0,
-    PreferInput        = bit.lshift(1, 0), -- Favor activation that requires keyboard text input (e.g. for Slider/Drag). Default for Enter key
-    PreferTweak        = bit.lshift(1, 1), -- Favor activation for tweaking with arrows or gamepad (e.g. for Slider/Drag). Default for Space key and if keyboard is not used
-    TryToPreserveState = bit.lshift(1, 2), -- Request widget to preserve state if it can (e.g. InputText will try to preserve cursor/selection)
-    FromTabbing        = bit.lshift(1, 3), -- Activation requested by a tabbing request (ImGuiNavMoveFlags_IsTabbing)
-    FromShortcut       = bit.lshift(1, 4), -- Activation requested by an item shortcut via SetNextItemShortcut() function
-    FromFocusApi       = bit.lshift(1, 5)  -- Activation requested by an api request (ImGuiNavMoveFlags_FocusApi)
+    PreferInput        = bit.lshift(1, 0),
+    PreferTweak        = bit.lshift(1, 1),
+    TryToPreserveState = bit.lshift(1, 2),
+    FromTabbing        = bit.lshift(1, 3),
+    FromShortcut       = bit.lshift(1, 4),
+    FromFocusApi       = bit.lshift(1, 5)
 }
 
 --- @enum ImGuiScrollFlags
@@ -2705,9 +2704,9 @@ ImGuiDebugLogFlags = {
     EventViewport     = bit.lshift(1, 11),
     EventTable        = bit.lshift(1, 12),
 
-    OutputToTTY        = bit.lshift(1, 20), -- Also send output to TTY
-    OutputToDebugger   = bit.lshift(1, 21), -- Also send output to Debugger Console
-    OutputToTestEngine = bit.lshift(1, 22), -- Also send output to Dear ImGui Test Engine
+    OutputToTTY        = bit.lshift(1, 20),
+    OutputToDebugger   = bit.lshift(1, 21),
+    OutputToTestEngine = bit.lshift(1, 22),
 }
 
 ImGuiDebugLogFlags.EventMask_ = bit.bor(
