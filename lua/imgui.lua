@@ -9941,7 +9941,7 @@ function ImGui.ShowMetricsWindow(open)
 
         ImGui.Text("Lua table creations (total):")
         for type, count in pairs(info.AllocCountByStruct) do
-            ImGui.BulletText("type %16s: %16d new", type, count)
+            ImGui.BulletText("type %16s: %16d", type, count)
         end
 
         ImGui.TreePop()
