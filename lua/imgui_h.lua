@@ -269,6 +269,7 @@ local IM_VECTOR = {}
 --- @param k string|int
 --- @return any
 IM_VECTOR.__index = function(t, k)
+    if k == "Data" then return nil end -- Data has already been discarded
     return IM_VECTOR[k] or t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] -- if the mt access turns out nil, the k must be int index into Data
 end
 
@@ -276,6 +277,7 @@ end
 --- @param k int
 --- @param v any
 IM_VECTOR.__newindex = function(t, k, v)
+    if k == "Data" then rawset(t, "Data", v); return; end -- set new Data. old Data is already discarded
     IM_ASSERT(k >= 1 and k <= t.Size)
     t.Data[k] = v
 end
@@ -289,12 +291,12 @@ local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and 
 --- @param COPY_FUNC? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T, COPY_FUNC) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, IM_VECTOR) end
+function ImVector(T, COPY_FUNC) return setmetatable({Data = nil, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, IM_VECTOR) end
 
 function IM_VECTOR:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self._CopyFunc(self.Data, self.Size + 1, value); self.Size = self.Size + 1; return value end
 function IM_VECTOR:pop_back() IM_ASSERT(self.Size > 0); self.Size = self.Size - 1; end
 function IM_VECTOR:push_front(value) if self.Size == 0 then self:push_back(value) else self:insert(1, value) end end
-function IM_VECTOR:clear() self.Size = 0 end
+function IM_VECTOR:clear() if self.Data then self.Size = 0; self.Capacity = 0; IM_FREE(self, "Data"); self.Data = nil end end
 function IM_VECTOR:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
 function IM_VECTOR:empty() return self.Size == 0 end
 function IM_VECTOR:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
