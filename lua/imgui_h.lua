@@ -4,9 +4,7 @@
 --- @meta
 
 -- [LuaBitOp](https://bitop.luajit.org/semantics.html)
-local b_and = bit.band
-local b_or  = bit.bor
-
+local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift
 
 --- @class char          : integer

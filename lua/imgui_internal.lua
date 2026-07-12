@@ -1,8 +1,13 @@
---- Some internal structures
+--- ImGui Sincerely WIP
+-- (internal structures/api)
+
 -- I will avoid extensive type checks, since I ensure that types are correct in internal usage,
 -- and runtime type checking is probably slow
 
 --- @meta
+
+local b_and = bit.band; local b_or = bit.bor
+local b_ls = bit.lshift
 
 --- @alias ImGuiTableColumnIdx ImS16
 
@@ -159,7 +164,7 @@ function ImFloor(f) if f >= 0 or math.floor(f) == f then return math.floor(f) el
 
 --- @param v int
 function ImIsPowerOfTwo(v)
-    return (v ~= 0) and (bit.band(v, (v - 1)) == 0)
+    return (v ~= 0) and (b_and(v, (v - 1)) == 0)
 end
 
 function ImUpperPowerOfTwo(v)
@@ -167,11 +172,11 @@ function ImUpperPowerOfTwo(v)
     if v <= 1 then return 1 end
 
     v = v - 1
-    v = bit.bor(v, bit.rshift(v, 1))
-    v = bit.bor(v, bit.rshift(v, 2))
-    v = bit.bor(v, bit.rshift(v, 4))
-    v = bit.bor(v, bit.rshift(v, 8))
-    v = bit.bor(v, bit.rshift(v, 16))
+    v = b_or(v, bit.rshift(v, 1))
+    v = b_or(v, bit.rshift(v, 2))
+    v = b_or(v, bit.rshift(v, 4))
+    v = b_or(v, bit.rshift(v, 8))
+    v = b_or(v, bit.rshift(v, 16))
     return v + 1
 end
 
@@ -180,7 +185,7 @@ end
 function ImCountSetBits(v)
     local count = 0
     while v > 0 do
-        v = bit.band(v, v - 1)
+        v = b_and(v, v - 1)
         count = count + 1
     end
     return count
@@ -397,10 +402,10 @@ function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCo
 function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
-function IMGUI_DEBUG_LOG_ACTIVEID(_str, ...) local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventActiveId) ~= 0 then print(string.format(_str, ...)) end end
-function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
-function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = GImGui if g2 and bit.band(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
-function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = GImGui if bit.band(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_ACTIVEID(_str, ...) local g  = GImGui if b_and(g.DebugLogFlags, ImGuiDebugLogFlags.EventActiveId) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = GImGui if b_and(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = GImGui if g2 and b_and(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = GImGui if b_and(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
 
 ImGuiSelectionUserData_Invalid = -1
 
@@ -465,7 +470,7 @@ end
 --- @param ctx ImGuiContext
 --- @param key ImGuiKey
 function ImGui.GetKeyOwnerData(ctx, key)
-    if bit.band(key, ImGuiMod_Mask_) ~= 0 then key = ImGui.ConvertSingleModFlagToKey(key) end
+    if b_and(key, ImGuiMod_Mask_) ~= 0 then key = ImGui.ConvertSingleModFlagToKey(key) end
     IM_ASSERT(ImGui.IsNamedKey(key))
     return ctx.KeysOwnerData[key - ImGuiKey.NamedKey_BEGIN]
 end
@@ -509,25 +514,25 @@ function ImCharIsBlankW(c) return c == 32 or c == 9 or c == 0x3000 end
 --- @enum ImGuiNavMoveFlags
 ImGuiNavMoveFlags = {
     None                  = 0,
-    LoopX                 = bit.lshift(1, 0),
-    LoopY                 = bit.lshift(1, 1),
-    WrapX                 = bit.lshift(1, 2),
-    WrapY                 = bit.lshift(1, 3),
-    AllowCurrentNavId     = bit.lshift(1, 4),
-    AlsoScoreVisibleSet   = bit.lshift(1, 5),
-    ScrollToEdgeY         = bit.lshift(1, 6),
-    Forwarded             = bit.lshift(1, 7),
-    DebugNoResult         = bit.lshift(1, 8),
-    FocusApi              = bit.lshift(1, 9),
-    IsTabbing             = bit.lshift(1, 10),
-    IsPageMove            = bit.lshift(1, 11),
-    Activate              = bit.lshift(1, 12),
-    NoSelect              = bit.lshift(1, 13),
-    NoSetNavCursorVisible = bit.lshift(1, 14),
-    NoClearActiveId       = bit.lshift(1, 15),
+    LoopX                 = b_ls(1, 0),
+    LoopY                 = b_ls(1, 1),
+    WrapX                 = b_ls(1, 2),
+    WrapY                 = b_ls(1, 3),
+    AllowCurrentNavId     = b_ls(1, 4),
+    AlsoScoreVisibleSet   = b_ls(1, 5),
+    ScrollToEdgeY         = b_ls(1, 6),
+    Forwarded             = b_ls(1, 7),
+    DebugNoResult         = b_ls(1, 8),
+    FocusApi              = b_ls(1, 9),
+    IsTabbing             = b_ls(1, 10),
+    IsPageMove            = b_ls(1, 11),
+    Activate              = b_ls(1, 12),
+    NoSelect              = b_ls(1, 13),
+    NoSetNavCursorVisible = b_ls(1, 14),
+    NoClearActiveId       = b_ls(1, 15),
 }
 
-ImGuiNavMoveFlags.WrapMask_ = bit.bor(ImGuiNavMoveFlags.LoopX, ImGuiNavMoveFlags.LoopY, ImGuiNavMoveFlags.WrapX, ImGuiNavMoveFlags.WrapY)
+ImGuiNavMoveFlags.WrapMask_ = b_or(ImGuiNavMoveFlags.LoopX, ImGuiNavMoveFlags.LoopY, ImGuiNavMoveFlags.WrapX, ImGuiNavMoveFlags.WrapY)
 
 --- @enum ImGuiNavLayer
 ImGuiNavLayer = {
@@ -536,39 +541,39 @@ ImGuiNavLayer = {
     COUNT = 2
 }
 
-ImGuiItemFlags.ReadOnly               = bit.lshift(1, 11)
-ImGuiItemFlags.MixedValue             = bit.lshift(1, 12)
-ImGuiItemFlags.NoWindowHoverableCheck = bit.lshift(1, 13)
-ImGuiItemFlags.AllowOverlap           = bit.lshift(1, 14)
-ImGuiItemFlags.NoNavDisableMouseHover = bit.lshift(1, 15)
-ImGuiItemFlags.NoMarkEdited           = bit.lshift(1, 16)
-ImGuiItemFlags.NoFocus                = bit.lshift(1, 17)
+ImGuiItemFlags.ReadOnly               = b_ls(1, 11)
+ImGuiItemFlags.MixedValue             = b_ls(1, 12)
+ImGuiItemFlags.NoWindowHoverableCheck = b_ls(1, 13)
+ImGuiItemFlags.AllowOverlap           = b_ls(1, 14)
+ImGuiItemFlags.NoNavDisableMouseHover = b_ls(1, 15)
+ImGuiItemFlags.NoMarkEdited           = b_ls(1, 16)
+ImGuiItemFlags.NoFocus                = b_ls(1, 17)
 
-ImGuiItemFlags.Inputable            = bit.lshift(1, 20)
-ImGuiItemFlags.HasSelectionUserData = bit.lshift(1, 21)
-ImGuiItemFlags.IsMultiSelect        = bit.lshift(1, 22)
+ImGuiItemFlags.Inputable            = b_ls(1, 20)
+ImGuiItemFlags.HasSelectionUserData = b_ls(1, 21)
+ImGuiItemFlags.IsMultiSelect        = b_ls(1, 22)
 
 ImGuiItemFlags.Default_ = ImGuiItemFlags.AutoClosePopups
 
 --- @enum ImDrawTextFlags
 ImDrawTextFlags = {
     None           = 0,
-    CpuFineClip    = bit.lshift(1, 0),
-    WrapKeepBlanks = bit.lshift(1, 1),
-    StopOnNewLine  = bit.lshift(1, 2)
+    CpuFineClip    = b_ls(1, 0),
+    WrapKeepBlanks = b_ls(1, 1),
+    StopOnNewLine  = b_ls(1, 2)
 }
 
 --- @enum ImGuiFocusRequestFlags
 ImGuiFocusRequestFlags = {
     None                = 0,
-    RestoreFocusedChild = bit.lshift(1, 0),
-    UnlessBelowModal    = bit.lshift(1, 1)
+    RestoreFocusedChild = b_ls(1, 0),
+    UnlessBelowModal    = b_ls(1, 1)
 }
 
 --- @enum ImGuiTextFlags
 ImGuiTextFlags = {
     None                          = 0,
-    NoWidthForLargeClippedText    = bit.lshift(1, 0)
+    NoWidthForLargeClippedText    = b_ls(1, 0)
 }
 
 --- @enum ImWcharClass
@@ -722,22 +727,22 @@ end
 --- @param _ARRAY ImU32[]
 --- @param _N     int
 function IM_BITARRAY_TESTBIT(_ARRAY, _N)
-    return bit.band(_ARRAY[bit.rshift(_N - 1, 5) + 1], bit.lshift(1, bit.band(_N - 1, 31))) ~= 0
+    return b_and(_ARRAY[bit.rshift(_N - 1, 5) + 1], b_ls(1, b_and(_N - 1, 31))) ~= 0
 end
 
 --- @param _ARRAY ImU32[]
 --- @param _N     int
 function IM_BITARRAY_CLEARBIT(_ARRAY, _N)
     local idx = bit.rshift(_N - 1, 5) + 1
-    _ARRAY[idx] = bit.band(_ARRAY[idx], bit.bnot(bit.lshift(1, bit.band(_N - 1, 31))))
+    _ARRAY[idx] = b_and(_ARRAY[idx], bit.bnot(b_ls(1, b_and(_N - 1, 31))))
 end
 
 --- @param arr ImU32[]
 --- @param n   int
 function ImBitArraySetBit(arr, n)
-    local mask = bit.lshift(1, bit.band(n - 1, 31))
+    local mask = b_ls(1, b_and(n - 1, 31))
     local idx = bit.rshift(n - 1, 5) + 1
-    arr[idx] = bit.bor(arr[idx], mask)
+    arr[idx] = b_or(arr[idx], mask)
 end
 
 --- @alias ImBitArrayForNamedKeys ImBitArray
@@ -799,7 +804,7 @@ end
 --- @param col ImU32
 function ImGui.SetNextItemColorMarker(col)
     local g = GImGui
-    g.NextItemData.HasFlags = bit.bor(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker)
+    g.NextItemData.HasFlags = b_or(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasColorMarker)
     g.NextItemData.ColorMarker = col
 end
 
@@ -1132,26 +1137,26 @@ end
 --- @enum ImGuiWindowBgClickFlags
 ImGuiWindowBgClickFlags = {
     None = 0,
-    Move = bit.lshift(1, 0),
+    Move = b_ls(1, 0),
 }
 
 --- @enum ImGuiNextWindowDataFlags
 ImGuiNextWindowDataFlags = {
     None              = 0,
-    HasPos            = bit.lshift(1, 0),
-    HasSize           = bit.lshift(1, 1),
-    HasContentSize    = bit.lshift(1, 2),
-    HasCollapsed      = bit.lshift(1, 3),
-    HasSizeConstraint = bit.lshift(1, 4),
-    HasFocus          = bit.lshift(1, 5),
-    HasBgAlpha        = bit.lshift(1, 6),
-    HasScroll         = bit.lshift(1, 7),
-    HasWindowFlags    = bit.lshift(1, 8),
-    HasChildFlags     = bit.lshift(1, 9),
-    HasRefreshPolicy  = bit.lshift(1, 10),
-    HasViewport       = bit.lshift(1, 11),
-    HasDock           = bit.lshift(1, 12),
-    HasWindowClass    = bit.lshift(1, 13)
+    HasPos            = b_ls(1, 0),
+    HasSize           = b_ls(1, 1),
+    HasContentSize    = b_ls(1, 2),
+    HasCollapsed      = b_ls(1, 3),
+    HasSizeConstraint = b_ls(1, 4),
+    HasFocus          = b_ls(1, 5),
+    HasBgAlpha        = b_ls(1, 6),
+    HasScroll         = b_ls(1, 7),
+    HasWindowFlags    = b_ls(1, 8),
+    HasChildFlags     = b_ls(1, 9),
+    HasRefreshPolicy  = b_ls(1, 10),
+    HasViewport       = b_ls(1, 11),
+    HasDock           = b_ls(1, 12),
+    HasWindowClass    = b_ls(1, 13)
 }
 
 --- @enum ImGuiLayoutType
@@ -1163,9 +1168,9 @@ ImGuiLayoutType = {
 --- @enum ImGuiSeparatorFlags
 ImGuiSeparatorFlags = {
     None           = 0,
-    Horizontal     = bit.lshift(1, 0), -- Axis default to current layout type, so generally Horizontal unless e.g. in a menu bar
-    Vertical       = bit.lshift(1, 1),
-    SpanAllColumns = bit.lshift(1, 2)  -- Make separator cover all columns of a legacy Columns() set
+    Horizontal     = b_ls(1, 0), -- Axis default to current layout type, so generally Horizontal unless e.g. in a menu bar
+    Vertical       = b_ls(1, 1),
+    SpanAllColumns = b_ls(1, 2)  -- Make separator cover all columns of a legacy Columns() set
 }
 
 --- @class ImGuiStyle
@@ -1273,8 +1278,8 @@ function ImGuiStyle()
         DragDropTargetBorderSize = 2.0,
         DragDropTargetPadding = 3.0,
 
-        HoverFlagsForTooltipMouse = bit.bor(ImGuiHoveredFlags.Stationary, ImGuiHoveredFlags.DelayShort, ImGuiHoveredFlags.AllowWhenDisabled),
-        HoverFlagsForTooltipNav = bit.bor(ImGuiHoveredFlags.NoSharedDelay, ImGuiHoveredFlags.DelayNormal, ImGuiHoveredFlags.AllowWhenDisabled),
+        HoverFlagsForTooltipMouse = b_or(ImGuiHoveredFlags.Stationary, ImGuiHoveredFlags.DelayShort, ImGuiHoveredFlags.AllowWhenDisabled),
+        HoverFlagsForTooltipNav = b_or(ImGuiHoveredFlags.NoSharedDelay, ImGuiHoveredFlags.DelayNormal, ImGuiHoveredFlags.AllowWhenDisabled),
 
         -- [Internal]
         _MainScale = 1.0,
@@ -1820,7 +1825,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         LocalizationTable = {},
 
-        DebugLogFlags = bit.bor(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
+        DebugLogFlags = b_or(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
         DebugFlashStyleColorIdx = nil,
 
         DebugAllocInfo = ImGuiDebugAllocInfo()
@@ -2355,18 +2360,18 @@ local ImFontAtlasRectId_GenerationShift_ = 20
 
 --- @param id ImFontAtlasRectId # Expects 0-based!
 --- @return int                 # 0-based!
-function ImFontAtlasRectId_GetIndex(id) return bit.band(id, ImFontAtlasRectId_IndexMask_) end
+function ImFontAtlasRectId_GetIndex(id) return b_and(id, ImFontAtlasRectId_IndexMask_) end
 
 --- @param id ImFontAtlasRectId # Expects 0-based!
 --- @return unsigned_int
-function ImFontAtlasRectId_GetGeneration(id) return bit.rshift(bit.band(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
+function ImFontAtlasRectId_GetGeneration(id) return bit.rshift(b_and(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
 
 --- @param index_idx int      # Expects 0-based!
 --- @param gen_idx int
 --- @return ImFontAtlasRectId # 0-based!
 function ImFontAtlasRectId_Make(index_idx, gen_idx)
     IM_ASSERT(index_idx >= 0 and index_idx <= ImFontAtlasRectId_IndexMask_ and gen_idx <= bit.rshift(ImFontAtlasRectId_GenerationMask_, ImFontAtlasRectId_GenerationShift_))
-    return bit.bor(index_idx, bit.lshift(gen_idx, ImFontAtlasRectId_GenerationShift_))
+    return b_or(index_idx, b_ls(gen_idx, ImFontAtlasRectId_GenerationShift_))
 end
 
 --- @class ImFontAtlasPostProcessData
@@ -2540,31 +2545,31 @@ ImGuiInputEventType = {
     COUNT         = 8
 }
 
-ImGuiInputFlags.RepeatRateDefault                = bit.lshift(1, 1)
-ImGuiInputFlags.RepeatRateNavMove                = bit.lshift(1, 2)
-ImGuiInputFlags.RepeatRateNavTweak               = bit.lshift(1, 3)
-ImGuiInputFlags.RepeatUntilRelease               = bit.lshift(1, 4)
-ImGuiInputFlags.RepeatUntilKeyModsChange         = bit.lshift(1, 5)
-ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone = bit.lshift(1, 6)
-ImGuiInputFlags.RepeatUntilOtherKeyPress         = bit.lshift(1, 7)
-ImGuiInputFlags.LockThisFrame                    = bit.lshift(1, 20)
-ImGuiInputFlags.LockUntilRelease                 = bit.lshift(1, 21)
-ImGuiInputFlags.CondHovered                      = bit.lshift(1, 22)
-ImGuiInputFlags.CondActive                       = bit.lshift(1, 23)
+ImGuiInputFlags.RepeatRateDefault                = b_ls(1, 1)
+ImGuiInputFlags.RepeatRateNavMove                = b_ls(1, 2)
+ImGuiInputFlags.RepeatRateNavTweak               = b_ls(1, 3)
+ImGuiInputFlags.RepeatUntilRelease               = b_ls(1, 4)
+ImGuiInputFlags.RepeatUntilKeyModsChange         = b_ls(1, 5)
+ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone = b_ls(1, 6)
+ImGuiInputFlags.RepeatUntilOtherKeyPress         = b_ls(1, 7)
+ImGuiInputFlags.LockThisFrame                    = b_ls(1, 20)
+ImGuiInputFlags.LockUntilRelease                 = b_ls(1, 21)
+ImGuiInputFlags.CondHovered                      = b_ls(1, 22)
+ImGuiInputFlags.CondActive                       = b_ls(1, 23)
 
-ImGuiInputFlags.CondDefault_                   = bit.bor(ImGuiInputFlags.CondHovered, ImGuiInputFlags.CondActive)
-ImGuiInputFlags.RepeatRateMask_                = bit.bor(ImGuiInputFlags.RepeatRateDefault, ImGuiInputFlags.RepeatRateNavMove, ImGuiInputFlags.RepeatRateNavTweak)
-ImGuiInputFlags.RepeatUntilMask_               = bit.bor(ImGuiInputFlags.RepeatUntilRelease, ImGuiInputFlags.RepeatUntilKeyModsChange, ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone, ImGuiInputFlags.RepeatUntilOtherKeyPress)
-ImGuiInputFlags.RepeatMask_                    = bit.bor(ImGuiInputFlags.Repeat, ImGuiInputFlags.RepeatRateMask_, ImGuiInputFlags.RepeatUntilMask_)
-ImGuiInputFlags.CondMask_                      = bit.bor(ImGuiInputFlags.CondHovered, ImGuiInputFlags.CondActive)
-ImGuiInputFlags.RouteTypeMask_                 = bit.bor(ImGuiInputFlags.RouteActive, ImGuiInputFlags.RouteFocused, ImGuiInputFlags.RouteGlobal, ImGuiInputFlags.RouteAlways)
-ImGuiInputFlags.RouteOptionsMask_              = bit.bor(ImGuiInputFlags.RouteOverFocused, ImGuiInputFlags.RouteOverActive, ImGuiInputFlags.RouteUnlessBgFocused, ImGuiInputFlags.RouteFromRootWindow)
+ImGuiInputFlags.CondDefault_                   = b_or(ImGuiInputFlags.CondHovered, ImGuiInputFlags.CondActive)
+ImGuiInputFlags.RepeatRateMask_                = b_or(ImGuiInputFlags.RepeatRateDefault, ImGuiInputFlags.RepeatRateNavMove, ImGuiInputFlags.RepeatRateNavTweak)
+ImGuiInputFlags.RepeatUntilMask_               = b_or(ImGuiInputFlags.RepeatUntilRelease, ImGuiInputFlags.RepeatUntilKeyModsChange, ImGuiInputFlags.RepeatUntilKeyModsChangeFromNone, ImGuiInputFlags.RepeatUntilOtherKeyPress)
+ImGuiInputFlags.RepeatMask_                    = b_or(ImGuiInputFlags.Repeat, ImGuiInputFlags.RepeatRateMask_, ImGuiInputFlags.RepeatUntilMask_)
+ImGuiInputFlags.CondMask_                      = b_or(ImGuiInputFlags.CondHovered, ImGuiInputFlags.CondActive)
+ImGuiInputFlags.RouteTypeMask_                 = b_or(ImGuiInputFlags.RouteActive, ImGuiInputFlags.RouteFocused, ImGuiInputFlags.RouteGlobal, ImGuiInputFlags.RouteAlways)
+ImGuiInputFlags.RouteOptionsMask_              = b_or(ImGuiInputFlags.RouteOverFocused, ImGuiInputFlags.RouteOverActive, ImGuiInputFlags.RouteUnlessBgFocused, ImGuiInputFlags.RouteFromRootWindow)
 ImGuiInputFlags.SupportedByIsKeyPressed        = ImGuiInputFlags.RepeatMask_
 ImGuiInputFlags.SupportedByIsMouseClicked      = ImGuiInputFlags.Repeat
-ImGuiInputFlags.SupportedByShortcut            = bit.bor(ImGuiInputFlags.RepeatMask_, ImGuiInputFlags.RouteTypeMask_, ImGuiInputFlags.RouteOptionsMask_)
-ImGuiInputFlags.SupportedBySetNextItemShortcut = bit.bor(ImGuiInputFlags.RepeatMask_, ImGuiInputFlags.RouteTypeMask_, ImGuiInputFlags.RouteOptionsMask_, ImGuiInputFlags.Tooltip)
-ImGuiInputFlags.SupportedBySetKeyOwner         = bit.bor(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)
-ImGuiInputFlags.SupportedBySetItemKeyOwner     = bit.bor(ImGuiInputFlags.SupportedBySetKeyOwner, ImGuiInputFlags.CondMask_)
+ImGuiInputFlags.SupportedByShortcut            = b_or(ImGuiInputFlags.RepeatMask_, ImGuiInputFlags.RouteTypeMask_, ImGuiInputFlags.RouteOptionsMask_)
+ImGuiInputFlags.SupportedBySetNextItemShortcut = b_or(ImGuiInputFlags.RepeatMask_, ImGuiInputFlags.RouteTypeMask_, ImGuiInputFlags.RouteOptionsMask_, ImGuiInputFlags.Tooltip)
+ImGuiInputFlags.SupportedBySetKeyOwner         = b_or(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)
+ImGuiInputFlags.SupportedBySetItemKeyOwner     = b_or(ImGuiInputFlags.SupportedBySetKeyOwner, ImGuiInputFlags.CondMask_)
 
 ImGuiAxis = { None = 0, X = 1, Y = 2 } --- @enum ImGuiAxis
 
@@ -2573,28 +2578,28 @@ ImGuiPlotType = { Lines = 0, Histogram = 1 } --- @enum ImGuiPlotType
 --- @enum ImGuiActivateFlags
 ImGuiActivateFlags = {
     None               = 0,
-    PreferInput        = bit.lshift(1, 0),
-    PreferTweak        = bit.lshift(1, 1),
-    TryToPreserveState = bit.lshift(1, 2),
-    FromTabbing        = bit.lshift(1, 3),
-    FromShortcut       = bit.lshift(1, 4),
-    FromFocusApi       = bit.lshift(1, 5)
+    PreferInput        = b_ls(1, 0),
+    PreferTweak        = b_ls(1, 1),
+    TryToPreserveState = b_ls(1, 2),
+    FromTabbing        = b_ls(1, 3),
+    FromShortcut       = b_ls(1, 4),
+    FromFocusApi       = b_ls(1, 5)
 }
 
 --- @enum ImGuiScrollFlags
 ImGuiScrollFlags = {
     None               = 0,
-    KeepVisibleEdgeX   = bit.lshift(1, 0),
-    KeepVisibleEdgeY   = bit.lshift(1, 1),
-    KeepVisibleCenterX = bit.lshift(1, 2),
-    KeepVisibleCenterY = bit.lshift(1, 3),
-    AlwaysCenterX      = bit.lshift(1, 4),
-    AlwaysCenterY      = bit.lshift(1, 5),
-    NoScrollParent     = bit.lshift(1, 6),
+    KeepVisibleEdgeX   = b_ls(1, 0),
+    KeepVisibleEdgeY   = b_ls(1, 1),
+    KeepVisibleCenterX = b_ls(1, 2),
+    KeepVisibleCenterY = b_ls(1, 3),
+    AlwaysCenterX      = b_ls(1, 4),
+    AlwaysCenterY      = b_ls(1, 5),
+    NoScrollParent     = b_ls(1, 6),
 }
 
-ImGuiScrollFlags.MaskX_ = bit.bor(ImGuiScrollFlags.KeepVisibleEdgeX, ImGuiScrollFlags.KeepVisibleCenterX, ImGuiScrollFlags.AlwaysCenterX)
-ImGuiScrollFlags.MaskY_ = bit.bor(ImGuiScrollFlags.KeepVisibleEdgeY, ImGuiScrollFlags.KeepVisibleCenterY, ImGuiScrollFlags.AlwaysCenterY)
+ImGuiScrollFlags.MaskX_ = b_or(ImGuiScrollFlags.KeepVisibleEdgeX, ImGuiScrollFlags.KeepVisibleCenterX, ImGuiScrollFlags.AlwaysCenterX)
+ImGuiScrollFlags.MaskY_ = b_or(ImGuiScrollFlags.KeepVisibleEdgeY, ImGuiScrollFlags.KeepVisibleCenterY, ImGuiScrollFlags.AlwaysCenterY)
 
 --- @class ImGuiGroupData
 --- @field WindowID                             ImGuiID
@@ -2636,7 +2641,7 @@ end
 --- @enum ImGuiTooltipFlags
 ImGuiTooltipFlags = {
     None             = 0,
-    OverridePrevious = bit.lshift(1, 1)
+    OverridePrevious = b_ls(1, 1)
 }
 
 --- @enum ImGuiPopupPositionPolicy
@@ -2674,42 +2679,42 @@ end
 --- @enum ImGuiWindowRefreshFlags
 ImGuiWindowRefreshFlags = {
     None              = 0,
-    TryToAvoidRefresh = bit.lshift(1, 0),
-    RefreshOnHover    = bit.lshift(1, 1),
-    RefreshOnFocus    = bit.lshift(1, 2)
+    TryToAvoidRefresh = b_ls(1, 0),
+    RefreshOnHover    = b_ls(1, 1),
+    RefreshOnFocus    = b_ls(1, 2)
 }
 
 --- @enum ImGuiNavRenderCursorFlags
 ImGuiNavRenderCursorFlags = {
     None       = 0,
-    Compact    = bit.lshift(1, 1), -- Compact highlight, no padding/distance from focused item
-    AlwaysDraw = bit.lshift(1, 2), -- Draw rectangular highlight if (g.NavId == id) even when g.NavCursorVisible == false, aka even when using the mouse
+    Compact    = b_ls(1, 1), -- Compact highlight, no padding/distance from focused item
+    AlwaysDraw = b_ls(1, 2), -- Draw rectangular highlight if (g.NavId == id) even when g.NavCursorVisible == false, aka even when using the mouse
 }
 
 --- @enum ImGuiDebugLogFlags
 ImGuiDebugLogFlags = {
     -- Event types
     None              = 0,
-    EventError        = bit.lshift(1, 0), -- Error submitted by IM_ASSERT_USER_ERROR()
-    EventActiveId     = bit.lshift(1, 1),
-    EventFocus        = bit.lshift(1, 2),
-    EventPopup        = bit.lshift(1, 3),
-    EventNav          = bit.lshift(1, 4),
-    EventClipper      = bit.lshift(1, 5),
-    EventSelection    = bit.lshift(1, 6),
-    EventIO           = bit.lshift(1, 7),
-    EventFont         = bit.lshift(1, 8),
-    EventInputRouting = bit.lshift(1, 9),
-    EventDocking      = bit.lshift(1, 10),
-    EventViewport     = bit.lshift(1, 11),
-    EventTable        = bit.lshift(1, 12),
+    EventError        = b_ls(1, 0), -- Error submitted by IM_ASSERT_USER_ERROR()
+    EventActiveId     = b_ls(1, 1),
+    EventFocus        = b_ls(1, 2),
+    EventPopup        = b_ls(1, 3),
+    EventNav          = b_ls(1, 4),
+    EventClipper      = b_ls(1, 5),
+    EventSelection    = b_ls(1, 6),
+    EventIO           = b_ls(1, 7),
+    EventFont         = b_ls(1, 8),
+    EventInputRouting = b_ls(1, 9),
+    EventDocking      = b_ls(1, 10),
+    EventViewport     = b_ls(1, 11),
+    EventTable        = b_ls(1, 12),
 
-    OutputToTTY        = bit.lshift(1, 20),
-    OutputToDebugger   = bit.lshift(1, 21),
-    OutputToTestEngine = bit.lshift(1, 22),
+    OutputToTTY        = b_ls(1, 20),
+    OutputToDebugger   = b_ls(1, 21),
+    OutputToTestEngine = b_ls(1, 22),
 }
 
-ImGuiDebugLogFlags.EventMask_ = bit.bor(
+ImGuiDebugLogFlags.EventMask_ = b_or(
     ImGuiDebugLogFlags.EventError,
     ImGuiDebugLogFlags.EventActiveId,
     ImGuiDebugLogFlags.EventFocus,
