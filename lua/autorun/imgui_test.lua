@@ -61,7 +61,7 @@ else
         style:ScaleAllSizes(main_scale)
         style.FontScaleDpi = main_scale
 
-        ImGui_ImplGMOD.Init(window, true)
+        ImGui_ImplGMOD.Init(window)
 
         local show_demo_window = true
         local show_another_window = false
