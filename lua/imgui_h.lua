@@ -308,7 +308,7 @@ function IM_VECTOR:find_erase_unsorted(value) local idx = self:find_index(value)
 
 function IM_VECTOR:reserve(new_capacity)
     if new_capacity <= self.Capacity then return end
-    local new_data = IM_ALLOC(self._Constructor, self.Size + 1, new_capacity)
+    local new_data = IM_ALLOC(self._Constructor, new_capacity)
     if self.Data then
         ImStd.memmove(new_data, 1, self.Data, 1, self.Size)
         IM_FREE(self, "Data")
@@ -320,7 +320,7 @@ end
 function IM_VECTOR:reserve_discard(new_capacity)
     if new_capacity <= self.Capacity then return end
     if self.Data then IM_FREE(self, "Data") end
-    self.Data = IM_ALLOC(self._Constructor, 1, new_capacity)
+    self.Data = IM_ALLOC(self._Constructor, new_capacity)
     self.Capacity = new_capacity
 end
 
