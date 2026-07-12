@@ -338,11 +338,17 @@ end
 function IM_VECTOR:swap(other) self.Size, other.Size = other.Size, self.Size; self.Capacity, other.Capacity = other.Capacity, self.Capacity; self.Data, other.Data = other.Data, self.Data end
 function IM_VECTOR:contains(v) for i = 1, self.Size do if self.Data[i] == v then return true end end return false end
 
---- NOTE: This currently does not use type-aware copy!
+-- NOTE: This currently does not use type-aware copy!
 function IM_VECTOR:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1); if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
 
+-- NOTE: This currently does not copy type related info!
 --- @nodiscard
-function IM_VECTOR:copy() local other = ImVector() other.Size = self.Size for i = 1, self.Size do other.Data[i] = self.Data[i] end return other end
+function IM_VECTOR:copy()
+    local v = ImVector(); v:resize(self.Size)
+    local dest = v.Data; local src = self.Data
+    for i = 1, v.Size do dest[i] = src[i] end
+    return v
+end
 
 -- Not keeping value-key records inside `ImVector`, instead just find it
 --- @return int # 0-based index
