@@ -2065,7 +2065,8 @@ local function stbtt__add_point(points, n, x, y)
     points[n + 1].y = y
 end
 
--- tessellate until threshold p is happy... @TODO warped to compensate for non-linear stretching
+-- tessellate until threshold p is happy...
+-- TODO: warped to compensate for non-linear stretching
 --- @param points?                   stbtt__point[]
 --- @param num_points                int
 --- @param x0                        float
@@ -2114,7 +2115,7 @@ end
 --- @param n                         int
 --- @return int num_points # updated num_points passed in
 local function stbtt__tesselate_cubic(points, num_points, x0, y0, x1, y1, x2, y2, x3, y3, objspace_flatness_squared, n)
-    -- @TODO this "flatness" calculation is just made-up nonsense that seems to work well enough
+    -- TODO: this "flatness" calculation is just made-up nonsense that seems to work well enough
     local dx0 = x1 - x0
     local dy0 = y1 - y0
     local dx1 = x2 - x1
@@ -2246,11 +2247,8 @@ end
 --- @param invert             bool
 local function stbtt_Rasterize(result, flatness_in_pixels, vertices, num_verts, scale_x, scale_y, shift_x, shift_y, x_off, y_off, invert)
     local scale = (scale_x > scale_y) and scale_y or scale_x
-    local windings
-    local winding_count
-    local winding_lengths
 
-    windings, winding_count, winding_lengths = stbtt_FlattenCurves(vertices, num_verts, flatness_in_pixels / scale)
+    local windings, winding_count, winding_lengths = stbtt_FlattenCurves(vertices, num_verts, flatness_in_pixels / scale)
 
     if windings then
         --- @cast winding_lengths int[]
