@@ -52,6 +52,18 @@ ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b)
 ImMin = math.min
 ImMax = math.max
 
+--- @param a ImVec2
+--- @param b ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImMinVec2(a, b) return ImVec2(ImMin(a.x, b.x), ImMin(a.y, b.y)) end
+
+--- @param a ImVec2
+--- @param b ImVec2
+--- @return ImVec2
+--- @nodiscard
+function ImMaxVec2(a, b) return ImVec2(ImMax(a.x, b.x), ImMax(a.y, b.y)) end
+
 ImRound64 = function(val) return math.floor(val + 0.5) end -- FIXME: Positive values only
 
 ImCeil  = math.ceil

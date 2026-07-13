@@ -1449,9 +1449,7 @@ function ImGui.EndGroup()
         -- TODO: ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
     end
 
-    local temp = ImVec2()
-    ImVec2_MaxVVV(temp, window.DC.CursorMaxPos, g.LastItemData.Rect.Max, group_data.BackupCursorPos)
-    local group_bb = ImRect(group_data.BackupCursorPos, temp)
+    local group_bb = ImRect(group_data.BackupCursorPos, ImMaxVec2(ImMaxVec2(window.DC.CursorMaxPos, g.LastItemData.Rect.Max), group_data.BackupCursorPos))
     ImVec2_Copy(window.DC.CursorPos, group_data.BackupCursorPos)
     ImVec2_Copy(window.DC.CursorPosPrevLine, group_data.BackupCursorPosPrevLine)
     ImVec2_CopyV(window.DC.CursorMaxPos, ImVec2_MaxVV(nil, group_data.BackupCursorMaxPos, group_bb.Max))
