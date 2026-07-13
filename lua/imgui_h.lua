@@ -152,7 +152,7 @@ end
 --- @param y? number
 --- @return ImVec2
 --- @nodiscard
-function ImVec2(x, y) return setmetatable({x or 0, y or 0}, IM_VEC2) end
+function ImVec2(x, y) local ret_no_tcall = setmetatable({x or 0, y or 0}, IM_VEC2); return ret_no_tcall end
 
 function IM_VEC2.__add(lhs, rhs) return ImVec2(lhs[1] + rhs[1], lhs[2] + rhs[2]) end
 function IM_VEC2.__sub(lhs, rhs) return ImVec2(lhs[1] - rhs[1], lhs[2] - rhs[2]) end
@@ -319,7 +319,7 @@ end
 --- @param w? number
 --- @return ImVec4
 --- @nodiscard
-function ImVec4(x, y, z, w) return setmetatable({x or 0, y or 0, z or 0, w or 0}, IM_VEC4) end
+function ImVec4(x, y, z, w) local ret_no_tcall = setmetatable({x or 0, y or 0, z or 0, w or 0}, IM_VEC4); return ret_no_tcall end
 
 function IM_VEC4.__add(lhs, rhs) return ImVec4(lhs[1] + rhs[1], lhs[2] + rhs[2], lhs[3] + rhs[3], lhs[4] + rhs[4]) end
 function IM_VEC4.__sub(lhs, rhs) return ImVec4(lhs[1] - rhs[1], lhs[2] - rhs[2], lhs[3] - rhs[3], lhs[4] - rhs[4]) end
@@ -367,7 +367,7 @@ local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and 
 --- @param COPY_FUNC? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T, COPY_FUNC) return setmetatable({Data = nil, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, IM_VECTOR) end
+function ImVector(T, COPY_FUNC) local ret_no_tcall = setmetatable({Data = nil, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, IM_VECTOR); return ret_no_tcall end
 
 function IM_VECTOR:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self._CopyFunc(self.Data, self.Size + 1, value); self.Size = self.Size + 1; return value end
 function IM_VECTOR:pop_back() IM_ASSERT(self.Size > 0); self.Size = self.Size - 1; end
