@@ -5,6 +5,8 @@
 
 local rawget = rawget; local rawset = rawset
 
+local m_min = math.min; local m_max = math.max
+
 -- [LuaBitOp](https://bitop.luajit.org/semantics.html)
 local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift
@@ -186,18 +188,54 @@ function ImVec2_AddVA(v, add_x, add_y) return v[1] + add_x, v[2] + add_y end
 --- @param sub_y number
 function ImVec2_SubVA(v, sub_x, sub_y) return v[1] - sub_x, v[2] - sub_y end
 
---- @param lhs ImVec2
---- @param rhs number
-function ImVec2_MulNV(lhs, rhs) return lhs[1] * rhs, lhs[2] * rhs end
+--- @param dest? ImVec2
+--- @param a     ImVec2
+--- @param b     ImVec2
+function ImVec2_MulVV(dest, a, b)
+    local r1, r2 = a[1] * b[1], a[2] * b[2]
+    if dest == nil then return r1, r2 end
+    dest[1], dest[2] = r1, r2
+end
 
---- @param lhs ImVec2
---- @param rhs ImVec2
---- @nodiscard
-function ImVec2_MulComp(lhs, rhs) return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2]) end
+--- @param dest?  ImVec2
+--- @param a      ImVec2
+--- @param scalar number
+function ImVec2_MulVX(dest, a, scalar)
+    local r1, r2 = a[1] * scalar, a[2] * scalar
+    if dest == nil then return r1, r2 end
+    dest[1], dest[2] = r1, r2
+end
 
---- @param lhs ImVec2
---- @param rhs ImVec2
-function ImVec2_MulCompV(lhs, rhs) return lhs[1] * rhs[1], lhs[2] * rhs[2] end
+--- @param dest ImVec2
+--- @param a    ImVec2
+--- @param b    ImVec2
+function ImVec2_MulAccVV(dest, a, b) dest[1] = dest[1] + a[1] * b[1]; dest[2] = dest[2] + a[2] * b[2] end
+
+--- @param dest   ImVec2
+--- @param a      ImVec2
+--- @param scalar number
+function ImVec2_MulAccVX(dest, a, scalar)  dest[1] = dest[1] + a[1] * scalar; dest[2] = dest[2] + a[2] * scalar end
+
+--- @param dest ImVec2
+--- @param a    ImVec2
+--- @param b    ImVec2
+function ImVec2_MulSubVV(dest, a, b) dest[1] = dest[1] - a[1] * b[1]; dest[2] = dest[2] - a[2] * b[2] end
+
+--- @param dest ImVec2
+--- @param a    ImVec2
+--- @param b    ImVec2
+function ImVec2_MinVV(dest, a, b)
+
+end
+
+--- @param dest? ImVec2
+--- @param a     ImVec2
+--- @param b     ImVec2
+function ImVec2_MaxVV(dest, a, b)
+    local r1, r2 = m_max(a[1], b[1]), m_max(a[2], b[2])
+    if dest == nil then return r1, r2 end
+    dest[1], dest[2] = r1, r2
+end
 
 --- An inlined version of `ImVec2_Copy` currently for use in certain ImVector<ImVec2> `push_back`
 --- @param t ImVec2[]

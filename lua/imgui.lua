@@ -1463,7 +1463,7 @@ function ImGui.EndGroup()
     local group_bb = ImRect(group_data.BackupCursorPos, ImMaxVec2(ImMaxVec2(window.DC.CursorMaxPos, g.LastItemData.Rect.Max), group_data.BackupCursorPos))
     ImVec2_Copy(window.DC.CursorPos, group_data.BackupCursorPos)
     ImVec2_Copy(window.DC.CursorPosPrevLine, group_data.BackupCursorPosPrevLine)
-    ImVec2_Copy(window.DC.CursorMaxPos, ImMaxVec2(group_data.BackupCursorMaxPos, group_bb.Max))
+    ImVec2_CopyV(window.DC.CursorMaxPos, ImVec2_MaxVV(nil, group_data.BackupCursorMaxPos, group_bb.Max))
     ImVec1_Copy(window.DC.Indent, group_data.BackupIndent)
     ImVec1_Copy(window.DC.GroupOffset, group_data.BackupGroupOffset)
     ImVec2_Copy(window.DC.CurrLineSize, group_data.BackupCurrLineSize)
@@ -3446,7 +3446,9 @@ local function CalcWindowSizeAfterConstraint(window, size_desired)
     end
 
     local size_min = CalcWindowMinSize(window)
-    return ImMaxVec2(new_size, size_min)
+    local ret = ImVec2()
+    ImVec2_MaxVV(ret, new_size, size_min)
+    return ret
 end
 
 --- @param window               ImGuiWindow
@@ -3693,6 +3695,8 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
     else
         resize_border_mask = g.IO.ConfigWindowsResizeFromEdges and 0x0F or 0x00
     end
+
+    local border_curr = ImVec2()
     for border_n = 0, 3 do
         if bit.band(resize_border_mask, bit.lshift(1, border_n)) == 0 then
             goto __CONTINUE__
@@ -3720,12 +3724,12 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         if held and g.IO.MouseDoubleClicked[0] then
             -- Double-clicking bottom or right border auto-fit on this axis
             -- FIXME: Support top and right borders: rework CalcResizePosSizeFromAnyCorner() to be reusable in both cases.
-            if border_n == 1 or border_n == 3 then  -- Right and bottom border
+            if border_n == 1 or border_n == 3 then -- Right and bottom border
                 local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, bit.lshift(1, axis - 1))
                 size_target[axis] = CalcWindowSizeAfterConstraint(window, size_auto_fit)[axis]
                 ret_auto_fit_mask = bit.bor(ret_auto_fit_mask, bit.lshift(1, axis - 1))
                 hovered = false
-                held = false  -- So border doesn't show highlighted at new position
+                held = false -- So border doesn't show highlighted at new position
             end
             ImGui.ClearActiveID()
         elseif held then
@@ -3739,7 +3743,8 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
                 g.WindowResizeRelativeMode = true
             end
 
-            local border_curr = window.Pos + ImVec2_MulComp(ImMinVec2(def.SegmentN1, def.SegmentN2), window.Size)
+            ImVec2_Copy(border_curr, window.Pos)
+            ImVec2_MulAccVV(border_curr, ImMinVec2(def.SegmentN1, def.SegmentN2), window.Size)
             local border_target_rel_mode_for_axis
             local border_target_abs_mode_for_axis
             border_target_rel_mode_for_axis = border_curr[axis] + g.IO.MouseDelta[axis]
@@ -4235,14 +4240,21 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- Resize grip(s)
         if handle_borders_and_resize_grips and (bit.band(flags, ImGuiWindowFlags.NoResize) == 0) then
+            local corner = ImVec2()
+            local p = ImVec2()
             for i = 1, #ImGuiResizeGripDef do
                 local col = resize_grip_col[i]
                 if bit.band(col, IM_COL32_A_MASK) ~= 0 then
                     local inner_dir = ImGuiResizeGripDef[i].InnerDir
-                    local corner = window.Pos + ImVec2_MulComp(ImGuiResizeGripDef[i].CornerPosN, window.Size)
+                    ImVec2_Copy(corner, window.Pos); ImVec2_MulAccVV(corner, ImGuiResizeGripDef[i].CornerPosN, window.Size)
                     local border_inner = IM_ROUND(window_border_size * 0.5)
-                    window.DrawList:PathLineTo(corner + ImVec2_MulComp(inner_dir, ((i % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner))))
-                    window.DrawList:PathLineTo(corner + ImVec2_MulComp(inner_dir, ((i % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size))))
+
+                    ImVec2_Copy(p, corner); ImVec2_MulAccVV(p, inner_dir, ImVec2((i % 2 == 0) and border_inner or resize_grip_draw_size, (i % 2 == 0) and resize_grip_draw_size or border_inner))
+                    window.DrawList:PathLineTo(p)
+
+                    ImVec2_Copy(p, corner); ImVec2_MulAccVV(p, inner_dir, ImVec2((i % 2 == 0) and resize_grip_draw_size or border_inner, (i % 2 == 0) and border_inner or resize_grip_draw_size))
+                    window.DrawList:PathLineTo(p)
+
                     window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImGuiResizeGripDef[i].AngleMin12, ImGuiResizeGripDef[i].AngleMax12)
                     window.DrawList:PathFillConvex(col)
                 end
@@ -5329,7 +5341,9 @@ function ImGui.Begin(name, open, flags)
 
         local window_pos_with_pivot = (window.SetWindowPosVal.x ~= FLT_MAX and window.HiddenFramesCannotSkipItems == 0)
         if window_pos_with_pivot then
-            ImGui.SetWindowPos(window, window.SetWindowPosVal - ImVec2_MulComp(window.Size, window.SetWindowPosPivot), 0) -- Position given a pivot (e.g. for centering)
+            local pos = ImVec2(); ImVec2_Copy(pos, window.SetWindowPosVal)
+            ImVec2_MulSubVV(pos, window.Size, window.SetWindowPosPivot)
+            ImGui.SetWindowPos(window, pos, 0) -- Position given a pivot (e.g. for centering)
         elseif (bit.band(flags, ImGuiWindowFlags.ChildMenu) ~= 0) then
             ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         elseif (bit.band(flags, ImGuiWindowFlags.Popup) ~= 0) and not window_pos_set_by_api and window_just_appearing_after_hidden_for_resize then
@@ -7999,7 +8013,7 @@ end
 --- @return int    # Updated last_dir
 --- @nodiscard
 function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_avoid, policy)
-    local base_pos_clamped = ImClampV2(ref_pos, r_outer.Min, r_outer.Max - size)
+    local base_pos_clamped
 
     -- Combo Box policy (we want a connecting edge)
     if policy == ImGuiPopupPositionPolicy.ComboBox then
@@ -8054,6 +8068,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
                 goto __CONTINUE__
             end
 
+            base_pos_clamped = ImClampV2(ref_pos, r_outer.Min, r_outer.Max - size)
             local pos = ImVec2()
             pos.x = (dir == ImGuiDir.Left) and (r_avoid.Min.x - size.x) or ((dir == ImGuiDir.Right) and r_avoid.Max.x or base_pos_clamped.x)
             pos.y = (dir == ImGuiDir.Up)   and (r_avoid.Min.y - size.y) or ((dir == ImGuiDir.Down)  and r_avoid.Max.y or base_pos_clamped.y)
@@ -8151,7 +8166,9 @@ function ImGui.FindBestWindowPosForPopup(window)
         local ref_pos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Tooltip)
 
         if g.IO.MouseSource == ImGuiMouseSource.TouchScreen and ImGui.NavCalcPreferredRefPosSource(ImGuiWindowFlags.Tooltip) == ImGuiInputSource.Mouse then
-            local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - ImVec2_MulComp(TOOLTIP_DEFAULT_PIVOT_TOUCH, window.Size)
+            local tooltip_pos = ImVec2(); ImVec2_Copy(tooltip_pos, ref_pos)
+            ImVec2_MulAccVX(tooltip_pos, TOOLTIP_DEFAULT_OFFSET_TOUCH, scale)
+            ImVec2_MulSubVV(tooltip_pos, TOOLTIP_DEFAULT_PIVOT_TOUCH, window.Size)
             if r_outer:Contains(ImRect(tooltip_pos, tooltip_pos + window.Size)) then
                 return tooltip_pos
             end

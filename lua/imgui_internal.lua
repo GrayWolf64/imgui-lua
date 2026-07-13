@@ -9,7 +9,7 @@
 local rawget = rawget
 
 local b_and = bit.band; local b_or = bit.bor
-local b_ls = bit.lshift
+local b_ls = bit.lshift; local b_rs = bit.rshift
 
 --- @alias ImGuiTableColumnIdx ImS16
 
@@ -49,6 +49,7 @@ ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b)
 
 ImMin = math.min
 
+--- @deprecated
 --- @param a ImVec2
 --- @param b ImVec2
 --- @return ImVec2
@@ -57,6 +58,7 @@ function ImMinVec2(a, b) return ImVec2(ImMin(a.x, b.x), ImMin(a.y, b.y)) end
 
 ImMax = math.max
 
+--- @deprecated
 --- @param a ImVec2
 --- @param b ImVec2
 --- @return ImVec2
@@ -131,6 +133,7 @@ function ImLerpV4V4(a, b, t) return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a
 --- @param max number
 function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 
+--- @deprecated
 --- @param v   ImVec2
 --- @param min ImVec2
 --- @param max ImVec2
@@ -174,11 +177,11 @@ function ImUpperPowerOfTwo(v)
     if v <= 1 then return 1 end
 
     v = v - 1
-    v = b_or(v, bit.rshift(v, 1))
-    v = b_or(v, bit.rshift(v, 2))
-    v = b_or(v, bit.rshift(v, 4))
-    v = b_or(v, bit.rshift(v, 8))
-    v = b_or(v, bit.rshift(v, 16))
+    v = b_or(v, b_rs(v, 1))
+    v = b_or(v, b_rs(v, 2))
+    v = b_or(v, b_rs(v, 4))
+    v = b_or(v, b_rs(v, 8))
+    v = b_or(v, b_rs(v, 16))
     return v + 1
 end
 
@@ -760,13 +763,13 @@ end
 --- @param _ARRAY ImU32[]
 --- @param _N     int
 function IM_BITARRAY_TESTBIT(_ARRAY, _N)
-    return b_and(_ARRAY[bit.rshift(_N - 1, 5) + 1], b_ls(1, b_and(_N - 1, 31))) ~= 0
+    return b_and(_ARRAY[b_rs(_N - 1, 5) + 1], b_ls(1, b_and(_N - 1, 31))) ~= 0
 end
 
 --- @param _ARRAY ImU32[]
 --- @param _N     int
 function IM_BITARRAY_CLEARBIT(_ARRAY, _N)
-    local idx = bit.rshift(_N - 1, 5) + 1
+    local idx = b_rs(_N - 1, 5) + 1
     _ARRAY[idx] = b_and(_ARRAY[idx], bit.bnot(b_ls(1, b_and(_N - 1, 31))))
 end
 
@@ -774,7 +777,7 @@ end
 --- @param n   int
 function ImBitArraySetBit(arr, n)
     local mask = b_ls(1, b_and(n - 1, 31))
-    local idx = bit.rshift(n - 1, 5) + 1
+    local idx = b_rs(n - 1, 5) + 1
     arr[idx] = b_or(arr[idx], mask)
 end
 
@@ -791,7 +794,7 @@ function ImBitArray(BITCOUNT, OFFSET)
     if OFFSET == nil then OFFSET = 0 end
 
     local this = { Data = {} }
-    local size = bit.rshift(BITCOUNT + 31, 5)
+    local size = b_rs(BITCOUNT + 31, 5)
 
     this.ClearAllBits = function(self) local data = self.Data; for i = 1, size do data[i] = 0 end end
     this.SetAllBits   = function(self) local data = self.Data; for i = 1, size do data[i] = 0xFFFFFFFF end end
@@ -2401,13 +2404,13 @@ function ImFontAtlasRectId_GetIndex(id) return b_and(id, ImFontAtlasRectId_Index
 
 --- @param id ImFontAtlasRectId # Expects 0-based!
 --- @return unsigned_int
-function ImFontAtlasRectId_GetGeneration(id) return bit.rshift(b_and(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
+function ImFontAtlasRectId_GetGeneration(id) return b_rs(b_and(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
 
 --- @param index_idx int      # Expects 0-based!
 --- @param gen_idx int
 --- @return ImFontAtlasRectId # 0-based!
 function ImFontAtlasRectId_Make(index_idx, gen_idx)
-    IM_ASSERT(index_idx >= 0 and index_idx <= ImFontAtlasRectId_IndexMask_ and gen_idx <= bit.rshift(ImFontAtlasRectId_GenerationMask_, ImFontAtlasRectId_GenerationShift_))
+    IM_ASSERT(index_idx >= 0 and index_idx <= ImFontAtlasRectId_IndexMask_ and gen_idx <= b_rs(ImFontAtlasRectId_GenerationMask_, ImFontAtlasRectId_GenerationShift_))
     return b_or(index_idx, b_ls(gen_idx, ImFontAtlasRectId_GenerationShift_))
 end
 

@@ -349,12 +349,12 @@ function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b,
         local max = ImMaxVec2(uv_a, uv_b)
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
-            ImVec2_Copy(vertex[2], ImClampV2(uv_a + ImMul(ImVec2(vertex[1].x, vertex[1].y) - a, scale), min, max))
+            ImVec2_Copy(vertex[2], ImClampV2(uv_a + ImMul(vertex[1] - a, scale), min, max))
         end
     else
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
-            ImVec2_Copy(vertex[2], uv_a + ImMul(ImVec2(vertex[1].x, vertex[1].y) - a, scale))
+            ImVec2_Copy(vertex[2], uv_a + ImMul(vertex[1] - a, scale))
         end
     end
 end
@@ -1781,6 +1781,7 @@ function ImFontAtlasBuildUpdateTexDataLines(atlas)
         IM_ASSERT(builder.PackIdLinesTexData ~= ImFontAtlasRectId_Invalid)
     end
 
+    local uv0, uv1 = ImVec2(), ImVec2()
     for n = 0, IM_DRAWLIST_TEX_LINES_WIDTH_MAX do
         local y = n
         local line_width = n
@@ -1822,8 +1823,8 @@ function ImFontAtlasBuildUpdateTexDataLines(atlas)
             end
         end
 
-        local uv0 = ImVec2_MulComp(ImVec2((r.x + pad_left - 1), (r.y + y)), atlas.TexUvScale)
-        local uv1 = ImVec2_MulComp(ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)), atlas.TexUvScale)
+        ImVec2_MulVV(uv0, ImVec2((r.x + pad_left - 1), (r.y + y)), atlas.TexUvScale)
+        ImVec2_MulVV(uv1, ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)), atlas.TexUvScale)
         local half_v = (uv0.y + uv1.y) * 0.5
         atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v)
     end
@@ -2940,8 +2941,8 @@ function MT.ImFontAtlas:GetCustomRect(id, out_r)
     out_r.y = r.y
     out_r.w = r.w
     out_r.h = r.h
-    ImVec2_CopyV(out_r.uv0, ImVec2_MulCompV(ImVec2((r.x), (r.y)), self.TexUvScale))
-    ImVec2_CopyV(out_r.uv1, ImVec2_MulCompV(ImVec2((r.x + r.w), (r.y + r.h)), self.TexUvScale))
+    ImVec2_CopyV(out_r.uv0, ImVec2_MulVV(nil, ImVec2((r.x), (r.y)), self.TexUvScale))
+    ImVec2_CopyV(out_r.uv1, ImVec2_MulVV(nil, ImVec2((r.x + r.w), (r.y + r.h)), self.TexUvScale))
 
     return true
 end
@@ -2965,11 +2966,11 @@ function ImFontAtlasGetMouseCursorTexData(atlas, cursor_type, out_offset, out_si
     local size = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][2]
     ImVec2_Copy(out_size, size)
     ImVec2_Copy(out_offset, FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][3])
-    ImVec2_CopyV(out_uv_border[1], ImVec2_MulCompV((pos), atlas.TexUvScale))
-    ImVec2_CopyV(out_uv_border[2], ImVec2_MulCompV((pos + size), atlas.TexUvScale))
+    ImVec2_CopyV(out_uv_border[1], ImVec2_MulVV(nil, (pos), atlas.TexUvScale))
+    ImVec2_CopyV(out_uv_border[2], ImVec2_MulVV(nil, (pos + size), atlas.TexUvScale))
     pos.x = pos.x + (FONT_ATLAS_DEFAULT_TEX_DATA_W + 1)
-    ImVec2_CopyV(out_uv_fill[1], ImVec2_MulCompV((pos), atlas.TexUvScale))
-    ImVec2_CopyV(out_uv_fill[2], ImVec2_MulCompV((pos + size), atlas.TexUvScale))
+    ImVec2_CopyV(out_uv_fill[1], ImVec2_MulVV(nil, (pos), atlas.TexUvScale))
+    ImVec2_CopyV(out_uv_fill[2], ImVec2_MulVV(nil, (pos + size), atlas.TexUvScale))
 
     return true
 end
@@ -3436,37 +3437,40 @@ function MT.ImDrawList:PrimUnreserve(idx_count, vtx_count)
     self._IdxWritePtr = self.IdxBuffer.Size + 1
 end
 
+--- @param a   ImVec2
+--- @param c   ImVec2
+--- @param col ImU32
 function MT.ImDrawList:PrimRect(a, c, col)
-    local b = ImVec2(c.x, a.y) local d = ImVec2(a.x, c.y)
     local uv = self._Data.TexUvWhitePixel
 
     local idx = self._VtxCurrentIdx
+    local idx_data = self.IdxBuffer.Data; local vtx_data = self.VtxBuffer.Data
 
     local idx_write_ptr = self._IdxWritePtr
-    self.IdxBuffer.Data[idx_write_ptr + 0] = idx
-    self.IdxBuffer.Data[idx_write_ptr + 1] = idx + 1
-    self.IdxBuffer.Data[idx_write_ptr + 2] = idx + 2
+    idx_data[idx_write_ptr + 0] = idx
+    idx_data[idx_write_ptr + 1] = idx + 1
+    idx_data[idx_write_ptr + 2] = idx + 2
 
-    self.IdxBuffer.Data[idx_write_ptr + 3] = idx
-    self.IdxBuffer.Data[idx_write_ptr + 4] = idx + 2
-    self.IdxBuffer.Data[idx_write_ptr + 5] = idx + 3
+    idx_data[idx_write_ptr + 3] = idx
+    idx_data[idx_write_ptr + 4] = idx + 2
+    idx_data[idx_write_ptr + 5] = idx + 3
 
     local vtx_write_ptr = self._VtxWritePtr
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], a)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][1], a)
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], uv)
+    vtx_data[vtx_write_ptr + 0][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], b)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 1][1], c[1], a[2])
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], uv)
+    vtx_data[vtx_write_ptr + 1][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], c)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][1], c)
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], uv)
+    vtx_data[vtx_write_ptr + 2][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], d)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 3][1], a[1], c[2])
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 3][2], uv)
+    vtx_data[vtx_write_ptr + 3][3] = col
 
     self._VtxWritePtr = vtx_write_ptr + 4
     self._VtxCurrentIdx = idx + 4
@@ -3479,36 +3483,34 @@ end
 --- @param uv_c ImVec2
 --- @param col  any
 function MT.ImDrawList:PrimRectUV(a, c, uv_a, uv_c, col)
-    local b = ImVec2(c.x, a.y)          local d = ImVec2(a.x, c.y)
-    local uv_b = ImVec2(uv_c.x, uv_a.y) local uv_d = ImVec2(uv_a.x, uv_c.y)
-
     local idx = self._VtxCurrentIdx
+    local idx_data = self.IdxBuffer.Data; local vtx_data = self.VtxBuffer.Data
 
     local idx_write_ptr = self._IdxWritePtr
-    self.IdxBuffer.Data[idx_write_ptr + 0] = idx
-    self.IdxBuffer.Data[idx_write_ptr + 1] = idx + 1
-    self.IdxBuffer.Data[idx_write_ptr + 2] = idx + 2
+    idx_data[idx_write_ptr + 0] = idx
+    idx_data[idx_write_ptr + 1] = idx + 1
+    idx_data[idx_write_ptr + 2] = idx + 2
 
-    self.IdxBuffer.Data[idx_write_ptr + 3] = idx
-    self.IdxBuffer.Data[idx_write_ptr + 4] = idx + 2
-    self.IdxBuffer.Data[idx_write_ptr + 5] = idx + 3
+    idx_data[idx_write_ptr + 3] = idx
+    idx_data[idx_write_ptr + 4] = idx + 2
+    idx_data[idx_write_ptr + 5] = idx + 3
 
     local vtx_write_ptr = self._VtxWritePtr
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], a)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], uv_a)
-    self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][1], a)
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], uv_a)
+    vtx_data[vtx_write_ptr + 0][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], b)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv_b)
-    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 1][1], c[1], a[2])
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 1][2], uv_c[1], uv_a[2])
+    vtx_data[vtx_write_ptr + 1][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], c)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], uv_c)
-    self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][1], c)
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], uv_c)
+    vtx_data[vtx_write_ptr + 2][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], d)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], uv_d)
-    self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 3][1], a[1], c[2])
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 3][2], uv_a[1], uv_c[2])
+    vtx_data[vtx_write_ptr + 3][3] = col
 
     self._VtxWritePtr   = vtx_write_ptr + 4
     self._VtxCurrentIdx = idx + 4
@@ -3581,10 +3583,10 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, thickness, flags)
 
             -- If line is not closed, the first and last points need to be generated differently
             if not closed then
-                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_count], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 1], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_count], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulVX(nil, temp_normals[1], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_SubVA(points[1], ImVec2_MulVX(nil, temp_normals[1], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulVX(nil, temp_normals[points_count], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 1], ImVec2_SubVA(points[points_count], ImVec2_MulVX(nil, temp_normals[points_count], half_draw_size)))
             end
 
             -- Generate indices and vertices
@@ -3656,14 +3658,14 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, thickness, flags)
             -- If line is not closed, handle first and last points
             if not closed then
                 local points_last = points_count - 1
-                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + 2], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + 3], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 1], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 2], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 3], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulVX(nil, temp_normals[1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_AddVA(points[1], ImVec2_MulVX(nil, temp_normals[1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + 2], ImVec2_SubVA(points[1], ImVec2_MulVX(nil, temp_normals[1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + 3], ImVec2_SubVA(points[1], ImVec2_MulVX(nil, temp_normals[1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulVX(nil, temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 1], ImVec2_AddVA(points[points_count], ImVec2_MulVX(nil, temp_normals[points_last + 1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 2], ImVec2_SubVA(points[points_count], ImVec2_MulVX(nil, temp_normals[points_last + 1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 3], ImVec2_SubVA(points[points_count], ImVec2_MulVX(nil, temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
             end
 
             -- Generate indices and vertices
