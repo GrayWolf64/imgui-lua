@@ -4472,7 +4472,6 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     draw_list._VtxCurrentIdx = vtx_index
 end
 
-do local a, b, c, center = ImVec2(), ImVec2(), ImVec2(), ImVec2()
 --- @param draw_list ImDrawList
 --- @param pos       ImVec2
 --- @param color     ImU32
@@ -4484,25 +4483,25 @@ function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
     local h = draw_list._Data.FontSize * 1.00
     local r = h * 0.40 * scale
 
-    ImVec2_MulAdd(center, h, h * scale, 0.5, pos)
+    local center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
+
+    local a, b, c
 
     if dir == ImGuiDir.Up or dir == ImGuiDir.Down then
         if dir == ImGuiDir.Up then r = -r end
-        ImVec2_Mul(a,  0.000,  0.750, r)
-        ImVec2_Mul(b, -0.866, -0.750, r)
-        ImVec2_Mul(c,  0.866, -0.750, r)
+        a = ImVec2( 0.000,  0.750) * r
+        b = ImVec2(-0.866, -0.750) * r
+        c = ImVec2( 0.866, -0.750) * r
     elseif dir == ImGuiDir.Left or dir == ImGuiDir.Right then
         if dir == ImGuiDir.Left then r = -r end
-        ImVec2_Mul(a,  0.750,  0.000, r)
-        ImVec2_Mul(b, -0.750,  0.866, r)
-        ImVec2_Mul(c, -0.750, -0.866, r)
+        a = ImVec2( 0.750,  0.000) * r
+        b = ImVec2(-0.750,  0.866) * r
+        c = ImVec2(-0.750, -0.866) * r
     elseif dir == ImGuiDir.None or dir == ImGuiDir.COUNT then
         IM_ASSERT(false)
     end
 
-    ImVec2_Add(a, center); ImVec2_Add(b, center); ImVec2_Add(c, center)
-    draw_list:AddTriangleFilled(a, b, c, color)
-end
+    draw_list:AddTriangleFilled(center + a, center + b, center + c, color)
 end
 
 --- @param draw_list ImDrawList
