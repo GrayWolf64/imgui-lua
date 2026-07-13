@@ -3,6 +3,8 @@
 
 --- @meta
 
+local rawget = rawget; local rawset = rawset
+
 -- [LuaBitOp](https://bitop.luajit.org/semantics.html)
 local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift
@@ -110,8 +112,6 @@ ImGuiMouseButton = { Left = 0, Right = 1, Middle = 2, COUNT = 5 } --- @enum ImGu
 --- @return ImTextureRect
 function ImTextureRect(x, y, w, h) IMGUI_TABNEW_HOOK"ImTextureRect" return { x = x, y = y, w = w, h = h } end
 
-local rawget = rawget; local rawset = rawset
-
 -- This structure supports indexing on string keys `x`, `y` and number keys 1, 2.
 -- But note that the former is likely to be more expensive.
 --- @class ImVec2
@@ -125,7 +125,7 @@ local rawget = rawget; local rawset = rawset
 local IM_VEC2 = {}
 
 --- @param t ImVec2
---- @param k int
+--- @param k string
 IM_VEC2.__index = function(t, k)
     if     k == "x" then return rawget(t, 1)
     elseif k == "y" then return rawget(t, 2)
@@ -133,11 +133,12 @@ IM_VEC2.__index = function(t, k)
 end
 
 --- @param t ImVec2
---- @param k int
+--- @param k string
 --- @param v number
 IM_VEC2.__newindex = function(t, k, v)
     if     k == "x" then rawset(t, 1, v)
     elseif k == "y" then rawset(t, 2, v)
+    else IM_ASSERT(false)
     end
 end
 
@@ -217,7 +218,7 @@ local function ImVec2_TCopy(t, k, v) local dest = t[k]; dest[1] = v[1]; dest[2] 
 local IM_VEC4 = {}
 
 --- @param t ImVec4
---- @param k int
+--- @param k string
 IM_VEC4.__index = function(t, k)
     if     k == "x" then return rawget(t, 1)
     elseif k == "y" then return rawget(t, 2)
@@ -227,13 +228,14 @@ IM_VEC4.__index = function(t, k)
 end
 
 --- @param t ImVec4
---- @param k int
+--- @param k string
 --- @param v number
 IM_VEC4.__newindex = function(t, k, v)
     if     k == "x" then rawset(t, 1, v)
     elseif k == "y" then rawset(t, 2, v)
     elseif k == "z" then rawset(t, 3, v)
     elseif k == "w" then rawset(t, 4, v)
+    else IM_ASSERT(false)
     end
 end
 

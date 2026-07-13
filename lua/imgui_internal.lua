@@ -6,6 +6,8 @@
 
 --- @meta
 
+local rawget = rawget
+
 local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift
 
@@ -572,8 +574,8 @@ ImGuiFocusRequestFlags = {
 
 --- @enum ImGuiTextFlags
 ImGuiTextFlags = {
-    None                          = 0,
-    NoWidthForLargeClippedText    = b_ls(1, 0)
+    None                       = 0,
+    NoWidthForLargeClippedText = b_ls(1, 0)
 }
 
 --- @enum ImWcharClass
@@ -599,27 +601,48 @@ function ImVec1_Copy(dest, src)
 end
 
 --- @class ImRect
+--- @field [1] ImVec2
+--- @field [2] ImVec2
 --- @field Min ImVec2
 --- @field Max ImVec2
 local IM_RECT = {}
-IM_RECT.__index = IM_RECT
+
+--- @param t ImRect
+--- @param k string
+IM_RECT.__index = function(t, k)
+    local method = IM_RECT[k]
+    if method ~= nil  then return method end
+    if     k == "Min" then return rawget(t, 1)
+    elseif k == "Max" then return rawget(t, 2)
+    end
+end
+
+--- @param t ImRect
+--- @param k string
+--- @param v ImVec2
+IM_RECT.__newindex = function(t, k, v)
+    if     k == "Min" then ImVec2_Copy(rawget(t, 1), v)
+    elseif k == "Max" then ImVec2_Copy(rawget(t, 2), v)
+    else IM_ASSERT(false)
+    end
+end
 
 --- @nodiscard
-function ImRect(a, b, c, d) IMGUI_TABNEW_HOOK"ImRect" if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, IM_RECT) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, IM_RECT) end
+function ImRect(a, b, c, d) IMGUI_TABNEW_HOOK"ImRect" if c and d then return setmetatable({ ImVec2(a, b), ImVec2(c, d) }, IM_RECT) end return setmetatable({ ImVec2(a and a.x or 0, a and a.y or 0), ImVec2(b and b.x or 0, b and b.y or 0) }, IM_RECT) end
 
-function IM_RECT:__eq(other) return self.Min == other.Min and self.Max == other.Max end
+function IM_RECT:__eq(other) return self[1] == other[1] and self[2] == other[2] end
 function IM_RECT:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 
 --- @param other ImRect
-function IM_RECT:Contains(other) return other.Min[1] >= self.Min[1] and other.Max[1] <= self.Max[1] and other.Min[2] >= self.Min[2] and other.Max[2] <= self.Max[2] end
+function IM_RECT:Contains(other) return other[1][1] >= self[1][1] and other[2][1] <= self[2][1] and other[1][2] >= self[1][2] and other[2][2] <= self[2][2] end
 
 --- @param p ImVec2
-function IM_RECT:ContainsV2(p) return p[1] >= self.Min[1] and p[2] >= self.Min[2] and p[1] < self.Max[1] and p[2] < self.Max[2] end
+function IM_RECT:ContainsV2(p) return p[1] >= self[1][1] and p[2] >= self[1][2] and p[1] < self[2][1] and p[2] < self[2][2] end
 
 --- @param p   ImVec2
 --- @param pad ImVec2
 function IM_RECT:ContainsWithPad(p, pad)
-    return p[1] >= self.Min[1] - pad[1] and p[2] >= self.Min[2] - pad[2] and p[1] < self.Max[1] + pad[1] and p[2] < self.Max[2] + pad[2]
+    return p[1] >= self[1][1] - pad[1] and p[2] >= self[1][2] - pad[2] and p[1] < self[2][1] + pad[1] and p[2] < self[2][2] + pad[2]
 end
 
 function IM_RECT:Overlaps(other)
@@ -627,8 +650,8 @@ function IM_RECT:Overlaps(other)
 
     if other.Min then
         --- @cast other ImRect
-        min_x = other.Min[1]; min_y = other.Min[2]
-        max_x = other.Max[1]; max_y = other.Max[2]
+        min_x = other[1][1]; min_y = other[1][2]
+        max_x = other[2][1]; max_y = other[2][2]
     elseif other.z then
         --- @cast other ImVec4
         min_x = other[1]; min_y = other[2]
@@ -637,34 +660,35 @@ function IM_RECT:Overlaps(other)
         IM_ASSERT(false)
     end
 
-    return self.Min[1] <= max_x and self.Max[1] >= min_x and self.Min[2] <= max_y and self.Max[2] >= min_y
+    return self[1][1] <= max_x and self[2][1] >= min_x and self[1][2] <= max_y and self[2][2] >= min_y
 end
---- @nodiscard
-function IM_RECT:GetCenter() return ImVec2((self.Min[1] + self.Max[1]) * 0.5, (self.Min[2] + self.Max[2]) * 0.5) end
-function IM_RECT:GetWidth() return self.Max[1] - self.Min[1] end
-function IM_RECT:GetHeight() return self.Max[2] - self.Min[2] end
---- @nodiscard
-function IM_RECT:GetSize() return ImVec2(self.Max[1] - self.Min[1], self.Max[2] - self.Min[2]) end
 
 --- @nodiscard
-function IM_RECT:GetTL() return ImVec2(self.Min[1], self.Min[2]) end
+function IM_RECT:GetCenter() return ImVec2((self[1][1] + self[2][1]) * 0.5, (self[1][2] + self[2][2]) * 0.5) end
+function IM_RECT:GetWidth() return self[2][1] - self[1][1] end
+function IM_RECT:GetHeight() return self[2][2] - self[1][2] end
 --- @nodiscard
-function IM_RECT:GetTR() return ImVec2(self.Max[1], self.Min[2]) end
+function IM_RECT:GetSize() return ImVec2(self[2][1] - self[1][1], self[2][2] - self[1][2]) end
+
 --- @nodiscard
-function IM_RECT:GetBL() return ImVec2(self.Min[1], self.Max[2]) end
+function IM_RECT:GetTL() return ImVec2(self[1][1], self[1][2]) end
 --- @nodiscard
-function IM_RECT:GetBR() return ImVec2(self.Max[1], self.Max[2]) end
+function IM_RECT:GetTR() return ImVec2(self[2][1], self[1][2]) end
+--- @nodiscard
+function IM_RECT:GetBL() return ImVec2(self[1][1], self[2][2]) end
+--- @nodiscard
+function IM_RECT:GetBR() return ImVec2(self[2][1], self[2][2]) end
 
 --- @param r ImRect|ImVec4
 function IM_RECT:ClipWith(r)
     if r.Min then
         --- @cast r ImRect
-        self.Min[1] = ImMax(self.Min[1], r.Min[1]) self.Min[2] = ImMax(self.Min[2], r.Min[2])
-        self.Max[1] = ImMin(self.Max[1], r.Max[1]) self.Max[2] = ImMin(self.Max[2], r.Max[2])
+        self[1][1] = ImMax(self[1][1], r[1][1]) self[1][2] = ImMax(self[1][2], r[1][2])
+        self[2][1] = ImMin(self[2][1], r[2][1]) self[2][2] = ImMin(self[2][2], r[2][2])
     elseif r.z then
         --- @cast r ImVec4
-        self.Min[1] = ImMax(self.Min[1], r[1]) self.Min[2] = ImMax(self.Min[2], r[2])
-        self.Max[1] = ImMin(self.Max[1], r[3]) self.Max[2] = ImMin(self.Max[2], r[4])
+        self[1][1] = ImMax(self[1][1], r[1]) self[1][2] = ImMax(self[1][2], r[2])
+        self[2][1] = ImMin(self[2][1], r[3]) self[2][2] = ImMin(self[2][2], r[4])
     else
         IM_ASSERT(false)
     end
@@ -672,65 +696,65 @@ end
 
 --- @param r ImRect
 function IM_RECT:ClipWithFull(r)
-    self.Min[1] = ImClamp(self.Min[1], r.Min[1], r.Max[1]) self.Min[2] = ImClamp(self.Min[2], r.Min[2], r.Max[2])
-    self.Max[1] = ImClamp(self.Max[1], r.Min[1], r.Max[1]) self.Max[2] = ImClamp(self.Max[2], r.Min[2], r.Max[2])
+    self[1][1] = ImClamp(self[1][1], r[1][1], r[2][1]) self[1][2] = ImClamp(self[1][2], r[1][2], r[2][2])
+    self[2][1] = ImClamp(self[2][1], r[1][1], r[2][1]) self[2][2] = ImClamp(self[2][2], r[1][2], r[2][2])
 end
 
 --- @param p ImRect|ImVec2
 function IM_RECT:Add(p)
     if p.Min then
         --- @cast p ImRect
-        self:Add(p.Min)
-        self:Add(p.Max)
+        self:Add(p[1])
+        self:Add(p[2])
     else
         --- @cast p ImVec2
-        if p[1] < self.Min[1] then self.Min[1] = p[1] end
-        if p[2] < self.Min[2] then self.Min[2] = p[2] end
-        if p[1] > self.Max[1] then self.Max[1] = p[1] end
-        if p[2] > self.Max[2] then self.Max[2] = p[2] end
+        if p[1] < self[1][1] then self[1][1] = p[1] end
+        if p[2] < self[1][2] then self[1][2] = p[2] end
+        if p[1] > self[2][1] then self[2][1] = p[1] end
+        if p[2] > self[2][2] then self[2][2] = p[2] end
     end
 end
 
 --- @param amount float
 function IM_RECT:Expand(amount)
-    self.Min[1] = self.Min[1] - amount; self.Min[2] = self.Min[2] - amount
-    self.Max[1] = self.Max[1] + amount; self.Max[2] = self.Max[2] + amount
+    self[1][1] = self[1][1] - amount; self[1][2] = self[1][2] - amount
+    self[2][1] = self[2][1] + amount; self[2][2] = self[2][2] + amount
 end
 
 --- @param amount ImVec2
 function IM_RECT:ExpandV2(amount)
-    self.Min[1] = self.Min[1] - amount[1]; self.Min[2] = self.Min[2] - amount[2]
-    self.Max[1] = self.Max[1] + amount[1]; self.Max[2] = self.Max[2] + amount[2]
+    self[1][1] = self[1][1] - amount[1]; self[1][2] = self[1][2] - amount[2]
+    self[2][1] = self[2][1] + amount[1]; self[2][2] = self[2][2] + amount[2]
 end
 
 --- @nodiscard
 function IM_RECT:ToVec4()
-    return ImVec4(self.Min[1], self.Min[2], self.Max[1], self.Max[2])
+    return ImVec4(self[1][1], self[1][2], self[2][1], self[2][2])
 end
 
 --- @param d ImVec2
 function IM_RECT:Translate(d)
-    self.Min[1] = self.Min[1] + d[1]; self.Min[2] = self.Min[2] + d[2]
-    self.Max[1] = self.Max[1] + d[1]; self.Max[2] = self.Max[2] + d[2]
+    self[1][1] = self[1][1] + d[1]; self[1][2] = self[1][2] + d[2]
+    self[2][1] = self[2][1] + d[1]; self[2][2] = self[2][2] + d[2]
 end
 
-function IM_RECT:GetArea() return (self.Max[1] - self.Min[1]) * (self.Max[2] - self.Min[2]) end
+function IM_RECT:GetArea() return (self[2][1] - self[1][1]) * (self[2][2] - self[1][2]) end
 
 --- @nodiscard
-function IM_RECT:AsVec4() return ImVec4(self.Min[1], self.Min[2], self.Max[1], self.Max[2]) end
+function IM_RECT:AsVec4() return ImVec4(self[1][1], self[1][2], self[2][1], self[2][2]) end
 
 --- @param dest ImRect
 --- @param src  ImRect
 function ImRect_Copy(dest, src)
-    dest.Min[1] = src.Min[1]; dest.Min[2] = src.Min[2]
-    dest.Max[1] = src.Max[1]; dest.Max[2] = src.Max[2]
+    dest[1][1] = src[1][1]; dest[1][2] = src[1][2]
+    dest[2][1] = src[2][1]; dest[2][2] = src[2][2]
 end
 
 --- @param dest ImRect
 --- @param src  ImVec4
 function ImRect_CopyFromV4(dest, src)
-    dest.Min[1] = src[1]; dest.Min[2] = src[2]
-    dest.Max[1] = src[3]; dest.Max[2] = src[4]
+    dest[1][1] = src[1]; dest[1][2] = src[2]
+    dest[2][1] = src[3]; dest[2][2] = src[4]
 end
 
 --- @param _ARRAY ImU32[]
