@@ -164,6 +164,32 @@ function ImVec2_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2] end
 --- @param src_y number
 function ImVec2_CopyV(dest, src_x, src_y) dest[1] = src_x; dest[2] = src_y end
 
+--- @param dest ImVec2
+--- @param src  ImVec2
+function ImVec2_Add(dest, src)
+    dest[1] = dest[1] + src[1]
+    dest[2] = dest[2] + src[2]
+end
+
+--- @param dest  ImVec2
+--- @param src_x number
+--- @param src_y number
+--- @param scale number
+function ImVec2_Mul(dest, src_x, src_y, scale)
+    dest[1] = src_x * scale
+    dest[2] = src_y * scale
+end
+
+--- @param dest  ImVec2
+--- @param src_x number
+--- @param src_y number
+--- @param scale number
+--- @param add   ImVec2
+function ImVec2_MulAdd(dest, src_x, src_y, scale, add)
+    dest[1] = src_x * scale + add[1]
+    dest[2] = src_y * scale + add[2]
+end
+
 --- @param lhs ImVec2
 --- @param rhs ImVec2
 function ImVec2_AddV(lhs, rhs) return lhs[1] + rhs[1], lhs[2] + rhs[2] end
