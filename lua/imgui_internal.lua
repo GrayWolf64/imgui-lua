@@ -611,15 +611,15 @@ function IM_RECT:__eq(other) return self.Min == other.Min and self.Max == other.
 function IM_RECT:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 
 --- @param other ImRect
-function IM_RECT:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
+function IM_RECT:Contains(other) return other.Min[1] >= self.Min[1] and other.Max[1] <= self.Max[1] and other.Min[2] >= self.Min[2] and other.Max[2] <= self.Max[2] end
 
 --- @param p ImVec2
-function IM_RECT:ContainsV2(p) return p.x >= self.Min.x and p.y >= self.Min.y and p.x < self.Max.x and p.y < self.Max.y end
+function IM_RECT:ContainsV2(p) return p[1] >= self.Min[1] and p[2] >= self.Min[2] and p[1] < self.Max[1] and p[2] < self.Max[2] end
 
 --- @param p   ImVec2
 --- @param pad ImVec2
 function IM_RECT:ContainsWithPad(p, pad)
-    return p.x >= self.Min.x - pad.x and p.y >= self.Min.y - pad.y and p.x < self.Max.x + pad.x and p.y < self.Max.y + pad.y
+    return p[1] >= self.Min[1] - pad[1] and p[2] >= self.Min[2] - pad[2] and p[1] < self.Max[1] + pad[1] and p[2] < self.Max[2] + pad[2]
 end
 
 function IM_RECT:Overlaps(other)
@@ -627,45 +627,53 @@ function IM_RECT:Overlaps(other)
 
     if other.Min then
         --- @cast other ImRect
-        min_x = other.Min.x; min_y = other.Min.y
-        max_x = other.Max.x; max_y = other.Max.y
+        min_x = other.Min[1]; min_y = other.Min[2]
+        max_x = other.Max[1]; max_y = other.Max[2]
     elseif other.z then
         --- @cast other ImVec4
-        min_x = other.x; min_y = other.y
-        max_x = other.z; max_y = other.w
+        min_x = other[1]; min_y = other[2]
+        max_x = other[3]; max_y = other[4]
     else
         IM_ASSERT(false)
     end
 
-    return self.Min.x <= max_x and self.Max.x >= min_x and self.Min.y <= max_y and self.Max.y >= min_y
+    return self.Min[1] <= max_x and self.Max[1] >= min_x and self.Min[2] <= max_y and self.Max[2] >= min_y
 end
-function IM_RECT:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
-function IM_RECT:GetWidth() return self.Max.x - self.Min.x end
-function IM_RECT:GetHeight() return self.Max.y - self.Min.y end
-function IM_RECT:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
-function IM_RECT:GetTL() return ImVec2(self.Min.x, self.Min.y) end
-function IM_RECT:GetTR() return ImVec2(self.Max.x, self.Min.y) end
-function IM_RECT:GetBL() return ImVec2(self.Min.x, self.Max.y) end
-function IM_RECT:GetBR() return ImVec2(self.Max.x, self.Max.y) end
+--- @nodiscard
+function IM_RECT:GetCenter() return ImVec2((self.Min[1] + self.Max[1]) * 0.5, (self.Min[2] + self.Max[2]) * 0.5) end
+function IM_RECT:GetWidth() return self.Max[1] - self.Min[1] end
+function IM_RECT:GetHeight() return self.Max[2] - self.Min[2] end
+--- @nodiscard
+function IM_RECT:GetSize() return ImVec2(self.Max[1] - self.Min[1], self.Max[2] - self.Min[2]) end
+
+--- @nodiscard
+function IM_RECT:GetTL() return ImVec2(self.Min[1], self.Min[2]) end
+--- @nodiscard
+function IM_RECT:GetTR() return ImVec2(self.Max[1], self.Min[2]) end
+--- @nodiscard
+function IM_RECT:GetBL() return ImVec2(self.Min[1], self.Max[2]) end
+--- @nodiscard
+function IM_RECT:GetBR() return ImVec2(self.Max[1], self.Max[2]) end
 
 --- @param r ImRect|ImVec4
 function IM_RECT:ClipWith(r)
     if r.Min then
         --- @cast r ImRect
-        self.Min.x = ImMax(self.Min.x, r.Min.x) self.Min.y = ImMax(self.Min.y, r.Min.y)
-        self.Max.x = ImMin(self.Max.x, r.Max.x) self.Max.y = ImMin(self.Max.y, r.Max.y)
+        self.Min[1] = ImMax(self.Min[1], r.Min[1]) self.Min[2] = ImMax(self.Min[2], r.Min[2])
+        self.Max[1] = ImMin(self.Max[1], r.Max[1]) self.Max[2] = ImMin(self.Max[2], r.Max[2])
     elseif r.z then
         --- @cast r ImVec4
-        self.Min.x = ImMax(self.Min.x, r.x) self.Min.y = ImMax(self.Min.y, r.y)
-        self.Max.x = ImMin(self.Max.x, r.z) self.Max.y = ImMin(self.Max.y, r.w)
+        self.Min[1] = ImMax(self.Min[1], r[1]) self.Min[2] = ImMax(self.Min[2], r[2])
+        self.Max[1] = ImMin(self.Max[1], r[3]) self.Max[2] = ImMin(self.Max[2], r[4])
     else
         IM_ASSERT(false)
     end
 end
 
+--- @param r ImRect
 function IM_RECT:ClipWithFull(r)
-    self.Min.x = ImClamp(self.Min.x, r.Min.x, r.Max.x) self.Min.y = ImClamp(self.Min.y, r.Min.y, r.Max.y)
-    self.Max.x = ImClamp(self.Max.x, r.Min.x, r.Max.x) self.Max.y = ImClamp(self.Max.y, r.Min.y, r.Max.y)
+    self.Min[1] = ImClamp(self.Min[1], r.Min[1], r.Max[1]) self.Min[2] = ImClamp(self.Min[2], r.Min[2], r.Max[2])
+    self.Max[1] = ImClamp(self.Max[1], r.Min[1], r.Max[1]) self.Max[2] = ImClamp(self.Max[2], r.Min[2], r.Max[2])
 end
 
 --- @param p ImRect|ImVec2
@@ -676,39 +684,40 @@ function IM_RECT:Add(p)
         self:Add(p.Max)
     else
         --- @cast p ImVec2
-        if p.x < self.Min.x then self.Min.x = p.x end
-        if p.y < self.Min.y then self.Min.y = p.y end
-        if p.x > self.Max.x then self.Max.x = p.x end
-        if p.y > self.Max.y then self.Max.y = p.y end
+        if p[1] < self.Min[1] then self.Min[1] = p[1] end
+        if p[2] < self.Min[2] then self.Min[2] = p[2] end
+        if p[1] > self.Max[1] then self.Max[1] = p[1] end
+        if p[2] > self.Max[2] then self.Max[2] = p[2] end
     end
 end
 
 --- @param amount float
 function IM_RECT:Expand(amount)
-    self.Min.x = self.Min.x - amount; self.Min.y = self.Min.y - amount
-    self.Max.x = self.Max.x + amount; self.Max.y = self.Max.y + amount
+    self.Min[1] = self.Min[1] - amount; self.Min[2] = self.Min[2] - amount
+    self.Max[1] = self.Max[1] + amount; self.Max[2] = self.Max[2] + amount
 end
 
 --- @param amount ImVec2
 function IM_RECT:ExpandV2(amount)
-    self.Min.x = self.Min.x - amount.x; self.Min.y = self.Min.y - amount.y
-    self.Max.x = self.Max.x + amount.x; self.Max.y = self.Max.y + amount.y
+    self.Min[1] = self.Min[1] - amount[1]; self.Min[2] = self.Min[2] - amount[2]
+    self.Max[1] = self.Max[1] + amount[1]; self.Max[2] = self.Max[2] + amount[2]
 end
 
+--- @nodiscard
 function IM_RECT:ToVec4()
-    return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y)
+    return ImVec4(self.Min[1], self.Min[2], self.Max[1], self.Max[2])
 end
 
 --- @param d ImVec2
 function IM_RECT:Translate(d)
-    self.Min.x = self.Min.x + d.x; self.Min.y = self.Min.y + d.y
-    self.Max.x = self.Max.x + d.x; self.Max.y = self.Max.y + d.y
+    self.Min[1] = self.Min[1] + d[1]; self.Min[2] = self.Min[2] + d[2]
+    self.Max[1] = self.Max[1] + d[1]; self.Max[2] = self.Max[2] + d[2]
 end
 
-function IM_RECT:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
+function IM_RECT:GetArea() return (self.Max[1] - self.Min[1]) * (self.Max[2] - self.Min[2]) end
 
 --- @nodiscard
-function IM_RECT:AsVec4() return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+function IM_RECT:AsVec4() return ImVec4(self.Min[1], self.Min[2], self.Max[1], self.Max[2]) end
 
 --- @param dest ImRect
 --- @param src  ImRect
@@ -720,8 +729,8 @@ end
 --- @param dest ImRect
 --- @param src  ImVec4
 function ImRect_CopyFromV4(dest, src)
-    dest.Min.x = src.x; dest.Min.y = src.y
-    dest.Max.x = src.z; dest.Max.y = src.w
+    dest.Min[1] = src[1]; dest.Min[2] = src[2]
+    dest.Max[1] = src[3]; dest.Max[2] = src[4]
 end
 
 --- @param _ARRAY ImU32[]
