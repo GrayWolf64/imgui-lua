@@ -1522,7 +1522,6 @@ end
 --- @field TotalFreeCount  int
 --- @field LastEntriesIdx  ImS16
 --- @field LastEntriesBuf  ImGuiDebugAllocEntry[]
---- @field AllocCountByStruct { [string]: int } # LUA: structs(tables) are created frequently!
 
 --- @return ImGuiDebugAllocInfo
 local function ImGuiDebugAllocInfo()
@@ -1531,7 +1530,6 @@ local function ImGuiDebugAllocInfo()
         TotalFreeCount = 0,
         LastEntriesIdx = 1,
         LastEntriesBuf = {nil, nil, nil, nil, nil, nil},
-        AllocCountByStruct = {}
     }
 
     for i = 1, 6 do

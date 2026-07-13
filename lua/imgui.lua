@@ -92,7 +92,7 @@ function IMGUI_TABNEW_HOOK(t_name)
     if ctx == nil then return end -- some structures can be used when no ctx is present
 
     local info = ctx.DebugAllocInfo
-    info.AllocCountByStruct[t_name] = (info.AllocCountByStruct[t_name] or 0) + 1
+    -- TODO:
 end
 
 IM_INCLUDE"imgui_h.lua"
@@ -9967,11 +9967,6 @@ function ImGui.ShowMetricsWindow(open)
                 ImGui.SameLine()
                 ImGui.Text("<- %d frames ago", g.FrameCount - entry.FrameCount)
             end
-        end
-
-        ImGui.Text("Lua table creations (total):")
-        for type, count in pairs(info.AllocCountByStruct) do
-            ImGui.BulletText("type %16s: %16d", type, count)
         end
 
         ImGui.TreePop()
