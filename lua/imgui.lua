@@ -9721,9 +9721,9 @@ function ImGui.UpdatePlatformWindows()
             end
             g.PlatformWindowsCreatedCount = g.PlatformWindowsCreatedCount + 1
             viewport.LastNameHash = 0
-            ImVec2_Copy(viewport.LastPlatformPos, ImVec2(FLT_MAX, FLT_MAX))
-            ImVec2_Copy(viewport.LastPlatformSize, ImVec2(FLT_MAX, FLT_MAX)) -- By clearing those we'll enforce a call to Platform_SetWindowPos/Size below, before Platform_ShowWindow (FIXME: Is that necessary?)
-            ImVec2_Copy(viewport.LastRendererSize, viewport.Size)            -- We don't need to call Renderer_SetWindowSize() as it is expected Renderer_CreateWindow() already did it.
+            ImVec2_CopyV(viewport.LastPlatformPos, FLT_MAX, FLT_MAX)
+            ImVec2_CopyV(viewport.LastPlatformSize, FLT_MAX, FLT_MAX) -- By clearing those we'll enforce a call to Platform_SetWindowPos/Size below, before Platform_ShowWindow (FIXME: Is that necessary?)
+            ImVec2_Copy(viewport.LastRendererSize, viewport.Size)     -- We don't need to call Renderer_SetWindowSize() as it is expected Renderer_CreateWindow() already did it.
             viewport.PlatformWindowCreated = true
         end
 

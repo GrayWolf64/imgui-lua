@@ -4483,7 +4483,7 @@ function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
     local h = draw_list._Data.FontSize * 1.00
     local r = h * 0.40 * scale
 
-    center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
+    local center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
 
     local a, b, c
 
