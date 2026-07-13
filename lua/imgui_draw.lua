@@ -313,7 +313,7 @@ function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx,
     for vert_idx = vert_start_idx, vert_end_idx - 1 do
         local vert = draw_list.VtxBuffer.Data[vert_idx]
 
-        ImVec2_CopyV(a, ImVec2_SubV(vert[1], gradient_p0))
+        ImVec2_CopyV(a, ImVec2_SubVV(nil, vert[1], gradient_p0))
         local d = ImDot(a, gradient_extent)
         local t = ImClamp(d * gradient_inv_length2, 0.0, 1.0)
 
@@ -344,17 +344,23 @@ function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b,
 
     local vertex
     local verts = draw_list.VtxBuffer.Data
+    local temp = ImVec2()
     if clamp then
-        local min = ImMinVec2(uv_a, uv_b)
-        local max = ImMaxVec2(uv_a, uv_b)
+        local min = ImVec2(); ImVec2_MinVV(min, uv_a, uv_b)
+        local max = ImVec2(); ImVec2_MaxVV(max, uv_a, uv_b)
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
-            ImVec2_Copy(vertex[2], ImClampV2(uv_a + ImMul(vertex[1] - a, scale), min, max))
+            ImVec2_SubVV(temp, vertex[1], a)
+            ImVec2_MulVV(temp, temp, scale)
+            ImVec2_AddVV(temp, uv_a, temp)
+            ImVec2_ClampVVV(vertex[2], temp, min, max)
         end
     else
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
-            ImVec2_Copy(vertex[2], uv_a + ImMul(vertex[1] - a, scale))
+            ImVec2_SubVV(temp, vertex[1], a)
+            ImVec2_MulVV(temp, temp, scale)
+            ImVec2_AddVV(vertex[2], uv_a, temp)
         end
     end
 end

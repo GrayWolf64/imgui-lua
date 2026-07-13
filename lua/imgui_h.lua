@@ -170,13 +170,23 @@ function ImVec2_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2] end
 --- @param src_y number
 function ImVec2_CopyV(dest, src_x, src_y) dest[1] = src_x; dest[2] = src_y end
 
---- @param lhs ImVec2
---- @param rhs ImVec2
-function ImVec2_AddV(lhs, rhs) return lhs[1] + rhs[1], lhs[2] + rhs[2] end
+--- @param dest? ImVec2
+--- @param a     ImVec2
+--- @param b     ImVec2
+function ImVec2_AddVV(dest, a, b)
+    local r1, r2 = a[1] + b[1], a[2] + b[2]
+    if dest == nil then return r1, r2 end
+    dest[1], dest[2] = r1, r2
+end
 
---- @param lhs ImVec2
---- @param rhs ImVec2
-function ImVec2_SubV(lhs, rhs) return lhs[1] - rhs[1], lhs[2] - rhs[2] end
+--- @param dest? ImVec2
+--- @param a     ImVec2
+--- @param b     ImVec2
+function ImVec2_SubVV(dest, a, b)
+    local r1, r2 = a[1] - b[1], a[2] - b[2]
+    if dest == nil then return r1, r2 end
+    dest[1], dest[2] = r1, r2
+end
 
 --- @param v     ImVec2
 --- @param add_x number
@@ -221,11 +231,13 @@ function ImVec2_MulAccVX(dest, a, scalar)  dest[1] = dest[1] + a[1] * scalar; de
 --- @param b    ImVec2
 function ImVec2_MulSubVV(dest, a, b) dest[1] = dest[1] - a[1] * b[1]; dest[2] = dest[2] - a[2] * b[2] end
 
---- @param dest ImVec2
---- @param a    ImVec2
---- @param b    ImVec2
+--- @param dest? ImVec2
+--- @param a     ImVec2
+--- @param b     ImVec2
 function ImVec2_MinVV(dest, a, b)
-
+    local r1, r2 = m_min(a[1], b[1]), m_min(a[2], b[2])
+    if dest == nil then return r1, r2 end
+    dest[1], dest[2] = r1, r2
 end
 
 --- @param dest? ImVec2
@@ -233,6 +245,26 @@ end
 --- @param b     ImVec2
 function ImVec2_MaxVV(dest, a, b)
     local r1, r2 = m_max(a[1], b[1]), m_max(a[2], b[2])
+    if dest == nil then return r1, r2 end
+    dest[1], dest[2] = r1, r2
+end
+
+--- @param dest? ImVec2
+--- @param a     ImVec2
+--- @param b     ImVec2
+--- @param c     ImVec2
+function ImVec2_MaxVVV(dest, a, b, c)
+    local r1, r2 = m_max(a[1], b[1], c[1]), m_max(a[2], b[2], c[2])
+    if dest == nil then return r1, r2 end
+    dest[1], dest[2] = r1, r2
+end
+
+--- @param dest? ImVec2
+--- @param a     ImVec2
+--- @param b     ImVec2
+--- @param c     ImVec2
+function ImVec2_ClampVVV(dest, a, b, c)
+    local r1, r2 = m_min(m_max(a[1], b[1]), c[1]), m_min(m_max(a[2], b[2]), c[2])
     if dest == nil then return r1, r2 end
     dest[1], dest[2] = r1, r2
 end

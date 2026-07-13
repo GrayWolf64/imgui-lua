@@ -11,6 +11,8 @@ local rawget = rawget
 local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift; local b_rs = bit.rshift
 
+local t_sort = table.sort
+
 --- @alias ImGuiTableColumnIdx ImS16
 
 -- TODO: Implement actual ImString type
@@ -48,22 +50,7 @@ ImFabs = math.abs
 ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
 ImMin = math.min
-
---- @deprecated
---- @param a ImVec2
---- @param b ImVec2
---- @return ImVec2
---- @nodiscard
-function ImMinVec2(a, b) return ImVec2(ImMin(a.x, b.x), ImMin(a.y, b.y)) end
-
 ImMax = math.max
-
---- @deprecated
---- @param a ImVec2
---- @param b ImVec2
---- @return ImVec2
---- @nodiscard
-function ImMaxVec2(a, b) return ImVec2(ImMax(a.x, b.x), ImMax(a.y, b.y)) end
 
 ImRound64 = function(val) return math.floor(val + 0.5) end -- FIXME: Positive values only
 
@@ -101,7 +88,7 @@ end
 --- @param base     table
 --- @param count    int
 --- @param cmp_func fun(lhs, rhs): bool
-ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then table.sort(base, cmp_func) end end
+ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then t_sort(base, cmp_func) end end
 
 --- @param a number
 --- @param b number
@@ -132,14 +119,6 @@ function ImLerpV4V4(a, b, t) return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a
 --- @param min number
 --- @param max number
 function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
-
---- @deprecated
---- @param v   ImVec2
---- @param min ImVec2
---- @param max ImVec2
---- @return ImVec2
---- @nodiscard
-function ImClampV2(v, min, max) return ImVec2(ImMin(ImMax(v.x, min.x), max.x), ImMin(ImMax(v.y, min.y), max.y)) end
 
 --- @param f number
 function ImTrunc(f) if f >= 0 then return math.floor(f) else return math.ceil(f) end end
