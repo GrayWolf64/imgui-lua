@@ -49,7 +49,7 @@ end
 
 -- This does not set `owner[field]` to nil!
 --- @param owner table
---- @param field string
+--- @param field string|int
 function ImGui.MemFree(owner, field)
     if owner ~= nil then
         local ctx = GImGui
@@ -9038,7 +9038,6 @@ function ImGui.FindHoveredViewportFromPlatformWindowStack(mouse_platform_pos)
     return best_candidate
 end
 
--- TODO: GC?
 function ImGui.UpdateViewportsNewFrame()
     local g = GImGui
     IM_ASSERT(g.PlatformIO.Viewports.Size <= g.Viewports.Size)
@@ -9139,6 +9138,8 @@ function ImGui.UpdateViewportsNewFrame()
 
     ImGui.AddUpdateViewport(nil, IMGUI_VIEWPORT_DEFAULT_ID, main_viewport_pos, main_viewport_size, bit.bor(ImGuiViewportFlags.OwnedByApp, ImGuiViewportFlags.CanHostOtherWindows))
 
+    local memory_compact_start_time = (g.GcCompactAll or g.IO.ConfigMemoryCompactTimer < 0.0) and FLT_MAX or (g.Time - g.IO.ConfigMemoryCompactTimer)
+
     g.CurrentDpiScale = 0.0
     g.CurrentViewport = nil
     g.MouseViewport = nil
@@ -9192,6 +9193,12 @@ function ImGui.UpdateViewportsNewFrame()
             end
 
             viewport:UpdateWorkRect()
+
+            for dl_n = 1, #viewport.BgFgDrawLists do
+                if viewport.BgFgDrawListsLastTimeActive[dl_n] < memory_compact_start_time and viewport.BgFgDrawLists[dl_n] ~= nil then
+                    IM_DELETE(viewport.BgFgDrawLists, dl_n)
+                end
+            end
 
             -- Reset alpha every frame. Users of transparency (docking) needs to request a lower alpha back.
             viewport.Alpha = 1.0

@@ -72,6 +72,10 @@ IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 IM_ALLOC = ImGui.MemAlloc
 IM_FREE = ImGui.MemFree
 
+--- @param owner table
+--- @param field string|int
+IM_DELETE = function(owner, field) if owner[field] ~= nil then owner[field] = nil; ImGui.MemFree(owner, field); end end
+
 ---------------------------------------------------------------------------------------
 -- [SECTION] METATABLE MANAGEMENT
 ---------------------------------------------------------------------------------------
