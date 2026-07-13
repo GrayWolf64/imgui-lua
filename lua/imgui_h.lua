@@ -116,7 +116,7 @@ ImGuiMouseButton = { Left = 0, Right = 1, Middle = 2, COUNT = 5 } --- @enum ImGu
 --- @param w? unsigned_short
 --- @param h? unsigned_short
 --- @return ImTextureRect
-function ImTextureRect(x, y, w, h) IMGUI_TABNEW_HOOK"ImTextureRect" return { x = x, y = y, w = w, h = h } end
+function ImTextureRect(x, y, w, h) return { x = x, y = y, w = w, h = h } end
 
 -- This structure supports indexing on string keys `x`, `y` and number keys 1, 2.
 -- But note that the former is likely to be more expensive.
@@ -152,7 +152,7 @@ end
 --- @param y? number
 --- @return ImVec2
 --- @nodiscard
-function ImVec2(x, y) IMGUI_TABNEW_HOOK"ImVec2" return setmetatable({x or 0, y or 0}, IM_VEC2) end
+function ImVec2(x, y) return setmetatable({x or 0, y or 0}, IM_VEC2) end
 
 function IM_VEC2.__add(lhs, rhs) return ImVec2(lhs[1] + rhs[1], lhs[2] + rhs[2]) end
 function IM_VEC2.__sub(lhs, rhs) return ImVec2(lhs[1] - rhs[1], lhs[2] - rhs[2]) end
@@ -319,7 +319,7 @@ end
 --- @param w? number
 --- @return ImVec4
 --- @nodiscard
-function ImVec4(x, y, z, w) IMGUI_TABNEW_HOOK"ImVec4" return setmetatable({x or 0, y or 0, z or 0, w or 0}, IM_VEC4) end
+function ImVec4(x, y, z, w) return setmetatable({x or 0, y or 0, z or 0, w or 0}, IM_VEC4) end
 
 function IM_VEC4.__add(lhs, rhs) return ImVec4(lhs[1] + rhs[1], lhs[2] + rhs[2], lhs[3] + rhs[3], lhs[4] + rhs[4]) end
 function IM_VEC4.__sub(lhs, rhs) return ImVec4(lhs[1] - rhs[1], lhs[2] - rhs[2], lhs[3] - rhs[3], lhs[4] - rhs[4]) end
@@ -481,7 +481,7 @@ end
 
 --- @return ImDrawVert
 --- @nodiscard
-function ImDrawVert() IMGUI_TABNEW_HOOK"ImDrawVert" return { ImVec2(), ImVec2(), nil } end
+function ImDrawVert() return { ImVec2(), ImVec2(), nil } end
 
 --- @class ImDrawCmdHeader
 --- @field ClipRect  ImVec4
@@ -958,7 +958,7 @@ end
 
 --- @return ImFontGlyph
 --- @nodiscard
-function ImFontGlyph() IMGUI_TABNEW_HOOK"ImFontGlyph"
+function ImFontGlyph()
     return {
         Colored   = false,
         Visible   = false,

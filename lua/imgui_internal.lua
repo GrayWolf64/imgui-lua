@@ -610,7 +610,7 @@ IM_RECT.__newindex = function(t, k, v)
 end
 
 --- @nodiscard
-function ImRect(a, b, c, d) IMGUI_TABNEW_HOOK"ImRect" if c and d then return setmetatable({ ImVec2(a, b), ImVec2(c, d) }, IM_RECT) end return setmetatable({ ImVec2(a and a.x or 0, a and a.y or 0), ImVec2(b and b.x or 0, b and b.y or 0) }, IM_RECT) end
+function ImRect(a, b, c, d) if c and d then return setmetatable({ ImVec2(a, b), ImVec2(c, d) }, IM_RECT) end return setmetatable({ ImVec2(a and a.x or 0, a and a.y or 0), ImVec2(b and b.x or 0, b and b.y or 0) }, IM_RECT) end
 
 function IM_RECT:__eq(other) return self[1] == other[1] and self[2] == other[2] end
 function IM_RECT:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end

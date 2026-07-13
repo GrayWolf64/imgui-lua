@@ -84,17 +84,6 @@ function ImGui.DebugAllocHook(info, frame_count, ptr, size)
     end
 end
 
--- Hook when and where `TDUP` bytecode(luajit) is likely to be called\
--- NOTE: in envs without luajit, it should be `NEWTABLE` + `SETTABLE/SETFIELD`s
---- @param t_name string
-function IMGUI_TABNEW_HOOK(t_name)
-    local ctx = GImGui
-    if ctx == nil then return end -- some structures can be used when no ctx is present
-
-    local info = ctx.DebugAllocInfo
-    -- TODO:
-end
-
 IM_INCLUDE"imgui_h.lua"
 
 IM_INCLUDE"imgui_internal.lua"
