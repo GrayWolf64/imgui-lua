@@ -232,22 +232,22 @@ local MT = ImGui.GetMetatables()
 function MT.ImGuiStyle:ScaleAllSizes(scale_factor)
     self._MainScale = self._MainScale * scale_factor
 
-    self.WindowPadding    = ImTruncV2(self.WindowPadding * scale_factor)
+    self.WindowPadding    = ImTrunc(self.WindowPadding * scale_factor)
     self.WindowRounding   = ImTrunc(self.WindowRounding * scale_factor)
     self.WindowBorderSize = ImTrunc(self.WindowBorderSize * scale_factor)
-    self.WindowMinSize    = ImTruncV2(self.WindowMinSize * scale_factor)
+    self.WindowMinSize    = ImTrunc(self.WindowMinSize * scale_factor)
     self.WindowBorderHoverPadding = ImTrunc(self.WindowBorderHoverPadding * scale_factor)
     self.ChildRounding     = ImTrunc(self.ChildRounding * scale_factor)
     self.ChildBorderSize   = ImTrunc(self.ChildBorderSize * scale_factor)
     self.PopupRounding     = ImTrunc(self.PopupRounding * scale_factor)
     self.PopupBorderSize   = ImTrunc(self.PopupBorderSize * scale_factor)
-    self.FramePadding      = ImTruncV2(self.FramePadding * scale_factor)
+    self.FramePadding      = ImTrunc(self.FramePadding * scale_factor)
     self.FrameBorderSize   = ImTrunc(self.FrameBorderSize * scale_factor)
     self.FrameRounding     = ImTrunc(self.FrameRounding * scale_factor)
-    self.ItemSpacing       = ImTruncV2(self.ItemSpacing * scale_factor)
-    self.ItemInnerSpacing  = ImTruncV2(self.ItemInnerSpacing * scale_factor)
-    self.CellPadding       = ImTruncV2(self.CellPadding * scale_factor)
-    self.TouchExtraPadding = ImTruncV2(self.TouchExtraPadding * scale_factor)
+    self.ItemSpacing       = ImTrunc(self.ItemSpacing * scale_factor)
+    self.ItemInnerSpacing  = ImTrunc(self.ItemInnerSpacing * scale_factor)
+    self.CellPadding       = ImTrunc(self.CellPadding * scale_factor)
+    self.TouchExtraPadding = ImTrunc(self.TouchExtraPadding * scale_factor)
     self.IndentSpacing     = ImTrunc(self.IndentSpacing * scale_factor)
     self.ColumnsMinSpacing = ImTrunc(self.ColumnsMinSpacing * scale_factor)
     self.ScrollbarSize     = ImTrunc(self.ScrollbarSize * scale_factor)
@@ -277,10 +277,10 @@ function MT.ImGuiStyle:ScaleAllSizes(scale_factor)
     self.InputTextCursorSize      = ImTrunc(self.InputTextCursorSize * scale_factor)
     self.SeparatorSize            = ImTrunc(self.SeparatorSize * scale_factor)
     self.SeparatorTextBorderSize  = ImTrunc(self.SeparatorTextBorderSize * scale_factor)
-    self.SeparatorTextPadding     = ImTruncV2(self.SeparatorTextPadding * scale_factor)
+    self.SeparatorTextPadding     = ImTrunc(self.SeparatorTextPadding * scale_factor)
     self.DockingSeparatorSize     = ImTrunc(self.DockingSeparatorSize * scale_factor)
-    self.DisplayWindowPadding     = ImTruncV2(self.DisplayWindowPadding * scale_factor)
-    self.DisplaySafeAreaPadding   = ImTruncV2(self.DisplaySafeAreaPadding * scale_factor)
+    self.DisplayWindowPadding     = ImTrunc(self.DisplayWindowPadding * scale_factor)
+    self.DisplaySafeAreaPadding   = ImTrunc(self.DisplaySafeAreaPadding * scale_factor)
     self.MouseCursorScale         = ImTrunc(self.MouseCursorScale * scale_factor)
 end
 
@@ -990,7 +990,7 @@ local function ApplyWindowSettings(window, settings)
         window.ViewportId = settings.ViewportId
         ImVec2_Copy(window.ViewportPos, settings.ViewportPos)
     end
-    window.Pos = ImTruncV2(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
+    window.Pos = ImTrunc(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
     if settings.Size.x > 0 and settings.Size.y > 0 then
         local size = ImVec2(ImTrunc(settings.Size.x), ImTrunc(settings.Size.y))
         ImVec2_Copy(window.Size, size)
@@ -4058,7 +4058,7 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
         -- Render text, render ellipsis
         ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, 1, text_end_ellipsis, text_size, ImVec2(0.0, 0.0))
         local cpu_fine_clip_rect = ImVec4(pos_min.x, pos_min.y, pos_max.x, pos_max.y)
-        local ellipsis_pos = ImTruncV2(ImVec2(pos_min.x + text_size_clipped_x, pos_min.y))
+        local ellipsis_pos = ImTrunc(ImVec2(pos_min.x + text_size_clipped_x, pos_min.y))
         font:RenderChar(draw_list, font_size, ellipsis_pos, ImGui.GetColorU32(ImGuiCol.Text), font.EllipsisChar, cpu_fine_clip_rect)
     else
         ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, 1, text_end_full, text_size, ImVec2(0.0, 0.0))
@@ -8432,7 +8432,7 @@ function ImGui.NavCalcPreferredRefPos(window_type)
             end
         end
 
-        return ImTruncV2(pos) -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
+        return ImTrunc(pos) -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
     end
 end
 

@@ -707,7 +707,7 @@ function ImGui.CloseButton(id, pos)
 
     local area_to_visible_ratio = window.OuterRectClipped:GetArea() / bb:GetArea()
     if area_to_visible_ratio < 1.5 then
-        bb_interact:ExpandV2(ImTruncV2(bb_interact:GetSize() * -0.25))
+        bb_interact:ExpandV2(ImTrunc(bb_interact:GetSize() * -0.25))
     end
 
     local is_clipped = not ImGui.ItemAdd(bb_interact, id)
@@ -5390,7 +5390,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state.CursorAnim = state.CursorAnim + io.DeltaTime
         local cursor_is_visible = (not g.IO.ConfigInputTextCursorBlink) or (state.CursorAnim <= 0.0) or (ImFmod(state.CursorAnim, 1.20) <= 0.80)
 
-        local cursor_screen_pos = ImTruncV2(draw_pos + cursor_offset - draw_scroll)
+        local cursor_screen_pos = ImTrunc(draw_pos + cursor_offset - draw_scroll)
         local cursor_screen_rect = ImRect(cursor_screen_pos.x, cursor_screen_pos.y - g.FontSize + 0.5, cursor_screen_pos.x + 1.0, cursor_screen_pos.y - 1.5)
 
         if cursor_is_visible and cursor_screen_rect:Overlaps(clip_rect) then

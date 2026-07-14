@@ -6,6 +6,7 @@
 local type = ImGui._GetTypeFunc()
 local rawget = rawget
 local m_min = math.min; local m_max = math.max
+local m_floor = math.floor; local m_ceil = math.ceil
 local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift; local b_rs = bit.rshift
 
@@ -119,15 +120,17 @@ function ImLerp(a, b, t)
     end
 end
 
---- @param f number
-function ImTrunc(f) if f >= 0 then return math.floor(f) else return math.ceil(f) end end
+local function _Trunc(val) if val >= 0 then return m_floor(val) else return m_ceil(val) end end
 
---- @param v ImVec2
---- @nodiscard
-function ImTruncV2(v) return ImVec2(ImTrunc(v.x), ImTrunc(v.y)) end
+--- @overload fun(v: float): float
+--- @overload fun(v: ImVec2): ImVec2
+function ImTrunc(v)
+    if     type(v) == "number" then return _Trunc(v)
+    elseif type(v) == "table"  then return ImVec2(_Trunc(v[1]), _Trunc(v[2]))
+    end
+end
 
---- @param f float
-function ImTrunc64(f) return ImTrunc(f) end
+ImTrunc64 = _Trunc
 
 --- @param f float
 function ImCeilFast(f)
