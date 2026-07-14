@@ -226,21 +226,6 @@ function ImVec2_MulVX(dest, a, scalar)
     dest[1], dest[2] = r1, r2
 end
 
---- @param dest ImVec2
---- @param a    ImVec2
---- @param b    ImVec2
-function ImVec2_MulAccVV(dest, a, b) dest[1] = dest[1] + a[1] * b[1]; dest[2] = dest[2] + a[2] * b[2] end
-
---- @param dest   ImVec2
---- @param a      ImVec2
---- @param scalar number
-function ImVec2_MulAccVX(dest, a, scalar)  dest[1] = dest[1] + a[1] * scalar; dest[2] = dest[2] + a[2] * scalar end
-
---- @param dest ImVec2
---- @param a    ImVec2
---- @param b    ImVec2
-function ImVec2_MulSubVV(dest, a, b) dest[1] = dest[1] - a[1] * b[1]; dest[2] = dest[2] - a[2] * b[2] end
-
 --- @param dest? ImVec2
 --- @param a     ImVec2
 --- @param b     ImVec2

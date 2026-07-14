@@ -3701,7 +3701,6 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         resize_border_mask = g.IO.ConfigWindowsResizeFromEdges and 0x0F or 0x00
     end
 
-    local border_curr = ImVec2()
     for border_n = 0, 3 do
         if bit.band(resize_border_mask, bit.lshift(1, border_n)) == 0 then
             goto __CONTINUE__
@@ -3748,11 +3747,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
                 g.WindowResizeRelativeMode = true
             end
 
-            local temp = ImVec2()
-            ImVec2_MinVV(temp, def.SegmentN1, def.SegmentN2)
-
-            ImVec2_Copy(border_curr, window.Pos)
-            ImVec2_MulAccVV(border_curr, temp, window.Size)
+            local border_curr = window.Pos + ImMinVec2(def.SegmentN1, def.SegmentN2) * window.Size
             local border_target_rel_mode_for_axis
             local border_target_abs_mode_for_axis
             border_target_rel_mode_for_axis = border_curr[axis] + g.IO.MouseDelta[axis]
@@ -3777,7 +3772,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             border_target = ImClamp(border_target, clamp_min, clamp_max)
 
             if not ignore_resize then
-                pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, border_target, temp)
+                pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, border_target, ImMinVec2(def.SegmentN1, def.SegmentN2))
             end
         end
         if hovered then
@@ -5333,9 +5328,7 @@ function ImGui.Begin(name, open, flags)
 
         local window_pos_with_pivot = (window.SetWindowPosVal.x ~= FLT_MAX and window.HiddenFramesCannotSkipItems == 0)
         if window_pos_with_pivot then
-            local pos = ImVec2(); ImVec2_Copy(pos, window.SetWindowPosVal)
-            ImVec2_MulSubVV(pos, window.Size, window.SetWindowPosPivot)
-            ImGui.SetWindowPos(window, pos, 0) -- Position given a pivot (e.g. for centering)
+            ImGui.SetWindowPos(window, window.SetWindowPosVal - window.Size * window.SetWindowPosPivot, 0) -- Position given a pivot (e.g. for centering)
         elseif (bit.band(flags, ImGuiWindowFlags.ChildMenu) ~= 0) then
             ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         elseif (bit.band(flags, ImGuiWindowFlags.Popup) ~= 0) and not window_pos_set_by_api and window_just_appearing_after_hidden_for_resize then
@@ -8161,9 +8154,7 @@ function ImGui.FindBestWindowPosForPopup(window)
         local ref_pos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Tooltip)
 
         if g.IO.MouseSource == ImGuiMouseSource.TouchScreen and ImGui.NavCalcPreferredRefPosSource(ImGuiWindowFlags.Tooltip) == ImGuiInputSource.Mouse then
-            local tooltip_pos = ImVec2(); ImVec2_Copy(tooltip_pos, ref_pos)
-            ImVec2_MulAccVX(tooltip_pos, TOOLTIP_DEFAULT_OFFSET_TOUCH, scale)
-            ImVec2_MulSubVV(tooltip_pos, TOOLTIP_DEFAULT_PIVOT_TOUCH, window.Size)
+            local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - TOOLTIP_DEFAULT_PIVOT_TOUCH * window.Size
             if r_outer:Contains(ImRect(tooltip_pos, tooltip_pos + window.Size)) then
                 return tooltip_pos
             end
