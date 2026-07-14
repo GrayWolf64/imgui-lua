@@ -26,6 +26,19 @@ if gmod then
     IM_INCLUDE = include
 end
 
+function ImGui._GetTypeFunc()
+    local type
+    if gmod then
+        -- [GMod] `type` is [detoured](https://wiki.facepunch.com/gmod/Global.type). get the original function.
+        local upvalue_name
+        upvalue_name, type = debug.getupvalue(_G.type, 1)
+        IM_ASSERT(upvalue_name == "C_type")
+    else
+        type = _G.type
+    end
+    return type
+end
+
 local function LUA_TableConstructorWrapper(T, size, userdata)
     local p = {}
     for i = 1, size do p[i] = T() end

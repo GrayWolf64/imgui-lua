@@ -3,16 +3,7 @@
 
 --- @meta
 
-local type
-if gmod then
-    -- [GMod] `type` is [detoured](https://wiki.facepunch.com/gmod/Global.type). get the original function.
-    local upvalue_name
-    upvalue_name, type = debug.getupvalue(_G.type, 1)
-    IM_ASSERT(upvalue_name == "C_type")
-else
-    type = _G.type
-end
-
+local type = ImGui._GetTypeFunc()
 local rawget = rawget
 
 local b_and = bit.band; local b_or = bit.bor

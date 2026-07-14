@@ -3,7 +3,7 @@
 
 --- @meta
 
-local type = type
+local type = ImGui._GetTypeFunc()
 local rawget = rawget; local rawset = rawset
 
 local m_min = math.min; local m_max = math.max
