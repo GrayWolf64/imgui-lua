@@ -6,8 +6,6 @@
 local type = ImGui._GetTypeFunc()
 local rawget = rawget; local rawset = rawset
 
-local m_min = math.min; local m_max = math.max
-
 -- [LuaBitOp](https://bitop.luajit.org/semantics.html)
 local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift
@@ -96,15 +94,69 @@ IM_ASSERT_PARANOID = IM_ASSERT
 
 ImTextureID_Invalid = -1
 
-ImTextureFormat = { RGBA32 = 0, Alpha8 = 1 } --- @enum ImTextureFormat
+--- @enum ImTextureFormat
+ImTextureFormat =
+{
+    RGBA32 = 0,
+    Alpha8 = 1,
+}
 
-ImTextureStatus = { OK = 0, Destroyed = 1, WantCreate = 2, WantUpdates = 3, WantDestroy = 4 } --- @enum ImTextureStatus
+--- @enum ImTextureStatus
+ImTextureStatus =
+{
+    OK          = 0,
+    Destroyed   = 1,
+    WantCreate  = 2,
+    WantUpdates = 3,
+    WantDestroy = 4,
+}
 
-ImFontAtlasFlags = { None = 0, NoPowerOfTwoHeight = b_ls(1, 0), NoMouseCursors = b_ls(1, 1), NoBakedLines = b_ls(1, 2) } --- @enum ImFontAtlasFlags
+--- @enum ImFontAtlasFlags
+ImFontAtlasFlags =
+{
+    None               = 0,
+    NoPowerOfTwoHeight = b_ls(1, 0),
+    NoMouseCursors     = b_ls(1, 1),
+    NoBakedLines       = b_ls(1, 2)
+}
 
-ImGuiDir = { None = -1, Left = 0, Right = 1, Up = 2, Down = 3, COUNT = 4 } --- @enum ImGuiDir
+--- @enum ImGuiDir
+ImGuiDir =
+{
+    None  = -1,
+    Left  = 0,
+    Right = 1,
+    Up    = 2,
+    Down  = 3,
+    COUNT = 4
+}
 
-ImGuiMouseButton = { Left = 0, Right = 1, Middle = 2, COUNT = 5 } --- @enum ImGuiMouseButton
+--- @enum ImGuiMouseButton
+ImGuiMouseButton =
+{
+    Left   = 0,
+    Right  = 1,
+    Middle = 2,
+    COUNT  = 5
+}
+
+--- @enum ImGuiMouseCursor
+ImGuiMouseCursor =
+{
+    None       = -1,
+    Arrow      = 0,
+    TextInput  = 1,
+    ResizeAll  = 2,
+    ResizeNS   = 3,
+    ResizeEW   = 4,
+    ResizeNESW = 5,
+    ResizeNWSE = 6,
+    Hand       = 7,
+    Wait       = 8,
+    Progress   = 9,
+    NotAllowed = 10,
+    COUNT      = 11
+}
 
 --- @class ImTextureRect
 --- @field x unsigned_short
@@ -1077,8 +1129,6 @@ function ImGuiPlatformImeData_Compare(data1, data2)
 
     return true
 end
-
-ImGuiMouseCursor = { None = -1, Arrow = 0, TextInput = 1, ResizeAll = 2, ResizeNS = 3, ResizeEW = 4, ResizeNESW = 5, ResizeNWSE = 6, Hand = 7, Wait = 8, Progress = 9, NotAllowed = 10, COUNT = 11 } --- @enum ImGuiMouseCursor
 
 --- @enum ImGuiViewportFlags
 ImGuiViewportFlags = {

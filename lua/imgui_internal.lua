@@ -2570,9 +2570,20 @@ ImGuiInputFlags.SupportedBySetNextItemShortcut = b_or(ImGuiInputFlags.RepeatMask
 ImGuiInputFlags.SupportedBySetKeyOwner         = b_or(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)
 ImGuiInputFlags.SupportedBySetItemKeyOwner     = b_or(ImGuiInputFlags.SupportedBySetKeyOwner, ImGuiInputFlags.CondMask_)
 
-ImGuiAxis = { None = 0, X = 1, Y = 2 } --- @enum ImGuiAxis
+--- @enum ImGuiAxis # can be used to index ImVec2
+ImGuiAxis =
+{
+    None = 0,
+    X    = 1,
+    Y    = 2
+}
 
-ImGuiPlotType = { Lines = 0, Histogram = 1 } --- @enum ImGuiPlotType
+--- @enum ImGuiPlotType
+ImGuiPlotType =
+{
+    Lines     = 0,
+    Histogram = 1
+}
 
 --- @enum ImGuiActivateFlags
 ImGuiActivateFlags = {
