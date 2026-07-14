@@ -208,15 +208,6 @@ function ImVec2_AddVA(v, add_x, add_y) return v[1] + add_x, v[2] + add_y end
 --- @param sub_y number
 function ImVec2_SubVA(v, sub_x, sub_y) return v[1] - sub_x, v[2] - sub_y end
 
---- @param dest? ImVec2
---- @param a     ImVec2
---- @param b     ImVec2
-function ImVec2_MulVV(dest, a, b)
-    local r1, r2 = a[1] * b[1], a[2] * b[2]
-    if dest == nil then return r1, r2 end
-    dest[1], dest[2] = r1, r2
-end
-
 --- @param dest?  ImVec2
 --- @param a      ImVec2
 --- @param scalar number
