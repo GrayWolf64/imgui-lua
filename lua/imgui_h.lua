@@ -180,24 +180,6 @@ function ImVec2_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2] end
 --- @param src_y number
 function ImVec2_CopyV(dest, src_x, src_y) dest[1] = src_x; dest[2] = src_y end
 
---- @param dest? ImVec2
---- @param a     ImVec2
---- @param b     ImVec2
-function ImVec2_AddVV(dest, a, b)
-    local r1, r2 = a[1] + b[1], a[2] + b[2]
-    if dest == nil then return r1, r2 end
-    dest[1], dest[2] = r1, r2
-end
-
---- @param dest? ImVec2
---- @param a     ImVec2
---- @param b     ImVec2
-function ImVec2_SubVV(dest, a, b)
-    local r1, r2 = a[1] - b[1], a[2] - b[2]
-    if dest == nil then return r1, r2 end
-    dest[1], dest[2] = r1, r2
-end
-
 --- @param v     ImVec2
 --- @param add_x number
 --- @param add_y number
