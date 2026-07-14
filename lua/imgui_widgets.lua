@@ -1933,7 +1933,7 @@ function ImGui.EndComboPreview()
     ImGui.PopClipRect()
 
     ImVec2_Copy(window.DC.CursorPos, preview_data.BackupCursorPos)
-    ImVec2_CopyV(window.DC.CursorMaxPos, ImVec2_MaxVV(nil, window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos))
+    ImVec2_Copy(window.DC.CursorMaxPos, ImMax(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos))
     ImVec2_Copy(window.DC.CursorPosPrevLine, preview_data.BackupCursorPosPrevLine)
     window.DC.PrevLineTextBaseOffset = preview_data.BackupPrevLineTextBaseOffset
     window.DC.LayoutType = preview_data.BackupLayout

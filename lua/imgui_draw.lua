@@ -350,8 +350,8 @@ function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b,
     local vertex
     local verts = draw_list.VtxBuffer.Data
     if clamp then
-        local min = ImVec2(); ImVec2_MinVV(min, uv_a, uv_b)
-        local max = ImVec2(); ImVec2_MaxVV(max, uv_a, uv_b)
+        local min = ImMin(uv_a, uv_b)
+        local max = ImMax(uv_a, uv_b)
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
             ImVec2_Copy(vertex[2], ImClamp(uv_a + ImMul(vertex[1] - a, scale), min, max))

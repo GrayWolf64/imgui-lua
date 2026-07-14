@@ -226,24 +226,6 @@ function ImVec2_MulVX(dest, a, scalar)
     dest[1], dest[2] = r1, r2
 end
 
---- @param dest? ImVec2
---- @param a     ImVec2
---- @param b     ImVec2
-function ImVec2_MinVV(dest, a, b)
-    local r1, r2 = m_min(a[1], b[1]), m_min(a[2], b[2])
-    if dest == nil then return r1, r2 end
-    dest[1], dest[2] = r1, r2
-end
-
---- @param dest? ImVec2
---- @param a     ImVec2
---- @param b     ImVec2
-function ImVec2_MaxVV(dest, a, b)
-    local r1, r2 = m_max(a[1], b[1]), m_max(a[2], b[2])
-    if dest == nil then return r1, r2 end
-    dest[1], dest[2] = r1, r2
-end
-
 --- An inlined version of `ImVec2_Copy` currently for use in certain ImVector<ImVec2> `push_back`
 --- @param t ImVec2[]
 --- @param k int

@@ -5,7 +5,7 @@
 
 local type = ImGui._GetTypeFunc()
 local rawget = rawget
-
+local m_min = math.min; local m_max = math.max
 local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift; local b_rs = bit.rshift
 
@@ -47,21 +47,6 @@ ImAbs  = math.abs
 ImFabs = math.abs
 ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
-ImMin = math.min
-ImMax = math.max
-
---- @param a ImVec2
---- @param b ImVec2
---- @return ImVec2
---- @nodiscard
-function ImMinVec2(a, b) return ImVec2(ImMin(a.x, b.x), ImMin(a.y, b.y)) end
-
---- @param a ImVec2
---- @param b ImVec2
---- @return ImVec2
---- @nodiscard
-function ImMaxVec2(a, b) return ImVec2(ImMax(a.x, b.x), ImMax(a.y, b.y)) end
-
 ImRound64 = function(val) return math.floor(val + 0.5) end -- FIXME: Positive values only
 
 ImCeil  = math.ceil
@@ -95,6 +80,22 @@ function ImSubClampOverflow(a, b, mn, mx)
     return a - b
 end
 
+--- @overload fun(lhs: number, rhs: number): number
+--- @overload fun(lhs: ImVec2, rhs: ImVec2): ImVec2
+function ImMin(lhs, rhs)
+    if     type(lhs) == "number" and type(rhs) == "number" then return m_min(lhs, rhs)
+    elseif type(lhs) == "table"  and type(rhs) == "table"  then return ImVec2(m_min(lhs[1], rhs[1]), m_min(lhs[2], rhs[2]))
+    end
+end
+
+--- @overload fun(lhs: number, rhs: number): number
+--- @overload fun(lhs: ImVec2, rhs: ImVec2): ImVec2
+function ImMax(lhs, rhs)
+    if     type(lhs) == "number" and type(rhs) == "number" then return m_max(lhs, rhs)
+    elseif type(lhs) == "table"  and type(rhs) == "table"  then return ImVec2(m_max(lhs[1], rhs[1]), m_max(lhs[2], rhs[2]))
+    end
+end
+
 --- @param base     table
 --- @param count    int
 --- @param cmp_func fun(lhs, rhs): bool
@@ -103,8 +104,8 @@ ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then t_sort(base, c
 --- @overload fun(v: number, mn: number, mx: number): number
 --- @overload fun(v: ImVec2, mn: ImVec2, mx: ImVec2): ImVec2
 function ImClamp(v, mn, mx)
-    if     type(v) == "number" and type(mn) == "number" and type(mx) == "number" then return ImMin(ImMax(v, mn), mx)
-    elseif type(v) == "table"  and type(mn) == "table"  and type(mx) == "table"  then return ImVec2(ImMax(mn[1], ImMin(v[1], mx[1])), ImMax(mn[2], ImMin(v[2], mx[2])))
+    if     type(v) == "number" and type(mn) == "number" and type(mx) == "number" then return m_min(m_max(v, mn), mx)
+    elseif type(v) == "table"  and type(mn) == "table"  and type(mx) == "table"  then return ImVec2(m_max(mn[1], m_min(v[1], mx[1])), m_max(mn[2], m_min(v[2], mx[2])))
     end
 end
 
@@ -660,25 +661,14 @@ function IM_RECT:GetBL() return ImVec2(self[1][1], self[2][2]) end
 --- @nodiscard
 function IM_RECT:GetBR() return ImVec2(self[2][1], self[2][2]) end
 
---- @param r ImRect|ImVec4
+--- @param r ImRect
 function IM_RECT:ClipWith(r)
-    if r.Min then
-        --- @cast r ImRect
-        self[1][1] = ImMax(self[1][1], r[1][1]) self[1][2] = ImMax(self[1][2], r[1][2])
-        self[2][1] = ImMin(self[2][1], r[2][1]) self[2][2] = ImMin(self[2][2], r[2][2])
-    elseif r.z then
-        --- @cast r ImVec4
-        self[1][1] = ImMax(self[1][1], r[1]) self[1][2] = ImMax(self[1][2], r[2])
-        self[2][1] = ImMin(self[2][1], r[3]) self[2][2] = ImMin(self[2][2], r[4])
-    else
-        IM_ASSERT(false)
-    end
+    ImVec2_Copy(self[1], ImMax(self[1], r[1])); ImVec2_Copy(self[2], ImMin(self[2], r[2]))
 end
 
 --- @param r ImRect
 function IM_RECT:ClipWithFull(r)
-    self[1][1] = ImClamp(self[1][1], r[1][1], r[2][1]) self[1][2] = ImClamp(self[1][2], r[1][2], r[2][2])
-    self[2][1] = ImClamp(self[2][1], r[1][1], r[2][1]) self[2][2] = ImClamp(self[2][2], r[1][2], r[2][2])
+    ImVec2_Copy(self[1], ImClamp(self[1], r[1], r[2])); ImVec2_Copy(self[2], ImClamp(self[2], r[1], r[2]))
 end
 
 --- @param p ImRect|ImVec2

@@ -1462,10 +1462,10 @@ function ImGui.EndGroup()
         -- TODO: ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
     end
 
-    local group_bb = ImRect(group_data.BackupCursorPos, ImMaxVec2(ImMaxVec2(window.DC.CursorMaxPos, g.LastItemData.Rect.Max), group_data.BackupCursorPos))
+    local group_bb = ImRect(group_data.BackupCursorPos, ImMax(ImMax(window.DC.CursorMaxPos, g.LastItemData.Rect.Max), group_data.BackupCursorPos))
     ImVec2_Copy(window.DC.CursorPos, group_data.BackupCursorPos)
     ImVec2_Copy(window.DC.CursorPosPrevLine, group_data.BackupCursorPosPrevLine)
-    ImVec2_CopyV(window.DC.CursorMaxPos, ImVec2_MaxVV(nil, group_data.BackupCursorMaxPos, group_bb.Max))
+    ImVec2_Copy(window.DC.CursorMaxPos, ImMax(group_data.BackupCursorMaxPos, group_bb.Max))
     ImVec1_Copy(window.DC.Indent, group_data.BackupIndent)
     ImVec1_Copy(window.DC.GroupOffset, group_data.BackupGroupOffset)
     ImVec2_Copy(window.DC.CurrLineSize, group_data.BackupCurrLineSize)
@@ -3448,9 +3448,7 @@ local function CalcWindowSizeAfterConstraint(window, size_desired)
     end
 
     local size_min = CalcWindowMinSize(window)
-    local ret = ImVec2()
-    ImVec2_MaxVV(ret, new_size, size_min)
-    return ret
+    return ImMax(new_size, size_min)
 end
 
 --- @param window               ImGuiWindow
@@ -3502,14 +3500,11 @@ local function CalcWindowAutoFitSize(window, size_contents, axis_mask)
         end
     end
 
-    local size_auto_fit = ImVec2()
     if bit.band(window.Flags, ImGuiWindowFlags.Tooltip) ~= 0 then
-        ImVec2_MinVV(size_auto_fit, size_desired, size_max)
-        return size_auto_fit
+        return ImMin(size_desired, size_max)
     else
         local size_min = CalcWindowMinSize(window)
-        ImVec2_MinVV(size_auto_fit, size_min, size_max)
-        size_auto_fit = ImClamp(size_desired, size_auto_fit, size_max)
+        local size_auto_fit = ImClamp(size_desired, ImMin(size_min, size_max), size_max)
 
         local size_auto_fit_after_constraint = CalcWindowSizeAfterConstraint(window, size_auto_fit)
         local size_contents_for_scrollbar_x = (bit.band(axis_mask, 1) ~= 0) and size_contents.x or window.ContentSize.x
@@ -3747,7 +3742,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
                 g.WindowResizeRelativeMode = true
             end
 
-            local border_curr = window.Pos + ImMinVec2(def.SegmentN1, def.SegmentN2) * window.Size
+            local border_curr = window.Pos + ImMin(def.SegmentN1, def.SegmentN2) * window.Size
             local border_target_rel_mode_for_axis
             local border_target_abs_mode_for_axis
             border_target_rel_mode_for_axis = border_curr[axis] + g.IO.MouseDelta[axis]
@@ -3772,7 +3767,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             border_target = ImClamp(border_target, clamp_min, clamp_max)
 
             if not ignore_resize then
-                pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, border_target, ImMinVec2(def.SegmentN1, def.SegmentN2))
+                pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, border_target, ImMin(def.SegmentN1, def.SegmentN2))
             end
         end
         if hovered then
@@ -5357,8 +5352,7 @@ function ImGui.Begin(name, open, flags)
 
         local viewport_rect = window.Viewport:GetMainRect()
         local viewport_work_rect = window.Viewport:GetWorkRect()
-        local visibility_padding = ImVec2()
-        ImVec2_MaxVV(visibility_padding, style.DisplayWindowPadding, style.DisplaySafeAreaPadding)
+        local visibility_padding = ImMax(style.DisplayWindowPadding, style.DisplaySafeAreaPadding)
         local visibility_rect = ImRect(viewport_work_rect.Min + visibility_padding, viewport_work_rect.Max - visibility_padding)
 
         window.Pos.x = ImTrunc(window.Pos.x) window.Pos.y = ImTrunc(window.Pos.y)
@@ -5912,8 +5906,7 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
     end
 
     local padding_regular = g.Style.TouchExtraPadding
-    local padding_for_resize = ImVec2()
-    ImVec2_MaxVV(padding_for_resize, g.Style.TouchExtraPadding, ImVec2(g.Style.WindowBorderHoverPadding, g.Style.WindowBorderHoverPadding))
+    local padding_for_resize = ImMax(g.Style.TouchExtraPadding, ImVec2(g.Style.WindowBorderHoverPadding, g.Style.WindowBorderHoverPadding))
 
     local window
     for i = g.Windows.Size, 1, -1 do
