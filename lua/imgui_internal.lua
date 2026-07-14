@@ -1,9 +1,6 @@
 --- ImGui Sincerely WIP
 -- (internal structures/api)
 
--- I will avoid extensive type checks, since I ensure that types are correct in internal usage,
--- and runtime type checking is probably slow
-
 --- @meta
 
 local rawget = rawget
@@ -102,10 +99,15 @@ end
 --- @param cmp_func fun(lhs, rhs): bool
 ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then t_sort(base, cmp_func) end end
 
---- @param a number
---- @param b number
---- @param t number
-function ImLerp(a, b, t) return ((a) + ((b) - (a)) * (t)) end
+---@overload fun(a: number, b: number, t: number): number
+---@overload fun(a: ImVec2, b: ImVec2, t: number): ImVec2
+---@overload fun(a: ImVec2, b: ImVec2, t: ImVec2): ImVec2
+function ImLerp(a, b, t)
+    if     type(a) == "number" and type(b) == "number" and type(t) == "number" then return ((a) + ((b) - (a)) * (t))
+    elseif type(a) == "table"  and type(b) == "table"  and type(t) == "number" then return ImVec2(a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
+    elseif type(a) == "table"  and type(b) == "table"  and type(t) == "table"  then return ImVec2(a[1] + (b[1] - a[1]) * t[1], a[2] + (b[2] - a[2]) * t[2])
+    end
+end
 
 --- @param a ImVec2
 --- @param b ImVec2

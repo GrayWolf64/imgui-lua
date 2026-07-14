@@ -4154,23 +4154,15 @@ end
 
 --- @param window                          ImGuiWindow
 --- @param title_bar_rect                  ImRect
---- @param titlebar_is_highlight           bool
+--- @param title_bar_is_highlight          bool
 --- @param handle_borders_and_resize_grips bool
 --- @param resize_grip_col                 ImU32[]
 --- @param resize_grip_draw_size           float
-local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highlight, handle_borders_and_resize_grips, resize_grip_col, resize_grip_draw_size)
+local function RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, handle_borders_and_resize_grips, resize_grip_col, resize_grip_draw_size)
     local g = GImGui
     local style = g.Style
     local flags = window.Flags
 
-    local title_color
-    if titlebar_is_highlight then
-        title_color = ImGui.GetColorU32(ImGuiCol.TitleBgActive)
-    else
-        title_color = ImGui.GetColorU32(ImGuiCol.TitleBg)
-    end
-
-    local border_width = g.Style.FrameBorderSize
     local window_rounding = window.WindowRounding
     local window_border_size = window.WindowBorderSize
 
@@ -4178,12 +4170,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
         local backup_border_size = style.FrameBorderSize
         g.Style.FrameBorderSize = window.WindowBorderSize
 
-        local title_bar_col
-        if titlebar_is_highlight and g.NavCursorVisible then
-            title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBgActive)
-        else
-            title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBgCollapsed)
-        end
+        local title_bar_col = ImGui.GetColorU32((title_bar_is_highlight and g.NavCursorVisible) and ImGuiCol.TitleBgActive or ImGuiCol.TitleBgCollapsed)
         ImGui.RenderFrame(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, true, window_rounding)
         g.Style.FrameBorderSize = backup_border_size
     else
@@ -4212,7 +4199,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- Title bar
         if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 and not window.DockIsActive then
-            local title_bar_col = ImGui.GetColorU32(titlebar_is_highlight and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg)
+            local title_bar_col = ImGui.GetColorU32(title_bar_is_highlight and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg)
             window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundCornersTop)
         end
 
@@ -4235,24 +4222,21 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- Resize grip(s)
         if handle_borders_and_resize_grips and (bit.band(flags, ImGuiWindowFlags.NoResize) == 0) then
-            local corner = ImVec2()
-            local p = ImVec2()
-            for i = 1, #ImGuiResizeGripDef do
-                local col = resize_grip_col[i]
-                if bit.band(col, IM_COL32_A_MASK) ~= 0 then
-                    local inner_dir = ImGuiResizeGripDef[i].InnerDir
-                    ImVec2_Copy(corner, window.Pos); ImVec2_MulAccVV(corner, ImGuiResizeGripDef[i].CornerPosN, window.Size)
-                    local border_inner = IM_ROUND(window_border_size * 0.5)
-
-                    ImVec2_Copy(p, corner); ImVec2_MulAccVV(p, inner_dir, ImVec2((i % 2 == 0) and border_inner or resize_grip_draw_size, (i % 2 == 0) and resize_grip_draw_size or border_inner))
-                    window.DrawList:PathLineTo(p)
-
-                    ImVec2_Copy(p, corner); ImVec2_MulAccVV(p, inner_dir, ImVec2((i % 2 == 0) and resize_grip_draw_size or border_inner, (i % 2 == 0) and border_inner or resize_grip_draw_size))
-                    window.DrawList:PathLineTo(p)
-
-                    window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImGuiResizeGripDef[i].AngleMin12, ImGuiResizeGripDef[i].AngleMax12)
-                    window.DrawList:PathFillConvex(col)
+            for resize_grip_n = 1, #ImGuiResizeGripDef do
+                local col = resize_grip_col[resize_grip_n]
+                if bit.band(col, IM_COL32_A_MASK) == 0 then
+                    goto __CONTINUE__
                 end
+
+                local grip = ImGuiResizeGripDef[resize_grip_n]
+                local corner = ImLerp(window.Pos, window.Pos + window.Size, grip.CornerPosN)
+                local border_inner = IM_ROUND(window_border_size * 0.5)
+                window.DrawList:PathLineTo(corner + grip.InnerDir * ((resize_grip_n % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
+                window.DrawList:PathLineTo(corner + grip.InnerDir * ((resize_grip_n % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
+                window.DrawList:PathArcToFast(ImVec2(corner.x + grip.InnerDir.x * (window_rounding + border_inner), corner.y + grip.InnerDir.y * (window_rounding + border_inner)), window_rounding, grip.AngleMin12, grip.AngleMax12)
+                window.DrawList:PathFillConvex(col)
+
+                :: __CONTINUE__ ::
             end
         end
 
