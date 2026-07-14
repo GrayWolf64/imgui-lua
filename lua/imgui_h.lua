@@ -259,16 +259,6 @@ function ImVec2_MaxVV(dest, a, b)
     dest[1], dest[2] = r1, r2
 end
 
---- @param dest? ImVec2
---- @param a     ImVec2
---- @param b     ImVec2
---- @param c     ImVec2
-function ImVec2_MaxVVV(dest, a, b, c)
-    local r1, r2 = m_max(a[1], b[1], c[1]), m_max(a[2], b[2], c[2])
-    if dest == nil then return r1, r2 end
-    dest[1], dest[2] = r1, r2
-end
-
 --- An inlined version of `ImVec2_Copy` currently for use in certain ImVector<ImVec2> `push_back`
 --- @param t ImVec2[]
 --- @param k int
