@@ -9187,7 +9187,7 @@ function ImGui.UpdateViewportsNewFrame()
 
             viewport:UpdateWorkRect()
 
-            for dl_n = 1, #viewport.BgFgDrawLists do
+            for dl_n = 1, 2 do -- IM_COUNTOF(viewport->BgFgDrawLists)
                 if viewport.BgFgDrawListsLastTimeActive[dl_n] < memory_compact_start_time and viewport.BgFgDrawLists[dl_n] ~= nil then
                     IM_DELETE(viewport.BgFgDrawLists, dl_n)
                 end
