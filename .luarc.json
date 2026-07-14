@@ -5,9 +5,12 @@
         "inject-field",
         "lowercase-global",
 
+        // FIXME: remove those below when it's fixed
         // https://github.com/LuaLS/lua-language-server/issues/1456
         "cast-local-type",
-        "param-type-mismatch"
+        "param-type-mismatch",
+        "assign-type-mismatch",
+        "return-type-mismatch"
     ],
     "checkThirdParty": false,
     "runtime.special": {
