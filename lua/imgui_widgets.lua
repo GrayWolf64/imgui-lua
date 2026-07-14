@@ -6150,7 +6150,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
         draw_list:PrimVtx(trc, uv_white, col_white)
         draw_list:AddTriangle(tra, trb, trc, col_midgrey, 1.5)
 
-        sv_cursor_pos = ImLerpV2V2(ImLerpV2V2(trc, tra, ImSaturate(S)), trb, ImSaturate(1 - V))
+        sv_cursor_pos = ImLerp(ImLerp(trc, tra, ImSaturate(S)), trb, ImSaturate(1 - V))
     elseif bit.band(flags, ImGuiColorEditFlags.PickerHueBar) ~= 0 then
         -- Render SV Square
         draw_list:AddRectFilledMultiColor(picker_pos, picker_pos + ImVec2(sv_picker_size, sv_picker_size), col_white, hue_color32, hue_color32, col_white)
@@ -7228,12 +7228,12 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
             local v1 = values_getter(data, (v1_idx - 1 + values_offset + 1) % values_count + 1)
             local tp1 = ImVec2(t1, 1.0 - ImSaturate((v1 - scale_min) * inv_scale))
 
-            local pos0 = ImLerpV2V2V2(inner_bb.Min, inner_bb.Max, tp0)
+            local pos0 = ImLerp(inner_bb.Min, inner_bb.Max, tp0)
             local pos1
             if plot_type == ImGuiPlotType.Lines then
-                pos1 = ImLerpV2V2V2(inner_bb.Min, inner_bb.Max, tp1)
+                pos1 = ImLerp(inner_bb.Min, inner_bb.Max, tp1)
             else
-                pos1 = ImLerpV2V2V2(inner_bb.Min, inner_bb.Max, ImVec2(tp1.x, histogram_zero_line_t))
+                pos1 = ImLerp(inner_bb.Min, inner_bb.Max, ImVec2(tp1.x, histogram_zero_line_t))
             end
 
             if plot_type == ImGuiPlotType.Lines then

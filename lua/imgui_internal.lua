@@ -109,20 +109,6 @@ function ImLerp(a, b, t)
     end
 end
 
---- @param a ImVec2
---- @param b ImVec2
---- @param t float
-function ImLerpV2V2(a, b, t)
-    return ImVec2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
-end
-
---- @param a ImVec2
---- @param b ImVec2
---- @param t ImVec2
---- @return ImVec2
---- @nodiscard
-function ImLerpV2V2V2(a, b, t) return ImVec2(a.x + (b.x - a.x) * t.x, a.y + (b.y - a.y) * t.y) end
-
 --- @param a ImVec4
 --- @param b ImVec4
 --- @param t float

@@ -4,7 +4,6 @@
 - All loop var start from 1 unless necessary
 - Optimize: Deal with GC?
 - Exposed a lot of globals. Quite messy.
-- Don't have overloads for functions. So follow a convention like: if there's a function ImMax for numbers, then ImMaxV2 is for ImVec2s. When it takes in many params, better name it like ImLerpV2V2V2. This helps me avoid type checking in these helper functions and also keep the code clear.
 - Enclose some flags into tables when they don't rely on each other, e.g. no bit.* ops
 - GMod Backend: GMod render.MaxTextureWidth/Height()
 - Widgets: Consolidate existing ones -> Multi-Select -> Tabs -> Tables

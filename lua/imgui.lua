@@ -3560,8 +3560,8 @@ local function CalcResizePosSizeFromAnyCorner(window, corner_target_arg, corner_
             corner_target.y = ImClamp(corner_target.y, limit_rect.Min.y, limit_rect.Max.y)
         end
     end
-    local pos_min = ImLerpV2V2V2(corner_target, window.Pos, corner_norm)
-    local pos_max = ImLerpV2V2V2(window.Pos + window.Size, corner_target, corner_norm)
+    local pos_min = ImLerp(corner_target, window.Pos, corner_norm)
+    local pos_max = ImLerp(window.Pos + window.Size, corner_target, corner_norm)
     local size_expected = pos_max - pos_min
     local size_constrained = CalcWindowSizeAfterConstraint(window, size_expected)
 
@@ -3656,7 +3656,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         elseif held then
             local clamp_min = ImVec2((corner_pos.x == 1.0) and clamp_rect.Min.x or -FLT_MAX, (corner_pos.y == 1.0) and clamp_rect.Min.y or -FLT_MAX)
             local clamp_max = ImVec2((corner_pos.x == 0.0) and clamp_rect.Max.x or FLT_MAX, (corner_pos.y == 0.0) and clamp_rect.Max.y or FLT_MAX)
-            local corner_target = g.IO.MousePos - g.ActiveIdClickOffset + ImLerpV2V2V2(def.InnerDir * grip_hover_outer_size, def.InnerDir * -grip_hover_inner_size, def.CornerPosN)
+            local corner_target = g.IO.MousePos - g.ActiveIdClickOffset + ImLerp(def.InnerDir * grip_hover_outer_size, def.InnerDir * -grip_hover_inner_size, def.CornerPosN)
 
             ImVec2_ClampVVV(corner_target, corner_target, clamp_min, clamp_max)
 
@@ -4120,8 +4120,8 @@ local function RenderWindowOuterSingleBorder(window, border_n, border_col, borde
     local def = ImGuiResizeBorderDef[border_n + 1]
     local rounding = window.WindowRounding
     local border_r = GetResizeBorderRect(window, border_n, rounding, 0.0)
-    window.DrawList:PathArcTo(ImLerpV2V2V2(border_r.Min, border_r.Max, def.SegmentN1) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle - IM_PI * 0.25, def.OuterAngle)
-    window.DrawList:PathArcTo(ImLerpV2V2V2(border_r.Min, border_r.Max, def.SegmentN2) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle, def.OuterAngle + IM_PI * 0.25)
+    window.DrawList:PathArcTo(ImLerp(border_r.Min, border_r.Max, def.SegmentN1) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle - IM_PI * 0.25, def.OuterAngle)
+    window.DrawList:PathArcTo(ImLerp(border_r.Min, border_r.Max, def.SegmentN2) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle, def.OuterAngle + IM_PI * 0.25)
     window.DrawList:PathStroke(border_col, border_size)
 end
 
