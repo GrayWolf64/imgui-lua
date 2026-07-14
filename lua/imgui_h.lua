@@ -208,13 +208,10 @@ function ImVec2_AddVA(v, add_x, add_y) return v[1] + add_x, v[2] + add_y end
 --- @param sub_y number
 function ImVec2_SubVA(v, sub_x, sub_y) return v[1] - sub_x, v[2] - sub_y end
 
---- @param dest?  ImVec2
 --- @param a      ImVec2
 --- @param scalar number
-function ImVec2_MulVX(dest, a, scalar)
-    local r1, r2 = a[1] * scalar, a[2] * scalar
-    if dest == nil then return r1, r2 end
-    dest[1], dest[2] = r1, r2
+function ImVec2_MulVX(a, scalar)
+    return a[1] * scalar, a[2] * scalar
 end
 
 --- An inlined version of `ImVec2_Copy` currently for use in certain ImVector<ImVec2> `push_back`
