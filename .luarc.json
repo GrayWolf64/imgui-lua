@@ -3,7 +3,11 @@
         "need-check-nil",
         "undefined-field",
         "inject-field",
-        "lowercase-global"
+        "lowercase-global",
+
+        // https://github.com/LuaLS/lua-language-server/issues/1456
+        "cast-local-type",
+        "param-type-mismatch"
     ],
     "checkThirdParty": false,
     "runtime.special": {

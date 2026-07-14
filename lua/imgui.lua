@@ -3496,7 +3496,7 @@ local function CalcWindowAutoFitSize(window, size_contents, axis_mask)
     else
         local size_min = CalcWindowMinSize(window)
         ImVec2_MinVV(size_auto_fit, size_min, size_max)
-        ImVec2_ClampVVV(size_auto_fit, size_desired, size_auto_fit, size_max)
+        size_auto_fit = ImClamp(size_desired, size_auto_fit, size_max)
 
         local size_auto_fit_after_constraint = CalcWindowSizeAfterConstraint(window, size_auto_fit)
         local size_contents_for_scrollbar_x = (bit.band(axis_mask, 1) ~= 0) and size_contents.x or window.ContentSize.x
@@ -3658,7 +3658,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
             local clamp_max = ImVec2((corner_pos.x == 0.0) and clamp_rect.Max.x or FLT_MAX, (corner_pos.y == 0.0) and clamp_rect.Max.y or FLT_MAX)
             local corner_target = g.IO.MousePos - g.ActiveIdClickOffset + ImLerp(def.InnerDir * grip_hover_outer_size, def.InnerDir * -grip_hover_inner_size, def.CornerPosN)
 
-            ImVec2_ClampVVV(corner_target, corner_target, clamp_min, clamp_max)
+            corner_target = ImClamp(corner_target, clamp_min, clamp_max)
 
             pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
         end
@@ -3761,7 +3761,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
 
             local clamp_min = ImVec2((border_n == ImGuiDir.Right) and clamp_rect.Min.x or -FLT_MAX, (border_n == ImGuiDir.Down or (border_n == ImGuiDir.Up and window_move_from_title_bar)) and clamp_rect.Min.y or -FLT_MAX)
             local clamp_max = ImVec2((border_n == ImGuiDir.Left) and clamp_rect.Max.x or FLT_MAX, (border_n == ImGuiDir.Up) and clamp_rect.Max.y or FLT_MAX)
-            ImVec2_ClampVVV(border_target, border_target, clamp_min, clamp_max)
+            border_target = ImClamp(border_target, clamp_min, clamp_max)
 
             if not ignore_resize then
                 pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, border_target, temp)
@@ -8050,8 +8050,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
                 goto __CONTINUE__
             end
 
-            base_pos_clamped = ImVec2()
-            ImVec2_ClampVVV(base_pos_clamped, ref_pos, r_outer.Min, r_outer.Max - size)
+            base_pos_clamped = ImClamp(ref_pos, r_outer.Min, r_outer.Max - size)
             local pos = ImVec2()
             pos.x = (dir == ImGuiDir.Left) and (r_avoid.Min.x - size.x) or ((dir == ImGuiDir.Right) and r_avoid.Max.x or base_pos_clamped.x)
             pos.y = (dir == ImGuiDir.Up)   and (r_avoid.Min.y - size.y) or ((dir == ImGuiDir.Down)  and r_avoid.Max.y or base_pos_clamped.y)
@@ -8435,7 +8434,7 @@ function ImGui.NavCalcPreferredRefPos(window_type)
         if window ~= nil then
             local viewport = window.Viewport
             if viewport then
-                ImVec2_ClampVVV(pos, pos, viewport.Pos, viewport.Pos + viewport.Size)
+                pos = ImClamp(pos, viewport.Pos, viewport.Pos + viewport.Size)
             end
         end
 

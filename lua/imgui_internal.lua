@@ -3,6 +3,16 @@
 
 --- @meta
 
+local type
+if gmod then
+    -- [GMod] `type` is [detoured](https://wiki.facepunch.com/gmod/Global.type). get the original function.
+    local upvalue_name
+    upvalue_name, type = debug.getupvalue(_G.type, 1)
+    IM_ASSERT(upvalue_name == "C_type")
+else
+    type = _G.type
+end
+
 local rawget = rawget
 
 local b_and = bit.band; local b_or = bit.bor
@@ -99,9 +109,17 @@ end
 --- @param cmp_func fun(lhs, rhs): bool
 ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then t_sort(base, cmp_func) end end
 
----@overload fun(a: number, b: number, t: number): number
----@overload fun(a: ImVec2, b: ImVec2, t: number): ImVec2
----@overload fun(a: ImVec2, b: ImVec2, t: ImVec2): ImVec2
+--- @overload fun(v: number, mn: number, mx: number): number
+--- @overload fun(v: ImVec2, mn: ImVec2, mx: ImVec2): ImVec2
+function ImClamp(v, mn, mx)
+    if     type(v) == "number" and type(mn) == "number" and type(mx) == "number" then return ImMin(ImMax(v, mn), mx)
+    elseif type(v) == "table"  and type(mn) == "table"  and type(mx) == "table"  then return ImVec2(ImMax(mn[1], ImMin(v[1], mx[1])), ImMax(mn[2], ImMin(v[2], mx[2])))
+    end
+end
+
+--- @overload fun(a: number, b: number, t: number): number
+--- @overload fun(a: ImVec2, b: ImVec2, t: number): ImVec2
+--- @overload fun(a: ImVec2, b: ImVec2, t: ImVec2): ImVec2
 function ImLerp(a, b, t)
     if     type(a) == "number" and type(b) == "number" and type(t) == "number" then return ((a) + ((b) - (a)) * (t))
     elseif type(a) == "table"  and type(b) == "table"  and type(t) == "number" then return ImVec2(a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
@@ -114,11 +132,6 @@ end
 --- @param t float
 --- @nodiscard
 function ImLerpV4V4(a, b, t) return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t) end
-
---- @param v   number
---- @param min number
---- @param max number
-function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
 
 --- @param f number
 function ImTrunc(f) if f >= 0 then return math.floor(f) else return math.ceil(f) end end
@@ -609,6 +622,7 @@ IM_RECT.__newindex = function(t, k, v)
     end
 end
 
+--- @return ImRect
 --- @nodiscard
 function ImRect(a, b, c, d) if c and d then return setmetatable({ ImVec2(a, b), ImVec2(c, d) }, IM_RECT) end return setmetatable({ ImVec2(a and a.x or 0, a and a.y or 0), ImVec2(b and b.x or 0, b and b.y or 0) }, IM_RECT) end
 
