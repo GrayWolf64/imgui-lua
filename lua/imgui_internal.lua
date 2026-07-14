@@ -665,8 +665,10 @@ end
 function IM_RECT:Add(p)
     if p.Min then
         --- @cast p ImRect
-        self:Add(p[1])
-        self:Add(p[2])
+        if (self[1][1] > p[1][1]) then self[1][1] = p[1][1] end
+        if (self[1][2] > p[1][2]) then self[1][2] = p[1][2] end
+        if (self[2][1] < p[2][1]) then self[2][1] = p[2][1] end
+        if (self[2][2] < p[2][2]) then self[2][2] = p[2][2] end
     else
         --- @cast p ImVec2
         if p[1] < self[1][1] then self[1][1] = p[1] end
