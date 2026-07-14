@@ -118,12 +118,6 @@ function ImLerp(a, b, t)
     end
 end
 
---- @param a ImVec4
---- @param b ImVec4
---- @param t float
---- @nodiscard
-function ImLerpV4V4(a, b, t) return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t) end
-
 --- @param f number
 function ImTrunc(f) if f >= 0 then return math.floor(f) else return math.ceil(f) end end
 
