@@ -7095,10 +7095,7 @@ function ImGui.ColorConvertU32ToFloat4(in_col, out_col)
     local a = bit.band(bit.rshift(in_col, IM_COL32_A_SHIFT), 0xFF) * s
 
     if out_col then
-        out_col.x = r
-        out_col.y = g
-        out_col.z = b
-        out_col.w = a
+        out_col[1] = r; out_col[2] = g; out_col[3] = b; out_col[4] = a
     else
         return ImVec4(r, g, b, a)
     end
