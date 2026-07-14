@@ -3559,7 +3559,7 @@ local function CalcResizePosSizeFromAnyCorner(window, corner_target_arg, corner_
 
         local limit_rect = ImRect()
         ImRect_Copy(limit_rect, parent_window.InnerRect)
-        limit_rect:ExpandV2(ImVec2(-ImMax(parent_window.WindowPadding.x, parent_window.WindowBorderSize), -ImMax(parent_window.WindowPadding.y, parent_window.WindowBorderSize)))
+        limit_rect:Expand(ImVec2(-ImMax(parent_window.WindowPadding.x, parent_window.WindowBorderSize), -ImMax(parent_window.WindowPadding.y, parent_window.WindowBorderSize)))
 
         if (bit.band(parent_flags, bit.bor(ImGuiWindowFlags.HorizontalScrollbar, ImGuiWindowFlags.AlwaysHorizontalScrollbar)) == 0) or (bit.band(parent_flags, ImGuiWindowFlags.NoScrollbar) ~= 0) then
             corner_target.x = ImClamp(corner_target.x, limit_rect.Min.x, limit_rect.Max.x)
@@ -8095,7 +8095,7 @@ function ImGui.GetPopupAllowedExtentRect(window)
     end
 
     local padding = g.Style.DisplaySafeAreaPadding
-    r_screen:ExpandV2(ImVec2((r_screen:GetWidth() > padding.x * 2) and -padding.x or 0.0, (r_screen:GetHeight() > padding.y * 2) and -padding.y or 0.0))
+    r_screen:Expand(ImVec2((r_screen:GetWidth() > padding.x * 2) and -padding.x or 0.0, (r_screen:GetHeight() > padding.y * 2) and -padding.y or 0.0))
 
     return r_screen
 end

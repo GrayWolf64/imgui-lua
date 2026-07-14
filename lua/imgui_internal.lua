@@ -630,22 +630,9 @@ function IM_RECT:ContainsWithPad(p, pad)
     return p[1] >= self[1][1] - pad[1] and p[2] >= self[1][2] - pad[2] and p[1] < self[2][1] + pad[1] and p[2] < self[2][2] + pad[2]
 end
 
-function IM_RECT:Overlaps(other)
-    local min_x, min_y, max_x, max_y
-
-    if other.Min then
-        --- @cast other ImRect
-        min_x = other[1][1]; min_y = other[1][2]
-        max_x = other[2][1]; max_y = other[2][2]
-    elseif other.z then
-        --- @cast other ImVec4
-        min_x = other[1]; min_y = other[2]
-        max_x = other[3]; max_y = other[4]
-    else
-        IM_ASSERT(false)
-    end
-
-    return self[1][1] <= max_x and self[2][1] >= min_x and self[1][2] <= max_y and self[2][2] >= min_y
+--- @param r ImRect
+function IM_RECT:Overlaps(r)
+    return self[1][1] <= r[2][1] and self[2][1] >= r[1][1] and self[1][2] <= r[2][2] and self[2][2] >= r[1][2]
 end
 
 --- @nodiscard
@@ -689,16 +676,15 @@ function IM_RECT:Add(p)
     end
 end
 
---- @param amount float
+--- @param amount float|ImVec2
 function IM_RECT:Expand(amount)
-    self[1][1] = self[1][1] - amount; self[1][2] = self[1][2] - amount
-    self[2][1] = self[2][1] + amount; self[2][2] = self[2][2] + amount
-end
-
---- @param amount ImVec2
-function IM_RECT:ExpandV2(amount)
-    self[1][1] = self[1][1] - amount[1]; self[1][2] = self[1][2] - amount[2]
-    self[2][1] = self[2][1] + amount[1]; self[2][2] = self[2][2] + amount[2]
+    if     type(amount) == "number" then
+        self[1][1] = self[1][1] - amount; self[1][2] = self[1][2] - amount
+        self[2][1] = self[2][1] + amount; self[2][2] = self[2][2] + amount
+    elseif type(amount) == "table"  then
+        self[1][1] = self[1][1] - amount[1]; self[1][2] = self[1][2] - amount[2]
+        self[2][1] = self[2][1] + amount[1]; self[2][2] = self[2][2] + amount[2]
+    end
 end
 
 --- @nodiscard

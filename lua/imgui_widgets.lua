@@ -707,7 +707,7 @@ function ImGui.CloseButton(id, pos)
 
     local area_to_visible_ratio = window.OuterRectClipped:GetArea() / bb:GetArea()
     if area_to_visible_ratio < 1.5 then
-        bb_interact:ExpandV2(ImTrunc(bb_interact:GetSize() * -0.25))
+        bb_interact:Expand(ImTrunc(bb_interact:GetSize() * -0.25))
     end
 
     local is_clipped = not ImGui.ItemAdd(bb_interact, id)
@@ -1324,7 +1324,7 @@ function ImGui.ProgressBar(fraction, size_arg, overlay)
 
     -- Render
     ImGui.RenderFrame(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), true, style.FrameRounding)
-    bb:ExpandV2(ImVec2(-style.FrameBorderSize, -style.FrameBorderSize))
+    bb:Expand(ImVec2(-style.FrameBorderSize, -style.FrameBorderSize))
 
     local fill_x0 = ImLerp(bb.Min.x, bb.Max.x, fill_n0)
     local fill_x1 = ImLerp(bb.Min.x, bb.Max.x, fill_n1)
