@@ -707,7 +707,7 @@ function ImGui.CloseButton(id, pos)
 
     local area_to_visible_ratio = window.OuterRectClipped:GetArea() / bb:GetArea()
     if area_to_visible_ratio < 1.5 then
-        bb_interact:ExpandV2(ImTruncV2(bb_interact:GetSize() * -0.25))
+        bb_interact:Expand(ImTrunc(bb_interact:GetSize() * -0.25))
     end
 
     local is_clipped = not ImGui.ItemAdd(bb_interact, id)
@@ -1324,7 +1324,7 @@ function ImGui.ProgressBar(fraction, size_arg, overlay)
 
     -- Render
     ImGui.RenderFrame(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), true, style.FrameRounding)
-    bb:ExpandV2(ImVec2(-style.FrameBorderSize, -style.FrameBorderSize))
+    bb:Expand(ImVec2(-style.FrameBorderSize, -style.FrameBorderSize))
 
     local fill_x0 = ImLerp(bb.Min.x, bb.Max.x, fill_n0)
     local fill_x1 = ImLerp(bb.Min.x, bb.Max.x, fill_n1)
@@ -1933,7 +1933,7 @@ function ImGui.EndComboPreview()
     ImGui.PopClipRect()
 
     ImVec2_Copy(window.DC.CursorPos, preview_data.BackupCursorPos)
-    ImVec2_Copy(window.DC.CursorMaxPos, ImMaxVec2(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos))
+    ImVec2_Copy(window.DC.CursorMaxPos, ImMax(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos))
     ImVec2_Copy(window.DC.CursorPosPrevLine, preview_data.BackupCursorPosPrevLine)
     window.DC.PrevLineTextBaseOffset = preview_data.BackupPrevLineTextBaseOffset
     window.DC.LayoutType = preview_data.BackupLayout
@@ -5390,7 +5390,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state.CursorAnim = state.CursorAnim + io.DeltaTime
         local cursor_is_visible = (not g.IO.ConfigInputTextCursorBlink) or (state.CursorAnim <= 0.0) or (ImFmod(state.CursorAnim, 1.20) <= 0.80)
 
-        local cursor_screen_pos = ImTruncV2(draw_pos + cursor_offset - draw_scroll)
+        local cursor_screen_pos = ImTrunc(draw_pos + cursor_offset - draw_scroll)
         local cursor_screen_rect = ImRect(cursor_screen_pos.x, cursor_screen_pos.y - g.FontSize + 0.5, cursor_screen_pos.x + 1.0, cursor_screen_pos.y - 1.5)
 
         if cursor_is_visible and cursor_screen_rect:Overlaps(clip_rect) then
@@ -6150,7 +6150,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
         draw_list:PrimVtx(trc, uv_white, col_white)
         draw_list:AddTriangle(tra, trb, trc, col_midgrey, 1.5)
 
-        sv_cursor_pos = ImLerpV2V2(ImLerpV2V2(trc, tra, ImSaturate(S)), trb, ImSaturate(1 - V))
+        sv_cursor_pos = ImLerp(ImLerp(trc, tra, ImSaturate(S)), trb, ImSaturate(1 - V))
     elseif bit.band(flags, ImGuiColorEditFlags.PickerHueBar) ~= 0 then
         -- Render SV Square
         draw_list:AddRectFilledMultiColor(picker_pos, picker_pos + ImVec2(sv_picker_size, sv_picker_size), col_white, hue_color32, hue_color32, col_white)
@@ -7228,12 +7228,12 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
             local v1 = values_getter(data, (v1_idx - 1 + values_offset + 1) % values_count + 1)
             local tp1 = ImVec2(t1, 1.0 - ImSaturate((v1 - scale_min) * inv_scale))
 
-            local pos0 = ImLerpV2V2V2(inner_bb.Min, inner_bb.Max, tp0)
+            local pos0 = ImLerp(inner_bb.Min, inner_bb.Max, tp0)
             local pos1
             if plot_type == ImGuiPlotType.Lines then
-                pos1 = ImLerpV2V2V2(inner_bb.Min, inner_bb.Max, tp1)
+                pos1 = ImLerp(inner_bb.Min, inner_bb.Max, tp1)
             else
-                pos1 = ImLerpV2V2V2(inner_bb.Min, inner_bb.Max, ImVec2(tp1.x, histogram_zero_line_t))
+                pos1 = ImLerp(inner_bb.Min, inner_bb.Max, ImVec2(tp1.x, histogram_zero_line_t))
             end
 
             if plot_type == ImGuiPlotType.Lines then

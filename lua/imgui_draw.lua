@@ -85,6 +85,11 @@ local stbtt = IM_INCLUDE("imstb_truetype.lua")
 -- [SECTION] STYLE FUNCTIONS
 ---------------------------------------------------------------------------------------
 
+--- @param a ImVec4
+--- @param b ImVec4
+--- @param t float
+local function ImLerpV4V4F(a, b, t) return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t) end
+
 --- @param dst? ImGuiStyle
 function ImGui.StyleColorsDark(dst)
     local style = dst and dst or ImGui.GetStyle()
@@ -109,7 +114,7 @@ function ImGui.StyleColorsDark(dst)
     colors[ImGuiCol.ScrollbarGrabHovered]      = ImVec4(0.41, 0.41, 0.41, 1.00)
     colors[ImGuiCol.ScrollbarGrabActive]       = ImVec4(0.51, 0.51, 0.51, 1.00)
     colors[ImGuiCol.CheckMark]                 = ImVec4(0.26, 0.59, 0.98, 1.00)
-    colors[ImGuiCol.CheckboxSelectedBg]        = ImLerpV4V4(colors[ImGuiCol.FrameBg], colors[ImGuiCol.FrameBgHovered], 0.65)
+    colors[ImGuiCol.CheckboxSelectedBg]        = ImLerpV4V4F(colors[ImGuiCol.FrameBg], colors[ImGuiCol.FrameBgHovered], 0.65)
     colors[ImGuiCol.SliderGrab]                = ImVec4(0.24, 0.52, 0.88, 1.00)
     colors[ImGuiCol.SliderGrabActive]          = ImVec4(0.26, 0.59, 0.98, 1.00)
     colors[ImGuiCol.Button]                    = ImVec4(0.26, 0.59, 0.98, 0.40)
@@ -126,11 +131,11 @@ function ImGui.StyleColorsDark(dst)
     colors[ImGuiCol.ResizeGripActive]          = ImVec4(0.26, 0.59, 0.98, 0.95)
     colors[ImGuiCol.InputTextCursor]           = colors[ImGuiCol.Text]
     colors[ImGuiCol.TabHovered]                = colors[ImGuiCol.HeaderHovered]
-    colors[ImGuiCol.Tab]                       = ImLerpV4V4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
-    colors[ImGuiCol.TabSelected]               = ImLerpV4V4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.Tab]                       = ImLerpV4V4F(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
+    colors[ImGuiCol.TabSelected]               = ImLerpV4V4F(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
     colors[ImGuiCol.TabSelectedOverline]       = colors[ImGuiCol.HeaderActive]
-    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
-    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4F(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4F(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
     colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.50, 0.50, 0.50, 0.00)
     colors[ImGuiCol.PlotLines]                 = ImVec4(0.61, 0.61, 0.61, 1.00)
     colors[ImGuiCol.PlotLinesHovered]          = ImVec4(1.00, 0.43, 0.35, 1.00)
@@ -177,7 +182,7 @@ function ImGui.StyleColorsClassic(dst)
     colors[ImGuiCol.ScrollbarGrabHovered]      = ImVec4(0.40, 0.40, 0.80, 0.40)
     colors[ImGuiCol.ScrollbarGrabActive]       = ImVec4(0.41, 0.39, 0.80, 0.60)
     colors[ImGuiCol.CheckMark]                 = ImVec4(0.90, 0.90, 0.90, 0.50)
-    colors[ImGuiCol.CheckboxSelectedBg]        = ImLerpV4V4(colors[ImGuiCol.FrameBg], colors[ImGuiCol.FrameBgActive], 0.65)
+    colors[ImGuiCol.CheckboxSelectedBg]        = ImLerpV4V4F(colors[ImGuiCol.FrameBg], colors[ImGuiCol.FrameBgActive], 0.65)
     colors[ImGuiCol.SliderGrab]                = ImVec4(1.00, 1.00, 1.00, 0.30)
     colors[ImGuiCol.SliderGrabActive]          = ImVec4(0.41, 0.39, 0.80, 0.60)
     colors[ImGuiCol.Button]                    = ImVec4(0.35, 0.40, 0.61, 0.62)
@@ -194,11 +199,11 @@ function ImGui.StyleColorsClassic(dst)
     colors[ImGuiCol.ResizeGripActive]          = ImVec4(0.78, 0.82, 1.00, 0.90)
     colors[ImGuiCol.InputTextCursor]           = colors[ImGuiCol.Text]
     colors[ImGuiCol.TabHovered]                = colors[ImGuiCol.HeaderHovered]
-    colors[ImGuiCol.Tab]                       = ImLerpV4V4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
-    colors[ImGuiCol.TabSelected]               = ImLerpV4V4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.Tab]                       = ImLerpV4V4F(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.80)
+    colors[ImGuiCol.TabSelected]               = ImLerpV4V4F(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
     colors[ImGuiCol.TabSelectedOverline]       = colors[ImGuiCol.HeaderActive]
-    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
-    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4F(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4F(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
     colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.53, 0.53, 0.87, 0.00)
     colors[ImGuiCol.PlotLines]                 = ImVec4(1.00, 1.00, 1.00, 1.00)
     colors[ImGuiCol.PlotLinesHovered]          = ImVec4(0.90, 0.70, 0.00, 1.00)
@@ -263,11 +268,11 @@ function ImGui.StyleColorsLight(dst)
     colors[ImGuiCol.ResizeGripActive]          = ImVec4(0.26, 0.59, 0.98, 0.95)
     colors[ImGuiCol.InputTextCursor]           = colors[ImGuiCol.Text]
     colors[ImGuiCol.TabHovered]                = colors[ImGuiCol.HeaderHovered]
-    colors[ImGuiCol.Tab]                       = ImLerpV4V4(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.90)
-    colors[ImGuiCol.TabSelected]               = ImLerpV4V4(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
+    colors[ImGuiCol.Tab]                       = ImLerpV4V4F(colors[ImGuiCol.Header],       colors[ImGuiCol.TitleBgActive], 0.90)
+    colors[ImGuiCol.TabSelected]               = ImLerpV4V4F(colors[ImGuiCol.HeaderActive], colors[ImGuiCol.TitleBgActive], 0.60)
     colors[ImGuiCol.TabSelectedOverline]       = colors[ImGuiCol.HeaderActive]
-    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
-    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
+    colors[ImGuiCol.TabDimmed]                 = ImLerpV4V4F(colors[ImGuiCol.Tab],          colors[ImGuiCol.TitleBg], 0.80)
+    colors[ImGuiCol.TabDimmedSelected]         = ImLerpV4V4F(colors[ImGuiCol.TabSelected],  colors[ImGuiCol.TitleBg], 0.40)
     colors[ImGuiCol.TabDimmedSelectedOverline] = ImVec4(0.26, 0.59, 1.00, 0.00)
     colors[ImGuiCol.PlotLines]                 = ImVec4(0.39, 0.39, 0.39, 1.00)
     colors[ImGuiCol.PlotLinesHovered]          = ImVec4(1.00, 0.43, 0.35, 1.00)
@@ -309,12 +314,10 @@ function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx,
     local col_delta_g = bit.band(bit.rshift(col1, IM_COL32_G_SHIFT), 0xFF) - col0_g
     local col_delta_b = bit.band(bit.rshift(col1, IM_COL32_B_SHIFT), 0xFF) - col0_b
 
-    local a = ImVec2()
     for vert_idx = vert_start_idx, vert_end_idx - 1 do
         local vert = draw_list.VtxBuffer.Data[vert_idx]
 
-        ImVec2_CopyV(a, ImVec2_SubV(vert[1], gradient_p0))
-        local d = ImDot(a, gradient_extent)
+        local d = ImDot(vert[1] - gradient_p0, gradient_extent)
         local t = ImClamp(d * gradient_inv_length2, 0.0, 1.0)
 
         local r = math.floor(col0_r + col_delta_r * t)
@@ -345,16 +348,16 @@ function ImGui.ShadeVertsLinearUV(draw_list, vert_start_idx, vert_end_idx, a, b,
     local vertex
     local verts = draw_list.VtxBuffer.Data
     if clamp then
-        local min = ImMinVec2(uv_a, uv_b)
-        local max = ImMaxVec2(uv_a, uv_b)
+        local min = ImMin(uv_a, uv_b)
+        local max = ImMax(uv_a, uv_b)
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
-            ImVec2_Copy(vertex[2], ImClampV2(uv_a + ImMul(ImVec2(vertex[1].x, vertex[1].y) - a, scale), min, max))
+            ImVec2_Copy(vertex[2], ImClamp(uv_a + ImMul(vertex[1] - a, scale), min, max))
         end
     else
         for vert_idx = vert_start_idx, vert_end_idx - 1 do
             vertex = verts[vert_idx]
-            ImVec2_Copy(vertex[2], uv_a + ImMul(ImVec2(vertex[1].x, vertex[1].y) - a, scale))
+            ImVec2_Copy(vertex[2], uv_a + ImMul(vertex[1] - a, scale))
         end
     end
 end
@@ -368,6 +371,7 @@ local ImFontAtlasTextureBlockConvert
 local ImFontAtlasTextureBlockPostProcess
 local ImFontAtlasTextureBlockPostProcessMultiply
 local ImFontAtlasTextureBlockQueueUpload
+local ImFontAtlasTextureCompact
 local ImFontAtlasPackInit
 local ImFontAtlasPackAddRect
 local ImFontAtlasPackGetRect
@@ -445,6 +449,10 @@ function MT.ImFontAtlas:ClearTexData()
     for _, tex in self.TexList:iter() do
         tex:DestroyPixels()
     end
+end
+
+function MT.ImFontAtlas:CompactCache()
+    ImFontAtlasTextureCompact(self)
 end
 
 function MT.ImFontAtlas:ClearFonts()
@@ -1729,6 +1737,21 @@ local function ImFontAtlasBuildClear(atlas)
 end
 
 --- @param atlas ImFontAtlas
+function ImFontAtlasTextureCompact(atlas)
+    local builder = atlas.Builder
+    ImFontAtlasBuildDiscardBakes(atlas, 1)
+
+    local old_tex = atlas.TexData
+    local old_tex_size = ImVec2(old_tex.Width, old_tex.Height)
+    local new_tex_size = ImFontAtlasTextureGetSizeEstimate(atlas)
+    if (builder.RectsDiscardedCount == 0 and new_tex_size.x == old_tex_size.x and new_tex_size.y == old_tex_size.y) then
+        return
+    end
+
+    ImFontAtlasTextureRepack(atlas, new_tex_size.x, new_tex_size.y)
+end
+
+--- @param atlas ImFontAtlas
 function ImFontAtlasPackInit(atlas)
     local tex = atlas.TexData
     local builder = atlas.Builder
@@ -1802,8 +1825,8 @@ function ImFontAtlasBuildUpdateTexDataLines(atlas)
             end
         end
 
-        local uv0 = ImVec2_MulComp(ImVec2((r.x + pad_left - 1), (r.y + y)), atlas.TexUvScale)
-        local uv1 = ImVec2_MulComp(ImVec2((r.x + pad_left + line_width + 1), (r.y + y + 1)), atlas.TexUvScale)
+        local uv0 = ImVec2(r.x + pad_left - 1, r.y + y) * atlas.TexUvScale
+        local uv1 = ImVec2(r.x + pad_left + line_width + 1, r.y + y + 1) * atlas.TexUvScale
         local half_v = (uv0.y + uv1.y) * 0.5
         atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v)
     end
@@ -2920,8 +2943,8 @@ function MT.ImFontAtlas:GetCustomRect(id, out_r)
     out_r.y = r.y
     out_r.w = r.w
     out_r.h = r.h
-    ImVec2_CopyV(out_r.uv0, ImVec2_MulCompV(ImVec2((r.x), (r.y)), self.TexUvScale))
-    ImVec2_CopyV(out_r.uv1, ImVec2_MulCompV(ImVec2((r.x + r.w), (r.y + r.h)), self.TexUvScale))
+    ImVec2_Copy(out_r.uv0, ImVec2((r.x), (r.y)) * self.TexUvScale)
+    ImVec2_Copy(out_r.uv1, ImVec2((r.x + r.w), (r.y + r.h)) * self.TexUvScale)
 
     return true
 end
@@ -2945,11 +2968,11 @@ function ImFontAtlasGetMouseCursorTexData(atlas, cursor_type, out_offset, out_si
     local size = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][2]
     ImVec2_Copy(out_size, size)
     ImVec2_Copy(out_offset, FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type + 1][3])
-    ImVec2_CopyV(out_uv_border[1], ImVec2_MulCompV((pos), atlas.TexUvScale))
-    ImVec2_CopyV(out_uv_border[2], ImVec2_MulCompV((pos + size), atlas.TexUvScale))
+    ImVec2_Copy(out_uv_border[1], (pos) * atlas.TexUvScale)
+    ImVec2_Copy(out_uv_border[2], (pos + size) * atlas.TexUvScale)
     pos.x = pos.x + (FONT_ATLAS_DEFAULT_TEX_DATA_W + 1)
-    ImVec2_CopyV(out_uv_fill[1], ImVec2_MulCompV((pos), atlas.TexUvScale))
-    ImVec2_CopyV(out_uv_fill[2], ImVec2_MulCompV((pos + size), atlas.TexUvScale))
+    ImVec2_Copy(out_uv_fill[1], (pos) * atlas.TexUvScale)
+    ImVec2_Copy(out_uv_fill[2], (pos + size) * atlas.TexUvScale)
 
     return true
 end
@@ -3416,37 +3439,40 @@ function MT.ImDrawList:PrimUnreserve(idx_count, vtx_count)
     self._IdxWritePtr = self.IdxBuffer.Size + 1
 end
 
+--- @param a   ImVec2
+--- @param c   ImVec2
+--- @param col ImU32
 function MT.ImDrawList:PrimRect(a, c, col)
-    local b = ImVec2(c.x, a.y) local d = ImVec2(a.x, c.y)
     local uv = self._Data.TexUvWhitePixel
 
     local idx = self._VtxCurrentIdx
+    local idx_data = self.IdxBuffer.Data; local vtx_data = self.VtxBuffer.Data
 
     local idx_write_ptr = self._IdxWritePtr
-    self.IdxBuffer.Data[idx_write_ptr + 0] = idx
-    self.IdxBuffer.Data[idx_write_ptr + 1] = idx + 1
-    self.IdxBuffer.Data[idx_write_ptr + 2] = idx + 2
+    idx_data[idx_write_ptr + 0] = idx
+    idx_data[idx_write_ptr + 1] = idx + 1
+    idx_data[idx_write_ptr + 2] = idx + 2
 
-    self.IdxBuffer.Data[idx_write_ptr + 3] = idx
-    self.IdxBuffer.Data[idx_write_ptr + 4] = idx + 2
-    self.IdxBuffer.Data[idx_write_ptr + 5] = idx + 3
+    idx_data[idx_write_ptr + 3] = idx
+    idx_data[idx_write_ptr + 4] = idx + 2
+    idx_data[idx_write_ptr + 5] = idx + 3
 
     local vtx_write_ptr = self._VtxWritePtr
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], a)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][1], a)
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], uv)
+    vtx_data[vtx_write_ptr + 0][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], b)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 1][1], c[1], a[2])
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], uv)
+    vtx_data[vtx_write_ptr + 1][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], c)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][1], c)
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], uv)
+    vtx_data[vtx_write_ptr + 2][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], d)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], uv)
-    self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 3][1], a[1], c[2])
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 3][2], uv)
+    vtx_data[vtx_write_ptr + 3][3] = col
 
     self._VtxWritePtr = vtx_write_ptr + 4
     self._VtxCurrentIdx = idx + 4
@@ -3459,36 +3485,34 @@ end
 --- @param uv_c ImVec2
 --- @param col  any
 function MT.ImDrawList:PrimRectUV(a, c, uv_a, uv_c, col)
-    local b = ImVec2(c.x, a.y)          local d = ImVec2(a.x, c.y)
-    local uv_b = ImVec2(uv_c.x, uv_a.y) local uv_d = ImVec2(uv_a.x, uv_c.y)
-
     local idx = self._VtxCurrentIdx
+    local idx_data = self.IdxBuffer.Data; local vtx_data = self.VtxBuffer.Data
 
     local idx_write_ptr = self._IdxWritePtr
-    self.IdxBuffer.Data[idx_write_ptr + 0] = idx
-    self.IdxBuffer.Data[idx_write_ptr + 1] = idx + 1
-    self.IdxBuffer.Data[idx_write_ptr + 2] = idx + 2
+    idx_data[idx_write_ptr + 0] = idx
+    idx_data[idx_write_ptr + 1] = idx + 1
+    idx_data[idx_write_ptr + 2] = idx + 2
 
-    self.IdxBuffer.Data[idx_write_ptr + 3] = idx
-    self.IdxBuffer.Data[idx_write_ptr + 4] = idx + 2
-    self.IdxBuffer.Data[idx_write_ptr + 5] = idx + 3
+    idx_data[idx_write_ptr + 3] = idx
+    idx_data[idx_write_ptr + 4] = idx + 2
+    idx_data[idx_write_ptr + 5] = idx + 3
 
     local vtx_write_ptr = self._VtxWritePtr
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][1], a)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 0][2], uv_a)
-    self.VtxBuffer.Data[vtx_write_ptr + 0][3] = col
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][1], a)
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], uv_a)
+    vtx_data[vtx_write_ptr + 0][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][1], b)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 1][2], uv_b)
-    self.VtxBuffer.Data[vtx_write_ptr + 1][3] = col
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 1][1], c[1], a[2])
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 1][2], uv_c[1], uv_a[2])
+    vtx_data[vtx_write_ptr + 1][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][1], c)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 2][2], uv_c)
-    self.VtxBuffer.Data[vtx_write_ptr + 2][3] = col
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][1], c)
+    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], uv_c)
+    vtx_data[vtx_write_ptr + 2][3] = col
 
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][1], d)
-    ImVec2_Copy(self.VtxBuffer.Data[vtx_write_ptr + 3][2], uv_d)
-    self.VtxBuffer.Data[vtx_write_ptr + 3][3] = col
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 3][1], a[1], c[2])
+    ImVec2_CopyV(vtx_data[vtx_write_ptr + 3][2], uv_a[1], uv_c[2])
+    vtx_data[vtx_write_ptr + 3][3] = col
 
     self._VtxWritePtr   = vtx_write_ptr + 4
     self._VtxCurrentIdx = idx + 4
@@ -3561,10 +3585,10 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, thickness, flags)
 
             -- If line is not closed, the first and last points need to be generated differently
             if not closed then
-                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_count], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 1], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_count], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulVX(temp_normals[1], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_SubVA(points[1], ImVec2_MulVX(temp_normals[1], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulVX(temp_normals[points_count], half_draw_size)))
+                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 1], ImVec2_SubVA(points[points_count], ImVec2_MulVX(temp_normals[points_count], half_draw_size)))
             end
 
             -- Generate indices and vertices
@@ -3636,14 +3660,14 @@ function MT.ImDrawList:AddPolyline(points, points_count, col, thickness, flags)
             -- If line is not closed, handle first and last points
             if not closed then
                 local points_last = points_count - 1
-                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_AddVA(points[1], ImVec2_MulNV(temp_normals[1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + 2], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + 3], ImVec2_SubVA(points[1], ImVec2_MulNV(temp_normals[1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 1], ImVec2_AddVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 2], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 3], ImVec2_SubVA(points[points_count], ImVec2_MulNV(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulVX(temp_normals[1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_AddVA(points[1], ImVec2_MulVX(temp_normals[1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + 2], ImVec2_SubVA(points[1], ImVec2_MulVX(temp_normals[1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + 3], ImVec2_SubVA(points[1], ImVec2_MulVX(temp_normals[1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulVX(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 1], ImVec2_AddVA(points[points_count], ImVec2_MulVX(temp_normals[points_last + 1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 2], ImVec2_SubVA(points[points_count], ImVec2_MulVX(temp_normals[points_last + 1], half_inner_thickness)))
+                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 3], ImVec2_SubVA(points[points_count], ImVec2_MulVX(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
             end
 
             -- Generate indices and vertices
@@ -4415,10 +4439,10 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
                 local glyph_col = glyph.Colored and color_untinted or col
 
                 do
-                    vtx_data[vtx_write + 0][1][1] = x1; vtx_data[vtx_write + 0][1][2] = y1; vtx_data[vtx_write + 0][3] = glyph_col; vtx_data[vtx_write + 0][2][1] = u1; vtx_data[vtx_write + 0][2][2] = v1;
-                    vtx_data[vtx_write + 1][1][1] = x2; vtx_data[vtx_write + 1][1][2] = y1; vtx_data[vtx_write + 1][3] = glyph_col; vtx_data[vtx_write + 1][2][1] = u2; vtx_data[vtx_write + 1][2][2] = v1;
-                    vtx_data[vtx_write + 2][1][1] = x2; vtx_data[vtx_write + 2][1][2] = y2; vtx_data[vtx_write + 2][3] = glyph_col; vtx_data[vtx_write + 2][2][1] = u2; vtx_data[vtx_write + 2][2][2] = v2;
-                    vtx_data[vtx_write + 3][1][1] = x1; vtx_data[vtx_write + 3][1][2] = y2; vtx_data[vtx_write + 3][3] = glyph_col; vtx_data[vtx_write + 3][2][1] = u1; vtx_data[vtx_write + 3][2][2] = v2;
+                    local vtx0 = vtx_data[vtx_write + 0]; vtx0[1][1] = x1; vtx0[1][2] = y1; vtx0[3] = glyph_col; vtx0[2][1] = u1; vtx0[2][2] = v1;
+                    local vtx1 = vtx_data[vtx_write + 1]; vtx1[1][1] = x2; vtx1[1][2] = y1; vtx1[3] = glyph_col; vtx1[2][1] = u2; vtx1[2][2] = v1;
+                    local vtx2 = vtx_data[vtx_write + 2]; vtx2[1][1] = x2; vtx2[1][2] = y2; vtx2[3] = glyph_col; vtx2[2][1] = u2; vtx2[2][2] = v2;
+                    local vtx3 = vtx_data[vtx_write + 3]; vtx3[1][1] = x1; vtx3[1][2] = y2; vtx3[3] = glyph_col; vtx3[2][1] = u1; vtx3[2][2] = v2;
                     idx_data[idx_write + 0] = vtx_index; idx_data[idx_write + 1] = vtx_index + 1; idx_data[idx_write + 2] = vtx_index + 2;
                     idx_data[idx_write + 3] = vtx_index; idx_data[idx_write + 4] = vtx_index + 2; idx_data[idx_write + 5] = vtx_index + 3;
                     vtx_write = vtx_write + 4
@@ -4463,7 +4487,7 @@ function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
     local h = draw_list._Data.FontSize * 1.00
     local r = h * 0.40 * scale
 
-    center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
+    local center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
 
     local a, b, c
 

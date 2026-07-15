@@ -1,13 +1,16 @@
 --- ImGui Sincerely WIP
 -- (internal structures/api)
 
--- I will avoid extensive type checks, since I ensure that types are correct in internal usage,
--- and runtime type checking is probably slow
-
 --- @meta
 
+local type = ImGui._GetTypeFunc()
+local rawget = rawget
+local m_min = math.min; local m_max = math.max
+local m_floor = math.floor; local m_ceil = math.ceil
 local b_and = bit.band; local b_or = bit.bor
-local b_ls = bit.lshift
+local b_ls = bit.lshift; local b_rs = bit.rshift
+
+local t_sort = table.sort
 
 --- @alias ImGuiTableColumnIdx ImS16
 
@@ -45,22 +48,6 @@ ImAbs  = math.abs
 ImFabs = math.abs
 ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
-ImMin = math.min
-
---- @param a ImVec2
---- @param b ImVec2
---- @return ImVec2
---- @nodiscard
-function ImMinVec2(a, b) return ImVec2(ImMin(a.x, b.x), ImMin(a.y, b.y)) end
-
-ImMax = math.max
-
---- @param a ImVec2
---- @param b ImVec2
---- @return ImVec2
---- @nodiscard
-function ImMaxVec2(a, b) return ImVec2(ImMax(a.x, b.x), ImMax(a.y, b.y)) end
-
 ImRound64 = function(val) return math.floor(val + 0.5) end -- FIXME: Positive values only
 
 ImCeil  = math.ceil
@@ -94,57 +81,56 @@ function ImSubClampOverflow(a, b, mn, mx)
     return a - b
 end
 
+--- @overload fun(lhs: number, rhs: number): number
+--- @overload fun(lhs: ImVec2, rhs: ImVec2): ImVec2
+function ImMin(lhs, rhs)
+    if     type(lhs) == "number" and type(rhs) == "number" then return m_min(lhs, rhs)
+    elseif type(lhs) == "table"  and type(rhs) == "table"  then return ImVec2(m_min(lhs[1], rhs[1]), m_min(lhs[2], rhs[2]))
+    end
+end
+
+--- @overload fun(lhs: number, rhs: number): number
+--- @overload fun(lhs: ImVec2, rhs: ImVec2): ImVec2
+function ImMax(lhs, rhs)
+    if     type(lhs) == "number" and type(rhs) == "number" then return m_max(lhs, rhs)
+    elseif type(lhs) == "table"  and type(rhs) == "table"  then return ImVec2(m_max(lhs[1], rhs[1]), m_max(lhs[2], rhs[2]))
+    end
+end
+
 --- @param base     table
 --- @param count    int
 --- @param cmp_func fun(lhs, rhs): bool
-ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then table.sort(base, cmp_func) end end
+ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then t_sort(base, cmp_func) end end
 
---- @param a number
---- @param b number
---- @param t number
-function ImLerp(a, b, t) return ((a) + ((b) - (a)) * (t)) end
-
---- @param a ImVec2
---- @param b ImVec2
---- @param t float
-function ImLerpV2V2(a, b, t)
-    return ImVec2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+--- @overload fun(v: number, mn: number, mx: number): number
+--- @overload fun(v: ImVec2, mn: ImVec2, mx: ImVec2): ImVec2
+function ImClamp(v, mn, mx)
+    if     type(v) == "number" and type(mn) == "number" and type(mx) == "number" then return m_min(m_max(v, mn), mx)
+    elseif type(v) == "table"  and type(mn) == "table"  and type(mx) == "table"  then return ImVec2(m_max(mn[1], m_min(v[1], mx[1])), m_max(mn[2], m_min(v[2], mx[2])))
+    end
 end
 
---- @param a ImVec2
---- @param b ImVec2
---- @param t ImVec2
---- @return ImVec2
---- @nodiscard
-function ImLerpV2V2V2(a, b, t) return ImVec2(a.x + (b.x - a.x) * t.x, a.y + (b.y - a.y) * t.y) end
+--- @overload fun(a: number, b: number, t: number): number
+--- @overload fun(a: ImVec2, b: ImVec2, t: number): ImVec2
+--- @overload fun(a: ImVec2, b: ImVec2, t: ImVec2): ImVec2
+function ImLerp(a, b, t)
+    if     type(a) == "number" and type(b) == "number" and type(t) == "number" then return ((a) + ((b) - (a)) * (t))
+    elseif type(a) == "table"  and type(b) == "table"  and type(t) == "number" then return ImVec2(a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
+    elseif type(a) == "table"  and type(b) == "table"  and type(t) == "table"  then return ImVec2(a[1] + (b[1] - a[1]) * t[1], a[2] + (b[2] - a[2]) * t[2])
+    end
+end
 
---- @param a ImVec4
---- @param b ImVec4
---- @param t float
---- @nodiscard
-function ImLerpV4V4(a, b, t) return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t) end
+local function _Trunc(val) if val >= 0 then return m_floor(val) else return m_ceil(val) end end
 
---- @param v   number
---- @param min number
---- @param max number
-function ImClamp(v, min, max) return ImMin(ImMax(v, min), max) end
+--- @overload fun(v: float): float
+--- @overload fun(v: ImVec2): ImVec2
+function ImTrunc(v)
+    if     type(v) == "number" then return _Trunc(v)
+    elseif type(v) == "table"  then return ImVec2(_Trunc(v[1]), _Trunc(v[2]))
+    end
+end
 
---- @param v   ImVec2
---- @param min ImVec2
---- @param max ImVec2
---- @return ImVec2
---- @nodiscard
-function ImClampV2(v, min, max) return ImVec2(ImMin(ImMax(v.x, min.x), max.x), ImMin(ImMax(v.y, min.y), max.y)) end
-
---- @param f number
-function ImTrunc(f) if f >= 0 then return math.floor(f) else return math.ceil(f) end end
-
---- @param v ImVec2
---- @nodiscard
-function ImTruncV2(v) return ImVec2(ImTrunc(v.x), ImTrunc(v.y)) end
-
---- @param f float
-function ImTrunc64(f) return ImTrunc(f) end
+ImTrunc64 = _Trunc
 
 --- @param f float
 function ImCeilFast(f)
@@ -172,11 +158,11 @@ function ImUpperPowerOfTwo(v)
     if v <= 1 then return 1 end
 
     v = v - 1
-    v = b_or(v, bit.rshift(v, 1))
-    v = b_or(v, bit.rshift(v, 2))
-    v = b_or(v, bit.rshift(v, 4))
-    v = b_or(v, bit.rshift(v, 8))
-    v = b_or(v, bit.rshift(v, 16))
+    v = b_or(v, b_rs(v, 1))
+    v = b_or(v, b_rs(v, 2))
+    v = b_or(v, b_rs(v, 4))
+    v = b_or(v, b_rs(v, 8))
+    v = b_or(v, b_rs(v, 16))
     return v + 1
 end
 
@@ -572,8 +558,8 @@ ImGuiFocusRequestFlags = {
 
 --- @enum ImGuiTextFlags
 ImGuiTextFlags = {
-    None                          = 0,
-    NoWidthForLargeClippedText    = b_ls(1, 0)
+    None                       = 0,
+    NoWidthForLargeClippedText = b_ls(1, 0)
 }
 
 --- @enum ImWcharClass
@@ -599,141 +585,150 @@ function ImVec1_Copy(dest, src)
 end
 
 --- @class ImRect
+--- @field [1] ImVec2
+--- @field [2] ImVec2
 --- @field Min ImVec2
 --- @field Max ImVec2
 local IM_RECT = {}
-IM_RECT.__index = IM_RECT
 
+--- @param t ImRect
+--- @param k string
+IM_RECT.__index = function(t, k)
+    local method = IM_RECT[k]
+    if method ~= nil  then return method end
+    if     k == "Min" then return rawget(t, 1)
+    elseif k == "Max" then return rawget(t, 2)
+    end
+end
+
+--- @param t ImRect
+--- @param k string
+--- @param v ImVec2
+IM_RECT.__newindex = function(t, k, v)
+    if     k == "Min" then ImVec2_Copy(rawget(t, 1), v)
+    elseif k == "Max" then ImVec2_Copy(rawget(t, 2), v)
+    else IM_ASSERT(false)
+    end
+end
+
+--- @return ImRect
 --- @nodiscard
-function ImRect(a, b, c, d) if c and d then return setmetatable({Min = ImVec2(a, b), Max = ImVec2(c, d)}, IM_RECT) end return setmetatable({Min = ImVec2(a and a.x or 0, a and a.y or 0), Max = ImVec2(b and b.x or 0, b and b.y or 0)}, IM_RECT) end
+function ImRect(a, b, c, d) if c and d then return setmetatable({ ImVec2(a, b), ImVec2(c, d) }, IM_RECT) end return setmetatable({ ImVec2(a and a.x or 0, a and a.y or 0), ImVec2(b and b.x or 0, b and b.y or 0) }, IM_RECT) end
 
-function IM_RECT:__eq(other) return self.Min == other.Min and self.Max == other.Max end
+function IM_RECT:__eq(other) return self[1] == other[1] and self[2] == other[2] end
 function IM_RECT:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 
 --- @param other ImRect
-function IM_RECT:Contains(other) return other.Min.x >= self.Min.x and other.Max.x <= self.Max.x and other.Min.y >= self.Min.y and other.Max.y <= self.Max.y end
+function IM_RECT:Contains(other) return other[1][1] >= self[1][1] and other[2][1] <= self[2][1] and other[1][2] >= self[1][2] and other[2][2] <= self[2][2] end
 
 --- @param p ImVec2
-function IM_RECT:ContainsV2(p) return p.x >= self.Min.x and p.y >= self.Min.y and p.x < self.Max.x and p.y < self.Max.y end
+function IM_RECT:ContainsV2(p) return p[1] >= self[1][1] and p[2] >= self[1][2] and p[1] < self[2][1] and p[2] < self[2][2] end
 
 --- @param p   ImVec2
 --- @param pad ImVec2
 function IM_RECT:ContainsWithPad(p, pad)
-    return p.x >= self.Min.x - pad.x and p.y >= self.Min.y - pad.y and p.x < self.Max.x + pad.x and p.y < self.Max.y + pad.y
+    return p[1] >= self[1][1] - pad[1] and p[2] >= self[1][2] - pad[2] and p[1] < self[2][1] + pad[1] and p[2] < self[2][2] + pad[2]
 end
 
-function IM_RECT:Overlaps(other)
-    local min_x, min_y, max_x, max_y
-
-    if other.Min then
-        --- @cast other ImRect
-        min_x = other.Min.x; min_y = other.Min.y
-        max_x = other.Max.x; max_y = other.Max.y
-    elseif other.z then
-        --- @cast other ImVec4
-        min_x = other.x; min_y = other.y
-        max_x = other.z; max_y = other.w
-    else
-        IM_ASSERT(false)
-    end
-
-    return self.Min.x <= max_x and self.Max.x >= min_x and self.Min.y <= max_y and self.Max.y >= min_y
+--- @param r ImRect
+function IM_RECT:Overlaps(r)
+    return self[1][1] <= r[2][1] and self[2][1] >= r[1][1] and self[1][2] <= r[2][2] and self[2][2] >= r[1][2]
 end
-function IM_RECT:GetCenter() return ImVec2((self.Min.x + self.Max.x) * 0.5, (self.Min.y + self.Max.y) * 0.5) end
-function IM_RECT:GetWidth() return self.Max.x - self.Min.x end
-function IM_RECT:GetHeight() return self.Max.y - self.Min.y end
-function IM_RECT:GetSize() return ImVec2(self.Max.x - self.Min.x, self.Max.y - self.Min.y) end
-function IM_RECT:GetTL() return ImVec2(self.Min.x, self.Min.y) end
-function IM_RECT:GetTR() return ImVec2(self.Max.x, self.Min.y) end
-function IM_RECT:GetBL() return ImVec2(self.Min.x, self.Max.y) end
-function IM_RECT:GetBR() return ImVec2(self.Max.x, self.Max.y) end
 
---- @param r ImRect|ImVec4
+--- @nodiscard
+function IM_RECT:GetCenter() return ImVec2((self[1][1] + self[2][1]) * 0.5, (self[1][2] + self[2][2]) * 0.5) end
+function IM_RECT:GetWidth() return self[2][1] - self[1][1] end
+function IM_RECT:GetHeight() return self[2][2] - self[1][2] end
+--- @nodiscard
+function IM_RECT:GetSize() return ImVec2(self[2][1] - self[1][1], self[2][2] - self[1][2]) end
+
+--- @nodiscard
+function IM_RECT:GetTL() return ImVec2(self[1][1], self[1][2]) end
+--- @nodiscard
+function IM_RECT:GetTR() return ImVec2(self[2][1], self[1][2]) end
+--- @nodiscard
+function IM_RECT:GetBL() return ImVec2(self[1][1], self[2][2]) end
+--- @nodiscard
+function IM_RECT:GetBR() return ImVec2(self[2][1], self[2][2]) end
+
+--- @param r ImRect
 function IM_RECT:ClipWith(r)
-    if r.Min then
-        --- @cast r ImRect
-        self.Min.x = ImMax(self.Min.x, r.Min.x) self.Min.y = ImMax(self.Min.y, r.Min.y)
-        self.Max.x = ImMin(self.Max.x, r.Max.x) self.Max.y = ImMin(self.Max.y, r.Max.y)
-    elseif r.z then
-        --- @cast r ImVec4
-        self.Min.x = ImMax(self.Min.x, r.x) self.Min.y = ImMax(self.Min.y, r.y)
-        self.Max.x = ImMin(self.Max.x, r.z) self.Max.y = ImMin(self.Max.y, r.w)
-    else
-        IM_ASSERT(false)
-    end
+    ImVec2_Copy(self[1], ImMax(self[1], r[1])); ImVec2_Copy(self[2], ImMin(self[2], r[2]))
 end
 
+--- @param r ImRect
 function IM_RECT:ClipWithFull(r)
-    self.Min.x = ImClamp(self.Min.x, r.Min.x, r.Max.x) self.Min.y = ImClamp(self.Min.y, r.Min.y, r.Max.y)
-    self.Max.x = ImClamp(self.Max.x, r.Min.x, r.Max.x) self.Max.y = ImClamp(self.Max.y, r.Min.y, r.Max.y)
+    ImVec2_Copy(self[1], ImClamp(self[1], r[1], r[2])); ImVec2_Copy(self[2], ImClamp(self[2], r[1], r[2]))
 end
 
 --- @param p ImRect|ImVec2
 function IM_RECT:Add(p)
     if p.Min then
         --- @cast p ImRect
-        self:Add(p.Min)
-        self:Add(p.Max)
+        if (self[1][1] > p[1][1]) then self[1][1] = p[1][1] end
+        if (self[1][2] > p[1][2]) then self[1][2] = p[1][2] end
+        if (self[2][1] < p[2][1]) then self[2][1] = p[2][1] end
+        if (self[2][2] < p[2][2]) then self[2][2] = p[2][2] end
     else
         --- @cast p ImVec2
-        if p.x < self.Min.x then self.Min.x = p.x end
-        if p.y < self.Min.y then self.Min.y = p.y end
-        if p.x > self.Max.x then self.Max.x = p.x end
-        if p.y > self.Max.y then self.Max.y = p.y end
+        if p[1] < self[1][1] then self[1][1] = p[1] end
+        if p[2] < self[1][2] then self[1][2] = p[2] end
+        if p[1] > self[2][1] then self[2][1] = p[1] end
+        if p[2] > self[2][2] then self[2][2] = p[2] end
     end
 end
 
---- @param amount float
+--- @param amount float|ImVec2
 function IM_RECT:Expand(amount)
-    self.Min.x = self.Min.x - amount; self.Min.y = self.Min.y - amount
-    self.Max.x = self.Max.x + amount; self.Max.y = self.Max.y + amount
+    if     type(amount) == "number" then
+        self[1][1] = self[1][1] - amount; self[1][2] = self[1][2] - amount
+        self[2][1] = self[2][1] + amount; self[2][2] = self[2][2] + amount
+    elseif type(amount) == "table"  then
+        self[1][1] = self[1][1] - amount[1]; self[1][2] = self[1][2] - amount[2]
+        self[2][1] = self[2][1] + amount[1]; self[2][2] = self[2][2] + amount[2]
+    end
 end
 
---- @param amount ImVec2
-function IM_RECT:ExpandV2(amount)
-    self.Min.x = self.Min.x - amount.x; self.Min.y = self.Min.y - amount.y
-    self.Max.x = self.Max.x + amount.x; self.Max.y = self.Max.y + amount.y
-end
-
+--- @nodiscard
 function IM_RECT:ToVec4()
-    return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y)
+    return ImVec4(self[1][1], self[1][2], self[2][1], self[2][2])
 end
 
 --- @param d ImVec2
 function IM_RECT:Translate(d)
-    self.Min.x = self.Min.x + d.x; self.Min.y = self.Min.y + d.y
-    self.Max.x = self.Max.x + d.x; self.Max.y = self.Max.y + d.y
+    self[1][1] = self[1][1] + d[1]; self[1][2] = self[1][2] + d[2]
+    self[2][1] = self[2][1] + d[1]; self[2][2] = self[2][2] + d[2]
 end
 
-function IM_RECT:GetArea() return (self.Max.x - self.Min.x) * (self.Max.y - self.Min.y) end
+function IM_RECT:GetArea() return (self[2][1] - self[1][1]) * (self[2][2] - self[1][2]) end
 
 --- @nodiscard
-function IM_RECT:AsVec4() return ImVec4(self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
+function IM_RECT:AsVec4() return ImVec4(self[1][1], self[1][2], self[2][1], self[2][2]) end
 
 --- @param dest ImRect
 --- @param src  ImRect
 function ImRect_Copy(dest, src)
-    dest.Min[1] = src.Min[1]; dest.Min[2] = src.Min[2]
-    dest.Max[1] = src.Max[1]; dest.Max[2] = src.Max[2]
+    dest[1][1] = src[1][1]; dest[1][2] = src[1][2]
+    dest[2][1] = src[2][1]; dest[2][2] = src[2][2]
 end
 
 --- @param dest ImRect
 --- @param src  ImVec4
 function ImRect_CopyFromV4(dest, src)
-    dest.Min.x = src.x; dest.Min.y = src.y
-    dest.Max.x = src.z; dest.Max.y = src.w
+    dest[1][1] = src[1]; dest[1][2] = src[2]
+    dest[2][1] = src[3]; dest[2][2] = src[4]
 end
 
 --- @param _ARRAY ImU32[]
 --- @param _N     int
 function IM_BITARRAY_TESTBIT(_ARRAY, _N)
-    return b_and(_ARRAY[bit.rshift(_N - 1, 5) + 1], b_ls(1, b_and(_N - 1, 31))) ~= 0
+    return b_and(_ARRAY[b_rs(_N - 1, 5) + 1], b_ls(1, b_and(_N - 1, 31))) ~= 0
 end
 
 --- @param _ARRAY ImU32[]
 --- @param _N     int
 function IM_BITARRAY_CLEARBIT(_ARRAY, _N)
-    local idx = bit.rshift(_N - 1, 5) + 1
+    local idx = b_rs(_N - 1, 5) + 1
     _ARRAY[idx] = b_and(_ARRAY[idx], bit.bnot(b_ls(1, b_and(_N - 1, 31))))
 end
 
@@ -741,7 +736,7 @@ end
 --- @param n   int
 function ImBitArraySetBit(arr, n)
     local mask = b_ls(1, b_and(n - 1, 31))
-    local idx = bit.rshift(n - 1, 5) + 1
+    local idx = b_rs(n - 1, 5) + 1
     arr[idx] = b_or(arr[idx], mask)
 end
 
@@ -758,7 +753,7 @@ function ImBitArray(BITCOUNT, OFFSET)
     if OFFSET == nil then OFFSET = 0 end
 
     local this = { Data = {} }
-    local size = bit.rshift(BITCOUNT + 31, 5)
+    local size = b_rs(BITCOUNT + 31, 5)
 
     this.ClearAllBits = function(self) local data = self.Data; for i = 1, size do data[i] = 0 end end
     this.SetAllBits   = function(self) local data = self.Data; for i = 1, size do data[i] = 0xFFFFFFFF end end
@@ -1496,7 +1491,7 @@ local function ImGuiDebugAllocInfo()
         TotalAllocCount = 0,
         TotalFreeCount = 0,
         LastEntriesIdx = 1,
-        LastEntriesBuf = {nil, nil, nil, nil, nil, nil}
+        LastEntriesBuf = {nil, nil, nil, nil, nil, nil},
     }
 
     for i = 1, 6 do
@@ -2012,6 +2007,9 @@ end
 --- @field RootWindowPopupTree                ImGuiWindow
 --- @field RootWindowDockTree                 ImGuiWindow
 --- @field StateStorage                       {[ImGuiID]: bool}
+--- @field MemoryDrawListIdxCapacity          int
+--- @field MemoryDrawListVtxCapacity          int
+--- @field MemoryCompacted                    bool
 MT.ImGuiWindow = {}
 MT.ImGuiWindow.__index = MT.ImGuiWindow
 
@@ -2365,13 +2363,13 @@ function ImFontAtlasRectId_GetIndex(id) return b_and(id, ImFontAtlasRectId_Index
 
 --- @param id ImFontAtlasRectId # Expects 0-based!
 --- @return unsigned_int
-function ImFontAtlasRectId_GetGeneration(id) return bit.rshift(b_and(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
+function ImFontAtlasRectId_GetGeneration(id) return b_rs(b_and(id, ImFontAtlasRectId_GenerationMask_), ImFontAtlasRectId_GenerationShift_) end
 
 --- @param index_idx int      # Expects 0-based!
 --- @param gen_idx int
 --- @return ImFontAtlasRectId # 0-based!
 function ImFontAtlasRectId_Make(index_idx, gen_idx)
-    IM_ASSERT(index_idx >= 0 and index_idx <= ImFontAtlasRectId_IndexMask_ and gen_idx <= bit.rshift(ImFontAtlasRectId_GenerationMask_, ImFontAtlasRectId_GenerationShift_))
+    IM_ASSERT(index_idx >= 0 and index_idx <= ImFontAtlasRectId_IndexMask_ and gen_idx <= b_rs(ImFontAtlasRectId_GenerationMask_, ImFontAtlasRectId_GenerationShift_))
     return b_or(index_idx, b_ls(gen_idx, ImFontAtlasRectId_GenerationShift_))
 end
 
@@ -2572,9 +2570,20 @@ ImGuiInputFlags.SupportedBySetNextItemShortcut = b_or(ImGuiInputFlags.RepeatMask
 ImGuiInputFlags.SupportedBySetKeyOwner         = b_or(ImGuiInputFlags.LockThisFrame, ImGuiInputFlags.LockUntilRelease)
 ImGuiInputFlags.SupportedBySetItemKeyOwner     = b_or(ImGuiInputFlags.SupportedBySetKeyOwner, ImGuiInputFlags.CondMask_)
 
-ImGuiAxis = { None = 0, X = 1, Y = 2 } --- @enum ImGuiAxis
+--- @enum ImGuiAxis # can be used to index ImVec2
+ImGuiAxis =
+{
+    None = 0,
+    X    = 1,
+    Y    = 2
+}
 
-ImGuiPlotType = { Lines = 0, Histogram = 1 } --- @enum ImGuiPlotType
+--- @enum ImGuiPlotType
+ImGuiPlotType =
+{
+    Lines     = 0,
+    Histogram = 1
+}
 
 --- @enum ImGuiActivateFlags
 ImGuiActivateFlags = {
@@ -2640,13 +2649,15 @@ function ImGuiGroupData()
 end
 
 --- @enum ImGuiTooltipFlags
-ImGuiTooltipFlags = {
+ImGuiTooltipFlags =
+{
     None             = 0,
     OverridePrevious = b_ls(1, 1)
 }
 
 --- @enum ImGuiPopupPositionPolicy
-ImGuiPopupPositionPolicy = {
+ImGuiPopupPositionPolicy =
+{
     Default  = 0,
     ComboBox = 1,
     Tooltip  = 2

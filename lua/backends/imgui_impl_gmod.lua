@@ -702,16 +702,15 @@ local function ImGui_ImplGMOD_RestoreRenderState()
     render.SuppressEngineLighting(false)
 end
 
+local bitAnd, bitRShift = bit.band, bit.rshift
 local meshPosition = mesh.Position
 local meshTexCoord = mesh.TexCoord
 local meshColor    = mesh.Color
 local meshAdvVtx   = mesh.AdvanceVertex
 
-local colorConvertU32ToFloat4 = ImGui.ColorConvertU32ToFloat4
-
-local col0 = ImVec4()
-local col1 = ImVec4()
-local col2 = ImVec4()
+local function u32ToRGBA(col)
+    return bitAnd(bitRShift(col, 0), 0xFF), bitAnd(bitRShift(col, 8), 0xFF), bitAnd(bitRShift(col, 16), 0xFF), bitAnd(bitRShift(col, 24), 0xFF)
+end
 
 function ImGui_ImplGMOD_RenderDrawData(draw_data)
     local bd = ImGui_ImplGMOD_GetBackendData() --[[@as ImGui_ImplGMOD_Data]]
@@ -768,20 +767,17 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
                     meshPosition(vtx0[1][1], vtx0[1][2], 0)
                     meshTexCoord(0, vtx0[2][1], vtx0[2][2])
-                    colorConvertU32ToFloat4(vtx0[3], col0)
-                    meshColor(col0[1] * 255, col0[2] * 255, col0[3] * 255, col0[4] * 255)
+                    meshColor(u32ToRGBA(vtx0[3]))
                     meshAdvVtx()
 
                     meshPosition(vtx1[1][1], vtx1[1][2], 0)
                     meshTexCoord(0, vtx1[2][1], vtx1[2][2])
-                    colorConvertU32ToFloat4(vtx1[3], col1)
-                    meshColor(col1[1] * 255, col1[2] * 255, col1[3] * 255, col1[4] * 255)
+                    meshColor(u32ToRGBA(vtx1[3]))
                     meshAdvVtx()
 
                     meshPosition(vtx2[1][1], vtx2[1][2], 0)
                     meshTexCoord(0, vtx2[2][1], vtx2[2][2])
-                    colorConvertU32ToFloat4(vtx2[3], col2)
-                    meshColor(col2[1] * 255, col2[2] * 255, col2[3] * 255, col2[4] * 255)
+                    meshColor(u32ToRGBA(vtx2[3]))
                     meshAdvVtx()
                 end
 

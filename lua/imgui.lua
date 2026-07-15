@@ -26,6 +26,19 @@ if gmod then
     IM_INCLUDE = include
 end
 
+function ImGui._GetTypeFunc()
+    local type
+    if gmod then
+        -- [GMod] `type` is [detoured](https://wiki.facepunch.com/gmod/Global.type). get the original function.
+        local upvalue_name
+        upvalue_name, type = debug.getupvalue(_G.type, 1)
+        assert(upvalue_name == "C_type")
+    else
+        type = _G.type
+    end
+    return type
+end
+
 local function LUA_TableConstructorWrapper(T, size, userdata)
     local p = {}
     for i = 1, size do p[i] = T() end
@@ -49,7 +62,7 @@ end
 
 -- This does not set `owner[field]` to nil!
 --- @param owner table
---- @param field string
+--- @param field string|int
 function ImGui.MemFree(owner, field)
     if owner ~= nil then
         local ctx = GImGui
@@ -219,22 +232,22 @@ local MT = ImGui.GetMetatables()
 function MT.ImGuiStyle:ScaleAllSizes(scale_factor)
     self._MainScale = self._MainScale * scale_factor
 
-    self.WindowPadding    = ImTruncV2(self.WindowPadding * scale_factor)
+    self.WindowPadding    = ImTrunc(self.WindowPadding * scale_factor)
     self.WindowRounding   = ImTrunc(self.WindowRounding * scale_factor)
     self.WindowBorderSize = ImTrunc(self.WindowBorderSize * scale_factor)
-    self.WindowMinSize    = ImTruncV2(self.WindowMinSize * scale_factor)
+    self.WindowMinSize    = ImTrunc(self.WindowMinSize * scale_factor)
     self.WindowBorderHoverPadding = ImTrunc(self.WindowBorderHoverPadding * scale_factor)
     self.ChildRounding     = ImTrunc(self.ChildRounding * scale_factor)
     self.ChildBorderSize   = ImTrunc(self.ChildBorderSize * scale_factor)
     self.PopupRounding     = ImTrunc(self.PopupRounding * scale_factor)
     self.PopupBorderSize   = ImTrunc(self.PopupBorderSize * scale_factor)
-    self.FramePadding      = ImTruncV2(self.FramePadding * scale_factor)
+    self.FramePadding      = ImTrunc(self.FramePadding * scale_factor)
     self.FrameBorderSize   = ImTrunc(self.FrameBorderSize * scale_factor)
     self.FrameRounding     = ImTrunc(self.FrameRounding * scale_factor)
-    self.ItemSpacing       = ImTruncV2(self.ItemSpacing * scale_factor)
-    self.ItemInnerSpacing  = ImTruncV2(self.ItemInnerSpacing * scale_factor)
-    self.CellPadding       = ImTruncV2(self.CellPadding * scale_factor)
-    self.TouchExtraPadding = ImTruncV2(self.TouchExtraPadding * scale_factor)
+    self.ItemSpacing       = ImTrunc(self.ItemSpacing * scale_factor)
+    self.ItemInnerSpacing  = ImTrunc(self.ItemInnerSpacing * scale_factor)
+    self.CellPadding       = ImTrunc(self.CellPadding * scale_factor)
+    self.TouchExtraPadding = ImTrunc(self.TouchExtraPadding * scale_factor)
     self.IndentSpacing     = ImTrunc(self.IndentSpacing * scale_factor)
     self.ColumnsMinSpacing = ImTrunc(self.ColumnsMinSpacing * scale_factor)
     self.ScrollbarSize     = ImTrunc(self.ScrollbarSize * scale_factor)
@@ -264,10 +277,10 @@ function MT.ImGuiStyle:ScaleAllSizes(scale_factor)
     self.InputTextCursorSize      = ImTrunc(self.InputTextCursorSize * scale_factor)
     self.SeparatorSize            = ImTrunc(self.SeparatorSize * scale_factor)
     self.SeparatorTextBorderSize  = ImTrunc(self.SeparatorTextBorderSize * scale_factor)
-    self.SeparatorTextPadding     = ImTruncV2(self.SeparatorTextPadding * scale_factor)
+    self.SeparatorTextPadding     = ImTrunc(self.SeparatorTextPadding * scale_factor)
     self.DockingSeparatorSize     = ImTrunc(self.DockingSeparatorSize * scale_factor)
-    self.DisplayWindowPadding     = ImTruncV2(self.DisplayWindowPadding * scale_factor)
-    self.DisplaySafeAreaPadding   = ImTruncV2(self.DisplaySafeAreaPadding * scale_factor)
+    self.DisplayWindowPadding     = ImTrunc(self.DisplayWindowPadding * scale_factor)
+    self.DisplaySafeAreaPadding   = ImTrunc(self.DisplaySafeAreaPadding * scale_factor)
     self.MouseCursorScale         = ImTrunc(self.MouseCursorScale * scale_factor)
 end
 
@@ -977,7 +990,7 @@ local function ApplyWindowSettings(window, settings)
         window.ViewportId = settings.ViewportId
         ImVec2_Copy(window.ViewportPos, settings.ViewportPos)
     end
-    window.Pos = ImTruncV2(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
+    window.Pos = ImTrunc(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
     if settings.Size.x > 0 and settings.Size.y > 0 then
         local size = ImVec2(ImTrunc(settings.Size.x), ImTrunc(settings.Size.y))
         ImVec2_Copy(window.Size, size)
@@ -1431,7 +1444,7 @@ function ImGui.BeginGroup()
     window.DC.GroupOffset.x = window.DC.CursorPos.x - window.Pos.x - window.DC.ColumnsOffset.x
     ImVec1_Copy(window.DC.Indent, window.DC.GroupOffset)
     ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
-    ImVec2_Copy(window.DC.CurrLineSize, ImVec2(0.0, 0.0))
+    ImVec2_CopyV(window.DC.CurrLineSize, 0.0, 0.0)
     if (g.LogEnabled) then
         g.LogLinePosY = -FLT_MAX
     end
@@ -1446,13 +1459,13 @@ function ImGui.EndGroup()
     IM_ASSERT(group_data.WindowID == window.ID) -- EndGroup() in wrong window?
 
     if (window.DC.IsSetPos) then
-    -- TODO: ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
+        -- TODO: ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
     end
 
-    local group_bb = ImRect(group_data.BackupCursorPos, ImMaxVec2(ImMaxVec2(window.DC.CursorMaxPos, g.LastItemData.Rect.Max), group_data.BackupCursorPos))
+    local group_bb = ImRect(group_data.BackupCursorPos, ImMax(ImMax(window.DC.CursorMaxPos, g.LastItemData.Rect.Max), group_data.BackupCursorPos))
     ImVec2_Copy(window.DC.CursorPos, group_data.BackupCursorPos)
     ImVec2_Copy(window.DC.CursorPosPrevLine, group_data.BackupCursorPosPrevLine)
-    ImVec2_Copy(window.DC.CursorMaxPos, ImMaxVec2(group_data.BackupCursorMaxPos, group_bb.Max))
+    ImVec2_Copy(window.DC.CursorMaxPos, ImMax(group_data.BackupCursorMaxPos, group_bb.Max))
     ImVec1_Copy(window.DC.Indent, group_data.BackupIndent)
     ImVec1_Copy(window.DC.GroupOffset, group_data.BackupGroupOffset)
     ImVec2_Copy(window.DC.CurrLineSize, group_data.BackupCurrLineSize)
@@ -3435,7 +3448,7 @@ local function CalcWindowSizeAfterConstraint(window, size_desired)
     end
 
     local size_min = CalcWindowMinSize(window)
-    return ImMaxVec2(new_size, size_min)
+    return ImMax(new_size, size_min)
 end
 
 --- @param window               ImGuiWindow
@@ -3488,10 +3501,10 @@ local function CalcWindowAutoFitSize(window, size_contents, axis_mask)
     end
 
     if bit.band(window.Flags, ImGuiWindowFlags.Tooltip) ~= 0 then
-        return ImMinVec2(size_desired, size_max)
+        return ImMin(size_desired, size_max)
     else
         local size_min = CalcWindowMinSize(window)
-        local size_auto_fit = ImClampV2(size_desired, ImMinVec2(size_min, size_max), size_max)
+        local size_auto_fit = ImClamp(size_desired, ImMin(size_min, size_max), size_max)
 
         local size_auto_fit_after_constraint = CalcWindowSizeAfterConstraint(window, size_auto_fit)
         local size_contents_for_scrollbar_x = (bit.band(axis_mask, 1) ~= 0) and size_contents.x or window.ContentSize.x
@@ -3546,7 +3559,7 @@ local function CalcResizePosSizeFromAnyCorner(window, corner_target_arg, corner_
 
         local limit_rect = ImRect()
         ImRect_Copy(limit_rect, parent_window.InnerRect)
-        limit_rect:ExpandV2(ImVec2(-ImMax(parent_window.WindowPadding.x, parent_window.WindowBorderSize), -ImMax(parent_window.WindowPadding.y, parent_window.WindowBorderSize)))
+        limit_rect:Expand(ImVec2(-ImMax(parent_window.WindowPadding.x, parent_window.WindowBorderSize), -ImMax(parent_window.WindowPadding.y, parent_window.WindowBorderSize)))
 
         if (bit.band(parent_flags, bit.bor(ImGuiWindowFlags.HorizontalScrollbar, ImGuiWindowFlags.AlwaysHorizontalScrollbar)) == 0) or (bit.band(parent_flags, ImGuiWindowFlags.NoScrollbar) ~= 0) then
             corner_target.x = ImClamp(corner_target.x, limit_rect.Min.x, limit_rect.Max.x)
@@ -3555,8 +3568,8 @@ local function CalcResizePosSizeFromAnyCorner(window, corner_target_arg, corner_
             corner_target.y = ImClamp(corner_target.y, limit_rect.Min.y, limit_rect.Max.y)
         end
     end
-    local pos_min = ImLerpV2V2V2(corner_target, window.Pos, corner_norm)
-    local pos_max = ImLerpV2V2V2(window.Pos + window.Size, corner_target, corner_norm)
+    local pos_min = ImLerp(corner_target, window.Pos, corner_norm)
+    local pos_max = ImLerp(window.Pos + window.Size, corner_target, corner_norm)
     local size_expected = pos_max - pos_min
     local size_constrained = CalcWindowSizeAfterConstraint(window, size_expected)
 
@@ -3651,9 +3664,9 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         elseif held then
             local clamp_min = ImVec2((corner_pos.x == 1.0) and clamp_rect.Min.x or -FLT_MAX, (corner_pos.y == 1.0) and clamp_rect.Min.y or -FLT_MAX)
             local clamp_max = ImVec2((corner_pos.x == 0.0) and clamp_rect.Max.x or FLT_MAX, (corner_pos.y == 0.0) and clamp_rect.Max.y or FLT_MAX)
-            local corner_target = g.IO.MousePos - g.ActiveIdClickOffset + ImLerpV2V2V2(def.InnerDir * grip_hover_outer_size, def.InnerDir * -grip_hover_inner_size, def.CornerPosN)
+            local corner_target = g.IO.MousePos - g.ActiveIdClickOffset + ImLerp(def.InnerDir * grip_hover_outer_size, def.InnerDir * -grip_hover_inner_size, def.CornerPosN)
 
-            corner_target = ImClampV2(corner_target, clamp_min, clamp_max)
+            corner_target = ImClamp(corner_target, clamp_min, clamp_max)
 
             pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, corner_target, corner_pos)
         end
@@ -3682,6 +3695,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
     else
         resize_border_mask = g.IO.ConfigWindowsResizeFromEdges and 0x0F or 0x00
     end
+
     for border_n = 0, 3 do
         if bit.band(resize_border_mask, bit.lshift(1, border_n)) == 0 then
             goto __CONTINUE__
@@ -3709,12 +3723,12 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         if held and g.IO.MouseDoubleClicked[0] then
             -- Double-clicking bottom or right border auto-fit on this axis
             -- FIXME: Support top and right borders: rework CalcResizePosSizeFromAnyCorner() to be reusable in both cases.
-            if border_n == 1 or border_n == 3 then  -- Right and bottom border
+            if border_n == 1 or border_n == 3 then -- Right and bottom border
                 local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, bit.lshift(1, axis - 1))
                 size_target[axis] = CalcWindowSizeAfterConstraint(window, size_auto_fit)[axis]
                 ret_auto_fit_mask = bit.bor(ret_auto_fit_mask, bit.lshift(1, axis - 1))
                 hovered = false
-                held = false  -- So border doesn't show highlighted at new position
+                held = false -- So border doesn't show highlighted at new position
             end
             ImGui.ClearActiveID()
         elseif held then
@@ -3728,7 +3742,7 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
                 g.WindowResizeRelativeMode = true
             end
 
-            local border_curr = window.Pos + ImVec2_MulComp(ImMinVec2(def.SegmentN1, def.SegmentN2), window.Size)
+            local border_curr = window.Pos + ImMin(def.SegmentN1, def.SegmentN2) * window.Size
             local border_target_rel_mode_for_axis
             local border_target_abs_mode_for_axis
             border_target_rel_mode_for_axis = border_curr[axis] + g.IO.MouseDelta[axis]
@@ -3750,10 +3764,10 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
 
             local clamp_min = ImVec2((border_n == ImGuiDir.Right) and clamp_rect.Min.x or -FLT_MAX, (border_n == ImGuiDir.Down or (border_n == ImGuiDir.Up and window_move_from_title_bar)) and clamp_rect.Min.y or -FLT_MAX)
             local clamp_max = ImVec2((border_n == ImGuiDir.Left) and clamp_rect.Max.x or FLT_MAX, (border_n == ImGuiDir.Up) and clamp_rect.Max.y or FLT_MAX)
-            border_target = ImClampV2(border_target, clamp_min, clamp_max)
+            border_target = ImClamp(border_target, clamp_min, clamp_max)
 
             if not ignore_resize then
-                pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, border_target, ImMinVec2(def.SegmentN1, def.SegmentN2))
+                pos_target, size_target = CalcResizePosSizeFromAnyCorner(window, border_target, ImMin(def.SegmentN1, def.SegmentN2))
             end
         end
         if hovered then
@@ -4044,7 +4058,7 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
         -- Render text, render ellipsis
         ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, 1, text_end_ellipsis, text_size, ImVec2(0.0, 0.0))
         local cpu_fine_clip_rect = ImVec4(pos_min.x, pos_min.y, pos_max.x, pos_max.y)
-        local ellipsis_pos = ImTruncV2(ImVec2(pos_min.x + text_size_clipped_x, pos_min.y))
+        local ellipsis_pos = ImTrunc(ImVec2(pos_min.x + text_size_clipped_x, pos_min.y))
         font:RenderChar(draw_list, font_size, ellipsis_pos, ImGui.GetColorU32(ImGuiCol.Text), font.EllipsisChar, cpu_fine_clip_rect)
     else
         ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, 1, text_end_full, text_size, ImVec2(0.0, 0.0))
@@ -4109,8 +4123,8 @@ local function RenderWindowOuterSingleBorder(window, border_n, border_col, borde
     local def = ImGuiResizeBorderDef[border_n + 1]
     local rounding = window.WindowRounding
     local border_r = GetResizeBorderRect(window, border_n, rounding, 0.0)
-    window.DrawList:PathArcTo(ImLerpV2V2V2(border_r.Min, border_r.Max, def.SegmentN1) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle - IM_PI * 0.25, def.OuterAngle)
-    window.DrawList:PathArcTo(ImLerpV2V2V2(border_r.Min, border_r.Max, def.SegmentN2) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle, def.OuterAngle + IM_PI * 0.25)
+    window.DrawList:PathArcTo(ImLerp(border_r.Min, border_r.Max, def.SegmentN1) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle - IM_PI * 0.25, def.OuterAngle)
+    window.DrawList:PathArcTo(ImLerp(border_r.Min, border_r.Max, def.SegmentN2) + ImVec2(0.5, 0.5) + def.InnerDir * rounding, rounding, def.OuterAngle, def.OuterAngle + IM_PI * 0.25)
     window.DrawList:PathStroke(border_col, border_size)
 end
 
@@ -4143,23 +4157,15 @@ end
 
 --- @param window                          ImGuiWindow
 --- @param title_bar_rect                  ImRect
---- @param titlebar_is_highlight           bool
+--- @param title_bar_is_highlight          bool
 --- @param handle_borders_and_resize_grips bool
 --- @param resize_grip_col                 ImU32[]
 --- @param resize_grip_draw_size           float
-local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highlight, handle_borders_and_resize_grips, resize_grip_col, resize_grip_draw_size)
+local function RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, handle_borders_and_resize_grips, resize_grip_col, resize_grip_draw_size)
     local g = GImGui
     local style = g.Style
     local flags = window.Flags
 
-    local title_color
-    if titlebar_is_highlight then
-        title_color = ImGui.GetColorU32(ImGuiCol.TitleBgActive)
-    else
-        title_color = ImGui.GetColorU32(ImGuiCol.TitleBg)
-    end
-
-    local border_width = g.Style.FrameBorderSize
     local window_rounding = window.WindowRounding
     local window_border_size = window.WindowBorderSize
 
@@ -4167,12 +4173,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
         local backup_border_size = style.FrameBorderSize
         g.Style.FrameBorderSize = window.WindowBorderSize
 
-        local title_bar_col
-        if titlebar_is_highlight and g.NavCursorVisible then
-            title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBgActive)
-        else
-            title_bar_col = ImGui.GetColorU32(ImGuiCol.TitleBgCollapsed)
-        end
+        local title_bar_col = ImGui.GetColorU32((title_bar_is_highlight and g.NavCursorVisible) and ImGuiCol.TitleBgActive or ImGuiCol.TitleBgCollapsed)
         ImGui.RenderFrame(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, true, window_rounding)
         g.Style.FrameBorderSize = backup_border_size
     else
@@ -4201,7 +4202,7 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- Title bar
         if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 and not window.DockIsActive then
-            local title_bar_col = ImGui.GetColorU32(titlebar_is_highlight and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg)
+            local title_bar_col = ImGui.GetColorU32(title_bar_is_highlight and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg)
             window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundCornersTop)
         end
 
@@ -4224,17 +4225,21 @@ local function RenderWindowDecorations(window, title_bar_rect, titlebar_is_highl
 
         -- Resize grip(s)
         if handle_borders_and_resize_grips and (bit.band(flags, ImGuiWindowFlags.NoResize) == 0) then
-            for i = 1, #ImGuiResizeGripDef do
-                local col = resize_grip_col[i]
-                if bit.band(col, IM_COL32_A_MASK) ~= 0 then
-                    local inner_dir = ImGuiResizeGripDef[i].InnerDir
-                    local corner = window.Pos + ImVec2_MulComp(ImGuiResizeGripDef[i].CornerPosN, window.Size)
-                    local border_inner = IM_ROUND(window_border_size * 0.5)
-                    window.DrawList:PathLineTo(corner + ImVec2_MulComp(inner_dir, ((i % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner))))
-                    window.DrawList:PathLineTo(corner + ImVec2_MulComp(inner_dir, ((i % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size))))
-                    window.DrawList:PathArcToFast(ImVec2(corner.x + inner_dir.x * (window_rounding + border_inner), corner.y + inner_dir.y * (window_rounding + border_inner)), window_rounding, ImGuiResizeGripDef[i].AngleMin12, ImGuiResizeGripDef[i].AngleMax12)
-                    window.DrawList:PathFillConvex(col)
+            for resize_grip_n = 1, #ImGuiResizeGripDef do
+                local col = resize_grip_col[resize_grip_n]
+                if bit.band(col, IM_COL32_A_MASK) == 0 then
+                    goto __CONTINUE__
                 end
+
+                local grip = ImGuiResizeGripDef[resize_grip_n]
+                local corner = ImLerp(window.Pos, window.Pos + window.Size, grip.CornerPosN)
+                local border_inner = IM_ROUND(window_border_size * 0.5)
+                window.DrawList:PathLineTo(corner + grip.InnerDir * ((resize_grip_n % 2 == 0) and ImVec2(border_inner, resize_grip_draw_size) or ImVec2(resize_grip_draw_size, border_inner)))
+                window.DrawList:PathLineTo(corner + grip.InnerDir * ((resize_grip_n % 2 == 0) and ImVec2(resize_grip_draw_size, border_inner) or ImVec2(border_inner, resize_grip_draw_size)))
+                window.DrawList:PathArcToFast(ImVec2(corner.x + grip.InnerDir.x * (window_rounding + border_inner), corner.y + grip.InnerDir.y * (window_rounding + border_inner)), window_rounding, grip.AngleMin12, grip.AngleMax12)
+                window.DrawList:PathFillConvex(col)
+
+                :: __CONTINUE__ ::
             end
         end
 
@@ -4429,12 +4434,36 @@ local function SetCurrentWindow(window)
     end
 end
 
+-- TODO:
 function ImGui.GcCompactTransientMiscBuffers()
     local g = GImGui
     g.ItemFlagsStack:clear()
     g.GroupStack:clear()
     g.InputTextLineIndex:clear()
-    -- TODO:
+    for _, atlas in g.FontAtlases:iter() do
+        atlas:CompactCache()
+    end
+end
+
+--- @param window ImGuiWindow
+function ImGui.GcCompactTransientWindowBuffers(window)
+    window.MemoryCompacted = true
+    window.MemoryDrawListIdxCapacity = ImMin(math.floor(window.DrawList.IdxBuffer.Size * 1.05), window.DrawList.IdxBuffer.Capacity)
+    window.MemoryDrawListVtxCapacity = ImMin(math.floor(window.DrawList.VtxBuffer.Size * 1.05), window.DrawList.VtxBuffer.Capacity)
+    window.IDStack:clear()
+    window.DrawList:_ClearFreeMemory()
+    window.DC.ChildWindows:clear()
+    window.DC.ItemWidthStack:clear()
+    window.DC.TextWrapPosStack:clear()
+end
+
+--- @param window ImGuiWindow
+function ImGui.GcAwakeTransientWindowBuffers(window)
+    window.MemoryCompacted = false
+    window.DrawList.IdxBuffer:reserve(window.MemoryDrawListIdxCapacity)
+    window.DrawList.VtxBuffer:reserve(window.MemoryDrawListVtxCapacity)
+    window.MemoryDrawListIdxCapacity = 0
+    window.MemoryDrawListVtxCapacity = 0
 end
 
 function ImGui.GetWindowWidth()
@@ -5119,6 +5148,10 @@ function ImGui.Begin(name, open, flags)
 
         window.DrawList:_ResetForNewFrame()
 
+        if window.MemoryCompacted then
+            ImGui.GcAwakeTransientWindowBuffers(window)
+        end
+
         -- UPDATE CONTENTS SIZE, UPDATE HIDDEN STATUS
         -- Update contents size from last frame for auto-fitting (or use explicit size)
         CalcWindowContentSizes(window, window.ContentSize, window.ContentSizeIdeal)
@@ -5290,7 +5323,7 @@ function ImGui.Begin(name, open, flags)
 
         local window_pos_with_pivot = (window.SetWindowPosVal.x ~= FLT_MAX and window.HiddenFramesCannotSkipItems == 0)
         if window_pos_with_pivot then
-            ImGui.SetWindowPos(window, window.SetWindowPosVal - ImVec2_MulComp(window.Size, window.SetWindowPosPivot), 0) -- Position given a pivot (e.g. for centering)
+            ImGui.SetWindowPos(window, window.SetWindowPosVal - window.Size * window.SetWindowPosPivot, 0) -- Position given a pivot (e.g. for centering)
         elseif (bit.band(flags, ImGuiWindowFlags.ChildMenu) ~= 0) then
             ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         elseif (bit.band(flags, ImGuiWindowFlags.Popup) ~= 0) and not window_pos_set_by_api and window_just_appearing_after_hidden_for_resize then
@@ -5319,7 +5352,7 @@ function ImGui.Begin(name, open, flags)
 
         local viewport_rect = window.Viewport:GetMainRect()
         local viewport_work_rect = window.Viewport:GetWorkRect()
-        local visibility_padding = ImMaxVec2(style.DisplayWindowPadding, style.DisplaySafeAreaPadding)
+        local visibility_padding = ImMax(style.DisplayWindowPadding, style.DisplaySafeAreaPadding)
         local visibility_rect = ImRect(viewport_work_rect.Min + visibility_padding, viewport_work_rect.Max - visibility_padding)
 
         window.Pos.x = ImTrunc(window.Pos.x) window.Pos.y = ImTrunc(window.Pos.y)
@@ -5873,7 +5906,8 @@ local function FindHoveredWindowEx(pos, find_first_and_in_any_viewport)
     end
 
     local padding_regular = g.Style.TouchExtraPadding
-    local padding_for_resize = ImMaxVec2(g.Style.TouchExtraPadding, ImVec2(g.Style.WindowBorderHoverPadding, g.Style.WindowBorderHoverPadding))
+    local padding_for_resize = ImMax(g.Style.TouchExtraPadding, ImVec2(g.Style.WindowBorderHoverPadding, g.Style.WindowBorderHoverPadding))
+
     local window
     for i = g.Windows.Size, 1, -1 do
         window = g.Windows.Data[i]
@@ -6729,8 +6763,9 @@ function ImGui.NewFrame()
 
     ImGui.UpdateMouseInputs()
 
-    -- TODO: GC
     IM_ASSERT(g.WindowsFocusOrder.Size <= g.Windows.Size)
+    local gc_all = g.GcCompactAll or g.IO.ConfigMemoryCompactTimer < 0.0
+    local memory_compact_start_time = gc_all and FLT_MAX or (g.Time - g.IO.ConfigMemoryCompactTimer)
 
     for _, window in g.Windows:iter() do
         window.WasActive = window.Active
@@ -6738,6 +6773,10 @@ function ImGui.NewFrame()
         window.WriteAccessed = false
         window.BeginCountPreviousFrame = window.BeginCount
         window.BeginCount = 0
+
+        if (not window.WasActive or gc_all) and not window.MemoryCompacted and window.LastTimeActive < memory_compact_start_time then
+            ImGui.GcCompactTransientWindowBuffers(window)
+        end
     end
 
     ImGui.UpdateHoveredWindowAndCaptureFlags(g.IO.MousePos)
@@ -7049,10 +7088,7 @@ function ImGui.ColorConvertU32ToFloat4(in_col, out_col)
     local a = bit.band(bit.rshift(in_col, IM_COL32_A_SHIFT), 0xFF) * s
 
     if out_col then
-        out_col.x = r
-        out_col.y = g
-        out_col.z = b
-        out_col.w = a
+        out_col[1] = r; out_col[2] = g; out_col[3] = b; out_col[4] = a
     else
         return ImVec4(r, g, b, a)
     end
@@ -7955,7 +7991,7 @@ end
 --- @return int    # Updated last_dir
 --- @nodiscard
 function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_avoid, policy)
-    local base_pos_clamped = ImClampV2(ref_pos, r_outer.Min, r_outer.Max - size)
+    local base_pos_clamped
 
     -- Combo Box policy (we want a connecting edge)
     if policy == ImGuiPopupPositionPolicy.ComboBox then
@@ -8010,6 +8046,7 @@ function ImGui.FindBestWindowPosForPopupEx(ref_pos, size, last_dir, r_outer, r_a
                 goto __CONTINUE__
             end
 
+            base_pos_clamped = ImClamp(ref_pos, r_outer.Min, r_outer.Max - size)
             local pos = ImVec2()
             pos.x = (dir == ImGuiDir.Left) and (r_avoid.Min.x - size.x) or ((dir == ImGuiDir.Right) and r_avoid.Max.x or base_pos_clamped.x)
             pos.y = (dir == ImGuiDir.Up)   and (r_avoid.Min.y - size.y) or ((dir == ImGuiDir.Down)  and r_avoid.Max.y or base_pos_clamped.y)
@@ -8058,7 +8095,7 @@ function ImGui.GetPopupAllowedExtentRect(window)
     end
 
     local padding = g.Style.DisplaySafeAreaPadding
-    r_screen:ExpandV2(ImVec2((r_screen:GetWidth() > padding.x * 2) and -padding.x or 0.0, (r_screen:GetHeight() > padding.y * 2) and -padding.y or 0.0))
+    r_screen:Expand(ImVec2((r_screen:GetWidth() > padding.x * 2) and -padding.x or 0.0, (r_screen:GetHeight() > padding.y * 2) and -padding.y or 0.0))
 
     return r_screen
 end
@@ -8107,7 +8144,7 @@ function ImGui.FindBestWindowPosForPopup(window)
         local ref_pos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Tooltip)
 
         if g.IO.MouseSource == ImGuiMouseSource.TouchScreen and ImGui.NavCalcPreferredRefPosSource(ImGuiWindowFlags.Tooltip) == ImGuiInputSource.Mouse then
-            local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - ImVec2_MulComp(TOOLTIP_DEFAULT_PIVOT_TOUCH, window.Size)
+            local tooltip_pos = ref_pos + TOOLTIP_DEFAULT_OFFSET_TOUCH * scale - TOOLTIP_DEFAULT_PIVOT_TOUCH * window.Size
             if r_outer:Contains(ImRect(tooltip_pos, tooltip_pos + window.Size)) then
                 return tooltip_pos
             end
@@ -8391,11 +8428,11 @@ function ImGui.NavCalcPreferredRefPos(window_type)
         if window ~= nil then
             local viewport = window.Viewport
             if viewport then
-                pos = ImClampV2(pos, viewport.Pos, viewport.Pos + viewport.Size)
+                pos = ImClamp(pos, viewport.Pos, viewport.Pos + viewport.Size)
             end
         end
 
-        return ImTruncV2(pos)  -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
+        return ImTrunc(pos) -- ImTrunc() is important because non-integer mouse position application in backend might be lossy and result in undesirable non-zero delta.
     end
 end
 
@@ -8994,7 +9031,6 @@ function ImGui.FindHoveredViewportFromPlatformWindowStack(mouse_platform_pos)
     return best_candidate
 end
 
--- TODO: GC?
 function ImGui.UpdateViewportsNewFrame()
     local g = GImGui
     IM_ASSERT(g.PlatformIO.Viewports.Size <= g.Viewports.Size)
@@ -9095,6 +9131,8 @@ function ImGui.UpdateViewportsNewFrame()
 
     ImGui.AddUpdateViewport(nil, IMGUI_VIEWPORT_DEFAULT_ID, main_viewport_pos, main_viewport_size, bit.bor(ImGuiViewportFlags.OwnedByApp, ImGuiViewportFlags.CanHostOtherWindows))
 
+    local memory_compact_start_time = (g.GcCompactAll or g.IO.ConfigMemoryCompactTimer < 0.0) and FLT_MAX or (g.Time - g.IO.ConfigMemoryCompactTimer)
+
     g.CurrentDpiScale = 0.0
     g.CurrentViewport = nil
     g.MouseViewport = nil
@@ -9148,6 +9186,12 @@ function ImGui.UpdateViewportsNewFrame()
             end
 
             viewport:UpdateWorkRect()
+
+            for dl_n = 1, 2 do -- IM_COUNTOF(viewport->BgFgDrawLists)
+                if viewport.BgFgDrawListsLastTimeActive[dl_n] < memory_compact_start_time and viewport.BgFgDrawLists[dl_n] ~= nil then
+                    IM_DELETE(viewport.BgFgDrawLists, dl_n)
+                end
+            end
 
             -- Reset alpha every frame. Users of transparency (docking) needs to request a lower alpha back.
             viewport.Alpha = 1.0
@@ -9677,9 +9721,9 @@ function ImGui.UpdatePlatformWindows()
             end
             g.PlatformWindowsCreatedCount = g.PlatformWindowsCreatedCount + 1
             viewport.LastNameHash = 0
-            ImVec2_Copy(viewport.LastPlatformPos, ImVec2(FLT_MAX, FLT_MAX))
-            ImVec2_Copy(viewport.LastPlatformSize, ImVec2(FLT_MAX, FLT_MAX)) -- By clearing those we'll enforce a call to Platform_SetWindowPos/Size below, before Platform_ShowWindow (FIXME: Is that necessary?)
-            ImVec2_Copy(viewport.LastRendererSize, viewport.Size)            -- We don't need to call Renderer_SetWindowSize() as it is expected Renderer_CreateWindow() already did it.
+            ImVec2_CopyV(viewport.LastPlatformPos, FLT_MAX, FLT_MAX)
+            ImVec2_CopyV(viewport.LastPlatformSize, FLT_MAX, FLT_MAX) -- By clearing those we'll enforce a call to Platform_SetWindowPos/Size below, before Platform_ShowWindow (FIXME: Is that necessary?)
+            ImVec2_Copy(viewport.LastRendererSize, viewport.Size)     -- We don't need to call Renderer_SetWindowSize() as it is expected Renderer_CreateWindow() already did it.
             viewport.PlatformWindowCreated = true
         end
 
@@ -9924,6 +9968,7 @@ function ImGui.ShowMetricsWindow(open)
                 ImGui.Text("<- %d frames ago", g.FrameCount - entry.FrameCount)
             end
         end
+
         ImGui.TreePop()
     end
 

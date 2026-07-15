@@ -3,6 +3,9 @@
 
 --- @meta
 
+local type = ImGui._GetTypeFunc()
+local rawget = rawget; local rawset = rawset
+
 -- [LuaBitOp](https://bitop.luajit.org/semantics.html)
 local b_and = bit.band; local b_or = bit.bor
 local b_ls = bit.lshift
@@ -70,6 +73,10 @@ IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 IM_ALLOC = ImGui.MemAlloc
 IM_FREE = ImGui.MemFree
 
+--- @param owner table
+--- @param field string|int
+IM_DELETE = function(owner, field) if owner[field] ~= nil then owner[field] = nil; ImGui.MemFree(owner, field); end end
+
 ---------------------------------------------------------------------------------------
 -- [SECTION] METATABLE MANAGEMENT
 ---------------------------------------------------------------------------------------
@@ -85,17 +92,88 @@ function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
 
 IM_ASSERT_PARANOID = IM_ASSERT
 
+--- Note that `S64` and `U64` are not supported
+--- @enum ImGuiDataType
+ImGuiDataType =
+{
+    S8     = 0, -- signed char / char
+    U8     = 1, -- unsigned char
+    S16    = 2, -- short
+    U16    = 3, -- unsigned short
+    S32    = 4, -- int
+    U32    = 5, -- unsigned int
+    Float  = 6, -- float
+    Double = 7, -- double
+    Bool   = 8, -- bool (provided for user convenience, not supported by scalar widgets)
+    String = 9, -- string (provided for user convenience, not supported by scalar widgets)
+    COUNT  = 10
+}
+
 ImTextureID_Invalid = -1
 
-ImTextureFormat = { RGBA32 = 0, Alpha8 = 1 } --- @enum ImTextureFormat
+--- @enum ImTextureFormat
+ImTextureFormat =
+{
+    RGBA32 = 0,
+    Alpha8 = 1,
+}
 
-ImTextureStatus = { OK = 0, Destroyed = 1, WantCreate = 2, WantUpdates = 3, WantDestroy = 4 } --- @enum ImTextureStatus
+--- @enum ImTextureStatus
+ImTextureStatus =
+{
+    OK          = 0,
+    Destroyed   = 1,
+    WantCreate  = 2,
+    WantUpdates = 3,
+    WantDestroy = 4,
+}
 
-ImFontAtlasFlags = { None = 0, NoPowerOfTwoHeight = b_ls(1, 0), NoMouseCursors = b_ls(1, 1), NoBakedLines = b_ls(1, 2) } --- @enum ImFontAtlasFlags
+--- @enum ImFontAtlasFlags
+ImFontAtlasFlags =
+{
+    None               = 0,
+    NoPowerOfTwoHeight = b_ls(1, 0),
+    NoMouseCursors     = b_ls(1, 1),
+    NoBakedLines       = b_ls(1, 2)
+}
 
-ImGuiDir = { None = -1, Left = 0, Right = 1, Up = 2, Down = 3, COUNT = 4 } --- @enum ImGuiDir
+--- @enum ImGuiDir
+ImGuiDir =
+{
+    None  = -1,
+    Left  = 0,
+    Right = 1,
+    Up    = 2,
+    Down  = 3,
+    COUNT = 4
+}
 
-ImGuiMouseButton = { Left = 0, Right = 1, Middle = 2, COUNT = 5 } --- @enum ImGuiMouseButton
+--- @enum ImGuiMouseButton
+ImGuiMouseButton =
+{
+    Left   = 0,
+    Right  = 1,
+    Middle = 2,
+    COUNT  = 5
+}
+
+--- @enum ImGuiMouseCursor
+ImGuiMouseCursor =
+{
+    None       = -1,
+    Arrow      = 0,
+    TextInput  = 1,
+    ResizeAll  = 2,
+    ResizeNS   = 3,
+    ResizeEW   = 4,
+    ResizeNESW = 5,
+    ResizeNWSE = 6,
+    Hand       = 7,
+    Wait       = 8,
+    Progress   = 9,
+    NotAllowed = 10,
+    COUNT      = 11
+}
 
 --- @class ImTextureRect
 --- @field x unsigned_short
@@ -110,14 +188,13 @@ ImGuiMouseButton = { Left = 0, Right = 1, Middle = 2, COUNT = 5 } --- @enum ImGu
 --- @return ImTextureRect
 function ImTextureRect(x, y, w, h) return { x = x, y = y, w = w, h = h } end
 
-local rawget = rawget; local rawset = rawset
-
 -- This structure supports indexing on string keys `x`, `y` and number keys 1, 2.
 -- But note that the former is likely to be more expensive.
 --- @class ImVec2
 --- @operator add(ImVec2): ImVec2
 --- @operator sub(ImVec2): ImVec2
 --- @operator mul(number): ImVec2
+--- @operator mul(ImVec2): ImVec2
 --- @field [1] number
 --- @field [2] number
 --- @field x number
@@ -125,7 +202,7 @@ local rawget = rawget; local rawset = rawset
 local IM_VEC2 = {}
 
 --- @param t ImVec2
---- @param k int
+--- @param k string
 IM_VEC2.__index = function(t, k)
     if     k == "x" then return rawget(t, 1)
     elseif k == "y" then return rawget(t, 2)
@@ -133,11 +210,12 @@ IM_VEC2.__index = function(t, k)
 end
 
 --- @param t ImVec2
---- @param k int
+--- @param k string
 --- @param v number
 IM_VEC2.__newindex = function(t, k, v)
     if     k == "x" then rawset(t, 1, v)
     elseif k == "y" then rawset(t, 2, v)
+    else IM_ASSERT(false)
     end
 end
 
@@ -149,7 +227,15 @@ function ImVec2(x, y) return setmetatable({x or 0, y or 0}, IM_VEC2) end
 
 function IM_VEC2.__add(lhs, rhs) return ImVec2(lhs[1] + rhs[1], lhs[2] + rhs[2]) end
 function IM_VEC2.__sub(lhs, rhs) return ImVec2(lhs[1] - rhs[1], lhs[2] - rhs[2]) end
-function IM_VEC2.__mul(lhs, rhs) return ImVec2(lhs[1] * rhs, lhs[2] * rhs) end
+
+--- @overload fun(lhs: ImVec2, rhs: number): ImVec2
+--- @overload fun(lhs: ImVec2, rhs: ImVec2): ImVec2
+function IM_VEC2.__mul(lhs, rhs)
+    if     type(lhs) == "table" and type(rhs) == "number" then return ImVec2(lhs[1] * rhs, lhs[2] * rhs)
+    elseif type(lhs) == "table" and type(rhs) == "table"  then return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2])
+    end
+end
+
 function IM_VEC2.__eq(lhs, rhs) return lhs[1] == rhs[1] and lhs[2] == rhs[2] end
 
 function IM_VEC2:__tostring() return string.format("ImVec2(%g, %g)", self.x, self.y) end
@@ -163,14 +249,6 @@ function ImVec2_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2] end
 --- @param src_y number
 function ImVec2_CopyV(dest, src_x, src_y) dest[1] = src_x; dest[2] = src_y end
 
---- @param lhs ImVec2
---- @param rhs ImVec2
-function ImVec2_AddV(lhs, rhs) return lhs[1] + rhs[1], lhs[2] + rhs[2] end
-
---- @param lhs ImVec2
---- @param rhs ImVec2
-function ImVec2_SubV(lhs, rhs) return lhs[1] - rhs[1], lhs[2] - rhs[2] end
-
 --- @param v     ImVec2
 --- @param add_x number
 --- @param add_y number
@@ -181,18 +259,11 @@ function ImVec2_AddVA(v, add_x, add_y) return v[1] + add_x, v[2] + add_y end
 --- @param sub_y number
 function ImVec2_SubVA(v, sub_x, sub_y) return v[1] - sub_x, v[2] - sub_y end
 
---- @param lhs ImVec2
---- @param rhs number
-function ImVec2_MulNV(lhs, rhs) return lhs[1] * rhs, lhs[2] * rhs end
-
---- @param lhs ImVec2
---- @param rhs ImVec2
---- @nodiscard
-function ImVec2_MulComp(lhs, rhs) return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2]) end
-
---- @param lhs ImVec2
---- @param rhs ImVec2
-function ImVec2_MulCompV(lhs, rhs) return lhs[1] * rhs[1], lhs[2] * rhs[2] end
+--- @param a      ImVec2
+--- @param scalar number
+function ImVec2_MulVX(a, scalar)
+    return a[1] * scalar, a[2] * scalar
+end
 
 --- An inlined version of `ImVec2_Copy` currently for use in certain ImVector<ImVec2> `push_back`
 --- @param t ImVec2[]
@@ -217,7 +288,7 @@ local function ImVec2_TCopy(t, k, v) local dest = t[k]; dest[1] = v[1]; dest[2] 
 local IM_VEC4 = {}
 
 --- @param t ImVec4
---- @param k int
+--- @param k string
 IM_VEC4.__index = function(t, k)
     if     k == "x" then return rawget(t, 1)
     elseif k == "y" then return rawget(t, 2)
@@ -227,13 +298,14 @@ IM_VEC4.__index = function(t, k)
 end
 
 --- @param t ImVec4
---- @param k int
+--- @param k string
 --- @param v number
 IM_VEC4.__newindex = function(t, k, v)
     if     k == "x" then rawset(t, 1, v)
     elseif k == "y" then rawset(t, 2, v)
     elseif k == "z" then rawset(t, 3, v)
     elseif k == "w" then rawset(t, 4, v)
+    else IM_ASSERT(false)
     end
 end
 
@@ -269,6 +341,7 @@ local IM_VECTOR = {}
 --- @param k string|int
 --- @return any
 IM_VECTOR.__index = function(t, k)
+    if k == "Data" then return nil end -- Data has already been discarded
     return IM_VECTOR[k] or t.Data[IM_ASSERT(k >= 1 and k <= t.Size) or k] -- if the mt access turns out nil, the k must be int index into Data
 end
 
@@ -276,6 +349,7 @@ end
 --- @param k int
 --- @param v any
 IM_VECTOR.__newindex = function(t, k, v)
+    if k == "Data" then rawset(t, "Data", v); return; end -- set new Data. old Data is already discarded
     IM_ASSERT(k >= 1 and k <= t.Size)
     t.Data[k] = v
 end
@@ -289,12 +363,12 @@ local function _grow_capacity(v, sz) local new_capacity = (v.Capacity ~= 0) and 
 --- @param COPY_FUNC? function
 --- @return ImVector
 --- @nodiscard
-function ImVector(T, COPY_FUNC) return setmetatable({Data = {}, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, IM_VECTOR) end
+function ImVector(T, COPY_FUNC) return setmetatable({Data = nil, Size = 0, Capacity = 0, _Constructor = T or _default_constructor, _CopyFunc = COPY_FUNC or _default_copyfunc}, IM_VECTOR) end
 
 function IM_VECTOR:push_back(value) if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; self._CopyFunc(self.Data, self.Size + 1, value); self.Size = self.Size + 1; return value end
 function IM_VECTOR:pop_back() IM_ASSERT(self.Size > 0); self.Size = self.Size - 1; end
 function IM_VECTOR:push_front(value) if self.Size == 0 then self:push_back(value) else self:insert(1, value) end end
-function IM_VECTOR:clear() self.Size = 0 end
+function IM_VECTOR:clear() if self.Data then self.Size = 0; self.Capacity = 0; IM_FREE(self, "Data"); self.Data = nil end end
 function IM_VECTOR:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
 function IM_VECTOR:empty() return self.Size == 0 end
 function IM_VECTOR:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
@@ -1073,8 +1147,6 @@ function ImGuiPlatformImeData_Compare(data1, data2)
     return true
 end
 
-ImGuiMouseCursor = { None = -1, Arrow = 0, TextInput = 1, ResizeAll = 2, ResizeNS = 3, ResizeEW = 4, ResizeNESW = 5, ResizeNWSE = 6, Hand = 7, Wait = 8, Progress = 9, NotAllowed = 10, COUNT = 11 } --- @enum ImGuiMouseCursor
-
 --- @enum ImGuiViewportFlags
 ImGuiViewportFlags = {
     None                = 0,
@@ -1511,67 +1583,24 @@ ImGuiKey = {
     F13 = 584, F14 = 585, F15 = 586, F16 = 587, F17 = 588, F18 = 589,
     F19 = 590, F20 = 591, F21 = 592, F22 = 593, F23 = 594, F24 = 595,
 
-    Apostrophe     = 596,
-    Comma          = 597,
-    Minus          = 598,
-    Period         = 599,
-    Slash          = 600,
-    Semicolon      = 601,
-    Equal          = 602,
-    LeftBracket    = 603,
-    Backslash      = 604,
-    RightBracket   = 605,
-    GraveAccent    = 606,
-    CapsLock       = 607,
-    ScrollLock     = 608,
-    NumLock        = 609,
-    PrintScreen    = 610,
-    Pause          = 611,
-    Keypad0        = 612,
-    Keypad1        = 613,
-    Keypad2        = 614,
-    Keypad3        = 615,
-    Keypad4        = 616,
-    Keypad5        = 617,
-    Keypad6        = 618,
-    Keypad7        = 619,
-    Keypad8        = 620,
-    Keypad9        = 621,
-    KeypadDecimal  = 622,
-    KeypadDivide   = 623,
-    KeypadMultiply = 624,
-    KeypadSubtract = 625,
-    KeypadAdd      = 626,
-    KeypadEnter    = 627,
-    KeypadEqual    = 628,
+    Apostrophe = 596, Comma      = 597, Minus   = 598, Period      = 599, Slash = 600, Semicolon = 601, Equal = 602, LeftBracket = 603, Backslash = 604, RightBracket = 605, GraveAccent = 606,
+    CapsLock   = 607, ScrollLock = 608, NumLock = 609, PrintScreen = 610, Pause = 611,
+
+    Keypad0       = 612, Keypad1      = 613, Keypad2        = 614, Keypad3        = 615, Keypad4   = 616, Keypad5     = 617, Keypad6     = 618, Keypad7 = 619, Keypad8 = 620, Keypad9 = 621,
+    KeypadDecimal = 622, KeypadDivide = 623, KeypadMultiply = 624, KeypadSubtract = 625, KeypadAdd = 626, KeypadEnter = 627, KeypadEqual = 628,
+
     AppBack        = 629,
     AppForward     = 630,
     Oem102         = 631,
 
-    GamepadStart       = 632,
-    GamepadBack        = 633,
-    GamepadFaceLeft    = 634,
-    GamepadFaceRight   = 635,
-    GamepadFaceUp      = 636,
-    GamepadFaceDown    = 637,
-    GamepadDpadLeft    = 638,
-    GamepadDpadRight   = 639,
-    GamepadDpadUp      = 640,
-    GamepadDpadDown    = 641,
-    GamepadL1          = 642,
-    GamepadR1          = 643,
-    GamepadL2          = 644,
-    GamepadR2          = 645,
-    GamepadL3          = 646,
-    GamepadR3          = 647,
-    GamepadLStickLeft  = 648,
-    GamepadLStickRight = 649,
-    GamepadLStickUp    = 650,
-    GamepadLStickDown  = 651,
-    GamepadRStickLeft  = 652,
-    GamepadRStickRight = 653,
-    GamepadRStickUp    = 654,
-    GamepadRStickDown  = 655,
+    GamepadStart      = 632, GamepadBack        = 633,
+    GamepadFaceLeft   = 634, GamepadFaceRight   = 635, GamepadFaceUp   = 636, GamepadFaceDown   = 637,
+    GamepadDpadLeft   = 638, GamepadDpadRight   = 639, GamepadDpadUp   = 640, GamepadDpadDown   = 641,
+    GamepadL1         = 642, GamepadR1          = 643,
+    GamepadL2         = 644, GamepadR2          = 645,
+    GamepadL3         = 646, GamepadR3          = 647,
+    GamepadLStickLeft = 648, GamepadLStickRight = 649, GamepadLStickUp = 650, GamepadLStickDown = 651,
+    GamepadRStickLeft = 652, GamepadRStickRight = 653, GamepadRStickUp = 654, GamepadRStickDown = 655,
 
     MouseLeft = 656, MouseRight = 657, MouseMiddle = 658, MouseX1 = 659, MouseX2 = 660, MouseWheelX = 661, MouseWheelY = 662,
 
@@ -1689,22 +1718,6 @@ ImGuiDragDropFlags = {
 }
 
 ImGuiDragDropFlags.AcceptPeekOnly = b_or(ImGuiDragDropFlags.AcceptBeforeDelivery, ImGuiDragDropFlags.AcceptNoDrawDefaultRect)
-
---- Note that `S64` and `U64` are not supported
---- @enum ImGuiDataType
-ImGuiDataType = {
-    S8     = 0, -- signed char / char
-    U8     = 1, -- unsigned char
-    S16    = 2, -- short
-    U16    = 3, -- unsigned short
-    S32    = 4, -- int
-    U32    = 5, -- unsigned int
-    Float  = 6, -- float
-    Double = 7, -- double
-    Bool   = 8, -- bool (provided for user convenience, not supported by scalar widgets)
-    String = 9, -- string (provided for user convenience, not supported by scalar widgets)
-    COUNT  = 10
-}
 
 IM_COL32_R_SHIFT = 0
 IM_COL32_G_SHIFT = 8
@@ -1956,6 +1969,7 @@ ImGuiTreeNodeFlags.OpenOnMask_ = b_or(ImGuiTreeNodeFlags.OpenOnDoubleClick, ImGu
 ImGuiTreeNodeFlags.DrawLinesMask_ = b_or(ImGuiTreeNodeFlags.DrawLinesNone, ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)
 
 --- @enum ImGuiTableFlags
-ImGuiTableFlags = {
+ImGuiTableFlags =
+{
     None = 0,
 }
