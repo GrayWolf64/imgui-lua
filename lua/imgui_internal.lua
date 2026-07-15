@@ -2649,13 +2649,15 @@ function ImGuiGroupData()
 end
 
 --- @enum ImGuiTooltipFlags
-ImGuiTooltipFlags = {
+ImGuiTooltipFlags =
+{
     None             = 0,
     OverridePrevious = b_ls(1, 1)
 }
 
 --- @enum ImGuiPopupPositionPolicy
-ImGuiPopupPositionPolicy = {
+ImGuiPopupPositionPolicy =
+{
     Default  = 0,
     ComboBox = 1,
     Tooltip  = 2

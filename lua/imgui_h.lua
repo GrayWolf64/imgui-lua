@@ -92,6 +92,23 @@ function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
 
 IM_ASSERT_PARANOID = IM_ASSERT
 
+--- Note that `S64` and `U64` are not supported
+--- @enum ImGuiDataType
+ImGuiDataType =
+{
+    S8     = 0, -- signed char / char
+    U8     = 1, -- unsigned char
+    S16    = 2, -- short
+    U16    = 3, -- unsigned short
+    S32    = 4, -- int
+    U32    = 5, -- unsigned int
+    Float  = 6, -- float
+    Double = 7, -- double
+    Bool   = 8, -- bool (provided for user convenience, not supported by scalar widgets)
+    String = 9, -- string (provided for user convenience, not supported by scalar widgets)
+    COUNT  = 10
+}
+
 ImTextureID_Invalid = -1
 
 --- @enum ImTextureFormat
@@ -1566,67 +1583,24 @@ ImGuiKey = {
     F13 = 584, F14 = 585, F15 = 586, F16 = 587, F17 = 588, F18 = 589,
     F19 = 590, F20 = 591, F21 = 592, F22 = 593, F23 = 594, F24 = 595,
 
-    Apostrophe     = 596,
-    Comma          = 597,
-    Minus          = 598,
-    Period         = 599,
-    Slash          = 600,
-    Semicolon      = 601,
-    Equal          = 602,
-    LeftBracket    = 603,
-    Backslash      = 604,
-    RightBracket   = 605,
-    GraveAccent    = 606,
-    CapsLock       = 607,
-    ScrollLock     = 608,
-    NumLock        = 609,
-    PrintScreen    = 610,
-    Pause          = 611,
-    Keypad0        = 612,
-    Keypad1        = 613,
-    Keypad2        = 614,
-    Keypad3        = 615,
-    Keypad4        = 616,
-    Keypad5        = 617,
-    Keypad6        = 618,
-    Keypad7        = 619,
-    Keypad8        = 620,
-    Keypad9        = 621,
-    KeypadDecimal  = 622,
-    KeypadDivide   = 623,
-    KeypadMultiply = 624,
-    KeypadSubtract = 625,
-    KeypadAdd      = 626,
-    KeypadEnter    = 627,
-    KeypadEqual    = 628,
+    Apostrophe = 596, Comma      = 597, Minus   = 598, Period      = 599, Slash = 600, Semicolon = 601, Equal = 602, LeftBracket = 603, Backslash = 604, RightBracket = 605, GraveAccent = 606,
+    CapsLock   = 607, ScrollLock = 608, NumLock = 609, PrintScreen = 610, Pause = 611,
+
+    Keypad0       = 612, Keypad1      = 613, Keypad2        = 614, Keypad3        = 615, Keypad4   = 616, Keypad5     = 617, Keypad6     = 618, Keypad7 = 619, Keypad8 = 620, Keypad9 = 621,
+    KeypadDecimal = 622, KeypadDivide = 623, KeypadMultiply = 624, KeypadSubtract = 625, KeypadAdd = 626, KeypadEnter = 627, KeypadEqual = 628,
+
     AppBack        = 629,
     AppForward     = 630,
     Oem102         = 631,
 
-    GamepadStart       = 632,
-    GamepadBack        = 633,
-    GamepadFaceLeft    = 634,
-    GamepadFaceRight   = 635,
-    GamepadFaceUp      = 636,
-    GamepadFaceDown    = 637,
-    GamepadDpadLeft    = 638,
-    GamepadDpadRight   = 639,
-    GamepadDpadUp      = 640,
-    GamepadDpadDown    = 641,
-    GamepadL1          = 642,
-    GamepadR1          = 643,
-    GamepadL2          = 644,
-    GamepadR2          = 645,
-    GamepadL3          = 646,
-    GamepadR3          = 647,
-    GamepadLStickLeft  = 648,
-    GamepadLStickRight = 649,
-    GamepadLStickUp    = 650,
-    GamepadLStickDown  = 651,
-    GamepadRStickLeft  = 652,
-    GamepadRStickRight = 653,
-    GamepadRStickUp    = 654,
-    GamepadRStickDown  = 655,
+    GamepadStart      = 632, GamepadBack        = 633,
+    GamepadFaceLeft   = 634, GamepadFaceRight   = 635, GamepadFaceUp   = 636, GamepadFaceDown   = 637,
+    GamepadDpadLeft   = 638, GamepadDpadRight   = 639, GamepadDpadUp   = 640, GamepadDpadDown   = 641,
+    GamepadL1         = 642, GamepadR1          = 643,
+    GamepadL2         = 644, GamepadR2          = 645,
+    GamepadL3         = 646, GamepadR3          = 647,
+    GamepadLStickLeft = 648, GamepadLStickRight = 649, GamepadLStickUp = 650, GamepadLStickDown = 651,
+    GamepadRStickLeft = 652, GamepadRStickRight = 653, GamepadRStickUp = 654, GamepadRStickDown = 655,
 
     MouseLeft = 656, MouseRight = 657, MouseMiddle = 658, MouseX1 = 659, MouseX2 = 660, MouseWheelX = 661, MouseWheelY = 662,
 
@@ -1744,22 +1718,6 @@ ImGuiDragDropFlags = {
 }
 
 ImGuiDragDropFlags.AcceptPeekOnly = b_or(ImGuiDragDropFlags.AcceptBeforeDelivery, ImGuiDragDropFlags.AcceptNoDrawDefaultRect)
-
---- Note that `S64` and `U64` are not supported
---- @enum ImGuiDataType
-ImGuiDataType = {
-    S8     = 0, -- signed char / char
-    U8     = 1, -- unsigned char
-    S16    = 2, -- short
-    U16    = 3, -- unsigned short
-    S32    = 4, -- int
-    U32    = 5, -- unsigned int
-    Float  = 6, -- float
-    Double = 7, -- double
-    Bool   = 8, -- bool (provided for user convenience, not supported by scalar widgets)
-    String = 9, -- string (provided for user convenience, not supported by scalar widgets)
-    COUNT  = 10
-}
 
 IM_COL32_R_SHIFT = 0
 IM_COL32_G_SHIFT = 8
@@ -2011,6 +1969,7 @@ ImGuiTreeNodeFlags.OpenOnMask_ = b_or(ImGuiTreeNodeFlags.OpenOnDoubleClick, ImGu
 ImGuiTreeNodeFlags.DrawLinesMask_ = b_or(ImGuiTreeNodeFlags.DrawLinesNone, ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)
 
 --- @enum ImGuiTableFlags
-ImGuiTableFlags = {
+ImGuiTableFlags =
+{
     None = 0,
 }
