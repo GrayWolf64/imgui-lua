@@ -195,6 +195,8 @@ function ImTextureRect(x, y, w, h) return { x = x, y = y, w = w, h = h } end
 --- @operator sub(ImVec2): ImVec2
 --- @operator mul(number): ImVec2
 --- @operator mul(ImVec2): ImVec2
+--- @operator div(number): ImVec2
+--- @operator div(ImVec2): ImVec2
 --- @field [1] number
 --- @field [2] number
 --- @field x number
@@ -233,6 +235,14 @@ function IM_VEC2.__sub(lhs, rhs) return ImVec2(lhs[1] - rhs[1], lhs[2] - rhs[2])
 function IM_VEC2.__mul(lhs, rhs)
     if     type(lhs) == "table" and type(rhs) == "number" then return ImVec2(lhs[1] * rhs, lhs[2] * rhs)
     elseif type(lhs) == "table" and type(rhs) == "table"  then return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2])
+    end
+end
+
+--- @overload fun(lhs: ImVec2, rhs: number): ImVec2
+--- @overload fun(lhs: ImVec2, rhs: ImVec2): ImVec2
+function IM_VEC2.__div(lhs, rhs)
+    if     type(lhs) == "table" and type(rhs) == "number" then return ImVec2(lhs[1] / rhs, lhs[2] / rhs)
+    elseif type(lhs) == "table" and type(rhs) == "table"  then return ImVec2(lhs[1] / rhs[1], lhs[2] / rhs[2])
     end
 end
 

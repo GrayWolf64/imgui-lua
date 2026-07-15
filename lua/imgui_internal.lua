@@ -1501,6 +1501,17 @@ local function ImGuiDebugAllocInfo()
     return this
 end
 
+--- @class ImGuiMetricsConfig
+
+--- @return ImGuiMetricsConfig
+local function ImGuiMetricsConfig()
+    return
+    {
+        HighlightMonitorIdx = -1,
+        HighlightViewportID = 0,
+    }
+end
+
 --- @class ImGuiNavItemData
 local _ImGuiNavItemData = {}
 _ImGuiNavItemData.__index = _ImGuiNavItemData
@@ -1569,6 +1580,7 @@ end
 --- @field PlatformImeData                    ImGuiPlatformImeData
 --- @field PlatformImeDataPrev                ImGuiPlatformImeData
 --- @field UserTextures                       ImVector<ImTextureData>
+--- @field DebugMetricsConfig                 ImGuiMetricsConfig
 --- @field DebugAllocInfo                     ImGuiDebugAllocInfo
 
 --- @param shared_font_atlas? ImFontAtlas
@@ -1824,6 +1836,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         DebugLogFlags = b_or(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
         DebugFlashStyleColorIdx = nil,
 
+        DebugMetricsConfig = ImGuiMetricsConfig(),
         DebugAllocInfo = ImGuiDebugAllocInfo()
     }
 
@@ -1989,6 +2002,7 @@ end
 --- @field ContentSize                        ImVec2
 --- @field ContentSizeIdeal                   ImVec2
 --- @field ContentSizeExplicit                ImVec2
+--- @field Scroll                             ImVec2
 --- @field IsExplicitChild                    bool
 --- @field FocusOrder                         short               # 1-based, order within WindowsFocusOrder, altered when windows are focused. Can be -1 if invalid
 --- @field IDStack                            ImVector<ImGuiID>

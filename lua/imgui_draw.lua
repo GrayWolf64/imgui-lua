@@ -4275,17 +4275,20 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
 end
 
 -- Not recommended to call this directly!
---- @param draw_list  ImDrawList
---- @param size       float
---- @param pos        ImVec2
---- @param col        ImU32
---- @param clip_rect  ImVec4
---- @param text       ImString
---- @param text_begin int
---- @param text_end   int
---- @param wrap_width float
---- @param flags      ImDrawTextFlags
+--- @param draw_list   ImDrawList
+--- @param size        float
+--- @param pos         ImVec2
+--- @param col         ImU32
+--- @param clip_rect   ImVec4
+--- @param text        ImString
+--- @param text_begin  int
+--- @param text_end    int
+--- @param wrap_width? float
+--- @param flags?      ImDrawTextFlags
 function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_begin, text_end, wrap_width, flags)
+    if wrap_width == nil then wrap_width = .0 end
+    if flags      == nil then flags      = 0  end
+
 :: begin ::
     local x = pos.x
     local y = pos.y

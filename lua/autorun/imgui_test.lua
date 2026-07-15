@@ -1,5 +1,4 @@
---- Temporary testing:
--- won't let users write these complicated stuff in production version
+--- Temporary testing for GMod:
 
 if SERVER then
     AddCSLuaFile"imstd_minstdio.lua"
@@ -103,7 +102,7 @@ else
 
             ImGui.EndFrame()
 
-            ImGui.Render()
+            return ImGui.Render()
         end
 
         -- render!
@@ -121,8 +120,9 @@ else
             ImGui.DestroyContext()
         end
 
-        ImGui_ImplGMOD.VGUI_Hook(window, "Think", main_logic)
-        ImGui_ImplGMOD.VGUI_Hook(window, "PaintOver", main_render)
-        ImGui_ImplGMOD.VGUI_Hook(window, "OnRemove", on_removal)
+        local old_think = window.Think -- DFrame resizing logic
+        window.Think = function(self) old_think(self); return main_logic(); end
+        window.PaintOver = main_render
+        window.OnRemove = on_removal
     end)
 end

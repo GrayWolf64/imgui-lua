@@ -6891,6 +6891,20 @@ function ImGui.TreePop()
     ImGui.PopID()
 end
 
+--- @param is_open bool
+--- @param cond?   ImGuiCond
+function ImGui.SetNextItemOpen(is_open, cond)
+    if cond == nil then cond = 0 end
+
+    local g = GImGui
+    if g.CurrentWindow.SkipItems then
+        return
+    end
+    g.NextItemData.HasFlags = bit.bor(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasOpen)
+    g.NextItemData.OpenVal = is_open
+    g.NextItemData.OpenCond = (ImU8)((cond ~= 0) and cond or ImGuiCond.Always)
+end
+
 --- @param label  string
 --- @param flags? ImGuiTreeNodeFlags
 function ImGui.CollapsingHeader(label, flags)

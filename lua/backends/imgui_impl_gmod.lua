@@ -263,15 +263,15 @@ end
 --- @param panel             Panel
 --- @param is_main_viewport? bool
 local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
-    VGUI_Hook(panel, "OnCursorMoved", function(a0, a1, a2) a1, a2 = input.GetCursorPos(); ImGui_ImplGMOD_ProcessEvent(nil, nil, a1, a2); end)
-    VGUI_Hook(panel, "OnMousePressed", function(a0, a1) a0:MouseCapture(true); ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil); end)
-    VGUI_Hook(panel, "OnMouseReleased", function(a0, a1) a0:MouseCapture(false); ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil); end)
-    VGUI_Hook(panel, "OnMouseWheeled", function(a0, a1) ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, a1); end)
-    VGUI_Hook(panel, "OnKeyCodePressed", function(a0, a1) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(a1, true, nil, nil, nil); end)
-    VGUI_Hook(panel, "OnKeyCodeReleased", function(a0, a1) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(a1, false, nil, nil, nil); end)
+    VGUI_Hook(panel, "OnCursorMoved",     function() local x, y = input.GetCursorPos(); ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y); end)
+    VGUI_Hook(panel, "OnMousePressed",    function(self, key_code) self:MouseCapture(true); ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil); end)
+    VGUI_Hook(panel, "OnMouseReleased",   function(self, key_code) self:MouseCapture(false); ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil); end)
+    VGUI_Hook(panel, "OnMouseWheeled",    function(_, scroll_dt) ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, scroll_dt); end)
+    VGUI_Hook(panel, "OnKeyCodePressed",  function(_, key_code) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil, nil); end)
+    VGUI_Hook(panel, "OnKeyCodeReleased", function(_, key_code) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil, nil); end)
 
     if is_main_viewport then
-        VGUI_Hook(panel, "OnScreenSizeChanged", function(a0) ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
+        VGUI_Hook(panel, "OnScreenSizeChanged", function() ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
     end
 end
 
@@ -390,8 +390,9 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
 
     ImGui_ImplGMOD_SetupPanelHooks(vd.VGuiWindow)
 
-    vd.VGuiWindow.Paint = function(self, w, h) -- FIXME: other means? this looks bad
-        ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
+    -- TODO: other means?
+    vd.VGuiWindow.Paint = function()
+        return ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
     end
 
     viewport.PlatformRequestResize = false
@@ -954,7 +955,6 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 end
 
 return {
-    VGUI_Hook       = VGUI_Hook,
     SetupPanelHooks = ImGui_ImplGMOD_SetupPanelHooks,
 
     GetBackendData = ImGui_ImplGMOD_GetBackendData,

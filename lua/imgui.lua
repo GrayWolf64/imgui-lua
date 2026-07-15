@@ -5506,7 +5506,7 @@ function ImGui.Begin(name, open, flags)
         window.ScrollMax.y = ImMax(0.0, window.ContentSize.y + window.WindowPadding.y * 2.0 - window.InnerRect:GetHeight())
 
         -- Apply scrolling
-        CalcNextScrollFromScrollTargetAndClamp(window)
+        ImVec2_Copy(window.Scroll, CalcNextScrollFromScrollTargetAndClamp(window))
         ImVec2_CopyV(window.ScrollTarget, FLT_MAX, FLT_MAX)
         window.DecoInnerSizeX1 = 0.0; window.DecoInnerSizeY1 = 0.0
 
@@ -7525,10 +7525,10 @@ local function CalcScrollEdgeSnap(target, snap_min, snap_max, snap_threshold, ce
     return target
 end
 
---- Updates window.Scroll
 --- @param window ImGuiWindow
 function CalcNextScrollFromScrollTargetAndClamp(window)
-    local scroll = window.Scroll
+    local scroll = ImVec2()
+    ImVec2_Copy(scroll, window.Scroll)
     local decoration_size = ImVec2(window.DecoOuterSizeX1 + window.DecoInnerSizeX1 + window.DecoOuterSizeX2, window.DecoOuterSizeY1 + window.DecoInnerSizeY1 + window.DecoOuterSizeY2)
 
     for axis = ImGuiAxis.X, ImGuiAxis.Y do
@@ -7549,6 +7549,80 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
             scroll[axis] = ImMin(scroll[axis], window.ScrollMax[axis])
         end
     end
+
+    return scroll
+end
+
+--- @param window    ImGuiWindow
+--- @param item_rect ImRect
+--- @param flags?    ImGuiScrollFlags
+function ImGui.ScrollToRectEx(window, item_rect, flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui
+    local scroll_rect = ImRect(window.InnerRect.Min - ImVec2(1, 1), window.InnerRect.Max + ImVec2(1, 1))
+    scroll_rect.Min.x = ImMin(scroll_rect.Min.x + window.DecoInnerSizeX1, scroll_rect.Max.x)
+    scroll_rect.Min.y = ImMin(scroll_rect.Min.y + window.DecoInnerSizeY1, scroll_rect.Max.y)
+
+    IM_ASSERT(bit.band(flags, ImGuiScrollFlags.MaskX_) == 0 or ImIsPowerOfTwo(bit.band(flags, ImGuiScrollFlags.MaskX_)))
+    IM_ASSERT(bit.band(flags, ImGuiScrollFlags.MaskY_) == 0 or ImIsPowerOfTwo(bit.band(flags, ImGuiScrollFlags.MaskY_)))
+
+    local in_flags = flags
+    if bit.band(flags, ImGuiScrollFlags.MaskX_) == 0 and window.ScrollbarX then
+        flags = bit.bor(flags, ImGuiScrollFlags.KeepVisibleEdgeX)
+    end
+    if bit.band(flags, ImGuiScrollFlags.MaskY_) == 0 then
+        flags = bit.bor(flags, window.Appearing and ImGuiScrollFlags.AlwaysCenterY or ImGuiScrollFlags.KeepVisibleEdgeY)
+    end
+
+    local fully_visible_x = item_rect.Min.x >= scroll_rect.Min.x and item_rect.Max.x <= scroll_rect.Max.x
+    local fully_visible_y = item_rect.Min.y >= scroll_rect.Min.y and item_rect.Max.y <= scroll_rect.Max.y
+    local can_be_fully_visible_x = (item_rect:GetWidth() + g.Style.ItemSpacing.x * 2.0) <= scroll_rect:GetWidth() or (window.AutoFitFramesX > 0) or bit.band(window.Flags, ImGuiWindowFlags.AlwaysAutoResize) ~= 0
+    local can_be_fully_visible_y = (item_rect:GetHeight() + g.Style.ItemSpacing.y * 2.0) <= scroll_rect:GetHeight() or (window.AutoFitFramesY > 0) or bit.band(window.Flags, ImGuiWindowFlags.AlwaysAutoResize) ~= 0
+
+    if bit.band(flags, ImGuiScrollFlags.KeepVisibleEdgeX) ~= 0 and not fully_visible_x then
+        if item_rect.Min.x < scroll_rect.Min.x or not can_be_fully_visible_x then
+            ImGui.SetScrollFromPosX(window, item_rect.Min.x - g.Style.ItemSpacing.x - window.Pos.x, 0.0)
+        elseif item_rect.Max.x >= scroll_rect.Max.x then
+            ImGui.SetScrollFromPosX(window, item_rect.Max.x + g.Style.ItemSpacing.x - window.Pos.x, 1.0)
+        end
+    elseif (bit.band(flags, ImGuiScrollFlags.KeepVisibleCenterX) ~= 0 and not fully_visible_x) or bit.band(flags, ImGuiScrollFlags.AlwaysCenterX) ~= 0 then
+        if can_be_fully_visible_x then
+            ImGui.SetScrollFromPosX(window, ImTrunc((item_rect.Min.x + item_rect.Max.x) * 0.5) - window.Pos.x, 0.5)
+        else
+            ImGui.SetScrollFromPosX(window, item_rect.Min.x - window.Pos.x, 0.0)
+        end
+    end
+
+    if bit.band(flags, ImGuiScrollFlags.KeepVisibleEdgeY) ~= 0 and not fully_visible_y then
+        if item_rect.Min.y < scroll_rect.Min.y or not can_be_fully_visible_y then
+            ImGui.SetScrollFromPosY(window, item_rect.Min.y - g.Style.ItemSpacing.y - window.Pos.y, 0.0)
+        elseif item_rect.Max.y >= scroll_rect.Max.y then
+            ImGui.SetScrollFromPosY(window, item_rect.Max.y + g.Style.ItemSpacing.y - window.Pos.y, 1.0)
+        end
+    elseif (bit.band(flags, ImGuiScrollFlags.KeepVisibleCenterY) ~= 0 and not fully_visible_y) or bit.band(flags, ImGuiScrollFlags.AlwaysCenterY) ~= 0 then
+        if can_be_fully_visible_y then
+            ImGui.SetScrollFromPosY(window, ImTrunc((item_rect.Min.y + item_rect.Max.y) * 0.5) - window.Pos.y, 0.5)
+        else
+            ImGui.SetScrollFromPosY(window, item_rect.Min.y - window.Pos.y, 0.0)
+        end
+    end
+
+    local next_scroll = CalcNextScrollFromScrollTargetAndClamp(window)
+    local delta_scroll = next_scroll - window.Scroll
+
+    if bit.band(flags, ImGuiScrollFlags.NoScrollParent) == 0 and bit.band(window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0 then
+        if bit.band(in_flags, bit.bor(ImGuiScrollFlags.AlwaysCenterX, ImGuiScrollFlags.KeepVisibleCenterX)) ~= 0 then
+            in_flags = bit.bor(bit.band(in_flags, bit.bnot(ImGuiScrollFlags.MaskX_)), ImGuiScrollFlags.KeepVisibleEdgeX)
+        end
+        if bit.band(in_flags, bit.bor(ImGuiScrollFlags.AlwaysCenterY, ImGuiScrollFlags.KeepVisibleCenterY)) ~= 0 then
+            in_flags = bit.bor(bit.band(in_flags, bit.bnot(ImGuiScrollFlags.MaskY_)), ImGuiScrollFlags.KeepVisibleEdgeY)
+        end
+        local parent_delta = ImGui.ScrollToRectEx(window.ParentWindow, ImRect(item_rect.Min - delta_scroll, item_rect.Max - delta_scroll), in_flags)
+        delta_scroll = delta_scroll + parent_delta
+    end
+
+    return delta_scroll
 end
 
 --- @return float
@@ -7570,6 +7644,26 @@ end
 function ImGui.SetScrollY(window, scroll_y)
     window.ScrollTarget.y = scroll_y
     window.ScrollTargetCenterRatio.y = 0.0
+    window.ScrollTargetEdgeSnapDist.y = 0.0
+end
+
+--- @param window         ImGuiWindow
+--- @param local_x        float
+--- @param center_x_ratio float
+function ImGui.SetScrollFromPosX(window, local_x, center_x_ratio)
+    IM_ASSERT(center_x_ratio >= 0.0 and center_x_ratio <= 1.0)
+    window.ScrollTarget.x = IM_TRUNC(local_x - window.DecoOuterSizeX1 - window.DecoInnerSizeX1 + window.Scroll.x)
+    window.ScrollTargetCenterRatio.x = center_x_ratio
+    window.ScrollTargetEdgeSnapDist.x = 0.0
+end
+
+--- @param window         ImGuiWindow
+--- @param local_y        float
+--- @param center_y_ratio float
+function ImGui.SetScrollFromPosY(window, local_y, center_y_ratio)
+    IM_ASSERT(center_y_ratio >= 0.0 and center_y_ratio <= 1.0)
+    window.ScrollTarget.y = IM_TRUNC(local_y - window.DecoOuterSizeY1 - window.DecoInnerSizeY1 + window.Scroll.y)
+    window.ScrollTargetCenterRatio.y = center_y_ratio
     window.ScrollTargetEdgeSnapDist.y = 0.0
 end
 
@@ -8273,8 +8367,23 @@ function ImGui.SetNavFocusScope(focus_scope_id)
     IM_ASSERT(g.NavFocusRoute.Size < 100)
 end
 
--- TODO:
 function ImGui.SetItemDefaultFocus()
+    local g = GImGui
+    local window = g.CurrentWindow
+    if not window.Appearing then
+        return
+    end
+    if g.NavWindow ~= window.RootWindowForNav or (not g.NavInitRequest and g.NavInitResult.ID == 0) or g.NavLayer ~= window.DC.NavLayerCurrent then
+        return
+    end
+
+    g.NavInitRequest = false
+    ImGui.NavApplyItemToResult(g.NavInitResult)
+    ImGui.NavUpdateAnyRequestFlag()
+
+    if not window.ClipRect:Contains(g.LastItemData.Rect) then
+        ImGui.ScrollToRectEx(window, g.LastItemData.Rect, ImGuiScrollFlags.None)
+    end
 end
 
 function ImGui.SetNavCursorVisibleAfterMove()
@@ -9939,15 +10048,92 @@ end
 -- [SECTION] METRICS/DEBUGGER WINDOW
 ---------------------------------------------------------------------------------------
 
+--- @param draw_list ImDrawList
+--- @param viewport  ImGuiViewport
+--- @param bb        ImRect
+function ImGui.DebugRenderViewportThumbnail(draw_list, viewport, bb)
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    local scale = bb:GetSize() / viewport.Size
+    local off = bb.Min - viewport.Pos * scale
+    local alpha_mul = (bit.band(viewport.Flags, ImGuiViewportFlags.IsMinimized) ~= 0) and 0.30 or 1.00
+    window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Border, alpha_mul * 0.40))
+
+    for _, thumb_window in g.Windows:iter() do
+        if not thumb_window.WasActive or bit.band(thumb_window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0 then
+            goto __CONTINUE__
+        end
+        if thumb_window.Viewport ~= viewport then
+            goto __CONTINUE__
+        end
+
+        local thumb_r = thumb_window:Rect()
+        local title_r = thumb_window:TitleBarRect()
+        thumb_r = ImRect(ImTrunc(off + thumb_r.Min * scale), ImTrunc(off + thumb_r.Max * scale))
+        title_r = ImRect(ImTrunc(off + title_r.Min * scale), ImTrunc(off + ImVec2(title_r.Max.x, title_r.Min.y + title_r:GetHeight() * 3.0) * scale))
+        thumb_r:ClipWithFull(bb)
+        title_r:ClipWithFull(bb)
+        local window_is_focused = g.NavWindow and thumb_window.RootWindowForTitleBarHighlight == g.NavWindow.RootWindowForTitleBarHighlight
+        window.DrawList:AddRectFilled(thumb_r.Min, thumb_r.Max, ImGui.GetColorU32(ImGuiCol.WindowBg, alpha_mul))
+        window.DrawList:AddRectFilled(title_r.Min, title_r.Max, ImGui.GetColorU32(window_is_focused and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg, alpha_mul))
+        window.DrawList:AddRect(thumb_r.Min, thumb_r.Max, ImGui.GetColorU32(ImGuiCol.Border, alpha_mul))
+        window.DrawList:AddText(g.Font, g.FontSize * 1.0, title_r.Min, ImGui.GetColorU32(ImGuiCol.Text, alpha_mul), thumb_window.Name, 1, ImGui.FindRenderedTextEnd(thumb_window.Name))
+
+        :: __CONTINUE__ ::
+    end
+
+    draw_list:AddRect(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.Border, alpha_mul))
+    if viewport.ID == g.DebugMetricsConfig.HighlightViewportID then
+        window.DrawList:AddRect(bb.Min, bb.Max, IM_COL32(255, 255, 0, 255))
+    end
+end
+
+local function RenderViewportsThumbnails()
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    local SCALE = 1.0 / 8.0
+    local bb_full = ImRect(FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX)
+    for _, monitor in g.PlatformIO.Monitors:iter() do
+        bb_full:Add(ImRect(monitor.MainPos, monitor.MainPos + monitor.MainSize))
+    end
+
+    local p = window.DC.CursorPos
+    local off = p - bb_full.Min * SCALE
+    for _, monitor in g.PlatformIO.Monitors:iter() do
+        local monitor_draw_bb = ImRect(off + monitor.MainPos * SCALE, off + (monitor.MainPos + monitor.MainSize) * SCALE)
+        window.DrawList:AddRect(monitor_draw_bb.Min, monitor_draw_bb.Max, (g.DebugMetricsConfig.HighlightMonitorIdx == g.PlatformIO.Monitors:index_from_ptr(monitor)) and IM_COL32(255, 255, 0, 255) or ImGui.GetColorU32(ImGuiCol.Border), 4.0)
+        window.DrawList:AddRectFilled(monitor_draw_bb.Min, monitor_draw_bb.Max, ImGui.GetColorU32(ImGuiCol.Border, 0.10), 4.0)
+    end
+
+    for _, viewport in g.Viewports:iter() do
+        local viewport_draw_bb = ImRect(off + viewport.Pos * SCALE, off + (viewport.Pos + viewport.Size) * SCALE)
+        ImGui.DebugRenderViewportThumbnail(window.DrawList, viewport, viewport_draw_bb)
+    end
+    ImGui.Dummy(bb_full:GetSize() * SCALE)
+end
+
+-- TODO:
 --- @param open bool?
 function ImGui.ShowMetricsWindow(open)
     local g = GImGui
 
     local ret
-    open, ret = ImGui.Begin("Dear ImGui Metrics/Debugger", open)
+    open, ret = ImGui.Begin("ImGui Sincerely Metrics/Debugger", open)
     if not ret or ImGui.GetCurrentWindow().BeginCount > 1 then
         ImGui.End()
         return open
+    end
+
+    if ImGui.TreeNode(string.format("Viewports (%d)", g.Viewports.Size)) then
+        -- ImGui.SetNextItemOpen(true, ImGuiCond.Once)
+        if ImGui.TreeNode("Windows Minimap") then
+            RenderViewportsThumbnails()
+            ImGui.TreePop()
+        end
+
+        ImGui.TreePop()
     end
 
     if ImGui.TreeNode("Memory allocations") then
