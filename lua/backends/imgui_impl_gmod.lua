@@ -420,13 +420,11 @@ end
 
 local function ImGui_ImplGMOD_ShowWindow(viewport)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.VGuiWindow))
     vd.VGuiWindow:MakePopup()
 end
 
 local function ImGui_ImplGMOD_SetWindowPos(viewport, pos)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.VGuiWindow))
     local left, top = VGUI_GetClientAreaOffset(vd.VGuiWindow)
     vd.VGuiWindow:SetPos(pos.x - left, pos.y - top)
 end
@@ -436,7 +434,6 @@ end
 --- @nodiscard
 local function ImGui_ImplGMOD_GetWindowPos(viewport)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.VGuiWindow))
     local x, y = vd.VGuiWindow:GetPos()
     local left, top = VGUI_GetClientAreaOffset(vd.VGuiWindow)
     return ImVec2(x + left, y + top)
@@ -444,14 +441,12 @@ end
 
 local function ImGui_ImplGMOD_SetWindowSize(viewport, size)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.VGuiWindow))
     local left, top, right, bottom = VGUI_GetClientAreaOffset(vd.VGuiWindow)
     vd.VGuiWindow:SetSize(size.x + (left + right), size.y + (top + bottom))
 end
 
 local function ImGui_ImplGMOD_GetWindowSize(viewport)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.VGuiWindow))
     local x, y = vd.VGuiWindow:GetSize()
     local left, top, right, bottom = VGUI_GetClientAreaOffset(vd.VGuiWindow)
     return ImVec2(x - (left + right), y - (top + bottom))
@@ -459,13 +454,16 @@ end
 
 local function ImGui_ImplGMOD_SetWindowFocus(viewport)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.VGuiWindow))
     vd.VGuiWindow:RequestFocus()
+end
+
+local function ImGui_ImplGMOD_GetWindowFocus(viewport)
+    local vd = viewport.PlatformUserData
+    return vd.VGuiWindow:HasFocus()
 end
 
 local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
     local vd = viewport.PlatformUserData
-    IM_ASSERT(IsValid(vd.VGuiWindow))
     vd.VGuiWindow:SetName(title)
 end
 
@@ -542,6 +540,7 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
 
     platform_io.Platform_GetWindowPos = ImGui_ImplGMOD_GetWindowPos
     platform_io.Platform_GetWindowSize = ImGui_ImplGMOD_GetWindowSize
+    platform_io.Platform_GetWindowFocus = ImGui_ImplGMOD_GetWindowFocus
 
     platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
     platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
