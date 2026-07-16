@@ -140,17 +140,6 @@ local function VGUI_Hook(panel, func_name, hook_func)
 end
 
 do
-    -- TODO: there's probably a better way?
-    local KEY_WHITELIST = {
-        [KEY_ESCAPE] = true, [KEY_ENTER]    = true, [KEY_BACKSPACE] = true,
-        [KEY_DELETE] = true, [KEY_INSERT]   = true,
-        [KEY_HOME]   = true, [KEY_END]      = true,
-        [KEY_PAGEUP] = true, [KEY_PAGEDOWN] = true,
-
-        [KEY_Z]  = true, [KEY_X]    = true, [KEY_C]    = true, [KEY_Y]     = true,
-        [KEY_UP] = true, [KEY_LEFT] = true, [KEY_DOWN] = true, [KEY_RIGHT] = true
-    }
-
     local TextEntryIsActive = false
     local TextEntry = vgui.Create("TextEntry")
 
@@ -179,33 +168,18 @@ do
         TextEntryTextPrev = TextEntryTextCur
     end
 
-    local CURSOR_MOVE_KEYS = {
-        [KEY_UP]     = true, [KEY_LEFT]     = true, [KEY_DOWN] = true, [KEY_RIGHT] = true,
-        [KEY_HOME]   = true, [KEY_END]      = true,
-        [KEY_PAGEUP] = true, [KEY_PAGEDOWN] = true,
-    }
-
-    -- FIXME: ctrl+c/v doesn't work
     -- FIXME: engine console (` or other key binds) related interference issue
     TextEntry.OnKeyCodeTyped = function(self, key_code)
-        local io = ImGui.GetIO()
-
-        if KEY_WHITELIST[key_code] then
-            io:AddKeyEvent(BUTTON_MAP[key_code], true)
-        end
+        ImGui_ImplGMOD_ProcessEvent(key_code, true)
 
         -- Keep the TextEntry cursor always on the back so we can get input content by diff easily
-        if CURSOR_MOVE_KEYS[key_code] then return true end
+        self:SetCaretPos(#TextEntryTextPrev)
+        return true
     end
 
     TextEntry.OnKeyCodeReleased = function(self, key_code)
-        local io = ImGui.GetIO()
-
-        if KEY_WHITELIST[key_code] then
-            io:AddKeyEvent(BUTTON_MAP[key_code], false)
-        end
-
-        if CURSOR_MOVE_KEYS[key_code] then return true end
+        ImGui_ImplGMOD_ProcessEvent(key_code, false)
+        return true
     end
 
     function GMOD_StartTextInput(window)
