@@ -853,6 +853,8 @@ local function UploadPixelDataRowToTexture(tex, start_x, start_y, w)
     local row, row_base = tex:GetPixelsAt(start_x, start_y)
     local x_end = start_x + w
 
+    local prev_w, prev_h = ScrW(), ScrH()
+
     local x = start_x
     while x < x_end do
         local x_off = x - start_x
@@ -887,13 +889,13 @@ local function UploadPixelDataRowToTexture(tex, start_x, start_y, w)
             run_len = run_len + 1
         end
 
-        local prev_w, prev_h = ScrW(), ScrH()
         render.SetViewPort(x, start_y, run_len, 1)
-            render.Clear(r, g, b, a) -- Set pixels in the restricted region
-        render.SetViewPort(0, 0, prev_w, prev_h)
+        render.Clear(r, g, b, a) -- Set pixels in the restricted region
 
         x = x + run_len
     end
+
+    render.SetViewPort(0, 0, prev_w, prev_h)
 end
 
 --- @param tex ImTextureData
