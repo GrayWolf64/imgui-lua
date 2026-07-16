@@ -360,6 +360,7 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     local left, top, right, bottom = VGUI_GetClientAreaOffset(vd.VGuiWindow) -- this is likely all 0 for EditablePanel
     vd.VGuiWindow:SetPos(viewport.Pos.x - left, viewport.Pos.y - top)
     vd.VGuiWindow:SetSize(viewport.Size.x + (left + right), viewport.Size.y + (top + bottom))
+    vd.VGuiWindow:SetDrawOnTop(bit.band(viewport.Flags, ImGuiViewportFlags.TopMost) ~= 0)
     vd.VGuiWindowOwned = true
 
     ImGui_ImplGMOD_SetupPanelHooks(vd.VGuiWindow)
