@@ -8290,6 +8290,10 @@ function ImGui.OpenPopupOnItemClick(str_id, popup_flags)
     end
 end
 
+function ImGui.BeginPopupContextItem(str_id, popup_flags)
+    -- TODO:
+end
+
 ---------------------------------------------------------------------------------------
 -- [SECTION] NAVIGATION
 ---------------------------------------------------------------------------------------

@@ -21,6 +21,18 @@ local t_sort = table.sort
 --- @alias ImString char[]|string
 --- @alias ImStringBuffer char[]
 
+-- NOTE: temporary solution
+--- @param buf       char[]
+--- @param buf_begin int
+--- @param buf_end   int    # exclusive
+function ImGui._ByteArrayToString(buf, buf_begin, buf_end)
+    local str = {}
+    for i = buf_begin, buf_end - 1 do
+        table.insert(str, string.char(buf[i]))
+    end
+    return table.concat(str)
+end
+
 --- @type ImGuiContext?
 local GImGui
 
@@ -1585,6 +1597,7 @@ end
 --- @field UserTextures                       ImVector<ImTextureData>
 --- @field DebugMetricsConfig                 ImGuiMetricsConfig
 --- @field DebugAllocInfo                     ImGuiDebugAllocInfo
+--- @field TempBuffer                         ImVector<char>
 
 --- @param shared_font_atlas? ImFontAtlas
 --- @return ImGuiContext
@@ -1768,16 +1781,6 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         StackSizesInBeginForCurrentWindow = nil,
 
-        --- Misc
-        FramerateSecPerFrame = {}, -- size = 60
-        FramerateSecPerFrameIdx = 0,
-        FramerateSecPerFrameCount = 0,
-        FramerateSecPerFrameAccum = 0,
-
-        WantCaptureMouseNextFrame = -1,
-        WantCaptureKeyboardNextFrame = -1,
-        WantTextInputNextFrame = -1,
-
         MouseCursor = ImGuiMouseCursor.Arrow,
         MouseStationaryTimer = 0.0,
 
@@ -1840,7 +1843,18 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         DebugFlashStyleColorIdx = nil,
 
         DebugMetricsConfig = ImGuiMetricsConfig(),
-        DebugAllocInfo = ImGuiDebugAllocInfo()
+        DebugAllocInfo = ImGuiDebugAllocInfo(),
+
+        --- Misc
+        FramerateSecPerFrame = {}, -- size = 60
+        FramerateSecPerFrameIdx = 0,
+        FramerateSecPerFrameCount = 0,
+        FramerateSecPerFrameAccum = 0,
+
+        WantCaptureMouseNextFrame = -1,
+        WantCaptureKeyboardNextFrame = -1,
+        WantTextInputNextFrame = -1,
+        TempBuffer = ImVector(),
     }
 
     for i = 0, 59 do this.FramerateSecPerFrame[i] = 0 end

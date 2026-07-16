@@ -1437,13 +1437,12 @@ function ImGui.TextLinkOpenURL(label, url)
 
     ImGui.SetItemTooltip(ImGui.LocalizeGetMsg(ImGuiLocKey.OpenLink_s), url)
 
-    -- TODO:
-    -- if ImGui.BeginPopupContextItem() then
-    --     if ImGui.MenuItem(ImGui.LocalizeGetMsg(ImGuiLocKey.CopyLink)) then
-    --         ImGui.SetClipboardText(url)
-    --     end
-    --     ImGui.EndPopup()
-    -- end
+    if ImGui.BeginPopupContextItem() then
+        if ImGui.MenuItem(ImGui.LocalizeGetMsg(ImGuiLocKey.CopyLink)) then
+            ImGui.SetClipboardText(url)
+        end
+        ImGui.EndPopup()
+    end
 
     return pressed
 end
@@ -5028,7 +5027,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 g.TempBuffer:reserve(ie - ib + 1)
                 ImStd.memmove(g.TempBuffer.Data, 1, state.TextSrc, ib, ie - ib)
                 g.TempBuffer.Data[ie - ib + 1] = 0
-                ImGui.SetClipboardText(g.TempBuffer.Data) -- FIXME: to lua string
+                ImGui.SetClipboardText(ImGui._ByteArrayToString(g.TempBuffer.Data, 1, ie - ib + 1))
             end
             if is_cut then
                 if not state:HasSelection() then
