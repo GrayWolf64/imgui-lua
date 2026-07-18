@@ -1917,8 +1917,12 @@ end
 --- @field WantApply    bool    # Set when loaded from .ini data
 --- @field WantDelete   bool    # Set to invalidate/delete the settings entry
 --- @field Name         string  # Window name
-MT.ImGuiWindowSettings = {}
-MT.ImGuiWindowSettings.__index = MT.ImGuiWindowSettings
+local IMGUI_WINDOW_SETTINGS = {}
+IMGUI_WINDOW_SETTINGS.__index = IMGUI_WINDOW_SETTINGS
+
+function IMGUI_WINDOW_SETTINGS:GetName()
+    return self.Name
+end
 
 function ImGuiWindowSettings()
     return setmetatable({
@@ -1930,11 +1934,7 @@ function ImGuiWindowSettings()
         WantApply    = false,
         WantDelete   = false,
         Name         = "",
-    }, MT.ImGuiWindowSettings)
-end
-
-function MT.ImGuiWindowSettings:GetName()
-    return self.Name
+    }, IMGUI_WINDOW_SETTINGS)
 end
 
 --- @class ImGuiMenuColumns
