@@ -4,7 +4,7 @@
 
 ## Progress
 
-<img src="misc/images/current.png" alt="Example" width="600" height="600">
+<img src="misc/images/current.png" alt="Example" width="880" height="640">
 
 _This image may be outdated!_ 
 
