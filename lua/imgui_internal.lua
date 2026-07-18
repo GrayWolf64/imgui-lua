@@ -513,7 +513,8 @@ function ImCharIsBlankA(c) return c == 32 or c == 9 end
 function ImCharIsBlankW(c) return c == 32 or c == 9 or c == 0x3000 end
 
 --- @enum ImGuiNavMoveFlags
-ImGuiNavMoveFlags = {
+ImGuiNavMoveFlags =
+{
     None                  = 0,
     LoopX                 = bitLShift(1, 0),
     LoopY                 = bitLShift(1, 1),
@@ -536,7 +537,8 @@ ImGuiNavMoveFlags = {
 ImGuiNavMoveFlags.WrapMask_ = bitOr(ImGuiNavMoveFlags.LoopX, ImGuiNavMoveFlags.LoopY, ImGuiNavMoveFlags.WrapX, ImGuiNavMoveFlags.WrapY)
 
 --- @enum ImGuiNavLayer
-ImGuiNavLayer = {
+ImGuiNavLayer =
+{
     Main  = 0,
     Menu  = 1,
     COUNT = 2
@@ -557,7 +559,8 @@ ImGuiItemFlags.IsMultiSelect        = bitLShift(1, 22)
 ImGuiItemFlags.Default_ = ImGuiItemFlags.AutoClosePopups
 
 --- @enum ImDrawTextFlags
-ImDrawTextFlags = {
+ImDrawTextFlags =
+{
     None           = 0,
     CpuFineClip    = bitLShift(1, 0),
     WrapKeepBlanks = bitLShift(1, 1),
@@ -565,20 +568,23 @@ ImDrawTextFlags = {
 }
 
 --- @enum ImGuiFocusRequestFlags
-ImGuiFocusRequestFlags = {
+ImGuiFocusRequestFlags =
+{
     None                = 0,
     RestoreFocusedChild = bitLShift(1, 0),
     UnlessBelowModal    = bitLShift(1, 1)
 }
 
 --- @enum ImGuiTextFlags
-ImGuiTextFlags = {
+ImGuiTextFlags =
+{
     None                       = 0,
     NoWidthForLargeClippedText = bitLShift(1, 0)
 }
 
 --- @enum ImWcharClass
-ImWcharClass = {
+ImWcharClass =
+{
     Blank = 0,
     Punct = 1,
     Other = 2
@@ -1170,13 +1176,15 @@ ImGuiNextWindowDataFlags = {
 }
 
 --- @enum ImGuiLayoutType
-ImGuiLayoutType = {
+ImGuiLayoutType =
+{
     Horizontal = 0,
     Vertical   = 1
 }
 
 --- @enum ImGuiSeparatorFlags
-ImGuiSeparatorFlags = {
+ImGuiSeparatorFlags =
+{
     None           = 0,
     Horizontal     = bitLShift(1, 0), -- Axis default to current layout type, so generally Horizontal unless e.g. in a menu bar
     Vertical       = bitLShift(1, 1),
@@ -1466,22 +1474,22 @@ end
 --- @class ImGuiTextIndex
 --- @field Offsets   ImVector<int>
 --- @field EndOffset int
-local IMGUI_TEXTINDEX = {}
-IMGUI_TEXTINDEX.__index = IMGUI_TEXTINDEX
+local IMGUI_TEXT_INDEX = {}
+IMGUI_TEXT_INDEX.__index = IMGUI_TEXT_INDEX
 
-function IMGUI_TEXTINDEX:clear() self.Offsets:clear(); self.EndOffset = 0; end
+function IMGUI_TEXT_INDEX:clear() self.Offsets:clear(); self.EndOffset = 0; end
 
-function IMGUI_TEXTINDEX:get_line_begin(base, n)
+function IMGUI_TEXT_INDEX:get_line_begin(base, n)
     return base + (self.Offsets.Size ~= 0 and self.Offsets[n] or 0)
 end
 
-function IMGUI_TEXTINDEX:get_line_end(base, n)
+function IMGUI_TEXT_INDEX:get_line_end(base, n)
     return base + ((n + 1 < self.Offsets.Size) and (self.Offsets[n + 1] - 1) or self.EndOffset)
 end
 
 --- @return ImGuiTextIndex
 local function ImGuiTextIndex()
-    return setmetatable({ Offsets = ImVector(), EndOffset = 0 }, IMGUI_TEXTINDEX)
+    return setmetatable({ Offsets = ImVector(), EndOffset = 0 }, IMGUI_TEXT_INDEX)
 end
 
 --- @class ImGuiDebugAllocEntry
@@ -1528,14 +1536,33 @@ local function ImGuiMetricsConfig()
 end
 
 --- @class ImGuiNavItemData
-local _ImGuiNavItemData = {}
-_ImGuiNavItemData.__index = _ImGuiNavItemData
+--- @field Window       ImGuiWindow?
+--- @field ID           ImGuiID
+--- @field FocusScopeId ImGuiID
+--- @field RectRel      ImRect
+--- @field ItemFlags    ImGuiItemFlags
+--- @field DistBox      float
+--- @field DistCenter   float
+--- @field DistAxial    float
+local IMGUI_NAV_ITEM_DATA = {}
+IMGUI_NAV_ITEM_DATA.__index = IMGUI_NAV_ITEM_DATA
+
+function IMGUI_NAV_ITEM_DATA:Clear()
+    self.Window       = nil
+    self.ID           = 0
+    self.FocusScopeId = 0
+    self.ItemFlags    = 0
+    self.DistBox    = FLT_MAX
+    self.DistCenter = FLT_MAX
+    self.DistAxial  = FLT_MAX
+end
 
 --- @return ImGuiNavItemData
 local function ImGuiNavItemData()
-    return setmetatable({
-        -- TODO:
-    }, _ImGuiNavItemData)
+    local this = setmetatable({ }, IMGUI_NAV_ITEM_DATA)
+    this.RectRel = ImRect()
+    this:Clear()
+    return this
 end
 
 --- @class ImGuiContext
