@@ -2283,46 +2283,46 @@ end
 --- @field WorkInsetMax                ImVec2
 --- @field BuildWorkInsetMin           ImVec2
 --- @field BuildWorkInsetMax           ImVec2
-MT.ImGuiViewportP = {}
-MT.ImGuiViewportP.__index = MT.ImGuiViewportP
+local IMGUI_VIEWPORT_P = {}
+IMGUI_VIEWPORT_P.__index = IMGUI_VIEWPORT_P
 
-setmetatable(MT.ImGuiViewportP, {__index = MT.ImGuiViewport})
+setmetatable(IMGUI_VIEWPORT_P, {__index = MT.ImGuiViewport})
 
-function MT.ImGuiViewportP:ClearRequestFlags()
+function IMGUI_VIEWPORT_P:ClearRequestFlags()
     self.PlatformRequestClose  = false
     self.PlatformRequestMove   = false
     self.PlatformRequestResize = false
 end
 
-function MT.ImGuiViewportP:CalcWorkRectPos(inset_min)
+function IMGUI_VIEWPORT_P:CalcWorkRectPos(inset_min)
     return ImVec2(self.Pos.x + inset_min.x, self.Pos.y + inset_min.y)
 end
 
-function MT.ImGuiViewportP:CalcWorkRectSize(inset_min, inset_max)
+function IMGUI_VIEWPORT_P:CalcWorkRectSize(inset_min, inset_max)
     return ImVec2(ImMax(0.0, self.Size.x - inset_min.x - inset_max.x), ImMax(0.0, self.Size.y - inset_min.y - inset_max.y))
 end
 
-function MT.ImGuiViewportP:UpdateWorkRect()
+function IMGUI_VIEWPORT_P:UpdateWorkRect()
     self.WorkPos = self:CalcWorkRectPos(self.WorkInsetMin)
     self.WorkSize = self:CalcWorkRectSize(self.WorkInsetMin, self.WorkInsetMax)
 end
 
 --- @nodiscard
-function MT.ImGuiViewportP:GetMainRect()
+function IMGUI_VIEWPORT_P:GetMainRect()
     return ImRect(self.Pos.x, self.Pos.y,
         self.Pos.x + self.Size.x,
         self.Pos.y + self.Size.y)
 end
 
 --- @nodiscard
-function MT.ImGuiViewportP:GetWorkRect()
+function IMGUI_VIEWPORT_P:GetWorkRect()
     return ImRect(self.WorkPos.x, self.WorkPos.y,
         self.WorkPos.x + self.WorkSize.x,
         self.WorkPos.y + self.WorkSize.y)
 end
 
 --- @nodiscard
-function MT.ImGuiViewportP:GetBuildWorkRect()
+function IMGUI_VIEWPORT_P:GetBuildWorkRect()
     local pos = self:CalcWorkRectPos(self.BuildWorkInsetMin)
     local size = self:CalcWorkRectSize(self.BuildWorkInsetMin, self.BuildWorkInsetMax)
     return ImRect(pos.x, pos.y, pos.x + size.x, pos.y + size.y)
@@ -2331,7 +2331,7 @@ end
 --- @return ImGuiViewportP
 --- @nodiscard
 function ImGuiViewportP()
-    local this = setmetatable(ImGuiViewport(), MT.ImGuiViewportP) --- @cast this ImGuiViewportP
+    local this = setmetatable(ImGuiViewport(), IMGUI_VIEWPORT_P) --- @cast this ImGuiViewportP
 
     this.Window = nil
     this.Idx = -1
