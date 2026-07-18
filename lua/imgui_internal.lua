@@ -2247,18 +2247,17 @@ function ImGuiWindow(ctx, name)
 end
 
 --- @class ImDrawDataBuilder
---- @field Layers     table<ImDrawList?>   # 1-based size=2 table
+--- @field Layers     [ImVector<ImDrawList>?, ImVector<ImDrawList>?]
 --- @field LayerData1 ImVector<ImDrawList>
-MT.ImDrawDataBuilder = {}
-MT.ImDrawDataBuilder.__index = MT.ImDrawDataBuilder
 
 --- @return ImDrawDataBuilder
 --- @nodiscard
 local function ImDrawDataBuilder()
-    return setmetatable({
+    return
+    {
         Layers     = {nil, nil},
         LayerData1 = ImVector()
-    }, MT.ImDrawDataBuilder)
+    }
 end
 
 --- @class ImGuiViewportP : ImGuiViewport
