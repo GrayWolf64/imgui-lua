@@ -639,11 +639,16 @@ function ImRect(a, b, c, d) if c and d then return setmetatable({ ImVec2(a, b), 
 function IM_RECT:__eq(other) return self[1] == other[1] and self[2] == other[2] end
 function IM_RECT:__tostring() return string.format("ImRect(Min: %g,%g, Max: %g,%g)", self.Min.x, self.Min.y, self.Max.x, self.Max.y) end
 
---- @param other ImRect
-function IM_RECT:Contains(other) return other[1][1] >= self[1][1] and other[2][1] <= self[2][1] and other[1][2] >= self[1][2] and other[2][2] <= self[2][2] end
-
---- @param p ImVec2
-function IM_RECT:ContainsV2(p) return p[1] >= self[1][1] and p[2] >= self[1][2] and p[1] < self[2][1] and p[2] < self[2][2] end
+--- @param p ImRect|ImVec2
+function IM_RECT:Contains(p)
+    if p.Min then
+        --- @cast p ImRect
+        return p[1][1] >= self[1][1] and p[2][1] <= self[2][1] and p[1][2] >= self[1][2] and p[2][2] <= self[2][2]
+    else
+        --- @cast p ImVec2
+        return p[1] >= self[1][1] and p[2] >= self[1][2] and p[1] < self[2][1] and p[2] < self[2][2]
+    end
+end
 
 --- @param p   ImVec2
 --- @param pad ImVec2

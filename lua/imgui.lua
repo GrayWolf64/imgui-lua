@@ -3951,8 +3951,53 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_
     --     ImGui.LogRenderedText(&pos_min, text, text_display_end);
 end
 
+--- @param bb        ImRect
+--- @param id        ImGuiID
+--- @param flags?    ImGuiNavRenderCursorFlags
+--- @param rounding? float
 function ImGui.RenderNavCursor(bb, id, flags, rounding)
-    -- TODO:
+    if flags    == nil then flags    = ImGuiNavRenderCursorFlags.None end
+    if rounding == nil then rounding = -1.0 end
+
+    local g = GImGui
+    if id ~= g.NavId then
+        return
+    end
+    if not g.NavCursorVisible and bit.band(flags, ImGuiNavRenderCursorFlags.AlwaysDraw) == 0 then
+        return
+    end
+    if id == g.LastItemData.ID and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.NoNav) ~= 0 then
+        return
+    end
+
+    local window = g.CurrentWindow
+    if window.DC.NavHideHighlightOneFrame then
+        return
+    end
+
+    if rounding < 0.0 then
+        rounding = g.Style.FrameRounding
+    end
+
+    local display_rect = ImRect()
+    ImRect_Copy(display_rect, bb)
+    display_rect:ClipWith(window.ClipRect)
+    local scale_factor = ImGui.GetScale()
+    local thickness = ImTrunc(ImMax(2.0, 1.5 * scale_factor))
+    if bit.band(flags, ImGuiNavRenderCursorFlags.Compact) ~= 0 then
+        window.DrawList:AddRect(display_rect.Min, display_rect.Max, ImGui.GetColorU32(ImGuiCol.NavCursor), rounding, thickness)
+    else
+        local distance = ImTrunc(3.0 + thickness * 0.5)
+        display_rect:Expand(ImVec2(distance, distance))
+        local fully_visible = window.ClipRect:Contains(display_rect)
+        if not fully_visible then
+            window.DrawList:PushClipRect(display_rect.Min, display_rect.Max)
+        end
+        window.DrawList:AddRect(display_rect.Min, display_rect.Max, ImGui.GetColorU32(ImGuiCol.NavCursor), rounding, thickness)
+        if not fully_visible then
+            window.DrawList:PopClipRect()
+        end
+    end
 end
 
 do --[[ImGui.RenderMouseCursor]]
@@ -9133,7 +9178,7 @@ function ImGui.FindHoveredViewportFromPlatformWindowStack(mouse_platform_pos)
     local g = GImGui
     local best_candidate = nil
     for _, viewport in g.Viewports:iter() do
-        if bit.band(viewport.Flags, bit.bor(ImGuiViewportFlags.NoInputs, ImGuiViewportFlags.IsMinimized)) == 0 and viewport:GetMainRect():ContainsV2(mouse_platform_pos) then
+        if bit.band(viewport.Flags, bit.bor(ImGuiViewportFlags.NoInputs, ImGuiViewportFlags.IsMinimized)) == 0 and viewport:GetMainRect():Contains(mouse_platform_pos) then
             if best_candidate == nil or best_candidate.LastFocusedStampCount < viewport.LastFocusedStampCount then
                 if viewport.PlatformWindowCreated then
                     best_candidate = viewport
@@ -9948,7 +9993,7 @@ function ImGui.FindPlatformMonitorForPos(pos)
     local g = GImGui
     for monitor_n = 1, g.PlatformIO.Monitors.Size do
         local monitor = g.PlatformIO.Monitors.Data[monitor_n]
-        if ImRect(monitor.MainPos, monitor.MainPos + monitor.MainSize):ContainsV2(pos) then
+        if ImRect(monitor.MainPos, monitor.MainPos + monitor.MainSize):Contains(pos) then
             return monitor_n
         end
     end

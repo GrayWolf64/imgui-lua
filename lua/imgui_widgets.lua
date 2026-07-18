@@ -1234,7 +1234,7 @@ function ImGui.RadioButtonEx(label, active)
         ImGui.MarkItemEdited(id)
     end
 
-    -- ImGui.RenderNavCursor(total_bb, id)
+    ImGui.RenderNavCursor(total_bb, id)
     local num_segment = window.DrawList:_CalcCircleAutoSegmentCount(radius)
     local col
     if held and hovered then
@@ -7208,7 +7208,7 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
         local res_w = ImMin(math.floor(frame_size.x), values_count) + ((plot_type == ImGuiPlotType.Lines) and -1 or 0)
         local item_count = values_count + ((plot_type == ImGuiPlotType.Lines) and -1 or 0)
 
-        if hovered and inner_bb:ContainsV2(g.IO.MousePos) then
+        if hovered and inner_bb:Contains(g.IO.MousePos) then
             local t = ImClamp((g.IO.MousePos.x - inner_bb.Min.x) / (inner_bb.Max.x - inner_bb.Min.x), 0.0, 0.999)
             local v_idx = math.floor(t * item_count) + 1
             IM_ASSERT(v_idx >= 1 and v_idx <= values_count)
