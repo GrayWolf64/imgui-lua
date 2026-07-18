@@ -1075,10 +1075,10 @@ end
 --- @field RefVal            any
 --- @field StorageId         ImGuiID
 --- @field ColorMarker       ImU32
-MT.ImGuiNextItemData = {}
-MT.ImGuiNextItemData.__index = MT.ImGuiNextItemData
+local IMGUI_NEXT_ITEM_DATA = {}
+IMGUI_NEXT_ITEM_DATA.__index = IMGUI_NEXT_ITEM_DATA
 
-function MT.ImGuiNextItemData:ClearFlags()
+function IMGUI_NEXT_ITEM_DATA:ClearFlags()
     self.HasFlags = ImGuiNextItemDataFlags.None
     self.ItemFlags = ImGuiItemFlags.None
 end
@@ -1100,7 +1100,7 @@ function ImGuiNextItemData()
         RefVal            = 0,
         StorageId         = 0,
         ColorMarker       = 0
-    }, MT.ImGuiNextItemData)
+    }, IMGUI_NEXT_ITEM_DATA)
 end
 
 --- @class ImGuiNextWindowData
@@ -1122,10 +1122,10 @@ end
 --- @field BgAlphaVal           number?
 --- @field MenuBarOffsetMinVal  ImVec2?
 --- @field RefreshFlagsVal      int?
-MT.ImGuiNextWindowData = {}
-MT.ImGuiNextWindowData.__index = MT.ImGuiNextWindowData
+local IMGUI_NEXT_WINDOW_DATA = {}
+IMGUI_NEXT_WINDOW_DATA.__index = IMGUI_NEXT_WINDOW_DATA
 
-function MT.ImGuiNextWindowData:ClearFlags()
+function IMGUI_NEXT_WINDOW_DATA:ClearFlags()
     self.HasFlags = ImGuiNextWindowDataFlags.None
 end
 
@@ -1152,7 +1152,7 @@ function ImGuiNextWindowData()
         BgAlphaVal           = nil,
         MenuBarOffsetMinVal  = ImVec2(),
         RefreshFlagsVal      = nil
-    }, MT.ImGuiNextWindowData)
+    }, IMGUI_NEXT_WINDOW_DATA)
 end
 
 --- @enum ImGuiWindowBgClickFlags
