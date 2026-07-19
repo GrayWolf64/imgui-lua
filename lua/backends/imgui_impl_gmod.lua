@@ -244,7 +244,7 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
 
     if is_main_viewport then
         VGUI_Hook(panel, "OnScreenSizeChanged", function() ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
-        VGUI_Hook(panel, "OnFocusChanged",      function(self, gained_focus) local io = ImGui.GetIO(); io:AddFocusEvent(gained_focus); end)
+        -- VGUI_Hook(panel, "OnFocusChanged", function(self, gained_focus) local io = ImGui.GetIO(); io:AddFocusEvent(gained_focus); end)
     end
 end
 
