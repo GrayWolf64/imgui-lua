@@ -6846,8 +6846,33 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
     return is_open
 end
 
+--- @param target_pos ImVec2
 function ImGui.TreeNodeDrawLineToChildNode(target_pos)
-    -- TODO:
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.DC.TreeDepth == 0 or bit.band(window.DC.TreeHasStackDataDepthMask, bit.lshift(1, window.DC.TreeDepth - 1)) == 0 then
+        return
+    end
+
+    local parent_data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
+    local x1 = ImTrunc(parent_data.DrawLinesX1)
+    local x2 = ImTrunc(target_pos.x - g.Style.ItemInnerSpacing.x)
+    local y = ImTrunc(target_pos.y)
+    local rounding = (g.Style.TreeLinesRounding > 0.0) and ImMin(x2 - x1, g.Style.TreeLinesRounding) or 0.0
+    parent_data.DrawLinesToNodesY2 = ImMax(parent_data.DrawLinesToNodesY2, y - rounding)
+    if x1 >= x2 then
+        return
+    end
+    if rounding > 0.0 then
+        x1 = x1 + 0.5 + rounding
+        window.DrawList:PathArcToFast(ImVec2(x1, y - rounding), rounding, 6, 3)
+        if x1 < x2 then
+            window.DrawList:PathLineTo(ImVec2(x2, y))
+        end
+        window.DrawList:PathStroke(ImGui.GetColorU32(ImGuiCol.TreeLines), g.Style.TreeLinesSize)
+    else
+        window.DrawList:AddLineH(x1, x2, y, ImGui.GetColorU32(ImGuiCol.TreeLines), g.Style.TreeLinesSize)
+    end
 end
 
 --- @param id ImGuiID
