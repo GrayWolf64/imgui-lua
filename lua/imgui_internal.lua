@@ -1770,7 +1770,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         NavCursorHideFrames = 0,
         NavHighlightItemUnderNav = false,
         NavIdIsAlive = false,
-        NavInputSource = ImGuiInputSource.None,
+        NavInputSource = ImGuiInputSource.Keyboard,
         NavWindowingTarget = nil, NavWindowingTargetAnim = nil, NavWindowingListWindow = nil,
         NavWindowingTimer = 0.0, NavWindowingHighlightAlpha = 0.0,
         NavWindowingToggleLayer = false,
