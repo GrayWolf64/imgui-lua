@@ -54,6 +54,7 @@ else
         ImGui.CreateContext()
 
         local io = ImGui.GetIO()
+        io.ConfigFlags = bit.bor(io.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard)
         io.ConfigFlags = bit.bor(io.ConfigFlags, ImGuiConfigFlags.ViewportsEnable)
 
         local style = ImGui.GetStyle()

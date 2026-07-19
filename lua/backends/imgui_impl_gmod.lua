@@ -3,8 +3,6 @@
 -- FIXME: `input.GetCursorPos()` has issues in MacOS:
 -- https://github.com/Facepunch/garrysmod-issues/issues/4964
 
--- TODO: utilize `io.AddFocusEvent()`
-
 -- e.g. DFrame default `GetSize()` and `GetPos()` doesn't take titlebar and border into consideration, so
 -- we need to solve this manually. This is probably not perfect, but definitely better than hardcoding
 -- some titlebar or border sizes directly.
@@ -246,6 +244,7 @@ local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
 
     if is_main_viewport then
         VGUI_Hook(panel, "OnScreenSizeChanged", function() ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
+        -- VGUI_Hook(panel, "OnFocusChanged", function(self, gained_focus) local io = ImGui.GetIO(); io:AddFocusEvent(gained_focus); end)
     end
 end
 
@@ -452,10 +451,10 @@ local function ImGui_ImplGMOD_SwapBuffers()
     -- render.Spin()
 end
 
-local function ImGui_ImplGMOD_UpdateIme()
+local function ImGui_ImplGMOD_UpdateIme(vp)
     local bd = ImGui_ImplGMOD_GetBackendData()
     local data = bd.ImeData
-    local window = vgui.GetHoveredPanel()
+    local window = ImGui_ImplGMOD_GetDermaWindowFromViewport(vp)
 
     -- Stop previous input
     if (not (data.WantVisible or data.WantTextInput) or bd.ImeWindow ~= window) and bd.ImeWindow ~= nil then
@@ -487,7 +486,7 @@ local function ImGui_ImplGMOD_PlatformSetImeData(ctx, vp, data)
     local bd = ImGui_ImplGMOD_GetBackendData()
     bd.ImeData = data
     bd.ImeDirty = true
-    ImGui_ImplGMOD_UpdateIme()
+    ImGui_ImplGMOD_UpdateIme(vp)
 end
 
 --- @param ctx  ImGuiContext

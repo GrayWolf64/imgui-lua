@@ -987,7 +987,7 @@ end
 
 --- @return ImGuiKeyData
 --- @nodiscard
-function ImGuiKeyData() return { Down = false, DownDuration = nil, DownDurationPrev = nil, AnalogValue = nil } end
+function ImGuiKeyData() return { Down = false, DownDuration = 0.0, DownDurationPrev = 0.0, AnalogValue = 0.0 } end
 
 --- @enum ImGuiConfigFlags
 ImGuiConfigFlags = {
@@ -1046,6 +1046,7 @@ function ImGuiIO()
 
         ConfigMacOSXBehaviors = false,
         ConfigNavCursorVisibleAuto = true,
+        ConfigNavCursorVisibleAlways = false,
         ConfigInputTrickleEventQueue = true,
         ConfigWindowsResizeFromEdges = true,
 
@@ -1092,6 +1093,9 @@ function ImGuiIO()
         WantTextInput       = nil,
 
         Framerate = 0,
+
+        NavActive = false,
+        NavVisible = false,
 
         MetricsRenderWindows = 0,
 
