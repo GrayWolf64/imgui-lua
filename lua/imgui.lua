@@ -2698,13 +2698,11 @@ end
 --- @param key_right ImGuiKey
 --- @param key_up    ImGuiKey
 --- @param key_down  ImGuiKey
---- @return ImVec2
 function ImGui.GetKeyMagnitude2d(key_left, key_right, key_up, key_down)
-    local dr = ImGui.GetKeyData(nil, key_right)
-    local dl = ImGui.GetKeyData(nil, key_left)
-    local dd = ImGui.GetKeyData(nil, key_down)
-    local du = ImGui.GetKeyData(nil, key_up)
-    return ImVec2(dr.AnalogValue - dl.AnalogValue, dd.AnalogValue - du.AnalogValue)
+    return ImVec2(
+        ImGui.GetKeyData(nil, key_right).AnalogValue - ImGui.GetKeyData(nil, key_left).AnalogValue,
+        ImGui.GetKeyData(nil, key_down).AnalogValue - ImGui.GetKeyData(nil, key_up).AnalogValue
+    )
 end
 
 --- @param key      ImGuiKey
@@ -2761,7 +2759,7 @@ function ImGui.IsKeyPressed(key, is_repeat)
     return ImGui.IsKeyPressedEx(key, is_repeat and ImGuiInputFlags.Repeat or ImGuiInputFlags.None, ImGuiKeyOwner_Any)
 end
 
---- @param key      ImGuiKey
+--- @param key       ImGuiKey
 --- @param owner_id? ImGuiID
 --- @return bool
 function ImGui.IsKeyReleased(key, owner_id)
@@ -7614,14 +7612,10 @@ end
 --- @param scale  float
 local function ScaleWindow(window, scale)
     local origin = window.Viewport.Pos
-    window.Pos.x = ImFloor((window.Pos.x - origin.x) * scale + origin.x) -- TODO: those for vecs
-    window.Pos.y = ImFloor((window.Pos.y - origin.y) * scale + origin.y)
-    window.Size.x = ImTrunc(window.Size.x * scale)
-    window.Size.y = ImTrunc(window.Size.y * scale)
-    window.SizeFull.x = ImTrunc(window.SizeFull.x * scale)
-    window.SizeFull.y = ImTrunc(window.SizeFull.y * scale)
-    window.ContentSize.x = ImTrunc(window.ContentSize.x * scale)
-    window.ContentSize.y = ImTrunc(window.ContentSize.y * scale)
+    ImVec2_Copy(window.Pos, ImFloor((window.Pos - origin) * scale + origin))
+    ImVec2_Copy(window.Size, ImTrunc(window.Size * scale))
+    ImVec2_Copy(window.SizeFull, ImTrunc(window.SizeFull * scale))
+    ImVec2_Copy(window.ContentSize, ImTrunc(window.ContentSize * scale))
 end
 
 --- @param viewport ImGuiViewportP
