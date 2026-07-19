@@ -8194,7 +8194,7 @@ function ImGui.EndPopup()
 
     -- Make all menus and popups wrap around for now, may need to expose that policy (e.g. focus scope could include wrap/loop policy flags used by new move requests)
     if g.NavWindow == window then
-        -- TODO: ImGui.NavMoveRequestTryWrapping(window, ImGuiNavMoveFlags_LoopY)
+        ImGui.NavMoveRequestTryWrapping(window, ImGuiNavMoveFlags.LoopY)
     end
 
     -- Child-popups don't need to be laid out
