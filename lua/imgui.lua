@@ -1913,14 +1913,15 @@ function ImGui.SetActiveID(id, window)
     local g = GImGui
 
     if g.ActiveId ~= 0 then
-        g.DeactivatedItemData.ID = g.ActiveId
-        if g.LastItemData.ID == g.ActiveId then
-            g.DeactivatedItemData.ElapseFrame = g.FrameCount
-        else
-            g.DeactivatedItemData.ElapseFrame = g.FrameCount + 1
+        local deactivated_data = g.DeactivatedItemData
+        deactivated_data.ID = g.ActiveId
+        deactivated_data.ElapseFrame = (g.LastItemData.ID == g.ActiveId) and g.FrameCount or g.FrameCount + 1 -- FIXME: OK to use LastItemData?
+        deactivated_data.HasBeenEditedBefore = g.ActiveIdHasBeenEditedBefore
+        deactivated_data.IsAlive = (g.ActiveIdIsAlive == g.ActiveId)
+
+        if g.InputTextState.ID == g.ActiveId then
+            ImGui.InputTextDeactivateHook(g.ActiveId)
         end
-        g.DeactivatedItemData.HasBeenEditedBefore = g.ActiveIdHasBeenEditedBefore
-        g.DeactivatedItemData.IsAlive = (g.ActiveIdIsAlive == g.ActiveId)
 
         if g.MovingWindow and (g.ActiveId == g.MovingWindow.MoveId) then
             print("SetActiveID() cancel MovingWindow")
