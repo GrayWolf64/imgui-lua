@@ -3322,6 +3322,11 @@ function ImGui.UpdateInputEvents(trickle_fast_inputs)
             g.InputEventsQueue:erase(1)
         end
     end
+
+    if g.IO.AppFocusLost then
+        g.IO:ClearInputKeys()
+        g.IO:ClearInputMouse()
+    end
 end
 
 end
