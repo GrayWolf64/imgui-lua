@@ -451,10 +451,10 @@ local function ImGui_ImplGMOD_SwapBuffers()
     -- render.Spin()
 end
 
-local function ImGui_ImplGMOD_UpdateIme()
+local function ImGui_ImplGMOD_UpdateIme(vp)
     local bd = ImGui_ImplGMOD_GetBackendData()
     local data = bd.ImeData
-    local window = vgui.GetHoveredPanel()
+    local window = ImGui_ImplGMOD_GetDermaWindowFromViewport(vp)
 
     -- Stop previous input
     if (not (data.WantVisible or data.WantTextInput) or bd.ImeWindow ~= window) and bd.ImeWindow ~= nil then
@@ -486,7 +486,7 @@ local function ImGui_ImplGMOD_PlatformSetImeData(ctx, vp, data)
     local bd = ImGui_ImplGMOD_GetBackendData()
     bd.ImeData = data
     bd.ImeDirty = true
-    ImGui_ImplGMOD_UpdateIme()
+    ImGui_ImplGMOD_UpdateIme(vp)
 end
 
 --- @param ctx  ImGuiContext
