@@ -1580,6 +1580,20 @@ function ImGui.IsItemActive()
     return false
 end
 
+function ImGui.IsItemFocused()
+    local g = GImGui
+    if g.NavId ~= g.LastItemData.ID or g.NavId == 0 then
+        return false
+    end
+
+    local window = g.CurrentWindow
+    if g.LastItemData.ID == window.ID and window.WriteAccessed then
+        return false
+    end
+
+    return true
+end
+
 function ImGui.IsItemDeactivated()
     local g = GImGui
     if bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HasDeactivated) ~= 0 then
@@ -8319,6 +8333,20 @@ function ImGui.GetMouseButtonFromPopupFlags(flags)
     return ImGuiMouseButton.Right -- Default == 1
 end
 
+--- @param popup_flags ImGuiPopupFlags
+--- @param id          ImGuiID
+function ImGui.IsPopupOpenRequestForItem(popup_flags, id)
+    local g = GImGui
+    local mouse_button = ImGui.GetMouseButtonFromPopupFlags(popup_flags)
+    if ImGui.IsMouseReleased(mouse_button) and ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup) then
+        return true
+    end
+    if g.NavOpenContextMenuItemId == id and (ImGui.IsItemFocused() or id == g.CurrentWindow.MoveId) then
+        return true
+    end
+    return false
+end
+
 --- @param str_id?      string
 --- @param popup_flags? ImGuiPopupFlags
 function ImGui.OpenPopupOnItemClick(str_id, popup_flags)
@@ -8326,8 +8354,7 @@ function ImGui.OpenPopupOnItemClick(str_id, popup_flags)
 
     local g = GImGui
     local window = g.CurrentWindow
-    local mouse_button = ImGui.GetMouseButtonFromPopupFlags(popup_flags)
-    if ImGui.IsMouseReleased(mouse_button) and ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup) then
+    if ImGui.IsPopupOpenRequestForItem(popup_flags, g.LastItemData.ID) then
         local id
         if str_id then id = window:GetID(str_id) else id = g.LastItemData.ID end
         IM_ASSERT(id ~= 0)
@@ -8335,8 +8362,24 @@ function ImGui.OpenPopupOnItemClick(str_id, popup_flags)
     end
 end
 
+--- @param str_id?      string
+--- @param popup_flags? ImGuiPopupFlags
+--- @return bool
 function ImGui.BeginPopupContextItem(str_id, popup_flags)
-    -- TODO:
+    if popup_flags == nil then popup_flags = 0 end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.SkipItems then
+        return false
+    end
+    local id
+    if str_id then id = window:GetID(str_id) else id = g.LastItemData.ID end
+    IM_ASSERT(id ~= 0)
+    if ImGui.IsPopupOpenRequestForItem(popup_flags, g.LastItemData.ID) then
+        ImGui.OpenPopupEx(id, popup_flags)
+    end
+    return ImGui.BeginPopupEx(id, bit.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.NoTitleBar, ImGuiWindowFlags.NoSavedSettings))
 end
 
 ---------------------------------------------------------------------------------------
