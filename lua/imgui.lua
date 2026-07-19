@@ -903,6 +903,15 @@ function ImGui.Initialize()
     g.ViewportCreatedCount = g.ViewportCreatedCount + 1
     g.PlatformIO.Viewports:push_back(g.Viewports.Data[1])
 
+    for key = ImGuiKey.NamedKey_BEGIN, ImGuiKey.NamedKey_END - 1 do
+        if (key >= ImGuiKey.K0 and key <= ImGuiKey.K9) or (key >= ImGuiKey.A and key <= ImGuiKey.Z) or (key >= ImGuiKey.Keypad0 and key <= ImGuiKey.Keypad9)
+            or key == ImGuiKey.Tab or key == ImGuiKey.Space or key == ImGuiKey.Apostrophe or key == ImGuiKey.Comma or key == ImGuiKey.Minus or key == ImGuiKey.Period
+            or key == ImGuiKey.Slash or key == ImGuiKey.Semicolon or key == ImGuiKey.Equal or key == ImGuiKey.LeftBracket or key == ImGuiKey.RightBracket or key == ImGuiKey.GraveAccent
+            or key == ImGuiKey.KeypadDecimal or key == ImGuiKey.KeypadDivide or key == ImGuiKey.KeypadMultiply or key == ImGuiKey.KeypadSubtract or key == ImGuiKey.KeypadAdd or key == ImGuiKey.KeypadEqual then
+            g.KeysMayBeCharInput:SetBit(key + 1)
+        end
+    end
+
     local atlas = g.IO.Fonts
     g.DrawListSharedData.Context = g
     ImGui.RegisterFontAtlas(atlas)
@@ -6848,6 +6857,9 @@ function ImGui.NewFrame()
     g.ActiveIdIsJustActivated = false
     if g.TempInputId ~= 0 and g.ActiveId ~= g.TempInputId then
         g.TempInputId = 0
+    end
+    if g.InputTextReactivateId ~= 0 and g.InputTextReactivateId ~= g.DeactivatedItemData.ID then
+        g.InputTextReactivateId = 0
     end
     if g.ActiveId == 0 then
         g.ActiveIdUsingNavDirMask = 0x00

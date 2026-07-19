@@ -811,7 +811,7 @@ function ImBitArray(BITCOUNT, OFFSET)
     --- @return boolean
     this.TestBit = function(self, n) n = n + OFFSET; IM_ASSERT(n >= 1 and n <= BITCOUNT); return IM_BITARRAY_TESTBIT(self.Data, n); end
     --- @param n int # 1-based
-    this.SetBit  = function(self, n) IM_ASSERT(n >= 1 and n <= BITCOUNT); ImBitArraySetBit(self.Data, n); end
+    this.SetBit  = function(self, n) n = n + OFFSET; IM_ASSERT(n >= 1 and n <= BITCOUNT); ImBitArraySetBit(self.Data, n); end
 
     this:ClearAllBits()
 
@@ -1778,7 +1778,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         NavWindowingInputSource = ImGuiInputSource.None,
         NavWindowingAccumDeltaPos = ImVec2(0.0, 0.0), NavWindowingAccumDeltaSize = ImVec2(0.0, 0.0),
         DimBgRatio = 0.0,
-        LastKeyboardKeyPressTime = 0.0,
+        LastKeyboardKeyPressTime = -1.0, LastKeyModsChangeTime = -1.0, LastKeyModsChangeFromNoneTime = -1.0,
         ConfigNavWindowingKeyNext = bit.bor(ImGuiMod_Ctrl, ImGuiKey.Tab),
         ConfigNavWindowingKeyPrev = bit.bor(ImGuiMod_Ctrl, ImGuiMod_Shift, ImGuiKey.Tab),
         ConfigNavWindowingWithGamepad = true,
@@ -1874,6 +1874,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         InputTextLineIndex = ImGuiTextIndex(),
         InputTextDeactivatedState = ImGuiInputTextDeactivatedState(),
         InputTextPasswordFontBackupBaked = ImFontBaked(),
+        InputTextReactivateId = 0,
+        TempInputId = 0,
 
         ActiveIdValueOnActivation = 0,
         DataTypeZeroValue = 0,
