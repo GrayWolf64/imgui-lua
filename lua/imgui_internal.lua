@@ -56,6 +56,10 @@ INT_MIN = -0x7fffffff - 1
 INT_MAX = 0x7fffffff
 UINT_MAX = 0x7fffffff * 2 + 1
 
+NAV_WINDOWING_HIGHLIGHT_DELAY = 0.5
+NAV_ACTIVATE_HIGHLIGHT_TIMER = 0.10
+NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY = 0.60
+
 IM_PI  = math.pi
 ImPow  = math.pow
 ImLog  = math.log
@@ -408,6 +412,7 @@ function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = GImGui if bitAnd(g.Debug
 function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = GImGui if g2 and bitAnd(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
 function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = GImGui if bitAnd(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
 
+--- @alias ImGuiSelectionUserData any
 ImGuiSelectionUserData_Invalid = -1
 
 ImGuiKeyOwner_Any     = 0
@@ -498,6 +503,18 @@ function ImGui.GetRoundedFontSize(size) return IM_ROUND(size) end
 --- @return ImRect
 --- @nodiscard
 function ImGui.WindowRectAbsToRel(window, r) local off = window.DC.CursorStartPos return ImRect(r.Min.x - off.x, r.Min.y - off.y, r.Max.x - off.x, r.Max.y - off.y) end
+
+--- @param window ImGuiWindow
+--- @param r      ImRect
+--- @nodiscard
+function ImGui.WindowRectRelToAbs(window, r) local off = window.DC.CursorStartPos return ImRect(r.Min.x + off.x, r.Min.y + off.y, r.Max.x + off.x, r.Max.y + off.y) end
+
+--- @param dir ImGuiDir
+--- @return bool
+function ImGui.IsActiveIdUsingNavDir(dir)
+    local g = GImGui
+    return bit.band(g.ActiveIdUsingNavDirMask, bit.lshift(1, dir)) ~= 0
+end
 
 --- @param window ImGuiWindow
 --- @param p      ImVec2
@@ -725,6 +742,13 @@ function IM_RECT:Translate(d)
     self[1][1] = self[1][1] + d[1]; self[1][2] = self[1][2] + d[2]
     self[2][1] = self[2][1] + d[1]; self[2][2] = self[2][2] + d[2]
 end
+
+--- @param dy float
+function IM_RECT:TranslateY(dy)
+    self[1][2] = self[1][2] + dy; self[2][2] = self[2][2] + dy
+end
+
+function IM_RECT:IsInverted() return self[1][1] > self[2][1] or self[1][2] > self[2][2] end
 
 function IM_RECT:GetArea() return (self[2][1] - self[1][1]) * (self[2][2] - self[1][2]) end
 
@@ -1541,22 +1565,24 @@ local function ImGuiMetricsConfig()
 end
 
 --- @class ImGuiNavItemData
---- @field Window       ImGuiWindow?
---- @field ID           ImGuiID
---- @field FocusScopeId ImGuiID
---- @field RectRel      ImRect
---- @field ItemFlags    ImGuiItemFlags
---- @field DistBox      float
---- @field DistCenter   float
---- @field DistAxial    float
+--- @field Window             ImGuiWindow?
+--- @field ID                 ImGuiID
+--- @field FocusScopeId       ImGuiID
+--- @field RectRel            ImRect
+--- @field ItemFlags          ImGuiItemFlags
+--- @field SelectionUserData  ImGuiSelectionUserData
+--- @field DistBox            float
+--- @field DistCenter         float
+--- @field DistAxial          float
 local IMGUI_NAV_ITEM_DATA = {}
 IMGUI_NAV_ITEM_DATA.__index = IMGUI_NAV_ITEM_DATA
 
 function IMGUI_NAV_ITEM_DATA:Clear()
-    self.Window       = nil
-    self.ID           = 0
-    self.FocusScopeId = 0
-    self.ItemFlags    = 0
+    self.Window             = nil
+    self.ID                 = 0
+    self.FocusScopeId       = 0
+    self.ItemFlags          = 0
+    self.SelectionUserData  = ImGuiSelectionUserData_Invalid
     self.DistBox    = FLT_MAX
     self.DistCenter = FLT_MAX
     self.DistAxial  = FLT_MAX
@@ -1736,11 +1762,26 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         NavLayer = ImGuiNavLayer.Main,
         NavId = 0,
+        NavOpenContextMenuItemId = 0, NavOpenContextMenuWindowId = 0,
         NavWindow = nil,
         NavHighlightActivatedId = 0,
+        NavHighlightActivatedTimer = 0.0,
         NavCursorVisible = false,
+        NavCursorHideFrames = 0,
         NavHighlightItemUnderNav = false,
         NavIdIsAlive = false,
+        NavInputSource = ImGuiInputSource.None,
+        NavWindowingTarget = nil, NavWindowingTargetAnim = nil, NavWindowingListWindow = nil,
+        NavWindowingTimer = 0.0, NavWindowingHighlightAlpha = 0.0,
+        NavWindowingToggleLayer = false,
+        NavWindowingToggleKey = ImGuiKey.None,
+        NavWindowingInputSource = ImGuiInputSource.None,
+        NavWindowingAccumDeltaPos = ImVec2(0.0, 0.0), NavWindowingAccumDeltaSize = ImVec2(0.0, 0.0),
+        DimBgRatio = 0.0,
+        LastKeyboardKeyPressTime = 0.0,
+        ConfigNavWindowingKeyNext = bit.bor(ImGuiMod_Ctrl, ImGuiKey.Tab),
+        ConfigNavWindowingKeyPrev = bit.bor(ImGuiMod_Ctrl, ImGuiMod_Shift, ImGuiKey.Tab),
+        ConfigNavWindowingWithGamepad = true,
 
         NavFocusRoute = ImVector(),
 
@@ -1755,6 +1796,19 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         NavMoveScrollFlags = ImGuiScrollFlags.None,
         NavMoveKeyMods = ImGuiMod_None,
         NavMoveDir = ImGuiDir.None, NavMoveDirForDebug = ImGuiDir.None, NavMoveClipDir = ImGuiDir.None,
+        NavMoveResultLocal = ImGuiNavItemData(),
+        NavMoveResultOther = ImGuiNavItemData(),
+        NavMoveResultLocalVisible = ImGuiNavItemData(),
+        NavTabbingResultFirst = ImGuiNavItemData(),
+        NavScoringRect = ImRect(),
+        NavScoringNoClipRect = ImRect(),
+        ConfigNavEnableTabbing = true,
+        NavTabbingCounter = 0,
+        NavTabbingDir = 0,
+        NavNextActivateId = 0,
+        NavNextActivateFlags = ImGuiActivateFlags.None,
+        NavActivateId = 0, NavActivateDownId = 0, NavActivatePressedId = 0,
+        NavActivateFlags = ImGuiActivateFlags.None,
 
         FrameCount = -1,
 
@@ -2592,6 +2646,8 @@ ImGuiKey.NavKeyboardTweakSlow = ImGuiMod_Ctrl
 ImGuiKey.NavKeyboardTweakFast = ImGuiMod_Shift
 ImGuiKey.NavGamepadTweakSlow = ImGuiKey.GamepadL1
 ImGuiKey.NavGamepadTweakFast = ImGuiKey.GamepadR1
+ImGuiKey.NavGamepadMenu = ImGuiKey.GamepadFaceLeft
+ImGuiKey.NavGamepadContextMenu = ImGuiKey.GamepadFaceUp
 
 --- @enum ImGuiInputEventType
 ImGuiInputEventType = {
