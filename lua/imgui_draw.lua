@@ -3065,6 +3065,13 @@ function MT.ImDrawData:AddDrawList(draw_list)
     ImGui.AddDrawListToDrawDataEx(self, self.CmdLists, draw_list)
 end
 
+local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN = 4
+local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
+
+local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) return ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX) end
+local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(_N, _MAXERROR) return (_MAXERROR / (1 - ImCos(IM_PI / ImMax(_N, IM_PI)))) end
+local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCos(IM_PI / ImMax(_N, IM_PI))) / _RAD) end
+
 function MT.ImDrawListSharedData:SetCircleTessellationMaxError(max_error)
     if self.CircleTessellationMaxError == max_error then
         return
