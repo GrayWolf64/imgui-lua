@@ -594,7 +594,7 @@ end
 
 --- @class ImDrawData
 --- @field Valid            bool
---- @field CmdListsCount    int
+--- @field FrameCount       int
 --- @field TotalIdxCount    int
 --- @field TotalVtxCount    int
 --- @field CmdLists         ImVector<ImDrawList>
@@ -621,6 +621,7 @@ end
 --- @field UniqueID             int
 --- @field Status               ImTextureStatus
 --- @field BackendUserData      any
+--- @field QueueUserData        any
 --- @field TexID                ImTextureID
 --- @field Format               ImTextureFormat
 --- @field Width                int
@@ -1328,15 +1329,19 @@ ImGuiWindowFlags.NoInputs     = bitOr(ImGuiWindowFlags.NoMouseInputs, ImGuiWindo
 
 --- @enum ImGuiItemFlags
 ImGuiItemFlags = {
-    None              = 0,
-    NoTabStop         = bitLShift(1, 0),
-    NoNav             = bitLShift(1, 1),
-    NoNavDefaultFocus = bitLShift(1, 2),
-    ButtonRepeat      = bitLShift(1, 3),
-    AutoClosePopups   = bitLShift(1, 4),
-    AllowDuplicateId  = bitLShift(1, 5),
-    Disabled          = bitLShift(1, 6)
+    None                  = 0,
+    NoTabStop             = bitLShift(1, 0),
+    NoNav                 = bitLShift(1, 1),
+    NoNavDefaultFocus     = bitLShift(1, 2),
+    ButtonRepeat          = bitLShift(1, 3),
+    AutoClosePopups       = bitLShift(1, 4),
+    AllowDuplicateId      = bitLShift(1, 5),
+    Disabled              = bitLShift(1, 6),
+    LiveEditOnInputText   = bitLShift(1, 7),
+    LiveEditOnInputScalar = bitLShift(1, 8)
 }
+
+ImGuiItemFlags.LiveEditOnInput = bitOr(ImGuiItemFlags.LiveEditOnInputText, ImGuiItemFlags.LiveEditOnInputScalar)
 
 --- @enum ImGuiItemStatusFlags
 ImGuiItemStatusFlags = {

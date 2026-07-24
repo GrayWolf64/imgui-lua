@@ -501,6 +501,10 @@ end
 
 end
 
+local function DemoWindowWidgetsLiveEdit()
+    -- TODO:
+end
+
 local DemoWindowWidgetsPlotting
 do
 
@@ -680,6 +684,7 @@ local function DemoWindowWidgets()
     DemoWindowWidgetsBullets()
     DemoWindowWidgetsColorAndPickers()
     DemoWindowWidgetsImages()
+    DemoWindowWidgetsLiveEdit()
     DemoWindowWidgetsPlotting()
     DemoWindowWidgetsProgressBars()
     DemoWindowWidgetsVerticalSliders()

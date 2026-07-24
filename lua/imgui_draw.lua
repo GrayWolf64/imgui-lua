@@ -491,12 +491,13 @@ function ImTextureDataUpdateNewFrame(tex)
         tex.Status = ImTextureStatus.WantDestroy
     end
 
-    if (tex.Status == ImTextureStatus.WantDestroy and tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil) then
+    if (tex.Status == ImTextureStatus.WantDestroy and tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil and tex.QueueUserData == nil) then
         tex.Status = ImTextureStatus.Destroyed
     end
 
     if (tex.Status == ImTextureStatus.Destroyed) then
         IM_ASSERT(tex.TexID == ImTextureID_Invalid and tex.BackendUserData == nil, "Backend set texture Status to Destroyed but did not clear TexID/BackendUserData!")
+        IM_ASSERT(tex.QueueUserData == nil, "Texture queue set Status to Destroyed but did not clear QueueUserData!")
         if (tex.WantDestroyNextFrame) then
             remove_from_list = true
         else
@@ -3027,10 +3028,8 @@ local function IM_FIXNORMAL2F(VX, VY)
 end
 
 function MT.ImDrawData:Clear()
-    self.Valid         = false
-    self.CmdListsCount = 0
-    self.TotalIdxCount = 0
-    self.TotalVtxCount = 0
+    self.Valid = false
+    self.FrameCount = 0; self.TotalIdxCount = 0; self.TotalVtxCount = 0
     self.CmdLists:resize(0)
     self.DisplayPos       = ImVec2(0.0, 0.0)
     self.DisplaySize      = ImVec2(0.0, 0.0)
@@ -3054,13 +3053,11 @@ function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
     end
 
     out_list:push_back(draw_list)
-    draw_data.CmdListsCount = draw_data.CmdListsCount + 1
     draw_data.TotalVtxCount = draw_data.TotalVtxCount + draw_list.VtxBuffer.Size
     draw_data.TotalIdxCount = draw_data.TotalIdxCount + draw_list.IdxBuffer.Size
 end
 
 function MT.ImDrawData:AddDrawList(draw_list)
-    IM_ASSERT(self.CmdLists.Size == self.CmdListsCount)
     draw_list:_PopUnusedDrawCmd()
     ImGui.AddDrawListToDrawDataEx(self, self.CmdLists, draw_list)
 end

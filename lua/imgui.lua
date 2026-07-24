@@ -1200,7 +1200,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     g.LastItemData.ID = id
     ImRect_Copy(g.LastItemData.Rect, bb)
     ImRect_Copy(g.LastItemData.NavRect, nav_bb_arg and nav_bb_arg or bb)
-    g.LastItemData.ItemFlags = bit.bor(g.CurrentItemFlags, g.NextItemData.ItemFlags, extra_flags)
+    g.LastItemData.ItemFlags = bit.bor(g.CurrentItemFlags, g.NextItemData.ItemFlagsSet, extra_flags)
     g.LastItemData.StatusFlags = ImGuiItemStatusFlags.None
 
     if id ~= 0 then
@@ -1224,7 +1224,7 @@ function ImGui.ItemAdd(bb, id, nav_bb_arg, extra_flags)
     end
 
     g.NextItemData.HasFlags = ImGuiNextItemDataFlags.None
-    g.NextItemData.ItemFlags = ImGuiItemFlags.None
+    g.NextItemData.ItemFlagsSet = ImGuiItemFlags.None
 
     local is_rect_visible = bb:Overlaps(window.ClipRect)
     if not is_rect_visible then
@@ -1468,7 +1468,7 @@ function ImGui.BeginGroup()
     group_data.BackupActiveIdIsAlive = g.ActiveIdIsAlive
     group_data.BackupHoveredIdIsAlive = (g.HoveredId ~= 0)
     group_data.BackupIsSameLine = window.DC.IsSameLine
-    group_data.BackupActiveIdHasBeenEditedThisFrame = g.ActiveIdHasBeenEditedThisFrame
+    group_data.BackupAnyIdHasBeenEditedThisFrame = g.AnyIdHasBeenEditedThisFrame
     group_data.BackupDeactivatedIdIsAlive = g.DeactivatedItemData.IsAlive
     group_data.EmitItem = true
 
@@ -1537,7 +1537,7 @@ function ImGui.EndGroup()
     end
 
     -- Forward Edited flag
-    if g.ActiveIdHasBeenEditedThisFrame and not group_data.BackupActiveIdHasBeenEditedThisFrame then
+    if g.AnyIdHasBeenEditedThisFrame and not group_data.BackupAnyIdHasBeenEditedThisFrame then
         g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Edited)
     end
 
@@ -2059,17 +2059,18 @@ function ImGui.MarkItemEdited(id)
 
     if g.ActiveId == id or g.ActiveId == 0 then
         -- FIXME: Can't we fully rely on LastItemData yet?
+        g.AnyIdHasBeenEditedThisFrame = true
         g.ActiveIdHasBeenEditedThisFrame = true
         g.ActiveIdHasBeenEditedBefore = true
-        if g.DeactivatedItemData.ID == id then
-            g.DeactivatedItemData.HasBeenEditedBefore = true
-        end
+    end
+    if g.DeactivatedItemData.ID == id then
+        g.DeactivatedItemData.HasBeenEditedBefore = true
     end
 
     -- We accept a MarkItemEdited() on drag and drop targets (see https://github.com/ocornut/imgui/issues/1875#issuecomment-978243343)
     -- We accept 'ActiveIdPreviousFrame == id' for InputText() returning an edit after it has been taken ActiveId away (#4714)
     -- FIXME: This assert is getting a bit meaningless over time. It helped detect some unusual use cases but eventually it is becoming an unnecessary restriction.
-    IM_ASSERT(g.DragDropActive or g.ActiveId == id or g.ActiveId == 0 or g.ActiveIdPreviousFrame == id or g.NavJustMovedToId or (g.CurrentMultiSelect ~= nil and g.BoxSelectState.IsActive))
+    IM_ASSERT(g.DragDropActive or g.ActiveId == id or g.ActiveId == 0 or g.DeactivatedItemData.ID == id or g.ActiveIdPreviousFrame == id or g.NavJustMovedToId or (g.CurrentMultiSelect ~= nil and g.BoxSelectState.IsActive))
 
     -- IM_ASSERT(g.CurrentWindow.DC.LastItemId == id)
     g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Edited)
@@ -6571,7 +6572,7 @@ end
 
 --- @param viewport ImGuiViewportP
 local function InitViewportDrawData(viewport)
-    local io = ImGui.GetIO()
+    local g = GImGui
     local draw_data = viewport.DrawDataP
 
     viewport.DrawData = draw_data
@@ -6587,11 +6588,11 @@ local function InitViewportDrawData(viewport)
     -- it earlier in the pipeline, rather than pretend to hide the data at the end of the pipeline.
     local is_minimized = bit.band(viewport.Flags, ImGuiViewportFlags.IsMinimized) ~= 0
 
-    draw_data.Valid            = true
-    draw_data.CmdListsCount    = 0
-    draw_data.TotalVtxCount    = 0
-    draw_data.TotalIdxCount    = 0
-    draw_data.DisplayPos       = viewport.Pos
+    draw_data.Valid         = true
+    draw_data.FrameCount    = g.FrameCount
+    draw_data.TotalVtxCount = 0
+    draw_data.TotalIdxCount = 0
+    draw_data.DisplayPos    = viewport.Pos
     if is_minimized then
         draw_data.DisplaySize = ImVec2(0.0, 0.0)
     else
@@ -6600,11 +6601,11 @@ local function InitViewportDrawData(viewport)
     if viewport.FramebufferScale.x ~= 0.0 then
         draw_data.FramebufferScale = viewport.FramebufferScale
     else
-        draw_data.FramebufferScale = io.DisplayFramebufferScale
+        draw_data.FramebufferScale = g.IO.DisplayFramebufferScale
     end
 
-    draw_data.OwnerViewport    = viewport
-    draw_data.Textures         = ImGui.GetPlatformIO().Textures
+    draw_data.OwnerViewport = viewport
+    draw_data.Textures      = g.PlatformIO.Textures
 end
 
 -- FIXME-DPI:
@@ -6859,6 +6860,7 @@ function ImGui.NewFrame()
     g.LastActiveIdTimer = g.LastActiveIdTimer + g.IO.DeltaTime
     g.ActiveIdPreviousFrame = g.ActiveId
     g.ActiveIdIsAlive = 0
+    g.AnyIdHasBeenEditedThisFrame = false
     g.ActiveIdHasBeenEditedThisFrame = false
     g.ActiveIdIsJustActivated = false
     if g.TempInputId ~= 0 and g.ActiveId ~= g.TempInputId then
@@ -6875,6 +6877,9 @@ function ImGui.NewFrame()
         g.DeactivatedItemData.ID = 0
     end
     g.DeactivatedItemData.IsAlive = false
+    if g.InputTextDeactivatedState.ElapseFrame < g.FrameCount then
+        g.InputTextDeactivatedState.ID = 0
+    end
 
     -- Record when we have been stationary as this state is preserved while over same item.
     -- FIXME: The way this is expressed means user cannot alter HoverStationaryDelay during the frame to use varying values.
@@ -7096,7 +7101,6 @@ function ImGui.Render()
         end
 
         local draw_data = viewport.DrawDataP
-        IM_ASSERT(draw_data.CmdLists.Size == draw_data.CmdListsCount)
         for _, draw_list in draw_data.CmdLists:iter() do
             draw_list:_PopUnusedDrawCmd()
         end
@@ -7935,12 +7939,12 @@ function ImGui.OpenPopup(id, popup_flags)
     if popup_flags == nil then popup_flags = 0 end
 
     if type(id) == "number" then
-        ImGui.OpenPopupEx(id, popup_flags)
+        return ImGui.OpenPopupEx(id, popup_flags)
     else --- @cast id string
         local g = GImGui
         local _id = g.CurrentWindow:GetID(id)
         IMGUI_DEBUG_LOG_POPUP("[popup] OpenPopup(\"%s\" -> 0x%08X)", id, _id)
-        ImGui.OpenPopupEx(_id, popup_flags)
+        return ImGui.OpenPopupEx(_id, popup_flags)
     end
 end
 
@@ -7953,7 +7957,7 @@ function ImGui.OpenPopupEx(id, popup_flags)
 
     if bit.band(popup_flags, ImGuiPopupFlags.NoOpenOverExistingPopup) ~= 0 then
         if ImGui.IsPopupOpen(0, ImGuiPopupFlags.AnyPopupId) then
-            return
+            return false
         end
     end
 
@@ -7973,6 +7977,7 @@ function ImGui.OpenPopupEx(id, popup_flags)
     -- IMGUI_DEBUG_LOG_POPUP("[popup] OpenPopupEx(0x%08X)", id)
     if g.OpenPopupStack.Size < current_stack_size + 1 then
         g.OpenPopupStack:push_back(popup_ref)
+        return true
     else
         -- Gently handle the user mistakenly calling OpenPopup() every frames: it is likely a programming mistake!
         -- However, if we were to run the regular code path, the ui would become completely unusable because the popup will always be
@@ -7999,6 +8004,8 @@ function ImGui.OpenPopupEx(id, popup_flags)
         -- This is equivalent to what ClosePopupToLevel() does.
         -- if (g.OpenPopupStack[current_stack_size + 1].PopupId == id)
         --     FocusWindow(parent_window);
+
+        return not keep_existing
     end
 end
 
@@ -8441,13 +8448,15 @@ function ImGui.OpenPopupOnItemClick(str_id, popup_flags)
     if popup_flags == nil then popup_flags = 0 end
 
     local g = GImGui
-    local window = g.CurrentWindow
     if ImGui.IsPopupOpenRequestForItem(popup_flags, g.LastItemData.ID) then
+        local window = g.CurrentWindow
         local id
         if str_id then id = window:GetID(str_id) else id = g.LastItemData.ID end
         IM_ASSERT(id ~= 0)
-        ImGui.OpenPopupEx(id, popup_flags)
+        return ImGui.OpenPopupEx(id, popup_flags)
     end
+
+    return false
 end
 
 --- @param str_id?      string

@@ -1183,7 +1183,7 @@ function ImGui.CheckboxFlags(label, flags, flags_value)
     local pressed
     if not all_on and any_on then
         local g = GImGui
-        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.MixedValue)
+        g.NextItemData.ItemFlagsSet = bit.bor(g.NextItemData.ItemFlagsSet, ImGuiItemFlags.MixedValue)
         pressed, all_on = ImGui.Checkbox(label, all_on)
     else
         pressed, all_on = ImGui.Checkbox(label, all_on)
@@ -2392,8 +2392,9 @@ function ImGui.TempInputText(bb, id, label, buf, buf_size, flags, callback, user
     local g = GImGui
     local window = g.CurrentWindow
 
-    local init = (g.TempInputId ~= id)
-    if init then
+    local is_deactivated = (g.InputTextDeactivatedState.ID == id)
+    local is_active = (g.TempInputId == id)
+    if (not is_active and not is_deactivated) then
         ImGui.ClearActiveID()
     end
 
@@ -2403,11 +2404,11 @@ function ImGui.TempInputText(bb, id, label, buf, buf_size, flags, callback, user
     g.LastItemData.ItemFlags = bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.AllowDuplicateId)
     local value_changed = ImGui.InputTextEx(label, nil, buf, buf_size, bb:GetSize(), bit.bor(flags, ImGuiInputTextFlags.TempInput, ImGuiInputTextFlags.AutoSelectAll), callback, user_data)
     ImGui.KeepAliveID(id)
-    if init then
+    if (not is_active and not is_deactivated) then
         IM_ASSERT(g.ActiveId == id)
         g.TempInputId = g.ActiveId
     end
-    if g.ActiveId ~= id then
+    if is_active and g.ActiveId ~= id then
         g.TempInputId = 0
     end
     ImVec2_Copy(window.DC.CursorPos, backup_pos)
@@ -2436,6 +2437,7 @@ function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min
 
     local flags = bit.bor(ImGuiInputTextFlags.AutoSelectAll, ImGuiInputTextFlags.LocalizeDecimalPoint)
     g.LastItemData.ItemFlags = bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited)
+    g.LastItemData.ItemFlags = (bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0) and bit.bor(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputText) or bit.band(g.LastItemData.ItemFlags, bit.bnot(ImGuiItemFlags.LiveEditOnInputText))
     if not ImGui.TempInputText(bb, id, label, data_buf, data_buf_size, flags) then
         return data, false
     end
@@ -2490,7 +2492,7 @@ function ImGui.InputScalar(label, data_type, data, step, step_fast, format, flag
         ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     end
 
-    g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.NoMarkEdited)
+    g.NextItemData.ItemFlagsSet = bit.bor(g.NextItemData.ItemFlagsSet, ImGuiItemFlags.NoMarkEdited)
     flags = bit.bor(flags, ImGuiInputTextFlags.AutoSelectAll, ImGuiInputTextFlags.LocalizeDecimalPoint)
 
     local has_step_buttons = (step ~= nil)
@@ -2506,10 +2508,20 @@ function ImGui.InputScalar(label, data_type, data, step, step_fast, format, flag
         ret = ImGui.InputText(label, buf, buf_size, flags)
     end
 
-    local input_edited = bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.EditedInternal) ~= 0
-    local ret2
-    data, ret2 = ImGui.DataTypeApplyFromText(buf, data_type, data, format, (bit.band(flags, ImGuiInputTextFlags.ParseEmptyRefVal) ~= 0) and data_default or nil)
-    local value_changed = input_edited and ret2 or false
+    local value_changed = false
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0 then
+        local input_edited = bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.EditedInternal) ~= 0
+        if input_edited then
+            data, value_changed = ImGui.DataTypeApplyFromText(buf, data_type, data, format, bit.band(flags, ImGuiInputTextFlags.ParseEmptyRefVal) ~= 0 and data_default or nil)
+        end
+    else
+        -- g.LastItemData.StatusFlags &= ~ImGuiItemStatusFlags_Edited
+        if (g.DeactivatedItemData.ID == g.LastItemData.ID) then
+            -- g.DeactivatedItemData.HasBeenEditedBefore = false; // Will be set below by MarkItemEdited()
+            -- if (IsItemDeactivated()) // Should be unnecessary
+            data, value_changed = ImGui.DataTypeApplyFromText(buf, data_type, data, format, bit.band(flags, ImGuiInputTextFlags.ParseEmptyRefVal) ~= 0 and data_default or nil)
+        end
+    end
 
     if has_step_buttons then
         local backup_frame_padding = ImVec2()
@@ -4340,12 +4352,16 @@ end
 function ImGui.InputTextDeactivateHook(id)
     local g = GImGui
     local state = g.InputTextState
-    if id == 0 or state.ID ~= id then
+    if id == 0 or state.ID ~= id or g.ActiveId ~= id then
+        return
+    end
+    if not state.EditedBefore then
         return
     end
     -- IMGUI_DEBUG_LOG_ACTIVEID("InputTextDeactivateHook() id = 0x%08X\n", id);
 
     g.InputTextDeactivatedState.ID = state.ID
+    g.InputTextDeactivatedState.ElapseFrame = g.FrameCount + 1
     if bit.band(state.Flags, ImGuiInputTextFlags.ReadOnly) ~= 0 then
         g.InputTextDeactivatedState.TextA:resize(0) -- In theory this data won't be used, but clear to be neat
     else
@@ -4623,7 +4639,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local user_clicked = hovered and io.MouseClicked[0]
     local input_requested_by_nav = (g.ActiveId ~= id) and (g.NavActivateId == id) and ((bit.band(g.NavActivateFlags, ImGuiActivateFlags.PreferInput) ~= 0) or (g.NavInputSource == ImGuiInputSource.Keyboard))
     local input_requested_by_reactivate = (g.InputTextReactivateId == id) -- for io.ConfigInputTextEnterKeepActive
-    local input_requested_by_user = (user_clicked) or (g.ActiveId == 0 and bit.band(flags, ImGuiInputTextFlags.TempInput) ~= 0)
+    local input_requested_by_user = (user_clicked) or (g.ActiveId == 0 and bit.band(flags, ImGuiInputTextFlags.TempInput) ~= 0 and g.InputTextDeactivatedState.ID ~= id)
     local scrollbar_id = (is_multiline and state ~= nil) and ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y) or 0
     local user_scroll_finish = is_multiline and state ~= nil and g.ActiveId == 0 and g.ActiveIdPreviousFrame == scrollbar_id
     local user_scroll_active = is_multiline and state ~= nil and g.ActiveId == scrollbar_id
@@ -4654,7 +4670,9 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         state:CursorAnimReset()
 
         -- Backup state of deactivating item so they'll have a chance to do a write to output buffer on the same frame they report IsItemDeactivatedAfterEdit (#4714)
-        ImGui.InputTextDeactivateHook(state.ID)
+        if (state.ID ~= id and state.ID == g.ActiveId and (init_make_active and g.ActiveId ~= id)) then
+            ImGui.InputTextDeactivateHook(state.ID) -- <-- this is essentially an earlier call to what SetActiveID() would do below.
+        end
 
         -- Take a copy of the initial buffer value.
         -- From the moment we focused we are normally ignoring the content of 'buf' (unless we are in read-only mode)
@@ -4987,7 +5005,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             if not is_new_line then
                 validated = true
                 clear_active_id = true
-                if io.ConfigInputTextEnterKeepActive and not is_multiline then
+                if io.ConfigInputTextEnterKeepActive and not is_multiline and not is_ctrl_enter and not is_shift_enter then
                     state:SelectAll()
                     g.InputTextReactivateId = id
                 end
@@ -5158,23 +5176,38 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                     IM_ASSERT(callback_data.BufTextLen == ImStd.ImStrlen(callback_data.Buf))
                     InputTextReconcileUndoState(state, state.CallbackTextBackup.Data, state.CallbackTextBackup.Size - 1, callback_data.Buf, callback_data.BufTextLen)
                     state.TextLen = callback_data.BufTextLen
+                    state.EditedBefore = true; state.EditedThisFrame = true
                     state:CursorAnimReset()
                 end
             end
         end
 
-        if not is_readonly and ImStd.strcmp(state.TextSrc, buf) ~= 0 then
-            apply_new_text = state.TextSrc
-            apply_new_text_length = state.TextLen
-            value_changed = true
+        if not is_readonly then
+            if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0 then
+                -- Apply when modified
+                if (ImStd.strcmp(state.TextSrc, buf) ~= 0) then
+                    apply_new_text = state.TextSrc
+                    apply_new_text_length = state.TextLen
+                    value_changed = true
+                end
+            else
+                -- Apply on validation/deactivation, otherwise cancel out previous apply attempts (e.g. revert)
+                value_changed = ((validated or clear_active_id or revert_edit) and ImStd.strcmp(state.TextSrc, buf) ~= 0)
+                apply_new_text = value_changed and state.TextSrc or NULL
+                apply_new_text_length = value_changed and state.TextLen or 0
+            end
         end
     end
 
     if g.InputTextDeactivatedState.ID == id then
-        if g.ActiveId ~= id and ImGui.IsItemDeactivatedAfterEdit() and not is_readonly and ImStd.strcmp(g.InputTextDeactivatedState.TextA.Data, buf) ~= 0 then
-            apply_new_text = g.InputTextDeactivatedState.TextA.Data
-            apply_new_text_length = g.InputTextDeactivatedState.TextA.Size - 1
-            value_changed = true
+        -- The state only exists after an Edit. IsItemDeactivatedAfterEdit() is not valid in every code path (see "widgets_inputtext_status_noliveedit" test).
+        if ((g.ActiveId ~= id and ImGui.IsItemDeactivated()) or (g.ActiveId == id and bit.band(flags, ImGuiInputTextFlags.TempInput) ~= 0)) then
+            if (not is_readonly and ImStd.strcmp(g.InputTextDeactivatedState.TextA.Data, buf) ~= 0) then
+                apply_new_text = g.InputTextDeactivatedState.TextA.Data
+                apply_new_text_length = g.InputTextDeactivatedState.TextA.Size - 1
+                value_changed = true
+                -- IMGUI_DEBUG_LOG("InputText(): apply Deactivated data for 0x%08X: \"%.*s\".\n", id, apply_new_text_length, apply_new_text);
+            end
         end
         g.InputTextDeactivatedState.ID = 0
     end
@@ -5207,7 +5240,9 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     -- Release active ID at the end of the function (so e.g. pressing Return still does a final application of the value)
     -- Otherwise request text input ahead for next frame.
     if g.ActiveId == id and clear_active_id then
+        state.ID = 0
         ImGui.ClearActiveID()
+        state.ID = id
     end
 
     -- Render frame
@@ -5413,7 +5448,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     if is_multiline then
         -- For focus requests to work on our multiline we need to ensure our child ItemAdd() call specifies the ImGuiItemFlags.Inputable (see #4761, #7870)...
         ImGui.Dummy(ImVec2(0.0, text_size_y + style.FramePadding.y))
-        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.Inputable, ImGuiItemFlags.NoTabStop)
+        g.NextItemData.ItemFlagsSet = bit.bor(g.NextItemData.ItemFlagsSet, ImGuiItemFlags.Inputable, ImGuiItemFlags.NoTabStop)
         ImGui.EndChild()
         item_data_backup.StatusFlags = bit.bor(item_data_backup.StatusFlags, bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredWindow))
 
@@ -5811,7 +5846,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     local io = g.IO
 
     local width = ImGui.CalcItemWidth()
-    local is_readonly = bit.band(bit.bor(g.NextItemData.ItemFlags, g.CurrentItemFlags), ImGuiItemFlags.ReadOnly) ~= 0
+    local is_readonly = bit.band(bit.bor(g.NextItemData.ItemFlagsSet, g.CurrentItemFlags), ImGuiItemFlags.ReadOnly) ~= 0
     g.NextItemData:ClearFlags()
 
     ImGui.PushID(label)
@@ -7560,7 +7595,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
 
     local menuset_is_open = IsRootOfOpenMenuSet()
     if menuset_is_open then
-        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.NoWindowHoverableCheck)
+        g.NextItemData.ItemFlagsSet = bit.bor(g.NextItemData.ItemFlagsSet, ImGuiItemFlags.NoWindowHoverableCheck)
     end
 
     local popup_pos
@@ -7772,7 +7807,7 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
 
     local menuset_is_open = IsRootOfOpenMenuSet()
     if menuset_is_open then
-        g.NextItemData.ItemFlags = bit.bor(g.NextItemData.ItemFlags, ImGuiItemFlags.NoWindowHoverableCheck)
+        g.NextItemData.ItemFlagsSet = bit.bor(g.NextItemData.ItemFlagsSet, ImGuiItemFlags.NoWindowHoverableCheck)
     end
 
     ImGui.PushID(label)

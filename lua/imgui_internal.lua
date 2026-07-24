@@ -566,7 +566,7 @@ ImGuiItemFlags.Inputable            = bitLShift(1, 20)
 ImGuiItemFlags.HasSelectionUserData = bitLShift(1, 21)
 ImGuiItemFlags.IsMultiSelect        = bitLShift(1, 22)
 
-ImGuiItemFlags.Default_ = ImGuiItemFlags.AutoClosePopups
+ImGuiItemFlags.Default_ = bitOr(ImGuiItemFlags.AutoClosePopups, ImGuiItemFlags.LiveEditOnInputText)
 
 --- @enum ImDrawTextFlags
 ImDrawTextFlags =
@@ -1081,7 +1081,7 @@ end
 
 --- @class ImGuiNextItemData
 --- @field HasFlags          ImGuiNextItemDataFlags
---- @field ItemFlags         ImGuiItemFlags
+--- @field ItemFlagsSet      ImGuiItemFlags
 --- @field FocusScopeId      ImGuiID
 --- @field SelectionUserData any
 --- @field Width             number
@@ -1097,7 +1097,7 @@ IMGUI_NEXT_ITEM_DATA.__index = IMGUI_NEXT_ITEM_DATA
 
 function IMGUI_NEXT_ITEM_DATA:ClearFlags()
     self.HasFlags = ImGuiNextItemDataFlags.None
-    self.ItemFlags = ImGuiItemFlags.None
+    self.ItemFlagsSet = ImGuiItemFlags.None
 end
 
 --- @return ImGuiNextItemData
@@ -1105,7 +1105,7 @@ end
 function ImGuiNextItemData()
     return setmetatable({
         HasFlags          = 0,
-        ItemFlags         = 0,
+        ItemFlagsSet      = 0,
 
         FocusScopeId      = 0,
         SelectionUserData = -1,
@@ -1425,13 +1425,15 @@ local function ImGuiInputTextState()
 end
 
 --- @class ImGuiInputTextDeactivatedState
---- @field ID    ImGuiID        # widget id owning the text state (which just got deactivated)
---- @field TextA ImVector<char> # text buffer
-MT.ImGuiInputTextDeactivatedState = {}
-MT.ImGuiInputTextDeactivatedState.__index = MT.ImGuiInputTextDeactivatedState
+--- @field ID          ImGuiID        # widget id owning the text state (which just got deactivated)
+--- @field ElapseFrame int
+--- @field TextA       ImVector<char> # text buffer
+local IMGUI_INPUT_TEXT_DEACTIVATED_STATE = {}
+IMGUI_INPUT_TEXT_DEACTIVATED_STATE.__index = IMGUI_INPUT_TEXT_DEACTIVATED_STATE
 
-function MT.ImGuiInputTextDeactivatedState:ClearFreeMemory()
+function IMGUI_INPUT_TEXT_DEACTIVATED_STATE:ClearFreeMemory()
     self.ID = 0
+    self.ElapseFrame = 0
     self.TextA:clear()
 end
 
@@ -1439,9 +1441,10 @@ end
 --- @nodiscard
 local function ImGuiInputTextDeactivatedState()
     return setmetatable({
-        ID    = 0,
-        TextA = ImVector()
-    }, MT.ImGuiInputTextDeactivatedState)
+        ID          = 0,
+        ElapseFrame = 0,
+        TextA       = ImVector()
+    }, IMGUI_INPUT_TEXT_DEACTIVATED_STATE)
 end
 
 --- @alias ImGuiKeyRoutingIndex ImS16
@@ -1612,6 +1615,8 @@ end
 --- @field WithinEndChildID                   ImGuiID
 --- @field WithinEndPopupID                   ImGuiID
 --- @field StyleVarStack                      ImVector
+--- @field AnyIdHasBeenEditedThisFrame        bool
+--- @field ActiveId                           ImGuiID
 --- @field ActiveIdMouseButton                ImS8
 --- @field Windows                            ImVector<ImGuiWindow>
 --- @field WindowsFocusOrder                  ImVector<ImGuiWindow>
@@ -1711,6 +1716,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         ActiveIdFromShortcut = false,
 
+        AnyIdHasBeenEditedThisFrame = false,
         ActiveId = 0,
         ActiveIdWindow = nil,
 
@@ -2725,39 +2731,40 @@ ImGuiScrollFlags.MaskX_ = bitOr(ImGuiScrollFlags.KeepVisibleEdgeX, ImGuiScrollFl
 ImGuiScrollFlags.MaskY_ = bitOr(ImGuiScrollFlags.KeepVisibleEdgeY, ImGuiScrollFlags.KeepVisibleCenterY, ImGuiScrollFlags.AlwaysCenterY)
 
 --- @class ImGuiGroupData
---- @field WindowID                             ImGuiID
---- @field BackupCursorPos                      ImVec2
---- @field BackupCursorMaxPos                   ImVec2
---- @field BackupCursorPosPrevLine              ImVec2
---- @field BackupIndent                         ImVec1
---- @field BackupGroupOffset                    ImVec1
---- @field BackupCurrLineSize                   ImVec2
---- @field BackupCurrLineTextBaseOffset         float
---- @field BackupActiveIdIsAlive                ImGuiID
---- @field BackupActiveIdHasBeenEditedThisFrame bool
---- @field BackupDeactivatedIdIsAlive           bool
---- @field BackupHoveredIdIsAlive               bool
---- @field BackupIsSameLine                     bool
---- @field EmitItem                             bool
+--- @field WindowID                          ImGuiID
+--- @field BackupCursorPos                   ImVec2
+--- @field BackupCursorMaxPos                ImVec2
+--- @field BackupCursorPosPrevLine           ImVec2
+--- @field BackupIndent                      ImVec1
+--- @field BackupGroupOffset                 ImVec1
+--- @field BackupCurrLineSize                ImVec2
+--- @field BackupCurrLineTextBaseOffset      float
+--- @field BackupActiveIdIsAlive             ImGuiID
+--- @field BackupAnyIdHasBeenEditedThisFrame bool
+--- @field BackupDeactivatedIdIsAlive        bool
+--- @field BackupHoveredIdIsAlive            bool
+--- @field BackupIsSameLine                  bool
+--- @field EmitItem                          bool
 
 --- @return ImGuiGroupData
 --- @nodiscard
 function ImGuiGroupData()
-    return {
-        WindowID                             = nil,
-        BackupCursorPos                      = ImVec2(),
-        BackupCursorMaxPos                   = ImVec2(),
-        BackupCursorPosPrevLine              = ImVec2(),
-        BackupIndent                         = ImVec1(),
-        BackupGroupOffset                    = ImVec1(),
-        BackupCurrLineSize                   = ImVec2(),
-        BackupCurrLineTextBaseOffset         = nil,
-        BackupActiveIdIsAlive                = nil,
-        BackupActiveIdHasBeenEditedThisFrame = nil,
-        BackupDeactivatedIdIsAlive           = nil,
-        BackupHoveredIdIsAlive               = nil,
-        BackupIsSameLine                     = nil,
-        EmitItem                             = nil
+    return
+    {
+        WindowID                          = nil,
+        BackupCursorPos                   = ImVec2(),
+        BackupCursorMaxPos                = ImVec2(),
+        BackupCursorPosPrevLine           = ImVec2(),
+        BackupIndent                      = ImVec1(),
+        BackupGroupOffset                 = ImVec1(),
+        BackupCurrLineSize                = ImVec2(),
+        BackupCurrLineTextBaseOffset      = nil,
+        BackupActiveIdIsAlive             = nil,
+        BackupAnyIdHasBeenEditedThisFrame = nil,
+        BackupDeactivatedIdIsAlive        = nil,
+        BackupHoveredIdIsAlive            = nil,
+        BackupIsSameLine                  = nil,
+        EmitItem                          = nil
     }
 end
 
@@ -2890,7 +2897,7 @@ end
 --- @param id ImGuiID
 function ImGui.TempInputIsActive(id)
     local g = GImGui
-    return g.ActiveId == id and g.TempInputId == id
+    return (g.TempInputId == id and g.ActiveId == id) or (g.InputTextDeactivatedState.ID == id)
 end
 
 --- @param id ImGuiID
