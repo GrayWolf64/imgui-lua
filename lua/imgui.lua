@@ -993,19 +993,38 @@ end
 --- @param window ImGuiWindow
 --- @param settings ImGuiWindowSettings
 local function ApplyWindowSettings(window, settings)
-    local main_viewport = ImGui.GetMainViewport()
-    ImVec2_Copy(window.ViewportPos, main_viewport.Pos)
-    if (settings.ViewportId ~= 0) then
-        window.ViewportId = settings.ViewportId
-        ImVec2_Copy(window.ViewportPos, settings.ViewportPos)
+    if settings ~= nil then
+        local main_viewport = ImGui.GetMainViewport()
+        ImVec2_Copy(window.ViewportPos, main_viewport.Pos)
+        if (settings.ViewportId ~= 0) then
+            window.ViewportId = settings.ViewportId
+            ImVec2_Copy(window.ViewportPos, settings.ViewportPos)
+        end
+        window.Pos = ImTrunc(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
+        if settings.Size.x > 0 and settings.Size.y > 0 then
+            local size = ImVec2(ImTrunc(settings.Size.x), ImTrunc(settings.Size.y))
+            ImVec2_Copy(window.Size, size)
+            ImVec2_Copy(window.SizeFull, size)
+            window.AutoFitFramesX = 0; window.AutoFitFramesY = 0
+        end
+        window.Collapsed = settings.Collapsed
+        -- window.DockId = settings.DockId
+        -- window.DockOrder = settings.DockOrder
+        SetWindowConditionAllowFlags(window, ImGuiCond.FirstUseEver, false)
     end
-    window.Pos = ImTrunc(ImVec2(settings.Pos.x + window.ViewportPos.x, settings.Pos.y + window.ViewportPos.y))
-    if settings.Size.x > 0 and settings.Size.y > 0 then
-        local size = ImVec2(ImTrunc(settings.Size.x), ImTrunc(settings.Size.y))
-        ImVec2_Copy(window.Size, size)
-        ImVec2_Copy(window.SizeFull, size)
+
+    -- So first call to CalcWindowContentSizes() doesn't return crazy values
+    ImVec2_Copy(window.DC.CursorStartPos, window.Pos)
+    ImVec2_Copy(window.DC.CursorMaxPos, window.Pos)
+    ImVec2_Copy(window.DC.IdealMaxPos, window.Pos)
+    if (bit.band(window.Flags, ImGuiWindowFlags.AlwaysAutoResize) ~= 0) then
+        window.AutoFitFramesX = 2; window.AutoFitFramesY = 2
+        window.AutoFitOnlyGrows = false
+    else
+        window.AutoFitFramesX = (window.Size.x <= 0.0) and 2 or 0
+        window.AutoFitFramesY = (window.Size.y <= 0.0) and 2 or 0
+        window.AutoFitOnlyGrows = (window.AutoFitFramesX > 0) or (window.AutoFitFramesY > 0)
     end
-    window.Collapsed = settings.Collapsed
 end
 
 --- @param window ImGuiWindow
@@ -1021,27 +1040,10 @@ local function InitOrLoadWindowSettings(window, settings)
     window.SetWindowPosAllowFlags = bit.bor(ImGuiCond.Always, ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)
     window.SetWindowSizeAllowFlags = window.SetWindowPosAllowFlags
     window.SetWindowCollapsedAllowFlags = window.SetWindowPosAllowFlags
-
+    -- window.SetWindowDockAllowFlags = window.SetWindowPosAllowFlags
+    ApplyWindowSettings(window, settings)
     if settings ~= nil then
-        SetWindowConditionAllowFlags(window, ImGuiCond.FirstUseEver, false)
-        ApplyWindowSettings(window, settings)
-    end
-    ImVec2_Copy(window.DC.CursorStartPos, window.Pos) -- So first call to CalcWindowContentSizes() doesn't return crazy values
-    ImVec2_Copy(window.DC.CursorMaxPos, window.Pos)
-    ImVec2_Copy(window.DC.IdealMaxPos, window.Pos)
-
-    if bit.band(window.Flags, ImGuiWindowFlags.AlwaysAutoResize) ~= 0 then
-        window.AutoFitFramesX = 2
-        window.AutoFitFramesY = 2
-        window.AutoFitOnlyGrows = false
-    else
-        if window.Size.x <= 0.0 then
-            window.AutoFitFramesX = 2
-        end
-        if window.Size.y <= 0.0 then
-            window.AutoFitFramesY = 2
-        end
-        window.AutoFitOnlyGrows = (window.AutoFitFramesX > 0) or (window.AutoFitFramesY > 0)
+        -- TODO: settings.LastUsedDate = g.SessionDate
     end
 end
 
