@@ -101,6 +101,17 @@ else
                 ImGui.End()
             end
 
+            if show_another_window then
+                show_another_window = ImGui.Begin("Another Window", show_another_window)
+
+                ImGui.Text("Hello from another window!")
+                if ImGui.Button("Close Me") then
+                    show_another_window = false
+                end
+
+                ImGui.End()
+            end
+
             ImGui.EndFrame()
 
             return ImGui.Render()
