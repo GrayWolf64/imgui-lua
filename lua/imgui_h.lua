@@ -810,15 +810,15 @@ end
 --- @field Flags                ImFontFlags
 --- @field DstFont              ImFont
 --- @field FontLoader           ImFontLoader
---- @field FontLoaderData       ImGui_ImplStbTrueType_FontSrcData|
-MT.ImFontConfig = {}
-MT.ImFontConfig.__index = MT.ImFontConfig
+--- @field FontLoaderData       any
+local IM_FONT_CONFIG = {}
+IM_FONT_CONFIG.__index = IM_FONT_CONFIG
 
 --- @return ImFontConfig
 --- @nodiscard
 function ImFontConfig()
     --- @type ImFontConfig
-    local this = setmetatable({}, MT.ImFontConfig)
+    local this = setmetatable({}, IM_FONT_CONFIG)
 
     this.Name                 = nil
     this.FontData             = nil
