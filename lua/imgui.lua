@@ -7338,41 +7338,37 @@ do
 
 local c = ImVec4()
 
---- @param col        ImGuiCol|ImVec4
---- @param alpha_mul? float
+--- @param col         ImGuiCol|ImVec4|ImU32
+--- @param alpha_mul?  float
+--- @param col_is_u32? bool                  # must be truthy if `col` is `ImU32`
 --- @return ImU32
-function ImGui.GetColorU32(col, alpha_mul)
+function ImGui.GetColorU32(col, alpha_mul, col_is_u32)
     if alpha_mul == nil then alpha_mul = 1.0 end
 
     local style = GImGui.Style
 
-    if type(col) == "number" then
-        ImVec4_Copy(c, style.Colors[col])
-        c.w = c.w * style.Alpha * alpha_mul
-    else --- @cast col ImVec4
-        ImVec4_Copy(c, col)
-        c.w = c.w * style.Alpha
+    if not col_is_u32 then
+        --- @cast col ImVec4|ImGuiCol
+        if type(col) == "number" then
+            ImVec4_Copy(c, style.Colors[col])
+            c.w = c.w * style.Alpha * alpha_mul
+        else --- @cast col ImVec4
+            ImVec4_Copy(c, col)
+            c.w = c.w * style.Alpha
+        end
+        return ImGui.ColorConvertFloat4ToU32(c)
+    else
+        --- @cast col ImU32
+        alpha_mul = alpha_mul * style.Alpha
+        if alpha_mul >= 1.0 then
+            return col
+        end
+        local a = bit.rshift(bit.band(col, IM_COL32_A_MASK), IM_COL32_A_SHIFT)
+        a = math.floor(a * alpha_mul) -- We don't need to clamp 0..255 because alpha is in 0..1 range.
+        return bit.bor(bit.band(col, bit.bnot(IM_COL32_A_MASK)), bit.lshift(a, IM_COL32_A_SHIFT))
     end
-
-    return ImGui.ColorConvertFloat4ToU32(c)
 end
 
-end
-
---- @param col        ImU32
---- @param alpha_mul? float
---- @return ImU32
-function ImGui.GetColorU32_U32(col, alpha_mul)
-    if alpha_mul == nil then alpha_mul = 1.0 end
-
-    local style = GImGui.Style
-    alpha_mul = alpha_mul * style.Alpha
-    if alpha_mul >= 1.0 then
-        return col
-    end
-    local a = bit.rshift(bit.band(col, IM_COL32_A_MASK), IM_COL32_A_SHIFT)
-    a = math.floor(a * alpha_mul) -- We don't need to clamp 0..255 because alpha is in 0..1 range.
-    return bit.bor(bit.band(col, bit.bnot(IM_COL32_A_MASK)), bit.lshift(a, IM_COL32_A_SHIFT))
 end
 
 --- @param idx ImGuiCol
