@@ -2982,7 +2982,7 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
     ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, false, style.FrameRounding)
 
     if color_marker ~= 0 and style.ColorMarkerSize > 0.0 then
-        ImGui.RenderColorComponentMarker(frame_bb, ImGui.GetColorU32(color_marker, true), style.FrameRounding)
+        ImGui.RenderColorComponentMarker(frame_bb, ImGui.GetColorU32(color_marker, nil, true), style.FrameRounding)
     end
 
     ImGui.RenderFrameBorder(frame_bb.Min, frame_bb.Max, g.Style.FrameRounding)
@@ -3493,7 +3493,7 @@ function ImGui.SliderScalar(label, data_type, data, min, max, format, flags)
     ImGui.RenderNavCursor(frame_bb, id)
     ImGui.RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, false, style.FrameRounding)
     if color_marker ~= 0 and style.ColorMarkerSize > 0.0 then
-        ImGui.RenderColorComponentMarker(frame_bb, ImGui.GetColorU32(color_marker, true), style.FrameRounding)
+        ImGui.RenderColorComponentMarker(frame_bb, ImGui.GetColorU32(color_marker, nil, true), style.FrameRounding)
     end
     ImGui.RenderFrameBorder(frame_bb.Min, frame_bb.Max, g.Style.FrameRounding)
 
