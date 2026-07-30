@@ -680,8 +680,10 @@ function MT.ImTextureData:SetTexID(tex_id) self.TexID = tex_id end
 function MT.ImTextureData:SetStatus(status) self.Status = status if (status == ImTextureStatus.Destroyed and not self.WantDestroyNextFrame and self.Pixels ~= nil) then self.Status = ImTextureStatus.WantCreate end end
 
 --- @class ImTextureRef
-MT.ImTextureRef = {}
-MT.ImTextureRef.__index = MT.ImTextureRef
+--- @field _TexData? ImTextureData
+--- @field _TexID    ImTextureID
+local IM_TEXTURE_REF = {}
+IM_TEXTURE_REF.__index = IM_TEXTURE_REF
 
 --- @return ImTextureRef
 --- @nodiscard
@@ -689,7 +691,7 @@ function ImTextureRef(tex_id)
     return setmetatable({
         _TexData = nil,
         _TexID   = tex_id or ImTextureID_Invalid
-    }, MT.ImTextureRef)
+    }, IM_TEXTURE_REF)
 end
 
 --- @class ImFontBaked
