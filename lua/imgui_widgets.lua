@@ -197,13 +197,12 @@ function ImGui.TextWrapped(fmt, ...)
 end
 
 -- align_x: 0.0f = left, 0.5f = center, 1.0f = right.
--- size_x : 0.0f = shortcut for GetContentRegionAvail().x
--- FIXME-WIP: Works but API is likely to be reworked. This is designed for 1 item on the line. (#7024)
+-- width < 0.0f (e.g. -FLT_MIN): shortcut for GetContentRegionAvail().x
 --- @param align_x float
---- @param size_x  float
+--- @param width   float
 --- @param fmt     string
 --- @param ...     any
-function ImGui.TextAligned(align_x, size_x, fmt, ...)
+function ImGui.TextAligned(align_x, width, fmt, ...)
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return
@@ -212,25 +211,28 @@ function ImGui.TextAligned(align_x, size_x, fmt, ...)
     local text = ImFormatString(fmt, ...)
     local text_end = #text + 1
     local text_size = ImGui.CalcTextSize(text, text_end)
-    size_x = ImGui.CalcItemSize(ImVec2(size_x, 0.0), 0.0, text_size.y).x
 
+    local size = ImGui.CalcItemSize(ImVec2(width, 0.0), 0.0, text_size.y)
     local pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y + window.DC.CurrLineTextBaseOffset)
-    local pos_max = ImVec2(pos.x + size_x, window.ClipRect.Max.y)
-    local size = ImVec2(ImMin(size_x, text_size.x), text_size.y)
+    local pos_max = ImVec2(pos.x + size.x, window.ClipRect.Max.y)
+
     window.DC.CursorMaxPos.x = ImMax(window.DC.CursorMaxPos.x, pos.x + text_size.x)
     window.DC.IdealMaxPos.x = ImMax(window.DC.IdealMaxPos.x, pos.x + text_size.x)
-    if align_x > 0.0 and text_size.x < size_x then
-        pos.x = pos.x + ImTrunc((size_x - text_size.x) * align_x)
-    end
-    ImGui.RenderTextEllipsis(window.DrawList, pos, pos_max, pos_max.x, text, text_end, text_size)
-
     local backup_max_pos = ImVec2()
     ImVec2_Copy(backup_max_pos, window.DC.CursorMaxPos)
     ImGui.ItemSize(size)
-    ImGui.ItemAdd(ImRect(pos, pos + size), 0)
-    window.DC.CursorMaxPos.x = backup_max_pos.x -- Cancel out extending content size because right-aligned text would otherwise mess it up
+    local is_visible = ImGui.ItemAdd(ImRect(pos, pos + size), 0)
+    window.DC.CursorMaxPos.x = backup_max_pos.x -- Cancel out extending content to 'size' to use 'text_size' allowing auto-resize to function with align_x > 0
+    if not is_visible then
+        return
+    end
 
-    if size_x < text_size.x and ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags.NoNavOverride, ImGuiHoveredFlags.AllowWhenDisabled, ImGuiHoveredFlags.ForTooltip)) then
+    if align_x > 0.0 and text_size.x < size.x then
+        pos.x = pos.x + ImTrunc((size.x - text_size.x) * align_x)
+    end
+    ImGui.RenderTextEllipsis(window.DrawList, pos, pos_max, pos_max.x, text, text_end, text_size)
+
+    if size.x < text_size.x and ImGui.IsItemHovered(bit.bor(ImGuiHoveredFlags.NoNavOverride, ImGuiHoveredFlags.AllowWhenDisabled, ImGuiHoveredFlags.ForTooltip)) then
         ImGui.SetTooltip("%.*s", text_end - 1, text)
     end
 end
@@ -470,7 +472,14 @@ function ImGui.ButtonBehavior(bb, id, flags)
                 -- Avoid pressing multiple keys from triggering excessive amount of repeat events
                 local key1 = ImGui.GetKeyData(g, ImGuiKey.Space)
                 local key2 = ImGui.GetKeyData(g, ImGuiKey.Enter)
-                local key3 = ImGui.GetKeyData(g, ImGuiKey.NavGamepadActivate)
+-- ImGuiKey_NavGamepadActivate
+local nav_gamepad_activate
+if g.IO.ConfigNavSwapGamepadButtons then
+    nav_gamepad_activate = ImGuiKey.GamepadFaceRight
+else
+    nav_gamepad_activate = ImGuiKey.GamepadFaceDown
+end
+                local key3 = ImGui.GetKeyData(g, nav_gamepad_activate)
                 local t1 = ImMax(ImMax(key1.DownDuration, key2.DownDuration), key3.DownDuration)
                 nav_activated_by_inputs = ImGui.CalcTypematicRepeatAmount(t1 - g.IO.DeltaTime, t1, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0
             end
@@ -1247,7 +1256,7 @@ function ImGui.RadioButtonEx(label, active)
         end
     end
     window.DrawList:AddCircleFilled(center, radius, col, num_segment)
-    if active then
+    if active and bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) == 0 then
         local pad = ImMax(1.0, IM_TRUNC(square_sz / 6.0))
         window.DrawList:AddCircleFilled(center, radius - pad, ImGui.GetColorU32(ImGuiCol.CheckMark))
     end
@@ -1697,7 +1706,7 @@ function ImGui.BeginCombo(label, preview_value, flags)
     local id = window:GetID(label)
     IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags.NoArrowButton, ImGuiComboFlags.NoPreview)) ~= bit.bor(ImGuiComboFlags.NoArrowButton, ImGuiComboFlags.NoPreview)) -- Can't use both flags together
     if bit.band(flags, ImGuiComboFlags.WidthFitPreview) ~= 0 then
-        IM_ASSERT(bit.band(flags, bit.bor(ImGuiComboFlags.NoPreview, ImGuiComboFlags.CustomPreview)) == 0)
+        IM_ASSERT(bit.band(flags, ImGuiComboFlags.NoPreview) == 0)
     end
 
     local arrow_size
@@ -1766,11 +1775,10 @@ function ImGui.BeginCombo(label, preview_value, flags)
 
     ImGui.RenderFrameBorder(bb.Min, bb.Max, style.FrameRounding)
 
-    -- Custom preview
-    if bit.band(flags, ImGuiComboFlags.CustomPreview) ~= 0 then
+    if bit.band(flags, ImGuiComboFlags.NoPreview) ~= 0 then
+        g.ComboPreviewData.PreviewRect = ImRect()
+    else
         g.ComboPreviewData.PreviewRect = ImRect(bb.Min.x, bb.Min.y, value_x2, bb.Max.y)
-        IM_ASSERT(preview_value == nil or preview_value == "")
-        preview_value = nil
     end
 
     -- Render preview and label
@@ -1864,6 +1872,7 @@ function ImGui.BeginComboPopup(popup_id, bb, flags)
     end
 
     g.BeginComboDepth = g.BeginComboDepth + 1
+    ImRect_Copy(g.CurrentWindowStack:back().ParentLastComboPreviewRect, g.ComboPreviewData.PreviewRect)
 
     return true
 end
@@ -1871,6 +1880,7 @@ end
 function ImGui.EndCombo()
     local g = GImGui
     g.BeginComboDepth = g.BeginComboDepth - 1
+    ImRect_Copy(g.ComboPreviewData.PreviewRect, g.CurrentWindowStack:back().ParentLastComboPreviewRect)
 
     local name = ImFormatString("##Combo_%02d", g.BeginComboDepth) -- FIXME: Move those to helpers?
 
@@ -1881,22 +1891,19 @@ function ImGui.EndCombo()
     ImGui.EndPopup()
 end
 
--- Call directly after the BeginCombo/EndCombo block. The preview is designed to only host non-interactive elements
--- (Experimental, see GitHub issues: #1658, #4168)
 function ImGui.BeginComboPreview()
     local g = GImGui
     local window = g.CurrentWindow
     local preview_data = g.ComboPreviewData
 
-    if window.SkipItems or not (bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) ~= 0) then
+    if window.SkipItems or bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) == 0 then
         return false
     end
-
-    IM_ASSERT(g.LastItemData.Rect.Min.x == preview_data.PreviewRect.Min.x and g.LastItemData.Rect.Min.y == preview_data.PreviewRect.Min.y) -- Didn't call after BeginCombo/EndCombo block or forgot to pass ImGuiComboFlags.CustomPreview flag?
-
-    if not window.ClipRect:Overlaps(preview_data.PreviewRect) then -- Narrower test (optional)
+    if not window.ClipRect:Overlaps(preview_data.PreviewRect) or preview_data.PreviewRect:GetWidth() <= 0.0 then
         return false
     end
+    IM_ASSERT_USER_ERROR_RET(g.LastItemData.Rect.Min.x == preview_data.PreviewRect.Min.x and g.LastItemData.Rect.Min.y == preview_data.PreviewRect.Min.y, "Call BeginComboPreview() after EndCombo()!")
+    IM_ASSERT_USER_ERROR_RET(not preview_data.WithinPreview, "Cannot recurse BeginComboPreview(): call EndComboPreview() before opening another combo")
 
     -- FIXME: This could be contained in a PushWorkRect() api
     ImVec2_Copy(preview_data.BackupCursorPos, window.DC.CursorPos)
@@ -1904,6 +1911,11 @@ function ImGui.BeginComboPreview()
     ImVec2_Copy(preview_data.BackupCursorPosPrevLine, window.DC.CursorPosPrevLine)
     preview_data.BackupPrevLineTextBaseOffset = window.DC.PrevLineTextBaseOffset
     preview_data.BackupLayout = window.DC.LayoutType
+    preview_data.WithinPreview = true
+    preview_data.BackupWorkRectMaxX = window.WorkRect.Max.x
+    preview_data.BackupContentRectMaxX = window.ContentRegionRect.Max.x
+    window.WorkRect.Max.x = preview_data.PreviewRect.Max.x - g.Style.FramePadding.x
+    window.ContentRegionRect.Max.x = preview_data.PreviewRect.Max.x - g.Style.FramePadding.x
 
     ImVec2_Copy(window.DC.CursorPos, preview_data.PreviewRect.Min + g.Style.FramePadding)
     ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorPos)
@@ -1935,10 +1947,11 @@ function ImGui.EndComboPreview()
     ImVec2_Copy(window.DC.CursorMaxPos, ImMax(window.DC.CursorMaxPos, preview_data.BackupCursorMaxPos))
     ImVec2_Copy(window.DC.CursorPosPrevLine, preview_data.BackupCursorPosPrevLine)
     window.DC.PrevLineTextBaseOffset = preview_data.BackupPrevLineTextBaseOffset
+    window.WorkRect.Max.x = preview_data.BackupWorkRectMaxX
+    window.ContentRegionRect.Max.x = preview_data.BackupContentRectMaxX
     window.DC.LayoutType = preview_data.BackupLayout
     window.DC.IsSameLine = false
-
-    preview_data.PreviewRect = ImRect()
+    preview_data.WithinPreview = false
 end
 
 ----------------------------------------------------------------
@@ -2008,7 +2021,8 @@ function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     else
         IM_ASSERT(false)
     end
-    ImStd.ImStrncpy(buf, 1, { string.byte(str, 1, #str) }, 1, ImMin(#str + 1, buf_size)) -- TODO: update this when new ImFormatString is implemented
+    local src = ImStr2Buf(str, buf_size)
+    ImStd.memmove(buf, 1, src, 1, #src)
 end
 
 --- @param data_type ImGuiDataType
@@ -2319,8 +2333,8 @@ function ImParseFormatSanitizeForScanning(fmt_in, fmt_out, fmt_out_size)
 
         :: __CONTINUE__ ::
     end
-    -- fmt_out[fmt_out_begin] = 0
-    return string.char(unpack(fmt_out)) -- FIXME: not ideal
+    fmt_out[fmt_out_begin] = 0
+    return ImBuf2Str(fmt_out)
 end
 
 --- @param str string
@@ -2454,6 +2468,16 @@ function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min
 
     g.LastItemData.ItemFlags = bit.band(g.LastItemData.ItemFlags, bit.bnot(ImGuiItemFlags.NoMarkEdited))
     local value_changed = data_backup ~= data
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0 then
+        local state = ImGui.GetInputTextState(g.LastItemData.ID)
+        if state then
+            if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0 then
+                value_changed = value_changed or state.EditedThisFrame or state.ValidatedThisFrame
+            else
+                value_changed = value_changed or state.ValidatedThisFrame
+            end
+        end
+    end
     if value_changed then
         ImGui.MarkItemEdited(id)
     end
@@ -2520,6 +2544,16 @@ function ImGui.InputScalar(label, data_type, data, step, step_fast, format, flag
             -- g.DeactivatedItemData.HasBeenEditedBefore = false; // Will be set below by MarkItemEdited()
             -- if (IsItemDeactivated()) // Should be unnecessary
             data, value_changed = ImGui.DataTypeApplyFromText(buf, data_type, data, format, bit.band(flags, ImGuiInputTextFlags.ParseEmptyRefVal) ~= 0 and data_default or nil)
+        end
+    end
+    if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0 then
+        local state = ImGui.GetInputTextState(g.LastItemData.ID)
+        if state then
+            if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0 then
+                value_changed = value_changed or state.EditedThisFrame or state.ValidatedThisFrame
+            else
+                value_changed = value_changed or state.ValidatedThisFrame
+            end
         end
     end
 
@@ -2830,6 +2864,24 @@ function ImGui.DragBehaviorT(TYPE, SIGNEDTYPE, data_type, v, v_speed, v_min, v_m
     return v, true
 end
 
+local function ShortcutsForCancel(id)
+    local g = GImGui
+    local is_cancel_with_keyboard = ImGui.Shortcut(ImGuiKey.Escape, ImGuiInputFlags.None, id)
+-- ImGuiKey_NavGamepadCancel
+local nav_gamepad_cancel
+if g.IO.ConfigNavSwapGamepadButtons then
+    nav_gamepad_cancel = ImGuiKey.GamepadFaceDown
+else
+    nav_gamepad_cancel = ImGuiKey.GamepadFaceRight
+end
+    local is_cancel_with_gamepad = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0 and ImGui.Shortcut(nav_gamepad_cancel, ImGuiInputFlags.None, id)
+    local is_cancel_with_mouse = ImGui.IsMouseReleased(ImGuiMouseButton.Right, id)
+    if is_cancel_with_mouse then
+        ImGui.SetKeyOwner(ImGuiKey.MouseRight, id)
+    end
+    return is_cancel_with_keyboard or is_cancel_with_gamepad or is_cancel_with_mouse
+end
+
 --- @param id        ImGuiID
 --- @param data_type ImGuiDataType
 --- @param v         number
@@ -2847,6 +2899,12 @@ function ImGui.DragBehavior(id, data_type, v, v_speed, min, max, format, flags)
             ImGui.ClearActiveID()
         elseif (g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad) and g.NavActivatePressedId == id and not g.ActiveIdIsJustActivated then
             ImGui.ClearActiveID()
+        end
+        if ShortcutsForCancel(id) and g.ActiveId == id then
+            local value_changed = (v ~= g.ActiveIdValueOnActivation)
+            v = g.ActiveIdValueOnActivation
+            ImGui.ClearActiveID()
+            return v, value_changed
         end
     end
     if g.ActiveId ~= id then
@@ -2994,10 +3052,17 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
         ImGui.MarkItemEdited(id)
     end
 
-    -- TODO: ImGui.DataTypeFormatString() should be used here instead of ImFormatString()
-
     -- Display value using user-provided display format so user can add prefix/suffix/decorations to the value
-    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.5))
+    local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
+    local value_buf, value_buf_size = {}, 64
+    ImGui.DataTypeFormatString(value_buf, value_buf_size, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
+    if is_mixed then
+        ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextMixedValue])
+    end
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImBuf2Str(value_buf), nil, nil, ImVec2(0.5, 0.5))
+    if is_mixed then
+        ImGui.PopStyleColor()
+    end
 
     if label_size.x > 0.0 then
         ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
@@ -3188,7 +3253,7 @@ function ImGui.ScaleValueFromRatioT(TYPE, SIGNEDTYPE, data_type, t, v_min, v_max
         local is_floating_point = (data_type == ImGuiDataType.Float) or (data_type == ImGuiDataType.Double)
         if is_floating_point then
             result = ImLerp(v_min, v_max, t)
-        elseif t < 1.0 then
+        else -- t is already < 1.0 here
             local v_new_off_f = (SIGNEDTYPE)((v_max - v_min)) * t
             result = (TYPE)((SIGNEDTYPE)(v_min) + (SIGNEDTYPE)(v_new_off_f + 0)) -- LUA: + 0 instead of + ((v_min > v_max) and -0.5 or 0.5)
         end
@@ -3244,33 +3309,24 @@ function ImGui.SliderBehaviorT(TYPE, SIGNEDTYPE, bb, id, data_type, v, v_min, v_
         local set_new_value = false
         local clicked_t = 0.0
         if g.ActiveIdSource == ImGuiInputSource.Mouse then
-            if not g.IO.MouseDown[0] then
-                ImGui.ClearActiveID()
-            else
-                local mouse_abs_pos = g.IO.MousePos[axis]
-                if g.ActiveIdIsJustActivated then
-                    local grab_t = ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
-                    if axis == ImGuiAxis.Y then
-                        grab_t = 1.0 - grab_t
-                    end
-                    local grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t)
-                    local clicked_around_grab = (mouse_abs_pos >= grab_pos - grab_sz * 0.5 - 1.0) and (mouse_abs_pos <= grab_pos + grab_sz * 0.5 + 1.0)
-                    g.SliderGrabClickOffset = (clicked_around_grab and is_floating_point) and (mouse_abs_pos - grab_pos) or 0.0
-                end
-                if slider_usable_sz > 0.0 then
-                    clicked_t = ImSaturate((mouse_abs_pos - g.SliderGrabClickOffset - slider_usable_pos_min) / slider_usable_sz)
-                end
-                if axis == ImGuiAxis.Y then
-                    clicked_t = 1.0 - clicked_t
-                end
-                set_new_value = true
-            end
-        elseif g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
+            local mouse_pos = g.IO.MousePos[axis]
             if g.ActiveIdIsJustActivated then
-                g.SliderCurrentAccum = 0.0
-                g.SliderCurrentAccumDirty = false
+                local grab_t = ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
+                if axis == ImGuiAxis.Y then
+                    grab_t = 1.0 - grab_t
+                end
+                local grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t)
+                local clicked_around_grab = (mouse_pos >= grab_pos - grab_sz * 0.5 - 1.0) and (mouse_pos <= grab_pos + grab_sz * 0.5 + 1.0)
+                g.SliderGrabClickOffset = (clicked_around_grab and is_floating_point) and (mouse_pos - grab_pos) or 0.0
             end
-
+            if slider_usable_sz > 0.0 then
+                clicked_t = ImSaturate((mouse_pos - g.SliderGrabClickOffset - slider_usable_pos_min) / slider_usable_sz)
+            end
+            if axis == ImGuiAxis.Y then
+                clicked_t = 1.0 - clicked_t
+            end
+            set_new_value = true
+        elseif g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
             local input_delta = (axis == ImGuiAxis.X) and ImGui.GetNavTweakPressedAmount(axis) or -ImGui.GetNavTweakPressedAmount(axis)
             if input_delta ~= 0.0 then
                 local tweak_slow = ImGui.IsKeyDown((g.NavInputSource == ImGuiInputSource.Gamepad) and ImGuiKey.NavGamepadTweakSlow or ImGuiKey.NavKeyboardTweakSlow)
@@ -3297,9 +3353,7 @@ function ImGui.SliderBehaviorT(TYPE, SIGNEDTYPE, bb, id, data_type, v, v_min, v_
             end
 
             local delta = g.SliderCurrentAccum
-            if g.NavActivatePressedId == id and not g.ActiveIdIsJustActivated then
-                ImGui.ClearActiveID()
-            elseif g.SliderCurrentAccumDirty then
+            if g.SliderCurrentAccumDirty then
                 clicked_t = ImGui.ScaleRatioFromValueT(data_type, v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize)
 
                 if (clicked_t >= 1.0 and delta > 0.0) or (clicked_t <= 0.0 and delta < 0.0) then
@@ -3380,6 +3434,28 @@ end
 function ImGui.SliderBehavior(bb, id, data_type, v, min, max, format, flags, out_grab_bb)
     IM_ASSERT((flags == 1 or bit.band(flags, ImGuiSliderFlags.InvalidMask_) == 0), "Invalid ImGuiSliderFlags flags! Has the legacy 'float power' argument been mistakenly cast to flags? Call function with ImGuiSliderFlags_Logarithmic flags instead.")
     IM_ASSERT(bit.band(flags, ImGuiSliderFlags.WrapAround) == 0)
+
+    local g = GImGui
+    if g.ActiveId == id then
+        if g.ActiveIdSource == ImGuiInputSource.Mouse and not g.IO.MouseDown[0] then
+            ImGui.ClearActiveID()
+        end
+        if g.ActiveIdSource == ImGuiInputSource.Keyboard or g.ActiveIdSource == ImGuiInputSource.Gamepad then
+            if g.ActiveIdIsJustActivated then
+                g.SliderCurrentAccum = 0.0 -- Reset any stored nav delta upon activation
+                g.SliderCurrentAccumDirty = false
+            end
+            if g.NavActivatePressedId == id and not g.ActiveIdIsJustActivated then
+                ImGui.ClearActiveID()
+            end
+        end
+        if ShortcutsForCancel(id) and g.ActiveId == id then
+            local value_changed = (v ~= g.ActiveIdValueOnActivation)
+            v = g.ActiveIdValueOnActivation
+            ImGui.ClearActiveID()
+            return v, value_changed
+        end
+    end
 
     if     data_type == ImGuiDataType.S8 then
         local v32 = (ImS32)((ImS8)(v)); local r
@@ -3508,12 +3584,19 @@ function ImGui.SliderScalar(label, data_type, data, min, max, format, flags)
         window.DrawList:AddRectFilled(grab_bb.Min, grab_bb.Max, ImGui.GetColorU32((g.ActiveId == id) and ImGuiCol.SliderGrabActive or ImGuiCol.SliderGrab), style.GrabRounding)
     end
 
-    -- TODO: ImGui.DataTypeFormatString() should be used here instead of ImFormatString()
-
     -- if g.LogEnabled then
     --     ImGui.LogSetNextTextDecoration("{", "}")
     -- end
-    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.5))
+    local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
+    local value_buf, value_buf_size = {}, 64
+    ImGui.DataTypeFormatString(value_buf, value_buf_size, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
+    if is_mixed then
+        ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextMixedValue])
+    end
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImBuf2Str(value_buf), nil, nil, ImVec2(0.5, 0.5))
+    if is_mixed then
+        ImGui.PopStyleColor()
+    end
 
     if label_size.x > 0.0 then
         ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
@@ -3709,9 +3792,16 @@ function ImGui.VSliderScalar(label, size, data_type, data, min, max, format, fla
         window.DrawList:AddRectFilled(grab_bb.Min, grab_bb.Max, ImGui.GetColorU32((g.ActiveId == id) and ImGuiCol.SliderGrabActive or ImGuiCol.SliderGrab), style.GrabRounding)
     end
 
-    -- local value_buf, value_buf_size = {}, 64
-    -- TODO: ImGui.DataTypeFormatString()
-    ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, ImFormatString(format, data), nil, nil, ImVec2(0.5, 0.0))
+    local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
+    local value_buf, value_buf_size = {}, 64
+    ImGui.DataTypeFormatString(value_buf, value_buf_size, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
+    if is_mixed then
+        ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextMixedValue])
+    end
+    ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, ImBuf2Str(value_buf), nil, nil, ImVec2(0.5, 0.0))
+    if is_mixed then
+        ImGui.PopStyleColor()
+    end
     if label_size.x > 0.0 then
         ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
     end
@@ -3954,7 +4044,7 @@ function ImStb.TEXTEDIT_MOVELINESTART(obj, state, cursor)
             if p == cursor then -- If we are already on a visible beginning-of-line, return real beginning-of-line (would be same as regular handler below)
                 return bol
             end
-            if eol == cursor and obj.TextA[cursor] ~= 10 and obj.LastMoveDirectionLR == ImGuiDir.Left then
+            if eol == cursor and obj.TextSrc[cursor] ~= 10 and obj.LastMoveDirectionLR == ImGuiDir.Left then
                 return bol
             end
             if eol >= cursor then
@@ -4359,6 +4449,7 @@ function ImGui.InputTextDeactivateHook(id)
         return
     end
     -- IMGUI_DEBUG_LOG_ACTIVEID("InputTextDeactivateHook() id = 0x%08X\n", id);
+    state.EditedBefore = false
 
     g.InputTextDeactivatedState.ID = state.ID
     g.InputTextDeactivatedState.ElapseFrame = g.FrameCount + 1
@@ -4368,7 +4459,7 @@ function ImGui.InputTextDeactivateHook(id)
         IM_ASSERT(state.TextA.Data ~= nil)
         -- IM_ASSERT(state.TextA[state.TextLen + 1] == 0)
         g.InputTextDeactivatedState.TextA:resize(state.TextLen + 1)
-        ImStd.memmove(g.InputTextDeactivatedState.TextA.Data, 1, state.TextA.Data, 1, state.TextLen) -- state.TextLen + 1
+        ImStd.memmove(g.InputTextDeactivatedState.TextA.Data, 1, state.TextA.Data, 1, state.TextLen + 1)
     end
 end
 
@@ -4624,6 +4715,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local is_password = bit.band(flags, ImGuiInputTextFlags.Password) ~= 0
     local is_undoable = bit.band(flags, ImGuiInputTextFlags.NoUndoRedo) == 0
     local is_resizable = bit.band(flags, ImGuiInputTextFlags.CallbackResize) ~= 0
+    local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
     if is_resizable then
         IM_ASSERT(callback ~= nil) -- Must provide a callback if you set the ImGuiInputTextFlags.CallbackResize flag!
     end
@@ -4712,7 +4804,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         end
 
         if not is_multiline then
-            if bit.band(flags, ImGuiInputTextFlags.AutoSelectAll) ~= 0 then
+            if bit.band(flags, ImGuiInputTextFlags.AutoSelectAll) ~= 0 or is_mixed then
                 select_all = true
             end
             if input_requested_by_nav and (not recycle_state or (bit.band(g.NavActivateFlags, ImGuiActivateFlags.TryToPreserveState) == 0)) then
@@ -4802,7 +4894,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     -- Select the buffer to render
     local buf_display_from_state = (render_cursor or render_selection or g.ActiveId == id) and not is_readonly and state ~= nil
-    local is_displaying_hint = (hint ~= nil and (buf_display_from_state and state.TextA.Data or buf)[1] == 0)
+    local is_displaying_hint = (hint ~= nil and (buf_display_from_state and state.TextSrc or buf)[1] == 0) and not is_mixed
 
     -- Password pushes a temporary font with only a fallback glyph
     if is_password and not is_displaying_hint then
@@ -4811,6 +4903,9 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     if state ~= nil and state.ID == id then
         state.Flags = flags
+        state.EditedThisFrame = false
+        state.ValidatedThisFrame = false
+        -- state.LastFrameActive = g.FrameCount
 
         -- Word-wrapping: attempt to keep cursor in view while resizing frame/parent (FIXME-WORDWRAP: would be better to preserve same relative offset)
         if is_wordwrap and state.WrapWidth ~= wrap_width then
@@ -4824,7 +4919,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     if g.ActiveId == id then
         --- @cast state ImGuiInputTextState
         IM_ASSERT(state ~= nil)
-        state.EditedThisFrame = false
         state.BufCapacity = buf_size
         state.WrapWidth = wrap_width
 
@@ -4954,8 +5048,17 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         local is_enter            = ImGui.Shortcut(ImGuiKey.Enter, f_repeat, id) or ImGui.Shortcut(ImGuiKey.KeypadEnter, f_repeat, id)
         local is_ctrl_enter       = ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.Enter), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.KeypadEnter), f_repeat, id)
         local is_shift_enter      = ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.Enter), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.KeypadEnter), f_repeat, id)
-        local is_gamepad_validate = nav_gamepad_active and ImGui.IsKeyPressed(ImGuiKey.NavGamepadActivate, false)
-        local is_cancel           = ImGui.Shortcut(ImGuiKey.Escape, f_repeat, id) or (nav_gamepad_active and ImGui.Shortcut(ImGuiKey.NavGamepadCancel, f_repeat, id))
+-- ImGuiKey_NavGamepadActivate / ImGuiKey_NavGamepadCancel
+local nav_gamepad_activate, nav_gamepad_cancel
+if io.ConfigNavSwapGamepadButtons then
+    nav_gamepad_activate = ImGuiKey.GamepadFaceRight
+    nav_gamepad_cancel   = ImGuiKey.GamepadFaceDown
+else
+    nav_gamepad_activate = ImGuiKey.GamepadFaceDown
+    nav_gamepad_cancel   = ImGuiKey.GamepadFaceRight
+end
+        local is_gamepad_validate = nav_gamepad_active and ImGui.IsKeyPressed(nav_gamepad_activate, false)
+        local is_cancel           = ImGui.Shortcut(ImGuiKey.Escape, f_repeat, id) or (nav_gamepad_active and ImGui.Shortcut(nav_gamepad_cancel, f_repeat, id))
 
         if ImGui.IsKeyPressed(ImGuiKey.LeftArrow) then
             state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_LINESTART or (is_wordmove_key_down and STB_TEXTEDIT_K_WORDLEFT or STB_TEXTEDIT_K_LEFT), k_mask))
@@ -5019,7 +5122,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             end
         elseif is_cancel then
             if bit.band(flags, ImGuiInputTextFlags.EscapeClearsAll) ~= 0 then
-                if state.TextA.Data[1] ~= 0 then
+                if state.TextSrc[1] ~= 0 then
                     revert_edit = true
                 else
                     render_cursor = false
@@ -5045,7 +5148,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 g.TempBuffer:reserve(ie - ib + 1)
                 ImStd.memmove(g.TempBuffer.Data, 1, state.TextSrc, ib, ie - ib)
                 g.TempBuffer.Data[ie - ib + 1] = 0
-                ImGui.SetClipboardText(ImGui._ByteArrayToString(g.TempBuffer.Data, 1, ie - ib + 1))
+                ImGui.SetClipboardText(ImBuf2Str(g.TempBuffer.Data))
             end
             if is_cut then
                 if not state:HasSelection() then
@@ -5102,13 +5205,13 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
         if revert_edit and not is_readonly then
             if bit.band(flags, ImGuiInputTextFlags.EscapeClearsAll) ~= 0 then
-                IM_ASSERT(state.TextA.Data[1] ~= 0)
+                IM_ASSERT(state.TextSrc[1] ~= 0)
                 apply_new_text = {0}
                 apply_new_text_length = 0
                 value_changed = true
                 local empty_string = {0}
                 ImStb.stb_textedit_replace(state, state.Stb, empty_string, 0)
-            elseif ImStd.strcmp(state.TextA.Data, state.TextToRevertTo.Data) ~= 0 then
+            elseif ImStd.strcmp(state.TextSrc, state.TextToRevertTo.Data) ~= 0 then
                 apply_new_text = state.TextToRevertTo.Data
                 apply_new_text_length = state.TextToRevertTo.Size - 1
 
@@ -5183,16 +5286,16 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         end
 
         if not is_readonly then
-            if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0 then
+            if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputText) ~= 0 then
                 -- Apply when modified
-                if (ImStd.strcmp(state.TextSrc, buf) ~= 0) then
+                if ImStd.strcmp(state.TextSrc, buf) ~= 0 or (is_mixed and (state.EditedThisFrame or validated)) then
                     apply_new_text = state.TextSrc
                     apply_new_text_length = state.TextLen
                     value_changed = true
                 end
             else
                 -- Apply on validation/deactivation, otherwise cancel out previous apply attempts (e.g. revert)
-                value_changed = ((validated or clear_active_id or revert_edit) and ImStd.strcmp(state.TextSrc, buf) ~= 0)
+                value_changed = (validated or clear_active_id or revert_edit) and (ImStd.strcmp(state.TextSrc, buf) ~= 0 or (is_mixed and validated))
                 apply_new_text = value_changed and state.TextSrc or NULL
                 apply_new_text_length = value_changed and state.TextLen or 0
             end
@@ -5240,9 +5343,8 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     -- Release active ID at the end of the function (so e.g. pressing Return still does a final application of the value)
     -- Otherwise request text input ahead for next frame.
     if g.ActiveId == id and clear_active_id then
-        state.ID = 0
+        state.EditedBefore = false
         ImGui.ClearActiveID()
-        state.ID = id
     end
 
     -- Render frame
@@ -5267,7 +5369,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
 
     -- Display hint when contents is empty
     -- At this point we need to handle the possibility that a callback could have modified the underlying buffer (#8368)
-    local new_is_displaying_hint = (hint ~= nil and (buf_display_from_state and state.TextA.Data or buf)[1] == 0)
+    local new_is_displaying_hint = (hint ~= nil and (buf_display_from_state and state.TextA.Data or buf)[1] == 0) and not is_mixed
     if new_is_displaying_hint ~= is_displaying_hint then
         if is_password and not is_displaying_hint then
             ImGui.PopPasswordFont()
@@ -5277,7 +5379,13 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             ImGui.PushPasswordFont()
         end
     end
-    if is_displaying_hint then
+    local is_displaying_mixed = is_mixed and g.ActiveId ~= id and apply_new_text == nil
+    if is_displaying_mixed and g.MixedValueLabel ~= nil then
+        buf_display = ImStr2Buf(g.MixedValueLabel, #g.MixedValueLabel + 1)
+        buf_display_end = #buf_display
+        render_cursor = false
+        render_selection = false
+    elseif is_displaying_hint then
         --- @cast hint char[]
         buf_display = hint
         buf_display_end = ImStd.ImStrlen(hint) + 1
@@ -5318,7 +5426,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local cursor_offset = (render_cursor and state) and InputTextLineIndexGetPosOffset(g, state, line_index, buf_display, buf_display_end, state.Stb.cursor) or ImVec2(0.0, 0.0)
     local draw_scroll = ImVec2()
 
-    local text_col = ImGui.GetColorU32(is_displaying_hint and ImGuiCol.TextDisabled or ImGuiCol.Text)
+    local text_col = ImGui.GetColorU32(is_displaying_mixed and ImGuiCol.TextMixedValue or is_displaying_hint and ImGuiCol.TextDisabled or ImGuiCol.Text)
     if render_cursor or render_selection then
         IM_ASSERT(state ~= nil)
         state.LineCount = line_count
@@ -5470,6 +5578,9 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         ImGui.RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label, 1, label_end, false)
     end
 
+    if state and validated then
+        state.ValidatedThisFrame = true
+    end
     if value_changed then
         ImGui.MarkItemEdited(id)
     end
@@ -5679,13 +5790,9 @@ function ImGui.ColorEdit4(label, col, flags)
         -- TODO: resolve sprintf, sscanf requirement. currently this section creates a lot of temp tables and strings...
         local buf, buf_size = nil, 64
         if alpha then
-            local str = ImFormatString("#%02X%02X%02X%02X", ImClamp(i[1], 0, 255), ImClamp(i[2], 0, 255), ImClamp(i[3], 0, 255), ImClamp(i[4], 0, 255))
-            buf = { string.byte(str, 1, #str) }
-            buf[#buf + 1] = 0
+            buf = ImStr2Buf(ImFormatString("#%02X%02X%02X%02X", ImClamp(i[1], 0, 255), ImClamp(i[2], 0, 255), ImClamp(i[3], 0, 255), ImClamp(i[4], 0, 255)), buf_size)
         else
-            local str = ImFormatString("#%02X%02X%02X", ImClamp(i[1], 0, 255), ImClamp(i[2], 0, 255), ImClamp(i[3], 0, 255))
-            buf = { string.byte(str, 1, #str) }
-            buf[#buf + 1] = 0
+            buf = ImStr2Buf(ImFormatString("#%02X%02X%02X", ImClamp(i[1], 0, 255), ImClamp(i[2], 0, 255), ImClamp(i[3], 0, 255)), buf_size)
         end
         ImGui.SetNextItemWidth(w_inputs)
 
@@ -5740,7 +5847,9 @@ function ImGui.ColorEdit4(label, col, flags)
                 local picker_flags_to_forward = bit.bor(ImGuiColorEditFlags.DataTypeMask_, ImGuiColorEditFlags.PickerMask_, ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.HDR, ImGuiColorEditFlags.NoAlpha, ImGuiColorEditFlags.AlphaBar)
                 local picker_flags = bit.bor(bit.band(flags_untouched, picker_flags_to_forward), ImGuiColorEditFlags.DisplayMask_, ImGuiColorEditFlags.NoLabel, ImGuiColorEditFlags.AlphaPreviewHalf)
                 ImGui.SetNextItemWidth(square_sz * 12.0) -- Use 256 + bar sizes?
+                ImGui.PushItemFlag(ImGuiItemFlags.MixedValue, false)
                 value_changed = value_changed or ImGui.ColorPicker4("##picker", col, picker_flags, g.ColorPickerRef)
+                ImGui.PopItemFlag()
             end
             ImGui.EndPopup()
         end
@@ -5848,6 +5957,11 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     local width = ImGui.CalcItemWidth()
     local is_readonly = bit.band(bit.bor(g.NextItemData.ItemFlagsSet, g.CurrentItemFlags), ImGuiItemFlags.ReadOnly) ~= 0
     g.NextItemData:ClearFlags()
+
+    local backup_alpha = style.Alpha
+    if g.DisabledStackSize > 0 then
+        g.Style.Alpha = g.DisabledAlphaBackup -- Cancel out effect of BeginDisabled() for color swatches
+    end
 
     ImGui.PushID(label)
     local set_current_color_edit_id = (g.ColorEditCurrentID == 0)
@@ -6020,6 +6134,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
 
     if bit.band(flags, ImGuiColorEditFlags.NoSidePreview) == 0 then
         ImGui.PushItemFlag(ImGuiItemFlags.NoNavDefaultFocus, true)
+        ImGui.PushItemFlag(ImGuiItemFlags.MixedValue, false)
         local col_v4 = ImVec4(col[1], col[2], col[3], (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 1.0 or col[4])
 
         if bit.band(flags, ImGuiColorEditFlags.NoLabel) ~= 0 then
@@ -6041,6 +6156,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
             end
         end
 
+        ImGui.PopItemFlag()
         ImGui.PopItemFlag()
         ImGui.EndGroup()
     end
@@ -6216,7 +6332,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     if alpha_bar then
         local alpha = ImSaturate(col[4])
         local bar1_bb = ImRect(bar1_pos_x, picker_pos.y, bar1_pos_x + bars_width, picker_pos.y + sv_picker_size)
-        ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, bar1_bb.Min, bar1_bb.Max, 0, bar1_bb:GetWidth() / 2.0, ImVec2(0.0, 0.0))
+        ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, bar1_bb.Min, bar1_bb.Max, IM_COL32(0, 0, 0, 0), style.Alpha, bar1_bb:GetWidth() / 2.0, ImVec2(0.0, 0.0))
         draw_list:AddRectFilledMultiColor(bar1_bb.Min, bar1_bb.Max, user_col32_striped_of_alpha, user_col32_striped_of_alpha, bit.band(user_col32_striped_of_alpha, bit.bnot(IM_COL32_A_MASK)), bit.band(user_col32_striped_of_alpha, bit.bnot(IM_COL32_A_MASK)))
 
         local bar1_line_y = IM_ROUND(picker_pos.y + (1.0 - alpha) * sv_picker_size)
@@ -6246,6 +6362,10 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     end
 
     ImGui.PopID()
+
+    if g.DisabledStackSize > 0 then
+        g.Style.Alpha = backup_alpha
+    end
 
     return value_changed
 end
@@ -6289,28 +6409,37 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
     local col_rgb_without_alpha = ImVec4(col_rgb.x, col_rgb.y, col_rgb.z, 1.0)
     local grid_step = ImMin(size.x, size.y) / 2.99
     local rounding = ImMin(g.Style.FrameRounding, grid_step * 0.5)
-    local bb_inner = ImRect()
-    ImRect_Copy(bb_inner, bb)
-    local off = 0.0
-    if bit.band(flags, ImGuiColorEditFlags.NoBorder) == 0 then
-        off = -0.75
-        bb_inner:Expand(off)
+    local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
+
+    local backup_alpha = g.Style.Alpha
+    if g.DisabledStackSize > 0 then
+        g.Style.Alpha = g.DisabledAlphaBackup -- Cancel out effect of BeginDisabled() for color swatches
     end
-    if bit.band(flags, ImGuiColorEditFlags.AlphaPreviewHalf) ~= 0 and col_rgb.w < 1.0 then
-        local mid_x = IM_ROUND((bb_inner.Min.x + bb_inner.Max.x) * 0.5)
-        if bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
-            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32(col_rgb), grid_step, ImVec2(-grid_step + off, off), rounding, ImDrawFlags.RoundCornersRight)
-        else
-            window.DrawList:AddRectFilled(ImVec2(bb_inner.Min.x + grid_step, bb_inner.Min.y), bb_inner.Max, ImGui.GetColorU32(col_rgb), rounding, ImDrawFlags.RoundCornersRight)
+    if is_mixed then
+        window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(ImGuiCol.FrameBg), rounding)
+        ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextMixedValue])
+        if g.MixedValueLabel ~= nil then
+            ImGui.RenderTextClipped(ImVec2(bb.Min.x, bb.Min.y + g.Style.FramePadding.y), bb.Max, g.MixedValueLabel, nil, nil, ImVec2(0.5, 0.0))
         end
-        window.DrawList:AddRectFilled(bb_inner.Min, ImVec2(mid_x, bb_inner.Max.y), ImGui.GetColorU32(col_rgb_without_alpha), rounding, ImDrawFlags.RoundCornersLeft)
+        ImGui.PopStyleColor()
+    elseif bit.band(flags, ImGuiColorEditFlags.AlphaPreviewHalf) ~= 0 and col_rgb.w < 1.0 then
+        local mid_x = IM_ROUND((bb.Min.x + bb.Max.x) * 0.5)
+        if bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
+            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, ImVec2(bb.Min.x + grid_step, bb.Min.y), bb.Max, ImGui.ColorConvertFloat4ToU32(col_rgb), g.Style.Alpha, grid_step, ImVec2(-grid_step, 0.0), rounding, ImDrawFlags.RoundCornersRight)
+        else
+            window.DrawList:AddRectFilled(ImVec2(bb.Min.x + grid_step, bb.Min.y), bb.Max, ImGui.GetColorU32(col_rgb), rounding, ImDrawFlags.RoundCornersRight)
+        end
+        window.DrawList:AddRectFilled(bb.Min, ImVec2(mid_x, bb.Max.y), ImGui.GetColorU32(col_rgb_without_alpha), rounding, ImDrawFlags.RoundCornersLeft)
     else
         local col_source = (bit.band(flags, ImGuiColorEditFlags.AlphaOpaque) ~= 0) and col_rgb_without_alpha or col_rgb
         if col_source.w < 1.0 and bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
-            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, bb_inner.Min, bb_inner.Max, ImGui.GetColorU32(col_source), grid_step, ImVec2(off, off), rounding)
+            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, bb.Min, bb.Max, ImGui.ColorConvertFloat4ToU32(col_source), g.Style.Alpha, grid_step, ImVec2(0.0, 0.0), rounding)
         else
-            window.DrawList:AddRectFilled(bb_inner.Min, bb_inner.Max, ImGui.GetColorU32(col_source), rounding)
+            window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(col_source), rounding)
         end
+    end
+    if g.DisabledStackSize > 0 then
+        g.Style.Alpha = backup_alpha
     end
     ImGui.RenderNavCursor(bb, id)
     if bit.band(flags, ImGuiColorEditFlags.NoBorder) == 0 then
@@ -6368,7 +6497,9 @@ function ImGui.ColorTooltip(text, col, flags)
     local ca = (bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0) and 255 or IM_F32_TO_INT8_SAT(col.w)
 
     local flags_to_forward = bit.bor(ImGuiColorEditFlags.InputMask_, ImGuiColorEditFlags.AlphaMask_)
+    ImGui.PushItemFlag(ImGuiItemFlags.MixedValue, false)
     ImGui.ColorButton("##preview", cf, bit.bor(bit.band(flags, flags_to_forward), ImGuiColorEditFlags.NoTooltip), sz)
+    ImGui.PopItemFlag()
     ImGui.SameLine()
 
     if bit.band(flags, ImGuiColorEditFlags.InputRGB) ~= 0 or bit.band(flags, ImGuiColorEditFlags.InputMask_) == 0 then
@@ -6581,6 +6712,12 @@ function ImGui.TreeNodeUpdateNextOpen(storage_id, flags)
     return is_open
 end
 
+local TREE_NODE_MAX_DEPTH = 32
+
+local function TREE_NODE_GET_DEPTH_MASK(depth)
+    return (depth >= 0 and depth < TREE_NODE_MAX_DEPTH) and bit.lshift(1, depth) or 0
+end
+
 --- @param flags ImGuiTreeNodeFlags
 --- @param x1    float
 local function TreeNodeStoreStackData(flags, x1)
@@ -6598,9 +6735,9 @@ local function TreeNodeStoreStackData(flags, x1)
     tree_node_data.DrawLinesX1 = draw_lines and (x1 + g.FontSize * 0.5 + g.Style.FramePadding.x) or FLT_MAX
     tree_node_data.DrawLinesTableColumn = (draw_lines and g.CurrentTable) and g.CurrentTable.CurrentColumn or -1
     tree_node_data.DrawLinesToNodesY2 = -FLT_MAX
-    window.DC.TreeHasStackDataDepthMask = window.DC.TreeHasStackDataDepthMask or bit.lshift(1, window.DC.TreeDepth)
+    window.DC.TreeHasStackDataDepthMask = bit.bor(window.DC.TreeHasStackDataDepthMask, bit.lshift(1, window.DC.TreeDepth))
     if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesToNodes) ~= 0 then
-        window.DC.TreeRecordsClippedNodesY2Mask = window.DC.TreeRecordsClippedNodesY2Mask or bit.lshift(1, window.DC.TreeDepth)
+        window.DC.TreeRecordsClippedNodesY2Mask = bit.bor(window.DC.TreeRecordsClippedNodesY2Mask, bit.lshift(1, window.DC.TreeDepth))
     end
 end
 
@@ -6681,7 +6818,7 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
         flags = bit.bor(flags, g.Style.TreeLinesFlags)
     end
     local draw_tree_lines = (bit.band(flags, bit.bor(ImGuiTreeNodeFlags.DrawLinesFull, ImGuiTreeNodeFlags.DrawLinesToNodes)) ~= 0) and (frame_bb.Min.y < window.ClipRect.Max.y) and (g.Style.TreeLinesSize > 0.0)
-    if bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 then
+    if bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 and window.DC.TreeDepth < TREE_NODE_MAX_DEPTH then
         store_tree_node_stack_data = draw_tree_lines
         if bit.band(flags, ImGuiTreeNodeFlags.NavLeftJumpsToParent) ~= 0 and not g.NavIdIsAlive then
             if g.NavMoveDir == ImGuiDir.Left and g.NavWindow == window and ImGui.NavMoveRequestButNoResultYet() then
@@ -6692,15 +6829,18 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
 
     local is_leaf = bit.band(flags, ImGuiTreeNodeFlags.Leaf) ~= 0
     if not is_visible then
-        if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesToNodes) ~= 0 and bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.lshift(1, (window.DC.TreeDepth - 1))) ~= 0 then
-            local parent_data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
-            parent_data.DrawLinesToNodesY2 = ImMax(parent_data.DrawLinesToNodesY2, window.DC.CursorPos.y)
-            if frame_bb.Min.y >= window.ClipRect.Max.y then
-                window.DC.TreeRecordsClippedNodesY2Mask = bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.bnot(bit.lshift(1, (window.DC.TreeDepth - 1))))
+        if bit.band(flags, ImGuiTreeNodeFlags.DrawLinesToNodes) ~= 0 then
+            local tree_depth_mask = TREE_NODE_GET_DEPTH_MASK(window.DC.TreeDepth - 1)
+            if bit.band(window.DC.TreeRecordsClippedNodesY2Mask, tree_depth_mask) ~= 0 then
+                local parent_data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
+                parent_data.DrawLinesToNodesY2 = ImMax(parent_data.DrawLinesToNodesY2, window.DC.CursorPos.y)
+                if frame_bb.Min.y >= window.ClipRect.Max.y then
+                    window.DC.TreeRecordsClippedNodesY2Mask = bit.band(window.DC.TreeRecordsClippedNodesY2Mask, bit.bnot(tree_depth_mask)) -- Done
+                end
             end
         end
         if is_open and store_tree_node_stack_data then
-            ImGui.TreeNodeStoreStackData(flags, text_pos.x - text_offset_x)
+            TreeNodeStoreStackData(flags, text_pos.x - text_offset_x)
         end
         if is_open and bit.band(flags, ImGuiTreeNodeFlags.NoTreePushOnOpen) == 0 then
             ImGui.TreePushOverrideID(id)
@@ -6885,7 +7025,7 @@ end
 function ImGui.TreeNodeDrawLineToChildNode(target_pos)
     local g = GImGui
     local window = g.CurrentWindow
-    if window.DC.TreeDepth == 0 or bit.band(window.DC.TreeHasStackDataDepthMask, bit.lshift(1, window.DC.TreeDepth - 1)) == 0 then
+    if bit.band(window.DC.TreeHasStackDataDepthMask, TREE_NODE_GET_DEPTH_MASK(window.DC.TreeDepth - 1)) == 0 then
         return
     end
 
@@ -6925,7 +7065,7 @@ function ImGui.TreePop()
     ImGui.Unindent()
 
     window.DC.TreeDepth = window.DC.TreeDepth - 1
-    local tree_depth_mask = bit.lshift(1, window.DC.TreeDepth)
+    local tree_depth_mask = TREE_NODE_GET_DEPTH_MASK(window.DC.TreeDepth)
 
     if bit.band(window.DC.TreeHasStackDataDepthMask, tree_depth_mask) ~= 0 then
         local data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
@@ -7120,7 +7260,7 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         --   - (1) it would require focus scope to be set, need exposing PushFocusScope() or equivalent (e.g. BeginSelection() calling PushFocusScope())
         --   - (2) usage will fail with clipped items
         --   The multi-select API aim to fix those issues, e.g. may be replaced with a BeginSelection() API.
-        if bit.band(flags, ImGuiSelectableFlags.SelectOnNav) ~= 0 and g.NavJustMovedToId ~= 0 and g.NavJustMovedToFocusScopeId == g.CurrentFocusScopeId then
+        if bit.band(flags, ImGuiSelectableFlags.SelectOnNav) ~= 0 and g.NavJustMovedToId ~= 0 and g.NavJustMovedToFocusScopeId == g.CurrentFocusScopeId and not g.NavJustMovedToIsInit then
             if g.NavJustMovedToId == id and bit.band(g.NavJustMovedToKeyMods, ImGuiMod_Ctrl) == 0 then
                 selected = true
                 pressed = true

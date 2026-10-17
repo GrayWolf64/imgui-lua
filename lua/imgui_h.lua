@@ -70,6 +70,38 @@ function ImS32(val) return bitAnd(val, 0xFFFFFFFF) end
 IM_UNICODE_CODEPOINT_INVALID = 0xFFFD
 IM_UNICODE_CODEPOINT_MAX     = 0xFFFF
 
+--- Converts a Lua string to a NUL-terminated char[] buffer
+--- @param str      string
+--- @param buf_size int
+--- @return char[]
+function ImStr2Buf(str, buf_size)
+    IM_ASSERT(buf_size > 0)
+    local buf = { string.byte(str, 1, ImMin(#str, buf_size - 1)) }
+    buf[#buf + 1] = 0
+    return buf
+end
+
+--- Converts a NUL-terminated char[] buffer to a Lua string
+--- @param buf char[]
+--- @return string
+function ImBuf2Str(buf)
+    local len = 0
+    while buf[len + 1] ~= nil and buf[len + 1] ~= 0 do
+        len = len + 1
+    end
+
+    local CHUNK_SIZE = 1000
+    local chunks = {}
+    local offset = 1
+    while offset <= len do
+        local chunk_end = ImMin(offset + CHUNK_SIZE - 1, len)
+        chunks[#chunks + 1] = string.char(unpack(buf, offset, chunk_end))
+        offset = chunk_end + 1
+    end
+
+    return table.concat(chunks)
+end
+
 IM_ALLOC = ImGui.MemAlloc
 IM_FREE = ImGui.MemFree
 
@@ -531,6 +563,7 @@ function ImDrawListSplitter() return { _Current = 0, _Count = 0, _Channels = ImV
 --- @field _TextureStack     ImVector<ImTextureRef>
 --- @field _CallbacksDataBuf any
 --- @field _FringeScale      float
+--- @field _InvFringeScale   float
 --- @field _OwnerName        string
 MT.ImDrawList = {}
 MT.ImDrawList.__index = MT.ImDrawList
@@ -584,6 +617,7 @@ function ImDrawList(data)
         _CallbacksDataBuf = nil,
 
         _FringeScale = 0,
+        _InvFringeScale = 0,
         _OwnerName = nil
     }, MT.ImDrawList)
 
@@ -744,6 +778,10 @@ function ImFontBaked()
     return this
 end
 
+--- @class ImFontRemapGlyphIndex
+--- @field FontSrcIdx int # 1-based source index
+--- @field GlyphIdx   int # Raw glyph index in TTF/OTF file
+
 --- @class ImFont
 --- @field LastBaked                ImFontBaked
 --- @field OwnerAtlas               ImFontAtlas
@@ -756,7 +794,7 @@ end
 --- @field FallbackChar             ImWchar
 --- @field Used8kPagesMap           ImU8[]                 # 1-based table
 --- @field EllipsisAutoBake         bool
---- @field RemapPairs               table<ImGuiID, any>    # LUA: No ImGuiStorage
+--- @field RemapPairs               table<ImGuiID, ImWchar|ImFontRemapGlyphIndex> # LUA: No ImGuiStorage
 --- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
@@ -952,7 +990,7 @@ end
 --- @class ImFontGlyph
 --- @field Colored   boolean
 --- @field Visible   boolean
---- @field SourceIdx unsigned_int
+--- @field SourceIdx unsigned_int # 1-based source index
 --- @field Codepoint unsigned_int
 --- @field AdvanceX  float
 --- @field X0        float
@@ -1048,6 +1086,7 @@ function ImGuiIO()
         ConfigColorEditFlags = ImGuiColorEditFlags.DefaultOptions_,
 
         ConfigMacOSXBehaviors = false,
+        ConfigNavSwapGamepadButtons = false,
         ConfigNavCursorVisibleAuto = true,
         ConfigNavCursorVisibleAlways = false,
         ConfigInputTrickleEventQueue = true,
@@ -1340,7 +1379,8 @@ ImGuiItemFlags = {
     AllowDuplicateId      = bitLShift(1, 5),
     Disabled              = bitLShift(1, 6),
     LiveEditOnInputText   = bitLShift(1, 7),
-    LiveEditOnInputScalar = bitLShift(1, 8)
+    LiveEditOnInputScalar = bitLShift(1, 8),
+    MixedValue            = bitLShift(1, 9)
 }
 
 ImGuiItemFlags.LiveEditOnInput = bitOr(ImGuiItemFlags.LiveEditOnInputText, ImGuiItemFlags.LiveEditOnInputScalar)
@@ -1787,7 +1827,6 @@ ImGuiComboFlags = {
 }
 
 ImGuiComboFlags.HeightMask_ = bitOr(ImGuiComboFlags.HeightSmall, ImGuiComboFlags.HeightRegular, ImGuiComboFlags.HeightLarge, ImGuiComboFlags.HeightLargest)
-ImGuiComboFlags.CustomPreview = bitLShift(1, 20)
 
 --- @enum ImGuiSelectableFlags
 ImGuiSelectableFlags = {
