@@ -1155,6 +1155,37 @@ function ImGui.IsMouseDragging(button, lock_threshold)
     return ImGui.IsMouseDragPastThreshold(button, lock_threshold)
 end
 
+--- @param button?         ImGuiMouseButton
+--- @param lock_threshold? float
+--- @return ImVec2
+function ImGui.GetMouseDragDelta(button, lock_threshold)
+    if button         == nil then button         = 0    end
+    if lock_threshold == nil then lock_threshold = -1.0 end
+
+    local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
+    if lock_threshold < 0.0 then
+        lock_threshold = g.IO.MouseDragThreshold
+    end
+    if g.IO.MouseDown[button] or g.IO.MouseReleased[button] then
+        if g.IO.MouseDragMaxDistanceSqr[button] >= lock_threshold * lock_threshold then
+            if ImGui.IsMousePosValid(g.IO.MousePos) and ImGui.IsMousePosValid(g.IO.MouseClickedPos[button]) then
+                return g.IO.MousePos - g.IO.MouseClickedPos[button]
+            end
+        end
+    end
+    return ImVec2(0.0, 0.0)
+end
+
+--- @param button? ImGuiMouseButton
+function ImGui.ResetMouseDragDelta(button)
+    if button == nil then button = 0 end
+
+    local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
+    ImVec2_Copy(g.IO.MouseClickedPos[button], g.IO.MousePos)
+end
+
 --- @param pos ImVec2
 function ImGui.TeleportMousePos(pos)
     local g = GImGui
@@ -4369,7 +4400,7 @@ local function RenderWindowOuterBorders(window)
 
     if g.Style.FrameBorderSize > 0 and (bit.band(window.Flags, ImGuiWindowFlags.NoTitleBar) == 0) then
         local y = window.Pos.y + window.TitleBarHeight - 1
-        window.DrawList:AddLineH(window.Pos.x + border_size * 0.5, window.Pos.x + window.Size.x - border_size * 0.5, y, border_col, g.Style.FrameBorderSize)
+        window.DrawList:AddLineH(window.Pos.x + border_size, window.Pos.x + window.Size.x - border_size, y, border_col, g.Style.FrameBorderSize, ImDrawFlags.StrokeCenterBiased)
     end
 end
 
@@ -4412,7 +4443,7 @@ local function RenderWindowDecorations(window, title_bar_rect, title_bar_is_high
 
             if bit.band(bg_col, IM_COL32_A_MASK) ~= 0 then
                 local bg_rect = ImRect(window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size)
-                local bg_rounding_flags = (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and ImDrawFlags.RoundCornersAll or ImDrawFlags.RoundCornersBottom
+                local bg_rounding_flags = (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and ImDrawFlags.RoundAll or ImDrawFlags.RoundBottom
                 local bg_draw_list = window.DrawList
                 bg_draw_list:AddRectFilled(bg_rect.Min, bg_rect.Max, bg_col, window_rounding, bg_rounding_flags)
             end
@@ -4421,16 +4452,16 @@ local function RenderWindowDecorations(window, title_bar_rect, title_bar_is_high
         -- Title bar
         if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 and not window.DockIsActive then
             local title_bar_col = ImGui.GetColorU32(title_bar_is_highlight and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg)
-            window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundCornersTop)
+            window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundTop)
         end
 
         -- Menu bar
         if bit.band(flags, ImGuiWindowFlags.MenuBar) ~= 0 then
             local menu_bar_rect = window:MenuBarRect()
             menu_bar_rect:ClipWith(window:Rect())
-            window.DrawList:AddRectFilled(menu_bar_rect.Min, menu_bar_rect.Max, ImGui.GetColorU32(ImGuiCol.MenuBarBg), (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and window_rounding or 0.0, ImDrawFlags.RoundCornersTop)
+            window.DrawList:AddRectFilled(menu_bar_rect.Min, menu_bar_rect.Max, ImGui.GetColorU32(ImGuiCol.MenuBarBg), (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and window_rounding or 0.0, ImDrawFlags.RoundTop)
             if style.FrameBorderSize > 0.0 and menu_bar_rect.Max.y < window.Pos.y + window.Size.y then
-                window.DrawList:AddLineH(menu_bar_rect.Min.x + window_border_size * 0.5, menu_bar_rect.Max.x - window_border_size * 0.5, menu_bar_rect.Max.y, ImGui.GetColorU32(ImGuiCol.Border), style.FrameBorderSize)
+                window.DrawList:AddLineH(menu_bar_rect.Min.x + window_border_size, menu_bar_rect.Max.x - window_border_size, menu_bar_rect.Max.y, ImGui.GetColorU32(ImGuiCol.Border), style.FrameBorderSize, ImDrawFlags.StrokeCenterBiased)
             end
         end
 
@@ -6659,18 +6690,28 @@ local function SetupDrawListSharedData()
     g.DrawListSharedData.ClipRectFullscreen = virtual_space:ToVec4()
     g.DrawListSharedData.CurveTessellationMaxError = g.Style.CurveTessellationMaxError
     g.DrawListSharedData:SetCircleTessellationMaxError(g.Style.CircleTessellationMaxError)
-    g.DrawListSharedData.InitialFlags = ImDrawListFlags.None
-    if g.Style.AntiAliasedLines then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedLines)
-    end
-    if g.Style.AntiAliasedLinesUseTex and not bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedLines) then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedLinesUseTex)
+    g.DrawListSharedData.InitialDrawFlags = ImDrawFlags.None
+    if bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedLines) ~= 0 then
+        g.Style.AntiAliasedLines = false
+        g.Style.AntiAliasedLineEnds = false
     end
     if g.Style.AntiAliasedFill then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedFill)
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.AAFill)
     end
-    if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset) then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AllowVtxOffset)
+    if g.Style.AntiAliasedLines then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.AALines)
+    end
+    if g.Style.AntiAliasedLineEnds then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.AALineEnds)
+    end
+    if g.IO.ConfigDebugDrawListDefaultsToStrokeLegacy then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.StrokeLegacy)
+    end
+    if bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedRoundCorners) == 0 then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.UseTexForRoundCorners, ImDrawFlags.AllowTexForRoundCorners_)
+    end
+    if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset) ~= 0 then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.UseVtxOffset)
     end
 end
 
@@ -9460,19 +9501,12 @@ function ImGui.NavUpdate()
     g.NavActivateFlags = ImGuiActivateFlags.None
 
     if g.NavId ~= 0 and g.NavCursorVisible and not g.NavWindowingTarget and g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) == 0 then
--- ImGuiKey_NavGamepadActivate
-local nav_gamepad_activate
-if g.IO.ConfigNavSwapGamepadButtons then
-    nav_gamepad_activate = ImGuiKey.GamepadFaceRight
-else
-    nav_gamepad_activate = ImGuiKey.GamepadFaceDown
-end
-        local activate_down = (nav_keyboard_active and ImGui.IsKeyDown(ImGuiKey.Space, ImGuiKeyOwner_NoOwner)) or (nav_gamepad_active and ImGui.IsKeyDown(nav_gamepad_activate, ImGuiKeyOwner_NoOwner))
-        local activate_pressed = activate_down and ((nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Space, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner)) or (nav_gamepad_active and ImGui.IsKeyPressedEx(nav_gamepad_activate, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner)))
+        local activate_down = (nav_keyboard_active and ImGui.IsKeyDown(ImGuiKey.Space, ImGuiKeyOwner_NoOwner)) or (nav_gamepad_active and ImGui.IsKeyDown(ImGuiKey_NavGamepadActivate(), ImGuiKeyOwner_NoOwner))
+        local activate_pressed = activate_down and ((nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Space, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner)) or (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey_NavGamepadActivate(), ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner)))
         local input_pressed_keyboard = nav_keyboard_active and (ImGui.IsKeyPressedEx(ImGuiKey.Enter, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner) or ImGui.IsKeyPressedEx(ImGuiKey.KeypadEnter, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner))
         local input_pressed_gamepad = false
-        if activate_down and nav_gamepad_active and ImGui.IsKeyDown(nav_gamepad_activate, ImGuiKeyOwner_NoOwner) and bit.band(g.NavIdItemFlags, ImGuiItemFlags.Inputable) ~= 0 then
-            if ImGui.GetKeyData(g, nav_gamepad_activate).DownDurationPrev < NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY and ImGui.GetKeyData(g, nav_gamepad_activate).DownDuration >= NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY then
+        if activate_down and nav_gamepad_active and ImGui.IsKeyDown(ImGuiKey_NavGamepadActivate(), ImGuiKeyOwner_NoOwner) and bit.band(g.NavIdItemFlags, ImGuiItemFlags.Inputable) ~= 0 then
+            if ImGui.GetKeyData(g, ImGuiKey_NavGamepadActivate()).DownDurationPrev < NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY and ImGui.GetKeyData(g, ImGuiKey_NavGamepadActivate()).DownDuration >= NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY then
                 input_pressed_gamepad = true
             end
         end
@@ -9575,14 +9609,8 @@ function ImGui.NavUpdateCancelRequest()
     local g = GImGui
     local nav_gamepad_active = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0
     local nav_keyboard_active = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) ~= 0
--- ImGuiKey_NavGamepadCancel
-local nav_gamepad_cancel
-if g.IO.ConfigNavSwapGamepadButtons then
-    nav_gamepad_cancel = ImGuiKey.GamepadFaceDown
-else
-    nav_gamepad_cancel = ImGuiKey.GamepadFaceRight
-end
-    if not (nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Escape, 0, ImGuiKeyOwner_NoOwner)) and not (nav_gamepad_active and ImGui.IsKeyPressedEx(nav_gamepad_cancel, 0, ImGuiKeyOwner_NoOwner)) then
+
+    if not (nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Escape, 0, ImGuiKeyOwner_NoOwner)) and not (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey_NavGamepadCancel(), 0, ImGuiKeyOwner_NoOwner)) then
         return
     end
 

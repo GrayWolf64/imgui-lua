@@ -23,20 +23,12 @@ Notes for LLM agents porting upstream C++ commits to this Lua port.
 - **LuaJIT `bit.*` is 32-bit and wraps**: shifts >= 32 or negative need guards (example see `TREE_NODE_GET_DEPTH_MASK`)
 - **`goto` cannot jump forward into scope of locals declared after it** — hoist declarations above loops (GMod LuaJIT rejects the file otherwise, killing everything the file defines)
 - **1-based indexing**: `Data[i]` arrays, `(yi+1)%2` ≡ C++ `(yi^1)&1` parity tricks
-- **Runtime-conditional C macros** (e.g. `ImGuiKey_NavGamepadActivate` depending on `g.IO.ConfigNavSwapGamepadButtons`): expand inline at use site in macro style — comment, locals and `if/else/end` keywords at column 0, bodies indented 1 level:
-```lua
--- ImGuiKey_NavGamepadActivate
-local nav_gamepad_activate
-if g.IO.ConfigNavSwapGamepadButtons then
-    nav_gamepad_activate = ImGuiKey.GamepadFaceRight
-else
-    nav_gamepad_activate = ImGuiKey.GamepadFaceDown
-end
-```
+- **Runtime-conditional C macros**: can port as zero-argument functions preserving exact upstream macro names if suitable
 - **0 is truthy in Lua**: `and/or` chains are safe for numeric bit ops
 - **Tables vs values**: use `ImVec2_Copy`/`ImRect_Copy` etc. where C++ assigns structs by value
 - **Widget returns**: value widgets return `updated_value, changed`; e.g. `Checkbox()` returns `pressed, updated_value`
 - **Pointer refs**: when pointer identity matters, represent C++ element pointers as 1-based indices (e.g. `item_ref = 1`, value `items[item_ref]`); translate `&item != item_ref` to `i ~= item_ref`
+- **Raw scratch reinterpretation**: Lua cannot reinterpret typed `ImVector` storage as C++ does. Use one flat Lua-specific buffer mirroring upstream regions; do not add scratch wrapper classes, nested owner tables, or cached stack objects
 
 ## Style rules
 

@@ -163,10 +163,11 @@ ImTextureStatus =
 --- @enum ImFontAtlasFlags
 ImFontAtlasFlags =
 {
-    None               = 0,
-    NoPowerOfTwoHeight = bitLShift(1, 0),
-    NoMouseCursors     = bitLShift(1, 1),
-    NoBakedLines       = bitLShift(1, 2)
+    None                = 0,
+    NoPowerOfTwoHeight  = bitLShift(1, 0),
+    NoMouseCursors      = bitLShift(1, 1),
+    NoBakedLines        = bitLShift(1, 2),
+    NoBakedRoundCorners = bitLShift(1, 3)
 }
 
 --- @enum ImGuiDir
@@ -370,6 +371,26 @@ function IM_VEC4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", sel
 --- @param src  ImVec4
 function ImVec4_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2]; dest[3] = src[3]; dest[4] = src[4] end
 
+--- NOTE: This struct is expensive to create
+--- @class ImSmallStack_<T>
+--- @field LocalData T[]
+--- @field Size      int
+
+--- @param CAPACITY int
+--- @return ImSmallStack_
+--- @nodiscard
+function ImSmallStack_(CAPACITY)
+    local this = { LocalData = {}, Size = 0 }
+
+    this.clear = function(self) self.Size = 0 end
+    this.back = function(self) IM_ASSERT(self.Size > 0); return self.LocalData[self.Size] end
+    this.push_back = function(self, value) IM_ASSERT(self.Size < CAPACITY); self.Size = self.Size + 1; self.LocalData[self.Size] = value end
+    this.pop_back = function(self) IM_ASSERT(self.Size > 0); self.Size = self.Size - 1 end
+    this.capacity = function() return CAPACITY end
+
+    return this
+end
+
 --- A compact ImVector clone
 --- @class ImVector<T>
 --- @field Data          T[] # 1-based table
@@ -492,7 +513,7 @@ IM_DRAWCMD.__index = IM_DRAWCMD
 function ImDrawCmd()
     return setmetatable({
         ClipRect               = ImVec4(),
-        TexRef                 = nil,
+        TexRef                 = ImTextureRef(),
         VtxOffset              = 0,
         IdxOffset              = 0,
         ElemCount              = 0,
@@ -521,6 +542,18 @@ end
 --- @nodiscard
 function ImDrawVert() return { ImVec2(), ImVec2(), nil } end
 
+--- @param dst ImDrawVert
+--- @param src ImDrawVert
+function ImDrawVert_Copy(dst, src)
+    ImVec2_Copy(dst[1], src[1])
+    ImVec2_Copy(dst[2], src[2])
+    dst[3] = src[3]
+end
+
+local function ImTextureRef_TCopy(t, k, src)
+    ImTextureRef_Copy(t[k], src)
+end
+
 --- @class ImDrawCmdHeader
 --- @field ClipRect  ImVec4
 --- @field TexRef    ImTextureRef
@@ -528,7 +561,7 @@ function ImDrawVert() return { ImVec2(), ImVec2(), nil } end
 
 --- @return ImDrawCmdHeader
 --- @nodiscard
-function ImDrawCmdHeader() return { ClipRect = ImVec4(), TexRef = nil, VtxOffset = 0 } end
+function ImDrawCmdHeader() return { ClipRect = ImVec4(), TexRef = ImTextureRef(), VtxOffset = 0 } end
 
 --- @class ImDrawChannel
 --- @field _CmdBuffer ImVector<ImDrawCmd>
@@ -542,29 +575,37 @@ function ImDrawChannel() return { _CmdBuffer = ImVector(), _IdxBuffer = ImVector
 --- @field _Current  int
 --- @field _Count    int
 --- @field _Channels ImVector<ImDrawChannel>
+MT.ImDrawListSplitter = {}
+MT.ImDrawListSplitter.__index = MT.ImDrawListSplitter
+
+function MT.ImDrawListSplitter:Clear()
+    self._Current = 0; self._Count = 1
+end
 
 --- @return ImDrawListSplitter
 --- @nodiscard
-function ImDrawListSplitter() return { _Current = 0, _Count = 0, _Channels = ImVector() } end
+function ImDrawListSplitter() return setmetatable({ _Current = 0, _Count = 0, _Channels = ImVector() }, MT.ImDrawListSplitter) end
 
 --- @class ImDrawList
---- @field CmdBuffer         ImVector<ImDrawCmd>
---- @field IdxBuffer         ImVector<ImDrawIdx>
---- @field VtxBuffer         ImVector<ImDrawVert>
---- @field Flags             ImDrawListFlags
---- @field _VtxCurrentIdx    unsigned_int         # 1-based, generally == (VtxBuffer.Size + 1)
---- @field _Data             ImDrawListSharedData # Pointes to shared draw data
---- @field _VtxWritePtr      unsigned_int         # 1-based, points to the current writing index in VtxBuffer.Data
---- @field _IdxWritePtr      unsigned_int         # 1-based, points to the current writing index in IdxBuffer.Data
---- @field _Path             ImVector<ImVec2>     # current path building
---- @field _CmdHeader        ImDrawCmdHeader      # template of active commands. Fields should match those of CmdBuffer:back()
---- @field _Splitter         ImDrawListSplitter
---- @field _ClipRectStack    ImVector<ImVec4>
---- @field _TextureStack     ImVector<ImTextureRef>
---- @field _CallbacksDataBuf any
---- @field _FringeScale      float
---- @field _InvFringeScale   float
---- @field _OwnerName        string
+--- @field CmdBuffer             ImVector<ImDrawCmd>
+--- @field IdxBuffer             ImVector<ImDrawIdx>
+--- @field VtxBuffer             ImVector<ImDrawVert>
+--- @field Flags                 ImDrawFlags
+--- @field _VtxCurrentIdx        unsigned_int               # 1-based, generally == (VtxBuffer.Size + 1)
+--- @field _Data                 ImDrawListSharedData       # Pointes to shared draw data
+--- @field _VtxWritePtr          unsigned_int               # 1-based, points to the current writing index in VtxBuffer.Data
+--- @field _IdxWritePtr          unsigned_int               # 1-based, points to the current writing index in IdxBuffer.Data
+--- @field _Path                 ImVector<ImVec2>           # current path building
+--- @field _CmdHeader            ImDrawCmdHeader            # template of active commands. Fields should match those of CmdBuffer:back()
+--- @field _Splitter             ImDrawListSplitter
+--- @field _ClipRectStack        ImVector<ImVec4>
+--- @field _TextureStack         ImVector<ImTextureRef>
+--- @field _CallbacksDataBuf     any
+--- @field _DrawFlagsStack       ImSmallStack_<ImDrawFlags>
+--- @field _FringeScale          float
+--- @field _InvFringeScale       float
+--- @field _FringeScaleIsInteger bool
+--- @field _OwnerName            string
 MT.ImDrawList = {}
 MT.ImDrawList.__index = MT.ImDrawList
 
@@ -613,12 +654,14 @@ function ImDrawList(data)
         _CmdHeader     = ImDrawCmdHeader(),
         _Splitter      = ImDrawListSplitter(),
         _ClipRectStack = ImVector(),
-        _TextureStack  = ImVector(),
+        _TextureStack  = ImVector(ImTextureRef, ImTextureRef_TCopy),
         _CallbacksDataBuf = nil,
+        _DrawFlagsStack = ImSmallStack_(3),
 
-        _FringeScale = 0,
-        _InvFringeScale = 0,
-        _OwnerName = nil
+        _FringeScale          = 0,
+        _InvFringeScale       = 0,
+        _FringeScaleIsInteger = false,
+        _OwnerName            = nil
     }, MT.ImDrawList)
 
     this:_SetDrawListSharedData(data)
@@ -719,6 +762,10 @@ function MT.ImTextureData:SetStatus(status) self.Status = status if (status == I
 local IM_TEXTURE_REF = {}
 IM_TEXTURE_REF.__index = IM_TEXTURE_REF
 
+function IM_TEXTURE_REF.__eq(lhs, rhs)
+    return lhs._TexData == rhs._TexData and lhs._TexID == rhs._TexID
+end
+
 --- @return ImTextureRef
 --- @nodiscard
 function ImTextureRef(tex_id)
@@ -726,6 +773,13 @@ function ImTextureRef(tex_id)
         _TexData = nil,
         _TexID   = tex_id or ImTextureID_Invalid
     }, IM_TEXTURE_REF)
+end
+
+--- @param dst ImTextureRef
+--- @param src ImTextureRef
+function ImTextureRef_Copy(dst, src)
+    dst._TexData = src._TexData
+    dst._TexID = src._TexID
 end
 
 --- @class ImFontBaked
@@ -909,7 +963,6 @@ end
 --- @field TexUvWhitePixel     ImVec2
 --- @field Fonts               ImVector<ImFont>
 --- @field Sources             ImVector<ImFontConfig>
---- @field TexUvLines          ImVec4[]                       # 0-based table
 --- @field TexNextUniqueID     int
 --- @field FontNextUniqueID    int
 --- @field DrawListSharedDatas ImVector<ImDrawListSharedData>
@@ -949,7 +1002,6 @@ function ImFontAtlas()
     this.TexUvWhitePixel     = nil
     this.Fonts               = ImVector()
     this.Sources             = ImVector()
-    this.TexUvLines          = {}
     this.TexNextUniqueID     = 1
     this.FontNextUniqueID    = 1
     this.DrawListSharedDatas = ImVector()
@@ -1093,6 +1145,7 @@ function ImGuiIO()
         ConfigWindowsResizeFromEdges = true,
 
         ConfigDebugIniSettings = false,
+        ConfigDebugDrawListDefaultsToStrokeLegacy = false,
 
         ConfigViewportsNoAutoMerge = false,
         ConfigViewportsNoTaskBarIcon = false,
@@ -1432,33 +1485,40 @@ ImGuiNextItemDataFlags = {
 
 --- @enum ImDrawFlags
 ImDrawFlags = {
-    None                    = 0,
-    RoundCornersTopLeft     = bitLShift(1, 4),
-    RoundCornersTopRight    = bitLShift(1, 5),
-    RoundCornersBottomLeft  = bitLShift(1, 6),
-    RoundCornersBottomRight = bitLShift(1, 7),
-    RoundCornersNone        = bitLShift(1, 8),
-    Closed                  = bitLShift(1, 9)
+    None                     = 0,
+    RoundTopLeft             = bitLShift(1, 4),
+    RoundTopRight            = bitLShift(1, 5),
+    RoundBottomLeft          = bitLShift(1, 6),
+    RoundBottomRight         = bitLShift(1, 7),
+    RoundNone                = bitLShift(1, 8),
+    Closed                   = bitLShift(1, 9),
+    JoinMiter                = bitLShift(1, 10),
+    CapSquare                = bitLShift(1, 11),
+    AAFill                   = bitLShift(1, 12),
+    AALines                  = bitLShift(1, 13),
+    AALineEnds               = bitLShift(1, 14),
+    StrokeInside             = bitLShift(1, 17),
+    StrokeCenter             = bitLShift(2, 17),
+    StrokeCenterBiased       = bitLShift(3, 17),
+    StrokeOutside            = bitLShift(4, 17),
+    StrokeLegacy             = bitLShift(7, 17),
+    TextNoPixelSnap          = bitLShift(1, 20),
+    UseTexForRoundCorners    = bitLShift(1, 21),
+    UseVtxOffset             = bitLShift(1, 22),
+    AllowTexForRoundCorners_ = bitLShift(1, 23)
 }
 
-ImDrawFlags.RoundCornersTop      = bitOr(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight)
-ImDrawFlags.RoundCornersBottom   = bitOr(ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersBottomRight)
-ImDrawFlags.RoundCornersLeft     = bitOr(ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersTopLeft)
-ImDrawFlags.RoundCornersRight    = bitOr(ImDrawFlags.RoundCornersBottomRight, ImDrawFlags.RoundCornersTopRight)
-ImDrawFlags.RoundCornersAll      = bitOr(ImDrawFlags.RoundCornersTopLeft, ImDrawFlags.RoundCornersTopRight, ImDrawFlags.RoundCornersBottomLeft, ImDrawFlags.RoundCornersBottomRight)
-ImDrawFlags.RoundCornersDefault_ = ImDrawFlags.RoundCornersAll
-ImDrawFlags.RoundCornersMask_    = bitOr(ImDrawFlags.RoundCornersAll, ImDrawFlags.RoundCornersNone)
-ImDrawFlags.InvalidMask_         = 0x8000000F
+ImDrawFlags.RoundTop    = bitOr(ImDrawFlags.RoundTopLeft, ImDrawFlags.RoundTopRight)
+ImDrawFlags.RoundBottom = bitOr(ImDrawFlags.RoundBottomLeft, ImDrawFlags.RoundBottomRight)
+ImDrawFlags.RoundLeft   = bitOr(ImDrawFlags.RoundBottomLeft, ImDrawFlags.RoundTopLeft)
+ImDrawFlags.RoundRight  = bitOr(ImDrawFlags.RoundBottomRight, ImDrawFlags.RoundTopRight)
+ImDrawFlags.RoundAll    = bitOr(ImDrawFlags.RoundTopLeft, ImDrawFlags.RoundTopRight, ImDrawFlags.RoundBottomLeft, ImDrawFlags.RoundBottomRight)
 
---- @enum ImDrawListFlags
-ImDrawListFlags = {
-    None                   = 0,
-    AntiAliasedLines       = bitLShift(1, 0),
-    AntiAliasedLinesUseTex = bitLShift(1, 1),
-    AntiAliasedFill        = bitLShift(1, 2),
-    AllowVtxOffset         = bitLShift(1, 3),
-    TextNoPixelSnap        = bitLShift(1, 4)
-}
+ImDrawFlags.RoundMask_         = bitOr(ImDrawFlags.RoundAll, ImDrawFlags.RoundNone)
+ImDrawFlags.AllowInPushScope_  = bitOr(ImDrawFlags.AAFill, ImDrawFlags.AALines, ImDrawFlags.AALineEnds, ImDrawFlags.StrokeLegacy, ImDrawFlags.TextNoPixelSnap, ImDrawFlags.UseTexForRoundCorners, ImDrawFlags.UseVtxOffset, ImDrawFlags.RoundMask_)
+ImDrawFlags.AllowInFrameScope_ = bitOr(ImDrawFlags.AllowInPushScope_, ImDrawFlags.AllowTexForRoundCorners_)
+ImDrawFlags.StrokeMask_        = bitLShift(0x07, 17)
+ImDrawFlags.InvalidMask_       = 0x8000000F
 
 --- @enum ImFontFlags
 ImFontFlags = {

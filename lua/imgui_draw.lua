@@ -4,7 +4,14 @@
 FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
 FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
 
-local IM_DRAWLIST_TEX_LINES_WIDTH_MAX = 32
+local IM_DRAWLIST_TEX_LINES_WIDTH_MAX            = 32
+local IM_DRAWLIST_TEX_LINES_DETAILED_WIDTH       = 4
+local IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT         = 4
+local IM_DRAWLIST_TEX_LINES_DETAILED_WIDTH_COUNT = (IM_DRAWLIST_TEX_LINES_DETAILED_WIDTH - 1) * IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT + 1
+local IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX       = 16
+local IM_DRAWLIST_TEX_CORNERS_THICKNESS_MAX      = 4
+
+local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC
 
 local IM_FONTGLYPH_INDEX_UNUSED    = 0xFFFF
 local IM_FONTGLYPH_INDEX_NOT_FOUND = 0xFFFE
@@ -1632,14 +1639,14 @@ local function ImFontAtlasUpdateDrawListsTextures(atlas, old_tex, new_tex)
             goto __CONTINUE__
         end
 
-        for _, draw_list in shared_data.DrawLists:iter() do
+        for draw_list in pairs(shared_data.DrawLists) do
             if (draw_list.CmdBuffer.Size > 0 and draw_list._CmdHeader.TexRef == old_tex) then
                 draw_list:_SetTexture(new_tex)
             end
 
-            for i, stacked_tex in draw_list._TextureStack:iter() do
+            for _, stacked_tex in draw_list._TextureStack:iter() do
                 if (stacked_tex == old_tex) then
-                    draw_list._TextureStack.Data[i] = new_tex
+                    ImTextureRef_Copy(stacked_tex, new_tex)
                 end
             end
         end
@@ -1649,7 +1656,8 @@ local function ImFontAtlasUpdateDrawListsTextures(atlas, old_tex, new_tex)
 end
 
 function ImFontAtlasBuildSetTexture(atlas, tex)
-    local old_tex_ref = atlas.TexRef
+    local old_tex_ref = ImTextureRef()
+    ImTextureRef_Copy(old_tex_ref, atlas.TexRef)
     atlas.TexData = tex
     atlas.TexUvScale = ImVec2(1.0 / tex.Width, 1.0 / tex.Height)
     atlas.TexRef._TexData = tex
@@ -1659,8 +1667,9 @@ end
 
 --- @param atlas ImFontAtlas
 function ImFontAtlasBuildUpdateTexData(atlas)
-    ImFontAtlasBuildUpdateTexDataLines(atlas)
     ImFontAtlasBuildUpdateTexDataBasic(atlas)
+    ImFontAtlasBuildUpdateTexDataLines(atlas)
+    ImFontAtlasBuildUpdateTexDataCorners(atlas)
 end
 
 function ImFontAtlasTextureAdd(atlas, w, h)
@@ -1780,7 +1789,7 @@ function ImFontAtlasBuildUpdateTexDataLines(atlas)
     local r = ImFontAtlasRect()
     local add_and_draw = (atlas:GetCustomRect(builder.PackIdLinesTexData, r) == false)
     if add_and_draw then
-        local pack_size = ImVec2(IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 2, IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1) -- ImVec2i
+        local pack_size = ImVec2(IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 2, IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1 + IM_DRAWLIST_TEX_LINES_DETAILED_WIDTH_COUNT) -- ImVec2i
         builder.PackIdLinesTexData = atlas:AddCustomRect(pack_size.x, pack_size.y, r)
         IM_ASSERT(builder.PackIdLinesTexData ~= ImFontAtlasRectId_Invalid)
     end
@@ -1826,10 +1835,76 @@ function ImFontAtlasBuildUpdateTexDataLines(atlas)
             end
         end
 
-        local uv0 = ImVec2(r.x + pad_left - 1, r.y + y) * atlas.TexUvScale
-        local uv1 = ImVec2(r.x + pad_left + line_width + 1, r.y + y + 1) * atlas.TexUvScale
+        local uv0 = ImVec2(r.x + pad_left - 0.5, r.y + y) * atlas.TexUvScale
+        local uv1 = ImVec2(r.x + pad_left + line_width + 0.5, r.y + y + 1) * atlas.TexUvScale
         local half_v = (uv0.y + uv1.y) * 0.5
-        atlas.TexUvLines[n] = ImVec4(uv0.x, half_v, uv1.x, half_v)
+        local inv_line_width = line_width > 0 and 1.0 / line_width or 0.0
+        builder.TexUvLines[n] = ImVec4(uv0.x, uv1.x, half_v, inv_line_width)
+    end
+
+    local ramp = {}
+    for n = 0, IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT - 1 do
+        ramp[n] = ImTrunc((n / IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT) * 255.0)
+    end
+
+    for n = 0, IM_DRAWLIST_TEX_LINES_DETAILED_WIDTH_COUNT - 1 do
+        local y = IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1 + n
+        local line_width = 1 + n
+        IM_ASSERT(IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT + line_width + IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT <= r.w and y < r.h)
+
+        if add_and_draw and tex.Format == ImTextureFormat.Alpha8 then
+            local write_ptr, write_ptr_base = tex:GetPixelsAt(r.x, r.y + y)
+            local idx = 0
+
+            for i = 0, IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT - 1 do
+                write_ptr[write_ptr_base + idx] = ramp[i]
+                idx = idx + 1
+            end
+
+            for _ = 0, line_width - 1 do
+                write_ptr[write_ptr_base + idx] = 0xFF
+                idx = idx + 1
+            end
+
+            for i = IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT - 1, 0, -1 do
+                write_ptr[write_ptr_base + idx] = ramp[i]
+                idx = idx + 1
+            end
+
+            while idx < r.w do
+                write_ptr[write_ptr_base + idx] = 0x00
+                idx = idx + 1
+            end
+        elseif add_and_draw and tex.Format == ImTextureFormat.RGBA32 then
+            local write_ptr, write_ptr_base = tex:GetPixelsAt(r.x, r.y + y)
+            local idx = 0
+
+            for i = 0, IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT - 1 do
+                write_u32(write_ptr, write_ptr_base + idx * 4, IM_COL32(255, 255, 255, ramp[i]))
+                idx = idx + 1
+            end
+
+            for _ = 0, line_width - 1 do
+                write_u32(write_ptr, write_ptr_base + idx * 4, IM_COL32_WHITE)
+                idx = idx + 1
+            end
+
+            for i = IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT - 1, 0, -1 do
+                write_u32(write_ptr, write_ptr_base + idx * 4, IM_COL32(255, 255, 255, ramp[i]))
+                idx = idx + 1
+            end
+
+            while idx < r.w do
+                write_u32(write_ptr, write_ptr_base + idx * 4, IM_COL32(255, 255, 255, 0))
+                idx = idx + 1
+            end
+        end
+
+        local uv0 = ImVec2(r.x + 0.5, r.y + y) * atlas.TexUvScale
+        local uv1 = ImVec2(r.x - 0.5 + IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT * 2 + line_width, r.y + y + 1) * atlas.TexUvScale
+        local half_v = (uv0.y + uv1.y) * 0.5
+        local inv_line_width = 1.0 / (1.0 + n / IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT)
+        builder.TexUvLines[IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1 + n] = ImVec4(uv0.x, uv1.x, half_v, inv_line_width)
     end
 end
 
@@ -1894,11 +1969,158 @@ function ImFontAtlasBuildUpdateTexDataBasic(atlas)
     atlas.TexUvWhitePixel = ImVec2((r.x + 0.5) * atlas.TexUvScale.x, (r.y + 0.5) * atlas.TexUvScale.y)
 end
 
+local function CalcCornerArcStepAndCount(segment_count)
+    local quarter_table_size = math.floor(IM_DRAWLIST_ARCFAST_TABLE_SIZE / 4)
+    local arc_step = ImClamp(math.floor(IM_DRAWLIST_ARCFAST_SAMPLE_MAX / segment_count), 1, quarter_table_size)
+    local arc_step_count = math.floor(quarter_table_size / arc_step)
+    if arc_step * arc_step_count ~= quarter_table_size then
+        arc_step = math.floor(quarter_table_size / arc_step_count)
+    end
+    return arc_step, arc_step_count
+end
+
+local function InitCornerGeometry(cx, cy, rounding, circle_segment_max_error, line_normals, line_distances)
+    local auto_seg_count = IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(rounding, circle_segment_max_error)
+    local arc_step, arc_step_count = CalcCornerArcStepAndCount(auto_seg_count)
+    local arc_point_count = arc_step_count + 1
+
+    local points = {}
+    points[#points + 1] = ImVec2(cx - rounding, cy + 1.0)
+
+    local da = (arc_step / IM_DRAWLIST_ARCFAST_TABLE_SIZE) * IM_PI * 2.0
+    local a = IM_PI
+    for _ = 1, arc_point_count do
+        points[#points + 1] = ImVec2(cx + ImCos(a) * rounding, cy + ImSin(a) * rounding)
+        a = a + da
+    end
+
+    points[#points + 1] = ImVec2(cx + 1.0, cy - rounding)
+
+    for i = 1, #points - 1 do
+        local diff_x = points[i + 1].x - points[i].x
+        local diff_y = points[i + 1].y - points[i].y
+        local inv_d = ImRsqrtPrecise(diff_x * diff_x + diff_y * diff_y)
+        local normal = line_normals[i] or ImVec2()
+        normal.x = diff_y * inv_d
+        normal.y = -diff_x * inv_d
+        line_normals[i] = normal
+        line_distances[i] = -(points[i].x * normal.x + points[i].y * normal.y)
+    end
+
+    return #points - 1
+end
+
+local function SampleConvex(x, y, line_normals, line_distances, num_lines)
+    local result = -math.huge
+    for i = 1, num_lines do
+        local normal = line_normals[i]
+        local d = normal.x * x + normal.y * y + line_distances[i]
+        if d > result then
+            result = d
+        end
+    end
+    return result
+end
+
+local function SampleCornerFillOrStroke(x, y, thickness, line_normals, line_distances, num_lines)
+    local d = SampleConvex(x, y, line_normals, line_distances, num_lines)
+    local aa_width = 1.0
+    if thickness == 0.0 then
+        return ImFloor(ImClamp(1.0 - (d + aa_width * 0.5) / aa_width, 0.0, 1.0) * 255.0)
+    else
+        local outer = 1.0 - (d + aa_width * 0.5) / aa_width
+        local inner = (d + thickness + aa_width * 0.5) / aa_width
+        return ImFloor(ImClamp(ImMin(inner, outer), 0.0, 1.0) * 255.0)
+    end
+end
+
+--- @param atlas ImFontAtlas
+function ImFontAtlasBuildUpdateTexDataCorners(atlas)
+    if bit.band(atlas.Flags, ImFontAtlasFlags.NoBakedRoundCorners) ~= 0 then
+        return
+    end
+
+    local tex = atlas.TexData
+    local builder = atlas.Builder
+    local circle_segment_max_error = 0.30
+
+    local r = ImFontAtlasRect()
+    local add_and_draw = (atlas:GetCustomRect(builder.PackIdCornersTexData, r) == false)
+    if add_and_draw then
+        local pack_size = ImVec2(0, 0)
+        for thickness = 0, IM_DRAWLIST_TEX_CORNERS_THICKNESS_MAX - 1 do
+            local is_filled = thickness == 0
+            local row_width = 0
+            local row_height = 0
+            for n = 0, IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX - 1 do
+                local rounding = n + 1
+                local size = is_filled and (rounding + 1) or ImMax(rounding, thickness)
+                row_width = row_width + size + 2
+                row_height = ImMax(row_height, size + 2)
+            end
+            pack_size.x = ImMax(pack_size.x, row_width)
+            pack_size.y = pack_size.y + row_height
+        end
+
+        builder.PackIdCornersTexData = atlas:AddCustomRect(pack_size.x, pack_size.y, r)
+        IM_ASSERT(builder.PackIdCornersTexData ~= ImFontAtlasRectId_Invalid)
+    end
+
+    local y = r.y
+    local line_normals = {}
+    local line_distances = {}
+    for thickness = 0, IM_DRAWLIST_TEX_CORNERS_THICKNESS_MAX - 1 do
+        local is_filled = thickness == 0
+        local x = r.x
+        local row_height = 0
+        for n = 0, IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX - 1 do
+            local rounding = n + 1
+            local size = is_filled and (rounding + 1) or ImMax(rounding, thickness)
+            local w = size + 2
+            local h = size + 2
+            local cx = 1.0 + n + 1
+            local cy = 1.0 + n + 1
+            IM_ASSERT((x + w) <= (r.x + r.w) and (y + h) <= (r.y + r.h))
+
+            local num_lines = InitCornerGeometry(cx, cy, rounding, circle_segment_max_error, line_normals, line_distances)
+
+            if add_and_draw and tex.Format == ImTextureFormat.Alpha8 then
+                local write_ptr, write_ptr_base = tex:GetPixelsAt(x, y)
+                local pitch = tex.Width
+                for ly = 0, h - 1 do
+                    for lx = 0, w - 1 do
+                        write_ptr[write_ptr_base + lx] = SampleCornerFillOrStroke(lx + 0.5, ly + 0.5, thickness, line_normals, line_distances, num_lines)
+                    end
+                    write_ptr_base = write_ptr_base + pitch
+                end
+            elseif add_and_draw and tex.Format == ImTextureFormat.RGBA32 then
+                local write_ptr, write_ptr_base = tex:GetPixelsAt(x, y)
+                local pitch = tex.Width * 4
+                for ly = 0, h - 1 do
+                    for lx = 0, w - 1 do
+                        write_u32(write_ptr, write_ptr_base + lx * 4, IM_COL32(255, 255, 255, SampleCornerFillOrStroke(lx + 0.5, ly + 0.5, thickness, line_normals, line_distances, num_lines)))
+                    end
+                    write_ptr_base = write_ptr_base + pitch
+                end
+            end
+
+            local uv0 = ImVec2(x + 1, y + 1) * atlas.TexUvScale
+            local uv1 = ImVec2(x + 1 + size, y + 1 + size) * atlas.TexUvScale
+            builder.TexUvCorners[n + thickness * IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX + 1] = ImVec4(uv0.x, uv0.y, uv1.x, uv1.y)
+
+            x = x + w
+            row_height = ImMax(row_height, h)
+        end
+        y = y + row_height
+    end
+end
+
 function ImFontAtlasUpdateDrawListsSharedData(atlas)
     for _, shared_data in atlas.DrawListSharedDatas:iter() do
         if (shared_data.FontAtlas == atlas) then
             shared_data.TexUvWhitePixel = atlas.TexUvWhitePixel
-            shared_data.TexUvLines = atlas.TexUvLines
+            shared_data.TexUvLines = atlas.Builder.TexUvLines
+            shared_data.TexUvCorners = atlas.Builder.TexUvCorners
         end
     end
 end
@@ -2272,8 +2494,8 @@ end
 --- @param font      ImFont
 --- @param codepoint ImWchar
 --- @return ImWchar src_codepoint
---- @return int      src_font_idx
---- @return int      src_glyph_idx
+--- @return int     src_font_idx
+--- @return int     src_glyph_idx
 --- @nodiscard
 local function ImFontAtlas_FontHookRemapCodepoint(atlas, font, codepoint)
     -- IM_UNUSED(atlas)
@@ -2348,7 +2570,7 @@ function ImFontBaked_BuildLoadGlyph(baked, codepoint, only_load_advance_x)
             end
         end
 
-        ::__CONTINUE__::
+        :: __CONTINUE__ ::
         -- loader_user_data_p = loader_user_data_p + loader.FontBakedSrcLoaderDataSize
     end
 
@@ -2751,7 +2973,7 @@ function MT.ImFont:RenderChar(draw_list, size, pos, col, c, cpu_fine_clip)
 
     local x = pos.x
     local y = pos.y
-    if bit.band(draw_list.Flags, ImDrawListFlags.TextNoPixelSnap) == 0 then
+    if bit.band(draw_list.Flags, ImDrawFlags.TextNoPixelSnap) == 0 then
         x = IM_TRUNC(x)
         y = IM_TRUNC(y)
     end
@@ -3089,7 +3311,7 @@ function ImGui.AddDrawListToDrawDataEx(draw_data, out_list, draw_list)
 
     IM_ASSERT(draw_list.VtxBuffer.Size == 0 or draw_list._VtxWritePtr == draw_list.VtxBuffer.Size + 1)
     IM_ASSERT(draw_list.IdxBuffer.Size == 0 or draw_list._IdxWritePtr == draw_list.IdxBuffer.Size + 1)
-    if (bit.band(draw_list.Flags, ImDrawListFlags.AllowVtxOffset) == 0) then
+    if bit.band(draw_list.Flags, ImDrawFlags.UseVtxOffset) == 0 then
         IM_ASSERT(draw_list._VtxCurrentIdx == draw_list.VtxBuffer.Size + 1)
     end
 
@@ -3106,7 +3328,7 @@ end
 local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN = 4
 local IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX = 512
 
-local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD, _MAXERROR) return ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX) end
+IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC = function(_RAD, _MAXERROR) return ImClamp(IM_ROUNDUP_TO_EVEN(ImCeil(IM_PI / ImAcos(1 - ImMin(_MAXERROR, _RAD) / _RAD))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX) end
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(_N, _MAXERROR) return (_MAXERROR / (1 - ImCos(IM_PI / ImMax(_N, IM_PI)))) end
 local function IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N, _RAD)  return ((1 - ImCos(IM_PI / ImMax(_N, IM_PI))) / _RAD) end
 
@@ -3129,11 +3351,11 @@ end
 --- @param data ImDrawListSharedData
 function MT.ImDrawList:_SetDrawListSharedData(data)
     if self._Data ~= nil then
-        self._Data.DrawLists:find_erase_unsorted(self)
+        self._Data.DrawLists[self] = nil
     end
     self._Data = data
     if self._Data ~= nil then
-        self._Data.DrawLists:push_back(self)
+        self._Data.DrawLists[self] = true
     end
 end
 
@@ -3142,7 +3364,8 @@ function MT.ImDrawList:_ResetForNewFrame()
     self.CmdBuffer:resize(0)
     self.IdxBuffer:resize(0)
     self.VtxBuffer:resize(0)
-    self.Flags = self._Data.InitialFlags
+    self.Flags = self._Data.InitialDrawFlags
+    IM_ASSERT(bit.band(self.Flags, bit.bnot(ImDrawFlags.AllowInFrameScope_)) == 0)
 
     self._CmdHeader = ImDrawCmdHeader() -- memset(&_CmdHeader, 0, sizeof(_CmdHeader))
 
@@ -3151,7 +3374,9 @@ function MT.ImDrawList:_ResetForNewFrame()
     self._IdxWritePtr = 1
     self._ClipRectStack:resize(0)
     self._TextureStack:resize(0)
+    self._DrawFlagsStack:clear()
     self._Path:resize(0)
+    self._Splitter:Clear()
 
     self.CmdBuffer:push_back(ImDrawCmd())
 end
@@ -3161,7 +3386,7 @@ function MT.ImDrawList:_ClearFreeMemory()
     self.IdxBuffer:clear()
     self.VtxBuffer:clear()
 
-    self.Flags = ImDrawListFlags.None
+    self.Flags = ImDrawFlags.None
 
     self._VtxCurrentIdx = 1
     self._VtxWritePtr = 1
@@ -3170,15 +3395,16 @@ function MT.ImDrawList:_ClearFreeMemory()
     self._ClipRectStack:clear()
     self._TextureStack:clear()
     -- self._CallbacksDataBuf:clear()
+    self._DrawFlagsStack:clear()
     self._Path:clear()
-    -- self._Splitter.ClearFreeMemory()
+    self._Splitter:ClearFreeMemory()
 end
 
 function MT.ImDrawList:AddDrawCmd()
     local draw_cmd = ImDrawCmd()
 
     ImVec4_Copy(draw_cmd.ClipRect, self._CmdHeader.ClipRect) -- Same as calling ImDrawCmd_HeaderCopy()?
-    draw_cmd.TexRef = self._CmdHeader.TexRef
+    ImTextureRef_Copy(draw_cmd.TexRef, self._CmdHeader.TexRef)
     draw_cmd.VtxOffset = self._CmdHeader.VtxOffset
     draw_cmd.IdxOffset = self.IdxBuffer.Size
 
@@ -3259,8 +3485,7 @@ local function ImDrawCmd_HeaderCopy(CMD_DST, CMD_SRC)
     CMD_DST.ClipRect.z = CMD_SRC.ClipRect.z
     CMD_DST.ClipRect.w = CMD_SRC.ClipRect.w
 
-    CMD_DST.TexRef._TexData = CMD_SRC.TexRef._TexData
-    CMD_DST.TexRef._TexID = CMD_SRC.TexRef._TexID
+    ImTextureRef_Copy(CMD_DST.TexRef, CMD_SRC.TexRef)
 
     CMD_DST.VtxOffset = CMD_SRC.VtxOffset
 end
@@ -3269,6 +3494,151 @@ end
 --- @param CMD_1 ImDrawCmd
 local function ImDrawCmd_AreSequentialIdxOffset(CMD_0, CMD_1)
     return CMD_0.IdxOffset + CMD_0.ElemCount == CMD_1.IdxOffset
+end
+
+function MT.ImDrawListSplitter:ClearFreeMemory()
+    for i = 1, self._Channels.Size do
+        self._Channels.Data[i]._CmdBuffer:clear()
+        self._Channels.Data[i]._IdxBuffer:clear()
+    end
+    self._Current = 0
+    self._Count = 1
+    self._Channels:clear()
+end
+
+function MT.ImDrawListSplitter:Split(draw_list, channels_count)
+    IM_ASSERT(self._Current == 0 and self._Count <= 1, "Nested channel splitting is not supported. Please use separate instances of ImDrawListSplitter.")
+    IM_ASSERT(channels_count >= 1)
+
+    local old_channels_count = self._Channels.Size
+    if old_channels_count < channels_count then
+        self._Channels:resize(channels_count)
+    end
+    self._Count = channels_count
+
+    self._Channels.Data[1] = ImDrawChannel()
+    for i = 2, channels_count do
+        local channel = self._Channels.Data[i]
+        if i > old_channels_count or channel == nil then
+            self._Channels.Data[i] = ImDrawChannel()
+        else
+            channel._CmdBuffer:resize(0)
+            channel._IdxBuffer:resize(0)
+        end
+    end
+end
+
+function MT.ImDrawListSplitter:SetCurrentChannel(draw_list, idx)
+    IM_ASSERT(idx >= 0 and idx < self._Count)
+    if self._Current == idx then
+        return
+    end
+
+    local current_channel = self._Channels.Data[self._Current + 1]
+    current_channel._CmdBuffer:swap(draw_list.CmdBuffer)
+    current_channel._IdxBuffer:swap(draw_list.IdxBuffer)
+
+    self._Current = idx
+    local next_channel = self._Channels.Data[idx + 1]
+    next_channel._CmdBuffer:swap(draw_list.CmdBuffer)
+    next_channel._IdxBuffer:swap(draw_list.IdxBuffer)
+    draw_list._IdxWritePtr = draw_list.IdxBuffer.Size + 1
+
+    -- LUA: No "Ternary Operator"
+    local curr_cmd
+    if draw_list.CmdBuffer.Size > 0 then
+        curr_cmd = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size]
+    end
+    if curr_cmd == nil then
+        draw_list:AddDrawCmd()
+    elseif curr_cmd.ElemCount == 0 then
+        ImDrawCmd_HeaderCopy(curr_cmd, draw_list._CmdHeader)
+    elseif not ImDrawCmd_HeaderCompare(curr_cmd, draw_list._CmdHeader) then
+        draw_list:AddDrawCmd()
+    end
+end
+
+function MT.ImDrawListSplitter:Merge(draw_list)
+    if self._Count <= 1 then
+        return
+    end
+
+    self:SetCurrentChannel(draw_list, 0)
+    draw_list:_PopUnusedDrawCmd()
+
+    local new_cmd_buffer_count = 0
+    local new_idx_buffer_count = 0
+    local last_cmd = draw_list.CmdBuffer.Size > 0 and draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size] or nil
+    local idx_offset = last_cmd ~= nil and last_cmd.IdxOffset + last_cmd.ElemCount or 0
+
+    for i = 2, self._Count do
+        local channel = self._Channels.Data[i]
+        local channel_last_cmd = channel._CmdBuffer.Size > 0 and channel._CmdBuffer.Data[channel._CmdBuffer.Size] or nil
+        if channel_last_cmd ~= nil and channel_last_cmd.ElemCount == 0 and channel_last_cmd.UserCallback == nil then
+            channel._CmdBuffer:pop_back()
+        end
+
+        if channel._CmdBuffer.Size > 0 and last_cmd ~= nil then
+            local next_cmd = channel._CmdBuffer.Data[1]
+            if ImDrawCmd_HeaderCompare(last_cmd, next_cmd) and last_cmd.UserCallback == nil and next_cmd.UserCallback == nil then
+                last_cmd.ElemCount = last_cmd.ElemCount + next_cmd.ElemCount
+                idx_offset = idx_offset + next_cmd.ElemCount
+                channel._CmdBuffer:erase(1)
+            end
+        end
+        if channel._CmdBuffer.Size > 0 then
+            last_cmd = channel._CmdBuffer.Data[channel._CmdBuffer.Size]
+        end
+
+        new_cmd_buffer_count = new_cmd_buffer_count + channel._CmdBuffer.Size
+        new_idx_buffer_count = new_idx_buffer_count + channel._IdxBuffer.Size
+        for cmd_n = 1, channel._CmdBuffer.Size do
+            channel._CmdBuffer.Data[cmd_n].IdxOffset = idx_offset
+            idx_offset = idx_offset + channel._CmdBuffer.Data[cmd_n].ElemCount
+        end
+    end
+
+    local cmd_write = draw_list.CmdBuffer.Size + 1
+    local idx_write = draw_list.IdxBuffer.Size + 1
+    draw_list.CmdBuffer:resize(draw_list.CmdBuffer.Size + new_cmd_buffer_count)
+    draw_list.IdxBuffer:resize(draw_list.IdxBuffer.Size + new_idx_buffer_count)
+    for i = 2, self._Count do
+        local channel = self._Channels.Data[i]
+        for cmd_n = 1, channel._CmdBuffer.Size do
+            draw_list.CmdBuffer.Data[cmd_write] = channel._CmdBuffer.Data[cmd_n]
+            cmd_write = cmd_write + 1
+        end
+        for idx_n = 1, channel._IdxBuffer.Size do
+            draw_list.IdxBuffer.Data[idx_write] = channel._IdxBuffer.Data[idx_n]
+            idx_write = idx_write + 1
+        end
+    end
+    draw_list._IdxWritePtr = idx_write
+
+    if draw_list.CmdBuffer.Size == 0 or draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size].UserCallback ~= nil then
+        draw_list:AddDrawCmd()
+    end
+
+    local curr_cmd = draw_list.CmdBuffer.Data[draw_list.CmdBuffer.Size]
+    if curr_cmd.ElemCount == 0 then
+        ImDrawCmd_HeaderCopy(curr_cmd, draw_list._CmdHeader)
+    elseif not ImDrawCmd_HeaderCompare(curr_cmd, draw_list._CmdHeader) then
+        draw_list:AddDrawCmd()
+    end
+
+    self._Count = 1
+end
+
+function MT.ImDrawList:ChannelsSplit(count)
+    self._Splitter:Split(self, count)
+end
+
+function MT.ImDrawList:ChannelsMerge()
+    self._Splitter:Merge(self)
+end
+
+function MT.ImDrawList:ChannelsSetCurrent(n)
+    self._Splitter:SetCurrentChannel(self, n)
 end
 
 function MT.ImDrawList:_TryMergeDrawCmds()
@@ -3322,7 +3692,7 @@ function MT.ImDrawList:_OnChangedTexture()
         return
     end
 
-    curr_cmd.TexRef = self._CmdHeader.TexRef
+    ImTextureRef_Copy(curr_cmd.TexRef, self._CmdHeader.TexRef)
 end
 
 function MT.ImDrawList:_OnChangedVtxOffset()
@@ -3338,17 +3708,478 @@ function MT.ImDrawList:_OnChangedVtxOffset()
     curr_cmd.VtxOffset = self._CmdHeader.VtxOffset
 end
 
+local IM_POLYLINE_MITER_ANGLE_LIMIT = -0.9999619
+local IM_POLYLINE_MITER_LIMIT = 4.0
+local IM_POLYLINE_CONVEX_POLY_MAX_BEVELS = 2
+
+local function IM_APPEND_VTX(draw_list, x, y, uv, col)
+    local vtx = draw_list.VtxBuffer.Data[draw_list._VtxWritePtr]
+    vtx[1].x = x
+    vtx[1].y = y
+    ImVec2_Copy(vtx[2], uv)
+    vtx[3] = col
+    draw_list._VtxWritePtr = draw_list._VtxWritePtr + 1
+    draw_list._VtxCurrentIdx = draw_list._VtxCurrentIdx + 1
+end
+
+local function IM_APPEND_TRI(draw_list, a, b, c)
+    local idx_data = draw_list.IdxBuffer.Data
+    local idx_write_ptr = draw_list._IdxWritePtr
+    idx_data[idx_write_ptr + 0] = a
+    idx_data[idx_write_ptr + 1] = b
+    idx_data[idx_write_ptr + 2] = c
+    draw_list._IdxWritePtr = idx_write_ptr + 3
+end
+
 --- @param points       ImVec2[]
 --- @param points_count int
 --- @param col          ImU32
-function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
+--- @param flags?       ImDrawFlags
+function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col, flags)
+    if flags == nil then flags = 0 end
+
     if points_count < 3 or bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
 
     local uv = self._Data.TexUvWhitePixel
+    flags = bit.bor(flags, self.Flags)
+    if bit.band(flags, ImDrawFlags.AAFill) == 0 then
+        local idx_count = (points_count - 2) * 3
+        local vtx_count = points_count
+        self:PrimReserve(idx_count, vtx_count)
 
-    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedFill) ~= 0 then
+        local base_idx = self._VtxCurrentIdx
+        for i = 1, vtx_count do
+            IM_APPEND_VTX(self, points[i].x, points[i].y, uv, col)
+        end
+        for i = 3, points_count do
+            IM_APPEND_TRI(self, base_idx, base_idx + i - 2, base_idx + i - 1)
+        end
+        return
+    end
+
+    local half_aa = self._FringeScale * 0.5
+    local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
+    local miters_only = bit.band(flags, ImDrawFlags.JoinMiter) ~= 0
+    local miter_distance_limit_sqr = IM_POLYLINE_MITER_LIMIT * IM_POLYLINE_MITER_LIMIT
+
+    local idx_count = ((points_count - 2) + points_count * 2 + IM_POLYLINE_CONVEX_POLY_MAX_BEVELS) * 3
+    local vtx_count = points_count * 2 + IM_POLYLINE_CONVEX_POLY_MAX_BEVELS
+    self:PrimReserve(idx_count, vtx_count)
+    local start_vtx_ptr = self._VtxWritePtr
+    local start_idx_ptr = self._IdxWritePtr
+
+    self._Data.TempBuffer:reserve_discard(points_count * 2)
+    local temp_buffer = self._Data.TempBuffer.Data
+    local i0 = points_count
+    for i1 = 1, points_count do
+        local p0 = points[i0]
+        local p1 = points[i1]
+        local dx = p1.x - p0.x
+        local dy = p1.y - p0.y
+        local d2 = dx * dx + dy * dy
+        if d2 > 0.0 then
+            local inv_len = ImRsqrtPrecise(d2)
+            dx = dx * inv_len
+            dy = dy * inv_len
+        end
+        temp_buffer[i0].x = dy
+        temp_buffer[i0].y = -dx
+        temp_buffer[points_count + i0].x = d2
+        i0 = i1
+    end
+
+    local vtx_inner_idx = self._VtxCurrentIdx
+    local inner_vtx_ptr = self._VtxWritePtr
+    self._VtxWritePtr = self._VtxWritePtr + points_count
+    self._VtxCurrentIdx = self._VtxCurrentIdx + points_count
+
+    local prev_outer_idx = 0
+    local vtx_data = self.VtxBuffer.Data
+    local idx_data = self.IdxBuffer.Data
+
+    if miters_only then
+        i0 = points_count
+        for i1 = 1, points_count do
+            local p1 = points[i1]
+            local n0 = temp_buffer[i0]
+            local n1 = temp_buffer[i1]
+            local cos_theta = n0.x * n1.x + n0.y * n1.y
+            local cos_theta_clamped = ImMax(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
+            local miter_scale_factor = ImMin(1000.0, 1.0 / (1.0 + cos_theta_clamped))
+            local miter_offset_x = (n0.x + n1.x) * miter_scale_factor * half_aa
+            local miter_offset_y = (n0.y + n1.y) * miter_scale_factor * half_aa
+
+            local inner_vtx = vtx_data[inner_vtx_ptr]
+            inner_vtx[1].x = p1.x - miter_offset_x
+            inner_vtx[1].y = p1.y - miter_offset_y
+            ImVec2_Copy(inner_vtx[2], uv)
+            inner_vtx[3] = col
+            inner_vtx_ptr = inner_vtx_ptr + 1
+
+            local prev_inner_idx = vtx_inner_idx + i0 - 1
+            local inner_idx = vtx_inner_idx + i1 - 1
+            local outer_idx = self._VtxCurrentIdx
+
+            IM_APPEND_VTX(self, p1.x + miter_offset_x, p1.y + miter_offset_y, uv, col_trans)
+            IM_APPEND_TRI(self, prev_outer_idx, outer_idx, inner_idx)
+            IM_APPEND_TRI(self, prev_outer_idx, inner_idx, prev_inner_idx)
+
+            prev_outer_idx = outer_idx
+            i0 = i1
+        end
+    else
+        local bevel_count = 0
+        i0 = points_count
+        for i1 = 1, points_count do
+            local p1 = points[i1]
+            local n0 = temp_buffer[i0]
+            local n1 = temp_buffer[i1]
+            local cos_theta = n0.x * n1.x + n0.y * n1.y
+            local cos_theta_clamped = ImMax(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
+            local miter_scale_factor = ImMin(1000.0, 1.0 / (1.0 + cos_theta_clamped))
+            local miter_offset_x = (n0.x + n1.x) * miter_scale_factor
+            local miter_offset_y = (n0.y + n1.y) * miter_scale_factor
+
+            local miter_distance_sqr = miter_offset_x * miter_offset_x + miter_offset_y * miter_offset_y
+            local bevel = miter_distance_sqr > miter_distance_limit_sqr
+            if bevel then
+                local ref_thickness_sqr = half_aa * half_aa
+                local limit_sqr = ImMax(temp_buffer[points_count + i0].x, temp_buffer[points_count + i1].x)
+                local ref_miter_dist_sqr = miter_distance_sqr * ref_thickness_sqr
+                if ref_miter_dist_sqr > limit_sqr then
+                    local scale = ImSqrt(limit_sqr / ref_miter_dist_sqr)
+                    miter_offset_x = miter_offset_x * scale
+                    miter_offset_y = miter_offset_y * scale
+                end
+            end
+
+            miter_offset_x = miter_offset_x * half_aa
+            miter_offset_y = miter_offset_y * half_aa
+
+            local inner_vtx = vtx_data[inner_vtx_ptr]
+            inner_vtx[1].x = p1.x - miter_offset_x
+            inner_vtx[1].y = p1.y - miter_offset_y
+            ImVec2_Copy(inner_vtx[2], uv)
+            inner_vtx[3] = col
+            inner_vtx_ptr = inner_vtx_ptr + 1
+
+            local prev_inner_idx = vtx_inner_idx + i0 - 1
+            local inner_idx = vtx_inner_idx + i1 - 1
+            local outer_idx = self._VtxCurrentIdx
+
+            if bevel and bevel_count < IM_POLYLINE_CONVEX_POLY_MAX_BEVELS then
+                bevel_count = bevel_count + 1
+
+                IM_APPEND_VTX(self, p1.x + n0.x * half_aa, p1.y + n0.y * half_aa, uv, col_trans)
+                IM_APPEND_VTX(self, p1.x + n1.x * half_aa, p1.y + n1.y * half_aa, uv, col_trans)
+                IM_APPEND_TRI(self, prev_outer_idx, outer_idx, inner_idx)
+                IM_APPEND_TRI(self, prev_outer_idx, inner_idx, prev_inner_idx)
+                IM_APPEND_TRI(self, outer_idx, outer_idx + 1, inner_idx)
+                outer_idx = outer_idx + 1
+            else
+                IM_APPEND_VTX(self, p1.x + miter_offset_x, p1.y + miter_offset_y, uv, col_trans)
+                IM_APPEND_TRI(self, prev_outer_idx, outer_idx, inner_idx)
+                IM_APPEND_TRI(self, prev_outer_idx, inner_idx, prev_inner_idx)
+            end
+
+            prev_outer_idx = outer_idx
+            i0 = i1
+        end
+    end
+
+    idx_data[start_idx_ptr + 0] = prev_outer_idx
+    idx_data[start_idx_ptr + 3] = prev_outer_idx
+
+    for i = 3, points_count do
+        IM_APPEND_TRI(self, vtx_inner_idx, vtx_inner_idx + i - 2, vtx_inner_idx + i - 1)
+    end
+
+    local idx_used = self._IdxWritePtr - start_idx_ptr
+    local vtx_used = self._VtxWritePtr - start_vtx_ptr
+    IM_ASSERT(idx_used <= idx_count and vtx_used <= vtx_count)
+    if idx_used < idx_count or vtx_used < vtx_count then
+        self:PrimUnreserve(idx_count - idx_used, vtx_count - vtx_used)
+    end
+end
+
+local function ImTriangleIsClockwise(a, b, c)
+    return ((b.x - a.x) * (c.y - b.y)) - ((c.x - b.x) * (b.y - a.y)) > 0.0
+end
+
+--- @enum ImTriangulatorNodeType
+local ImTriangulatorNodeType = {
+    Convex = 0,
+    Ear    = 1,
+    Reflex = 2
+}
+
+--- @class ImTriangulatorNode
+--- @field Type  int
+--- @field Index int
+--- @field Pos   ImVec2
+--- @field Next  int
+--- @field Prev  int
+local IM_TRIANGULATOR_NODE = {}
+IM_TRIANGULATOR_NODE.__index = IM_TRIANGULATOR_NODE
+
+--- @return ImTriangulatorNode
+local function ImTriangulatorNode()
+    return setmetatable({ Type = ImTriangulatorNodeType.Convex, Index = 0, Pos = ImVec2(), Next = 0, Prev = 0 }, IM_TRIANGULATOR_NODE)
+end
+
+--- @param nodes ImTriangulatorNode[]
+function IM_TRIANGULATOR_NODE:Unlink(nodes)
+    nodes[self.Next].Prev = self.Prev
+    nodes[self.Prev].Next = self.Next
+end
+
+--- @class ImTriangulatorNodeSpan
+--- @field Data    table
+--- @field _Offset int   # LUA: Flat-buffer region offset; upstream stores adjusted pointers
+--- @field Size    int
+local IM_TRIANGULATOR_NODE_SPAN = {}
+IM_TRIANGULATOR_NODE_SPAN.__index = IM_TRIANGULATOR_NODE_SPAN
+
+--- @return ImTriangulatorNodeSpan
+local function ImTriangulatorNodeSpan()
+    return setmetatable({ Data = nil, _Offset = 0, Size = 0 }, IM_TRIANGULATOR_NODE_SPAN)
+end
+
+--- @param node int
+function IM_TRIANGULATOR_NODE_SPAN:push_back(node)
+    self.Size = self.Size + 1
+    self.Data[self._Offset + self.Size] = node
+end
+
+--- @param idx   int
+--- @param nodes ImTriangulatorNode[]
+function IM_TRIANGULATOR_NODE_SPAN:find_erase_unsorted(idx, nodes)
+    for i = self.Size, 1, -1 do
+        local data_i = self._Offset + i
+        if nodes[self.Data[data_i]].Index == idx then
+            self.Data[data_i] = self.Data[self._Offset + self.Size]
+            self.Size = self.Size - 1
+            return
+        end
+    end
+end
+
+--- @class ImTriangulator
+--- @field _TrianglesLeft int
+--- @field _Nodes         int
+--- @field _NodeData      ImTriangulatorNode[]
+--- @field _Ears          ImTriangulatorNodeSpan
+--- @field _Reflexes      ImTriangulatorNodeSpan
+local IM_TRIANGULATOR = {}
+IM_TRIANGULATOR.__index = IM_TRIANGULATOR
+
+--- @return ImTriangulator
+local function ImTriangulator()
+    return setmetatable({
+        _TrianglesLeft = 0,
+        _Nodes         = 0,
+        _NodeData      = nil,
+        _Ears          = ImTriangulatorNodeSpan(),
+        _Reflexes      = ImTriangulatorNodeSpan()
+    }, IM_TRIANGULATOR)
+end
+
+--- @param points_count int
+--- @return int
+function IM_TRIANGULATOR.EstimateTriangleCount(points_count)
+    return points_count < 3 and 0 or points_count - 2
+end
+
+--- @param points         ImVec2[]
+--- @param points_count   int
+--- @param scratch_buffer table
+function IM_TRIANGULATOR:Init(points, points_count, scratch_buffer)
+    IM_ASSERT(scratch_buffer ~= nil and points_count >= 3)
+    self._TrianglesLeft = IM_TRIANGULATOR.EstimateTriangleCount(points_count)
+    self._Nodes = 1
+    self._NodeData = scratch_buffer
+    self._Ears.Data = scratch_buffer
+    self._Ears._Offset = points_count
+    self._Ears.Size = 0
+    self._Reflexes.Data = scratch_buffer
+    self._Reflexes._Offset = points_count * 2
+    self._Reflexes.Size = 0
+    self:BuildNodes(points, points_count)
+    self:BuildReflexes()
+    self:BuildEars()
+end
+
+--- @param points       ImVec2[]
+--- @param points_count int
+function IM_TRIANGULATOR:BuildNodes(points, points_count)
+    local nodes = self._NodeData
+    for i = 1, points_count do
+        local node = nodes[i]
+        if getmetatable(node) ~= IM_TRIANGULATOR_NODE then
+            node = ImTriangulatorNode()
+            nodes[i] = node
+        end
+        node.Type = ImTriangulatorNodeType.Convex
+        node.Index = i
+        ImVec2_Copy(node.Pos, points[i])
+        node.Next = i + 1
+        node.Prev = i - 1
+    end
+    nodes[1].Prev = points_count
+    nodes[points_count].Next = 1
+end
+
+function IM_TRIANGULATOR:BuildReflexes()
+    local nodes = self._NodeData
+    local n1_ptr = self._Nodes
+    for _ = self._TrianglesLeft, 0, -1 do
+        local n1 = nodes[n1_ptr]
+        if not ImTriangleIsClockwise(nodes[n1.Prev].Pos, n1.Pos, nodes[n1.Next].Pos) then
+            n1.Type = ImTriangulatorNodeType.Reflex
+            self._Reflexes:push_back(n1_ptr)
+        end
+        n1_ptr = n1.Next
+    end
+end
+
+function IM_TRIANGULATOR:BuildEars()
+    local nodes = self._NodeData
+    local n1_ptr = self._Nodes
+    for _ = self._TrianglesLeft, 0, -1 do
+        local n1 = nodes[n1_ptr]
+        if n1.Type == ImTriangulatorNodeType.Convex and self:IsEar(nodes[n1.Prev].Index, n1.Index, nodes[n1.Next].Index, nodes[n1.Prev].Pos, n1.Pos, nodes[n1.Next].Pos) then
+            n1.Type = ImTriangulatorNodeType.Ear
+            self._Ears:push_back(n1_ptr)
+        end
+        n1_ptr = n1.Next
+    end
+end
+
+--- @param out_triangle int[]
+function IM_TRIANGULATOR:GetNextTriangle(out_triangle)
+    local nodes = self._NodeData
+    if self._Ears.Size == 0 then
+        self:FlipNodeList()
+
+        local node_ptr = self._Nodes
+        for _ = self._TrianglesLeft, 0, -1 do
+            local node = nodes[node_ptr]
+            node.Type = ImTriangulatorNodeType.Convex
+            node_ptr = node.Next
+        end
+        self._Reflexes.Size = 0
+        self:BuildReflexes()
+        self:BuildEars()
+
+        if self._Ears.Size == 0 then
+            IM_ASSERT(self._TrianglesLeft > 0)
+            self._Ears.Data[self._Ears._Offset + 1] = self._Nodes
+            self._Ears.Size = 1
+        end
+    end
+
+    local ear_ptr = self._Ears.Data[self._Ears._Offset + self._Ears.Size]
+    self._Ears.Size = self._Ears.Size - 1
+    local ear = nodes[ear_ptr]
+    out_triangle[1] = nodes[ear.Prev].Index
+    out_triangle[2] = ear.Index
+    out_triangle[3] = nodes[ear.Next].Index
+
+    ear:Unlink(nodes)
+    if ear_ptr == self._Nodes then
+        self._Nodes = ear.Next
+    end
+
+    self:ReclassifyNode(ear.Prev)
+    self:ReclassifyNode(ear.Next)
+    self._TrianglesLeft = self._TrianglesLeft - 1
+end
+
+function IM_TRIANGULATOR:FlipNodeList()
+    local nodes = self._NodeData
+    local prev = self._Nodes
+    local temp = self._Nodes
+    local current = nodes[self._Nodes].Next
+    nodes[prev].Next = prev
+    nodes[prev].Prev = prev
+    while current ~= self._Nodes do
+        temp = nodes[current].Next
+
+        nodes[current].Next = prev
+        nodes[prev].Prev = current
+        nodes[self._Nodes].Next = current
+        nodes[current].Prev = self._Nodes
+
+        prev = current
+        current = temp
+    end
+    self._Nodes = prev
+end
+
+--- @param i0 int
+--- @param i1 int
+--- @param i2 int
+--- @param v0 ImVec2
+--- @param v1 ImVec2
+--- @param v2 ImVec2
+--- @return bool
+function IM_TRIANGULATOR:IsEar(i0, i1, i2, v0, v1, v2)
+    local reflexes = self._Reflexes
+    local nodes = self._NodeData
+    for i = 1, reflexes.Size do
+        local reflex = nodes[reflexes.Data[reflexes._Offset + i]]
+        if reflex.Index ~= i0 and reflex.Index ~= i1 and reflex.Index ~= i2 and ImStd.ImTriangleContainsPoint(v0, v1, v2, reflex.Pos) then
+            return false
+        end
+    end
+    return true
+end
+
+--- @param n1_ptr int
+function IM_TRIANGULATOR:ReclassifyNode(n1_ptr)
+    local nodes = self._NodeData
+    local n1 = nodes[n1_ptr]
+    local n0 = nodes[n1.Prev]
+    local n2 = nodes[n1.Next]
+    local type
+    if not ImTriangleIsClockwise(n0.Pos, n1.Pos, n2.Pos) then
+        type = ImTriangulatorNodeType.Reflex
+    elseif self:IsEar(n0.Index, n1.Index, n2.Index, n0.Pos, n1.Pos, n2.Pos) then
+        type = ImTriangulatorNodeType.Ear
+    else
+        type = ImTriangulatorNodeType.Convex
+    end
+
+    if type == n1.Type then
+        return
+    end
+    if n1.Type == ImTriangulatorNodeType.Reflex then
+        self._Reflexes:find_erase_unsorted(n1.Index, nodes)
+    elseif n1.Type == ImTriangulatorNodeType.Ear then
+        self._Ears:find_erase_unsorted(n1.Index, nodes)
+    end
+    if type == ImTriangulatorNodeType.Reflex then
+        self._Reflexes:push_back(n1_ptr)
+    elseif type == ImTriangulatorNodeType.Ear then
+        self._Ears:push_back(n1_ptr)
+    end
+    n1.Type = type
+end
+
+--- @param points       ImVec2[]
+--- @param points_count int
+--- @param col          ImU32
+function MT.ImDrawList:AddConcavePolyFilled(points, points_count, col)
+    if points_count < 3 or bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    local uv = self._Data.TexUvWhitePixel
+    local triangulator = ImTriangulator()
+    local triangle = {}
+    if bit.band(self.Flags, ImDrawFlags.AAFill) ~= 0 then
         local AA_SIZE = self._FringeScale
         local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
         local idx_count = (points_count - 2) * 3 + points_count * 6
@@ -3358,15 +4189,18 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
         local vtx_inner_idx = self._VtxCurrentIdx
         local vtx_outer_idx = self._VtxCurrentIdx + 1
         local idx_data = self.IdxBuffer.Data
-        for i = 2, points_count - 1 do
+        triangulator:Init(points, points_count, self._Data._TempBuffer)
+        while triangulator._TrianglesLeft > 0 do
+            triangulator:GetNextTriangle(triangle)
             local idx_write_ptr = self._IdxWritePtr
-            idx_data[idx_write_ptr + 0] = vtx_inner_idx; idx_data[idx_write_ptr + 1] = vtx_inner_idx + ((i - 1) * 2); idx_data[idx_write_ptr + 2] = vtx_inner_idx + (i * 2)
+            idx_data[idx_write_ptr + 0] = vtx_inner_idx + (triangle[1] - 1) * 2
+            idx_data[idx_write_ptr + 1] = vtx_inner_idx + (triangle[2] - 1) * 2
+            idx_data[idx_write_ptr + 2] = vtx_inner_idx + (triangle[3] - 1) * 2
             self._IdxWritePtr = idx_write_ptr + 3
         end
 
         self._Data.TempBuffer:reserve_discard(points_count)
         local temp_normals = self._Data.TempBuffer.Data
-
         local i0 = points_count
         for i1 = 1, points_count do
             local p0 = points[i0]
@@ -3376,7 +4210,6 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
             dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
             temp_normals[i0].x = dy
             temp_normals[i0].y = -dx
-
             i0 = i1
         end
 
@@ -3397,10 +4230,9 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
             self._VtxWritePtr = vtx_write_ptr + 2
 
             local idx_write_ptr = self._IdxWritePtr
-            idx_data[idx_write_ptr + 0] = vtx_inner_idx + ((i1 - 1) * 2); idx_data[idx_write_ptr + 1] = vtx_inner_idx + ((i0 - 1) * 2); idx_data[idx_write_ptr + 2] = vtx_outer_idx + ((i0 - 1) * 2)
-            idx_data[idx_write_ptr + 3] = vtx_outer_idx + ((i0 - 1) * 2); idx_data[idx_write_ptr + 4] = vtx_outer_idx + ((i1 - 1) * 2); idx_data[idx_write_ptr + 5] = vtx_inner_idx + ((i1 - 1) * 2)
+            idx_data[idx_write_ptr + 0] = vtx_inner_idx + (i1 - 1) * 2; idx_data[idx_write_ptr + 1] = vtx_inner_idx + (i0 - 1) * 2; idx_data[idx_write_ptr + 2] = vtx_outer_idx + (i0 - 1) * 2
+            idx_data[idx_write_ptr + 3] = vtx_outer_idx + (i0 - 1) * 2; idx_data[idx_write_ptr + 4] = vtx_outer_idx + (i1 - 1) * 2; idx_data[idx_write_ptr + 5] = vtx_inner_idx + (i1 - 1) * 2
             self._IdxWritePtr = idx_write_ptr + 6
-
             i0 = i1
         end
         self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
@@ -3409,25 +4241,32 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col)
         local vtx_count = points_count
         self:PrimReserve(idx_count, vtx_count)
 
-        local idx_data = self.IdxBuffer.Data; local vtx_data = self.VtxBuffer.Data
+        local vtx_data = self.VtxBuffer.Data
         for i = 1, vtx_count do
             local vtx_write_ptr = self._VtxWritePtr
-            ImVec2_Copy(vtx_data[vtx_write_ptr + 0][1], points[i]); ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], uv); vtx_data[vtx_write_ptr + 0][3] = col
+            ImVec2_Copy(vtx_data[vtx_write_ptr][1], points[i])
+            ImVec2_Copy(vtx_data[vtx_write_ptr][2], uv)
+            vtx_data[vtx_write_ptr][3] = col
             self._VtxWritePtr = vtx_write_ptr + 1
         end
-        for i = 3, points_count do
+
+        local idx_data = self.IdxBuffer.Data
+        triangulator:Init(points, points_count, self._Data._TempBuffer)
+        while triangulator._TrianglesLeft > 0 do
+            triangulator:GetNextTriangle(triangle)
             local idx_write_ptr = self._IdxWritePtr
-            idx_data[idx_write_ptr + 0] = self._VtxCurrentIdx; idx_data[idx_write_ptr + 1] = self._VtxCurrentIdx + i - 2; idx_data[idx_write_ptr + 2] = self._VtxCurrentIdx + i - 1
+            idx_data[idx_write_ptr + 0] = self._VtxCurrentIdx + triangle[1] - 1
+            idx_data[idx_write_ptr + 1] = self._VtxCurrentIdx + triangle[2] - 1
+            idx_data[idx_write_ptr + 2] = self._VtxCurrentIdx + triangle[3] - 1
             self._IdxWritePtr = idx_write_ptr + 3
         end
-
         self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
     end
 end
 
 function MT.ImDrawList:PushTexture(tex_ref)
     self._TextureStack:push_back(tex_ref)
-    self._CmdHeader.TexRef = tex_ref
+    ImTextureRef_Copy(self._CmdHeader.TexRef, tex_ref)
     if (tex_ref._TexData ~= nil) then
         IM_ASSERT(tex_ref._TexData.Status ~= ImTextureStatus.WantDestroy and tex_ref._TexData.Status ~= ImTextureStatus.Destroyed)
     end
@@ -3436,16 +4275,43 @@ end
 
 function MT.ImDrawList:PopTexture()
     self._TextureStack:pop_back()
-    self._CmdHeader.TexRef = (self._TextureStack.Size == 0) and ImTextureRef() or self._TextureStack.Data[self._TextureStack.Size]
+    if self._TextureStack.Size == 0 then
+        self._CmdHeader.TexRef._TexData = nil
+        self._CmdHeader.TexRef._TexID = ImTextureID_Invalid
+    else
+        ImTextureRef_Copy(self._CmdHeader.TexRef, self._TextureStack.Data[self._TextureStack.Size])
+    end
     self:_OnChangedTexture()
+end
+
+--- @param flags   ImDrawFlags
+--- @param enabled bool
+function MT.ImDrawList:PushDrawFlag(flags, enabled)
+    IM_ASSERT(bit.band(flags, bit.bnot(ImDrawFlags.AllowInPushScope_)) == 0)
+    IM_ASSERT(bit.band(flags, ImDrawFlags.StrokeMask_) == 0 or bit.band(flags, ImDrawFlags.StrokeMask_) == ImDrawFlags.StrokeLegacy)
+    local stack = self._DrawFlagsStack
+    IM_ASSERT_USER_ERROR_RET(stack.Size < stack:capacity(), "PushDrawFlag() has a depth limit. Contact us.")
+    stack:push_back(self.Flags)
+    if enabled then
+        self.Flags = bit.bor(self.Flags, flags)
+    else
+        self.Flags = bit.band(self.Flags, bit.bnot(flags))
+    end
+end
+
+function MT.ImDrawList:PopDrawFlag()
+    local stack = self._DrawFlagsStack
+    IM_ASSERT_USER_ERROR_RET(stack.Size > 0, "Calling PopDrawFlag() too many times!")
+    self.Flags = stack:back()
+    stack:pop_back()
 end
 
 function MT.ImDrawList:_SetTexture(tex_ref)
     if (self._CmdHeader.TexRef == tex_ref) then
         return
     end
-    self._CmdHeader.TexRef = tex_ref
-    self._TextureStack.Data[self._TextureStack.Size] = tex_ref
+    ImTextureRef_Copy(self._CmdHeader.TexRef, tex_ref)
+    ImTextureRef_Copy(self._TextureStack.Data[self._TextureStack.Size], tex_ref)
     self:_OnChangedTexture()
 end
 
@@ -3453,13 +4319,14 @@ function MT.ImDrawList:_SetPixelDensity(pixel_density)
     IM_ASSERT(pixel_density > 0.0)
     self._FringeScale = 1.0 / pixel_density
     self._InvFringeScale = pixel_density
+    self._FringeScaleIsInteger = ImIsTruncated(self._InvFringeScale)
 end
 
 function MT.ImDrawList:PrimReserve(idx_count, vtx_count)
     IM_ASSERT_PARANOID(idx_count >= 0 and vtx_count >= 0)
 
-    if (self._VtxCurrentIdx + vtx_count >= bit.lshift(1, 16)) and (bit.band(self.Flags, ImDrawListFlags.AllowVtxOffset) ~= 0) then
-        self._CmdHeader.VtxOffset = self.VtxBuffer.Size + 1
+    if (self._VtxCurrentIdx + vtx_count > bit.lshift(1, 16)) and (bit.band(self.Flags, ImDrawFlags.UseVtxOffset) ~= 0) then
+        self._CmdHeader.VtxOffset = self.VtxBuffer.Size
         self:_OnChangedVtxOffset()
     end
 
@@ -3568,6 +4435,55 @@ function MT.ImDrawList:PrimRectUV(a, c, uv_a, uv_c, col)
     self._IdxWritePtr   = idx_write_ptr + 6
 end
 
+function MT.ImDrawList:_CalculateCenterBiasedOffset(thickness)
+    local screen_thickness = thickness * self._InvFringeScale
+    local s_thickness = ImTrunc(screen_thickness)
+    return (ImTrunc(s_thickness / 2) + bit.band(s_thickness, 1) * (screen_thickness - s_thickness)) * self._FringeScale
+end
+
+local function IM_HAS_ROUNDING(draw_list, radius)
+    return radius >= 0.25 * draw_list._FringeScale
+end
+
+local function ImAlphaMultiply(col, alpha_mul)
+    IM_ASSERT_PARANOID(alpha_mul >= 0.0 and alpha_mul < 1.0)
+    local a = bit.rshift(bit.band(col, IM_COL32_A_MASK), IM_COL32_A_SHIFT)
+    a = ImTrunc(a * alpha_mul)
+    return bit.bor(bit.band(col, bit.bnot(IM_COL32_A_MASK)), bit.lshift(a, IM_COL32_A_SHIFT))
+end
+
+function MT.ImDrawList:_SelectLineTexture(screen_thickness, flags)
+    IM_ASSERT_PARANOID(screen_thickness >= 1.0)
+
+    if bit.band(flags, ImDrawFlags.AALines) ~= 0 then
+        local texture_idx
+        if screen_thickness <= IM_DRAWLIST_TEX_LINES_DETAILED_WIDTH then
+            texture_idx = ImTrunc((screen_thickness - 1.0) * IM_DRAWLIST_TEX_LINES_SAMPLE_COUNT + 0.5) + IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1
+        elseif screen_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX - 1.5 then
+            texture_idx = ImTrunc(screen_thickness + 0.5)
+        else
+            texture_idx = IM_DRAWLIST_TEX_LINES_WIDTH_MAX - 1
+        end
+
+        local tex_uvs = self._Data.TexUvLines[texture_idx]
+        local uv0 = ImVec2(tex_uvs.x, tex_uvs.z)
+        local uv1 = ImVec2(tex_uvs.y, tex_uvs.z)
+        local fringe = self._FringeScale * screen_thickness * tex_uvs.w
+        return uv0, uv1, fringe
+    else
+        local opaque_uv = self._Data.TexUvWhitePixel
+        return ImVec2(opaque_uv.x, opaque_uv.y), ImVec2(opaque_uv.x, opaque_uv.y), 0.0
+    end
+end
+
+local function GetStrokePos(flags, default_stroke_pos)
+    local stroke_pos = bit.band(flags, ImDrawFlags.StrokeMask_)
+    if stroke_pos ~= 0 then
+        return stroke_pos
+    end
+    return default_stroke_pos
+end
+
 --- @param points       ImVec2[]
 --- @param points_count int
 --- @param col          ImU32
@@ -3576,260 +4492,365 @@ end
 function MT.ImDrawList:AddPolyline(points, points_count, col, thickness, flags)
     if flags == nil then flags = 0 end
 
+    self:_AddPolyline(points, points_count, col, thickness, flags, math.huge)
+end
+
+function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags, max_inner_offset)
     if points_count < 2 or bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
 
-    local closed = bit.band(flags, ImDrawFlags.Closed) ~= 0
-    local opaque_uv = self._Data.TexUvWhitePixel
-    local count = closed and points_count or points_count - 1 -- Number of line segments
-    local thick_line = thickness > self._FringeScale
+    local screen_thickness = thickness * self._InvFringeScale
+    if screen_thickness < 1.0 then
+        if screen_thickness < 1.0 / 255.0 then
+            return
+        end
+        col = ImAlphaMultiply(col, screen_thickness)
+        screen_thickness = 1.0
+        thickness = self._FringeScale
+    end
+
+    flags = bit.bor(flags, self.Flags)
     IM_ASSERT_USER_ERROR_RET(bit.band(flags, ImDrawFlags.InvalidMask_) == 0, "Incorrect parameter. Did you swap 'thickness' and 'flags'?")
 
-    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
-        -- Anti-aliased stroke
-        local AA_SIZE = self._FringeScale
-        local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
+    self._Data.TempBuffer:reserve_discard(points_count * 2)
+    local normals = self._Data.TempBuffer.Data
+    local sqr_lengths_start = points_count + 1
+    for i = 1, points_count - 1 do
+        local dx = points[i + 1].x - points[i].x
+        local dy = points[i + 1].y - points[i].y
+        local d2 = dx * dx + dy * dy
+        local inv_len = d2 > 0.0 and ImRsqrtPrecise(d2) or 0.0
+        normals[i].x = -dy * inv_len
+        normals[i].y = dx * inv_len
+        normals[sqr_lengths_start + i - 1].x = d2
+    end
+    if bit.band(flags, ImDrawFlags.Closed) ~= 0 then
+        local dx = points[1].x - points[points_count].x
+        local dy = points[1].y - points[points_count].y
+        local d2 = dx * dx + dy * dy
+        local inv_len = d2 > 0.0 and ImRsqrtPrecise(d2) or 0.0
+        normals[points_count].x = -dy * inv_len
+        normals[points_count].y = dx * inv_len
+        normals[sqr_lengths_start + points_count - 1].x = d2
+    else
+        ImVec2_Copy(normals[points_count], normals[points_count - 1])
+        normals[sqr_lengths_start + points_count - 1].x = 0.0
+    end
 
-        -- Thicknesses <1.0 should behave like thickness 1.0
-        thickness = ImMax(thickness, 1.0)
-        local integer_thickness = ImFloor(thickness)
-        local fractional_thickness = thickness - integer_thickness
+    local uv0, uv1, fringe = self:_SelectLineTexture(screen_thickness, flags)
 
-        -- Do we want to draw this line using a texture?
-        local use_texture = bit.band(self.Flags, ImDrawListFlags.AntiAliasedLinesUseTex) ~= 0 and integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX and fractional_thickness <= 0.00001 and AA_SIZE == 1.0
+    local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
 
-        IM_ASSERT_PARANOID((not use_texture) or bit.band(self._Data.Font.OwnerAtlas.Flags, ImFontAtlasFlags.NoBakedLines) == 0)
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeCenter)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        flags = bit.band(bit.bor(flags, ImDrawFlags.JoinMiter), bit.bnot(ImDrawFlags.AALineEnds))
+    end
 
-        local idx_count = use_texture and (count * 6) or (thick_line and count * 18 or count * 12)
-        local vtx_count = use_texture and (points_count * 2) or (thick_line and points_count * 4 or points_count * 3)
-        self:PrimReserve(idx_count, vtx_count)
+    local closed = bit.band(flags, ImDrawFlags.Closed) ~= 0
+    local miters_only = bit.band(flags, ImDrawFlags.JoinMiter) ~= 0
+    local miter_distance_limit_sqr = IM_POLYLINE_MITER_LIMIT * IM_POLYLINE_MITER_LIMIT
 
-        -- Temporary buffer
-        local temp_buffer_size = points_count * ((use_texture or not thick_line) and 3 or 5)
-        self._Data.TempBuffer:reserve_discard(temp_buffer_size)
-        local temp_normals = self._Data.TempBuffer.Data
-        local temp_points = self._Data.TempBuffer.Data; local temp_points_start = points_count + 1
+    local thickness0 = (thickness + fringe) * 0.5
+    if stroke_pos == ImDrawFlags.StrokeOutside then
+        thickness0 = thickness + fringe * 0.5
+    elseif stroke_pos == ImDrawFlags.StrokeCenterBiased then
+        thickness0 = self:_CalculateCenterBiasedOffset(thickness) + fringe * 0.5
+    elseif stroke_pos == ImDrawFlags.StrokeInside then
+        thickness0 = fringe * 0.5
+    end
+    local thickness1 = (thickness + fringe) - thickness0
 
-        -- Calculate normals for each line segment
-        for i1 = 1, count do
-            local i2 = (i1 == points_count) and 1 or i1 + 1
-            local p1 = points[i1]
-            local p2 = points[i2]
-            local dx = p2[1] - p1[1]
-            local dy = p2[2] - p1[2]
-            dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
-            temp_normals[i1][1] = dy
-            temp_normals[i1][2] = -dx
+    local max_verts_per_point = miters_only and 2 or 4
+    local max_tris_per_point = miters_only and 2 or 5
+    local idx_count
+    local vtx_count
+    if closed then
+        vtx_count = points_count * max_verts_per_point + 2
+        idx_count = (points_count * max_tris_per_point + 2) * 3
+    else
+        vtx_count = (points_count - 2) * max_verts_per_point + 4 * 2
+        idx_count = ((points_count - 2) * max_tris_per_point + 2 + 2 * 2) * 3
+    end
+
+    self:PrimReserve(idx_count, vtx_count)
+    local first_vtx_ptr = self._VtxWritePtr
+    local base_idx = self._VtxCurrentIdx
+
+    local p1
+    local n1
+    local len_sqr1
+
+    local ratio = thickness0 / (thickness0 + thickness1)
+    local uv2 = ImVec2(uv0.x + (uv1.x - uv0.x) * ratio, uv0.y)
+
+    if thickness1 > max_inner_offset then
+        thickness1 = max_inner_offset
+        local s = (thickness0 + thickness1) / (thickness + fringe)
+        local du = uv1.x - uv0.x
+        uv1.x = uv0.x + du * s
+    end
+
+    local half_aa = self._FringeScale * 0.5
+    local half_thickness = thickness * 0.5
+    local aa_end_flags = bit.bor(ImDrawFlags.AALines, ImDrawFlags.AALineEnds)
+    local use_aa_ends = bit.band(flags, aa_end_flags) == aa_end_flags
+
+    local point_idx = 1
+    local point_end = points_count + 1
+    if not closed then
+        point_idx = point_idx + 1
+        point_end = point_end - 1
+        p1 = points[1]
+        n1 = normals[1]
+        len_sqr1 = normals[sqr_lengths_start].x
+
+        local dir = ImVec2(n1.y, -n1.x)
+        if bit.band(flags, ImDrawFlags.CapSquare) ~= 0 then
+            p1 = p1 - dir * half_thickness
         end
-        if not closed then
-            ImVec2_Copy(temp_normals[points_count], temp_normals[points_count - 1])
+
+        if not use_aa_ends then
+            base_idx = self._VtxCurrentIdx
+            IM_APPEND_VTX(self, p1.x - n1.x * thickness0, p1.y - n1.y * thickness0, uv0, col)
+            IM_APPEND_VTX(self, p1.x + n1.x * thickness1, p1.y + n1.y * thickness1, uv1, col)
+        else
+            local pa = p1 - dir * half_aa
+            local pb = p1 + dir * half_aa
+
+            base_idx = self._VtxCurrentIdx
+            IM_APPEND_VTX(self, pa.x - n1.x * thickness0, pa.y - n1.y * thickness0, uv0, col_trans)
+            IM_APPEND_VTX(self, pa.x + n1.x * thickness1, pa.y + n1.y * thickness1, uv1, col_trans)
+
+            local next_base_idx = self._VtxCurrentIdx
+            IM_APPEND_VTX(self, pb.x - n1.x * thickness0, pb.y - n1.y * thickness0, uv0, col)
+            IM_APPEND_VTX(self, pb.x + n1.x * thickness1, pb.y + n1.y * thickness1, uv1, col)
+
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+            base_idx = next_base_idx
         end
+    else
+        p1 = points[points_count]
+        n1 = normals[points_count]
+        len_sqr1 = normals[sqr_lengths_start + points_count - 1].x
 
-        -- If we are drawing a one-pixel-wide line without a texture, or a textured line of any width
-        if use_texture or not thick_line then
-            -- [PATH 1] Texture-based lines (thick or non-thick)
-            -- [PATH 2] Non texture-based lines (non-thick)
-            local half_draw_size = use_texture and (thickness * 0.5 + 1) or AA_SIZE
+        base_idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, 0, 0, uv0, col)
+        IM_APPEND_VTX(self, 0, 0, uv1, col)
+    end
 
-            -- If line is not closed, the first and last points need to be generated differently
-            if not closed then
-                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulVX(temp_normals[1], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_SubVA(points[1], ImVec2_MulVX(temp_normals[1], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulVX(temp_normals[points_count], half_draw_size)))
-                ImVec2_CopyV(temp_points[temp_points_start + (points_count - 1) * 2 + 1], ImVec2_SubVA(points[points_count], ImVec2_MulVX(temp_normals[points_count], half_draw_size)))
-            end
+    if miters_only then
+        while point_idx < point_end do
+            local n0 = n1
+            p1 = points[point_idx]
+            n1 = normals[point_idx]
 
-            -- Generate indices and vertices
-            local idx1 = self._VtxCurrentIdx
-            local idx_data = self.IdxBuffer.Data; local vtx_data = self.VtxBuffer.Data
-            for i1 = 1, count do
-                local i2 = (i1 == points_count) and 1 or i1 + 1
-                local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + (use_texture and 2 or 3))
+            local cos_theta = n0.x * n1.x + n0.y * n1.y
+            local cos_theta_clamped = ImMax(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
+            local miter_scale_factor = ImMin(1000.0, 1.0 / (1.0 + cos_theta_clamped))
+            local miter_offset_x = (n0.x + n1.x) * miter_scale_factor
+            local miter_offset_y = (n0.y + n1.y) * miter_scale_factor
 
-                -- Average normals
-                local dm_x = (temp_normals[i1][1] + temp_normals[i2][1]) * 0.5
-                local dm_y = (temp_normals[i1][2] + temp_normals[i2][2]) * 0.5
-                dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
-                dm_x = dm_x * half_draw_size
-                dm_y = dm_y * half_draw_size
+            local next_base_idx = self._VtxCurrentIdx
+            IM_APPEND_VTX(self, p1.x - miter_offset_x * thickness0, p1.y - miter_offset_y * thickness0, uv0, col)
+            IM_APPEND_VTX(self, p1.x + miter_offset_x * thickness1, p1.y + miter_offset_y * thickness1, uv1, col)
 
-                -- Add temporary vertices for the outer edges
-                local out_off = (i2 - 1) * 2
-                temp_points[temp_points_start + out_off + 0][1] = points[i2][1] + dm_x
-                temp_points[temp_points_start + out_off + 0][2] = points[i2][2] + dm_y
-                temp_points[temp_points_start + out_off + 1][1] = points[i2][1] - dm_x
-                temp_points[temp_points_start + out_off + 1][2] = points[i2][2] - dm_y
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+            base_idx = next_base_idx
+            point_idx = point_idx + 1
+        end
+    else
+        while point_idx < point_end do
+            local n0 = n1
+            local len_sqr0 = len_sqr1
+            p1 = points[point_idx]
+            n1 = normals[point_idx]
+            len_sqr1 = normals[sqr_lengths_start + point_idx - 1].x
 
-                if use_texture then
-                    -- Add indices for two triangles
-                    local idx_write_ptr = self._IdxWritePtr
-                    idx_data[idx_write_ptr + 0] = idx2 + 0; idx_data[idx_write_ptr + 1] = idx1 + 0; idx_data[idx_write_ptr + 2] = idx1 + 1
-                    idx_data[idx_write_ptr + 3] = idx2 + 1; idx_data[idx_write_ptr + 4] = idx1 + 1; idx_data[idx_write_ptr + 5] = idx2 + 0
-                    self._IdxWritePtr = idx_write_ptr + 6
-                else
-                    -- Add indices for four triangles
-                    local idx_write_ptr = self._IdxWritePtr
-                    idx_data[idx_write_ptr + 0] = idx2 + 0; idx_data[idx_write_ptr + 1] = idx1 + 0; idx_data[idx_write_ptr + 2] = idx1 + 2
-                    idx_data[idx_write_ptr + 3] = idx1 + 2; idx_data[idx_write_ptr + 4] = idx2 + 2; idx_data[idx_write_ptr + 5] = idx2 + 0
-                    idx_data[idx_write_ptr + 6] = idx2 + 1; idx_data[idx_write_ptr + 7] = idx1 + 1; idx_data[idx_write_ptr + 8] = idx1 + 0
-                    idx_data[idx_write_ptr + 9] = idx1 + 0; idx_data[idx_write_ptr + 10] = idx2 + 0; idx_data[idx_write_ptr + 11] = idx2 + 1
-                    self._IdxWritePtr = idx_write_ptr + 12
+            local cos_theta = n0.x * n1.x + n0.y * n1.y
+            local sin_theta = n0.y * n1.x - n0.x * n1.y
+            local cos_theta_clamped = ImMax(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
+            local miter_scale_factor = ImMin(1000.0, 1.0 / (1.0 + cos_theta_clamped))
+            local miter_offset_x = (n0.x + n1.x) * miter_scale_factor
+            local miter_offset_y = (n0.y + n1.y) * miter_scale_factor
+            local miter_distance_sqr = miter_offset_x * miter_offset_x + miter_offset_y * miter_offset_y
+
+            if miter_distance_sqr > miter_distance_limit_sqr then
+                local ref_thickness = sin_theta < 0.0 and thickness1 or thickness0
+                local ref_thickness_sqr = ref_thickness * ref_thickness
+                local limit_sqr = ImMax(ImMax(len_sqr0, len_sqr1), ref_thickness_sqr)
+                local ref_miter_dist_sqr = miter_distance_sqr * ref_thickness_sqr
+                if ref_miter_dist_sqr > limit_sqr then
+                    local scale = ImSqrt(limit_sqr / ref_miter_dist_sqr)
+                    miter_offset_x = miter_offset_x * scale
+                    miter_offset_y = miter_offset_y * scale
                 end
 
-                idx1 = idx2
-            end
+                local bn_x, bn_y = IM_NORMALIZE2F_OVER_ZERO(n0.x + n1.x, n0.y + n1.y)
+                local side_offset = ((n0.x * bn_x + n0.y * bn_y) - 1.0) / (n0.y * bn_x - n0.x * bn_y)
+                local sd_x = bn_y * side_offset
+                local sd_y = -bn_x * side_offset
 
-            -- Add vertices
-            if use_texture then
-                -- Texture-based: need to implement TexUvLines lookup
-                local tex_uvs = self._Data.TexUvLines[integer_thickness]
-                local tex_uv0 = ImVec2(tex_uvs.x, tex_uvs.y)
-                local tex_uv1 = ImVec2(tex_uvs.z, tex_uvs.w)
-                for i = 0, points_count - 1 do
-                    local vtx_write_ptr = self._VtxWritePtr
-                    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][1], temp_points[temp_points_start + i * 2 + 0]); ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], tex_uv0); vtx_data[vtx_write_ptr + 0][3] = col
-                    ImVec2_Copy(vtx_data[vtx_write_ptr + 1][1], temp_points[temp_points_start + i * 2 + 1]); ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], tex_uv1); vtx_data[vtx_write_ptr + 1][3] = col
-                    self._VtxWritePtr = vtx_write_ptr + 2
+                if sin_theta < 0.0 then
+                    IM_APPEND_VTX(self, p1.x - (bn_x + sd_x) * thickness0, p1.y - (bn_y + sd_y) * thickness0, uv0, col)
+                    IM_APPEND_VTX(self, p1.x, p1.y, uv2, col)
+                    local next_base_idx = self._VtxCurrentIdx
+                    IM_APPEND_VTX(self, p1.x - (bn_x - sd_x) * thickness0, p1.y - (bn_y - sd_y) * thickness0, uv0, col)
+                    IM_APPEND_VTX(self, p1.x + miter_offset_x * thickness1, p1.y + miter_offset_y * thickness1, uv1, col)
+
+                    IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 5)
+                    IM_APPEND_TRI(self, base_idx + 0, base_idx + 5, base_idx + 1)
+                    IM_APPEND_TRI(self, base_idx + 3, base_idx + 5, base_idx + 2)
+                    IM_APPEND_TRI(self, base_idx + 3, base_idx + 2, base_idx + 4)
+                    IM_APPEND_TRI(self, base_idx + 3, base_idx + 4, base_idx + 5)
+                    base_idx = next_base_idx
+                else
+                    IM_APPEND_VTX(self, p1.x + (bn_x + sd_x) * thickness1, p1.y + (bn_y + sd_y) * thickness1, uv1, col)
+                    IM_APPEND_VTX(self, p1.x, p1.y, uv2, col)
+                    local next_base_idx = self._VtxCurrentIdx
+                    IM_APPEND_VTX(self, p1.x - miter_offset_x * thickness0, p1.y - miter_offset_y * thickness0, uv0, col)
+                    IM_APPEND_VTX(self, p1.x + (bn_x - sd_x) * thickness1, p1.y + (bn_y - sd_y) * thickness1, uv1, col)
+
+                    IM_APPEND_TRI(self, base_idx + 0, base_idx + 4, base_idx + 2)
+                    IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 1)
+                    IM_APPEND_TRI(self, base_idx + 3, base_idx + 2, base_idx + 4)
+                    IM_APPEND_TRI(self, base_idx + 3, base_idx + 4, base_idx + 5)
+                    IM_APPEND_TRI(self, base_idx + 3, base_idx + 5, base_idx + 2)
+                    base_idx = next_base_idx
                 end
             else
-                -- If we're not using a texture, we need the center vertex as well
-                for i = 0, points_count - 1 do
-                    local vtx_write_ptr = self._VtxWritePtr
-                    ImVec2_Copy(vtx_data[vtx_write_ptr + 0][1], points[i + 1]);                              ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], opaque_uv); vtx_data[vtx_write_ptr + 0][3] = col
-                    ImVec2_Copy(vtx_data[vtx_write_ptr + 1][1], temp_points[temp_points_start + i * 2 + 0]); ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], opaque_uv); vtx_data[vtx_write_ptr + 1][3] = col_trans
-                    ImVec2_Copy(vtx_data[vtx_write_ptr + 2][1], temp_points[temp_points_start + i * 2 + 1]); ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], opaque_uv); vtx_data[vtx_write_ptr + 2][3] = col_trans
-                    self._VtxWritePtr = vtx_write_ptr + 3
-                end
-            end
-        else
-            -- [PATH 3] Non texture-based lines (thick)
-            local half_inner_thickness = (thickness - AA_SIZE) * 0.5
+                local next_base_idx = self._VtxCurrentIdx
+                IM_APPEND_VTX(self, p1.x - miter_offset_x * thickness0, p1.y - miter_offset_y * thickness0, uv0, col)
+                IM_APPEND_VTX(self, p1.x + miter_offset_x * thickness1, p1.y + miter_offset_y * thickness1, uv1, col)
 
-            -- If line is not closed, handle first and last points
-            if not closed then
-                local points_last = points_count - 1
-                ImVec2_CopyV(temp_points[temp_points_start + 0], ImVec2_AddVA(points[1], ImVec2_MulVX(temp_normals[1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + 1], ImVec2_AddVA(points[1], ImVec2_MulVX(temp_normals[1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + 2], ImVec2_SubVA(points[1], ImVec2_MulVX(temp_normals[1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + 3], ImVec2_SubVA(points[1], ImVec2_MulVX(temp_normals[1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 0], ImVec2_AddVA(points[points_count], ImVec2_MulVX(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 1], ImVec2_AddVA(points[points_count], ImVec2_MulVX(temp_normals[points_last + 1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 2], ImVec2_SubVA(points[points_count], ImVec2_MulVX(temp_normals[points_last + 1], half_inner_thickness)))
-                ImVec2_CopyV(temp_points[temp_points_start + points_last * 4 + 3], ImVec2_SubVA(points[points_count], ImVec2_MulVX(temp_normals[points_last + 1], (half_inner_thickness + AA_SIZE))))
+                IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+                IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+                base_idx = next_base_idx
             end
 
-            -- Generate indices and vertices
-            local idx1 = self._VtxCurrentIdx
-            local idx_data = self.IdxBuffer.Data; local vtx_data = self.VtxBuffer.Data
-            for i1 = 1, count do
-                local i2 = (i1 == points_count) and 1 or i1 + 1
-                local idx2 = (i1 == points_count) and self._VtxCurrentIdx or (idx1 + 4)
-
-                -- Average normals
-                local dm_x = (temp_normals[i1][1] + temp_normals[i2][1]) * 0.5
-                local dm_y = (temp_normals[i1][2] + temp_normals[i2][2]) * 0.5
-                dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
-                local dm_out_x = dm_x * (half_inner_thickness + AA_SIZE)
-                local dm_out_y = dm_y * (half_inner_thickness + AA_SIZE)
-                local dm_in_x = dm_x * half_inner_thickness
-                local dm_in_y = dm_y * half_inner_thickness
-
-                -- Add temporary vertices
-                local out_off = (i2 - 1) * 4
-                temp_points[temp_points_start + out_off + 0][1] = points[i2][1] + dm_out_x
-                temp_points[temp_points_start + out_off + 0][2] = points[i2][2] + dm_out_y
-                temp_points[temp_points_start + out_off + 1][1] = points[i2][1] + dm_in_x
-                temp_points[temp_points_start + out_off + 1][2] = points[i2][2] + dm_in_y
-                temp_points[temp_points_start + out_off + 2][1] = points[i2][1] - dm_in_x
-                temp_points[temp_points_start + out_off + 2][2] = points[i2][2] - dm_in_y
-                temp_points[temp_points_start + out_off + 3][1] = points[i2][1] - dm_out_x
-                temp_points[temp_points_start + out_off + 3][2] = points[i2][2] - dm_out_y
-
-                -- Add indices
-                local idx_write_ptr = self._IdxWritePtr
-                idx_data[idx_write_ptr + 0] = idx2 + 1; idx_data[idx_write_ptr + 1] = idx1 + 1; idx_data[idx_write_ptr + 2] = idx1 + 2
-                idx_data[idx_write_ptr + 3] = idx1 + 2; idx_data[idx_write_ptr + 4] = idx2 + 2; idx_data[idx_write_ptr + 5] = idx2 + 1
-                idx_data[idx_write_ptr + 6] = idx2 + 1; idx_data[idx_write_ptr + 7] = idx1 + 1; idx_data[idx_write_ptr + 8] = idx1 + 0
-                idx_data[idx_write_ptr + 9] = idx1 + 0; idx_data[idx_write_ptr + 10] = idx2 + 0; idx_data[idx_write_ptr + 11] = idx2 + 1
-                idx_data[idx_write_ptr + 12] = idx2 + 2; idx_data[idx_write_ptr + 13] = idx1 + 2; idx_data[idx_write_ptr + 14] = idx1 + 3
-                idx_data[idx_write_ptr + 15] = idx1 + 3; idx_data[idx_write_ptr + 16] = idx2 + 3; idx_data[idx_write_ptr + 17] = idx2 + 2
-                self._IdxWritePtr = idx_write_ptr + 18
-
-                idx1 = idx2
-            end
-
-            -- Add vertices
-            for i = 0, points_count - 1 do
-                local vtx_write_ptr = self._VtxWritePtr
-                ImVec2_Copy(vtx_data[vtx_write_ptr + 0][1], temp_points[temp_points_start + i * 4 + 0]); ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], opaque_uv); vtx_data[vtx_write_ptr + 0][3] = col_trans
-                ImVec2_Copy(vtx_data[vtx_write_ptr + 1][1], temp_points[temp_points_start + i * 4 + 1]); ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], opaque_uv); vtx_data[vtx_write_ptr + 1][3] = col
-                ImVec2_Copy(vtx_data[vtx_write_ptr + 2][1], temp_points[temp_points_start + i * 4 + 2]); ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], opaque_uv); vtx_data[vtx_write_ptr + 2][3] = col
-                ImVec2_Copy(vtx_data[vtx_write_ptr + 3][1], temp_points[temp_points_start + i * 4 + 3]); ImVec2_Copy(vtx_data[vtx_write_ptr + 3][2], opaque_uv); vtx_data[vtx_write_ptr + 3][3] = col_trans
-                self._VtxWritePtr = vtx_write_ptr + 4
-            end
-        end
-        self._VtxCurrentIdx = self._VtxCurrentIdx + vtx_count
-    else
-        -- [PATH 4] Non texture-based, Non anti-aliased lines
-        local idx_count = count * 6
-        local vtx_count = count * 4
-        self:PrimReserve(idx_count, vtx_count)
-
-        local idx_data = self.IdxBuffer.Data; local vtx_data = self.VtxBuffer.Data
-        for i1 = 1, count do
-            local i2 = (i1 == points_count) and 1 or i1 + 1
-            local p1 = points[i1]
-            local p2 = points[i2]
-
-            local dx = p2[1] - p1[1]
-            local dy = p2[2] - p1[2]
-            dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
-            dx = dx * (thickness * 0.5)
-            dy = dy * (thickness * 0.5)
-
-            local vtx_write_ptr = self._VtxWritePtr
-            vtx_data[vtx_write_ptr + 0][1][1] = p1[1] + dy; vtx_data[vtx_write_ptr + 0][1][2] = p1[2] - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], opaque_uv); vtx_data[vtx_write_ptr + 0][3] = col
-            vtx_data[vtx_write_ptr + 1][1][1] = p2[1] + dy; vtx_data[vtx_write_ptr + 1][1][2] = p2[2] - dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], opaque_uv); vtx_data[vtx_write_ptr + 1][3] = col
-            vtx_data[vtx_write_ptr + 2][1][1] = p2[1] - dy; vtx_data[vtx_write_ptr + 2][1][2] = p2[2] + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 2][2], opaque_uv); vtx_data[vtx_write_ptr + 2][3] = col
-            vtx_data[vtx_write_ptr + 3][1][1] = p1[1] - dy; vtx_data[vtx_write_ptr + 3][1][2] = p1[2] + dx; ImVec2_Copy(vtx_data[vtx_write_ptr + 3][2], opaque_uv); vtx_data[vtx_write_ptr + 3][3] = col
-            self._VtxWritePtr = vtx_write_ptr + 4
-
-            local idx_write_ptr = self._IdxWritePtr
-            idx_data[idx_write_ptr + 0] = self._VtxCurrentIdx + 0; idx_data[idx_write_ptr + 1] = self._VtxCurrentIdx + 1; idx_data[idx_write_ptr + 2] = self._VtxCurrentIdx + 2
-            idx_data[idx_write_ptr + 3] = self._VtxCurrentIdx + 0; idx_data[idx_write_ptr + 4] = self._VtxCurrentIdx + 2; idx_data[idx_write_ptr + 5] = self._VtxCurrentIdx + 3
-            self._IdxWritePtr = idx_write_ptr + 6
-            self._VtxCurrentIdx = self._VtxCurrentIdx + 4
+            point_idx = point_idx + 1
         end
     end
+
+    if not closed then
+        p1 = points[points_count]
+        n1 = normals[points_count]
+
+        local dir = ImVec2(n1.y, -n1.x)
+        if bit.band(flags, ImDrawFlags.CapSquare) ~= 0 then
+            p1 = p1 + dir * half_thickness
+        end
+
+        if not use_aa_ends then
+            IM_APPEND_VTX(self, p1.x - n1.x * thickness0, p1.y - n1.y * thickness0, uv0, col)
+            IM_APPEND_VTX(self, p1.x + n1.x * thickness1, p1.y + n1.y * thickness1, uv1, col)
+
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+        else
+            local pa = p1 - dir * half_aa
+            local pb = p1 + dir * half_aa
+
+            local next_base_idx = self._VtxCurrentIdx
+            IM_APPEND_VTX(self, pa.x - n1.x * thickness0, pa.y - n1.y * thickness0, uv0, col)
+            IM_APPEND_VTX(self, pa.x + n1.x * thickness1, pa.y + n1.y * thickness1, uv1, col)
+            IM_APPEND_VTX(self, pb.x - n1.x * thickness0, pb.y - n1.y * thickness0, uv0, col_trans)
+            IM_APPEND_VTX(self, pb.x + n1.x * thickness1, pb.y + n1.y * thickness1, uv1, col_trans)
+
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+            base_idx = next_base_idx
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+            IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+        end
+    else
+        local vtx_data = self.VtxBuffer.Data
+        ImDrawVert_Copy(vtx_data[first_vtx_ptr + 0], vtx_data[self._CmdHeader.VtxOffset + base_idx + 0])
+        ImDrawVert_Copy(vtx_data[first_vtx_ptr + 1], vtx_data[self._CmdHeader.VtxOffset + base_idx + 1])
+    end
+
+    local cur_idx_offset = self._IdxWritePtr - 1
+    local cur_vtx_offset = self._VtxWritePtr - 1
+    local remaining_idx_count = self.IdxBuffer.Size - cur_idx_offset
+    local remaining_vtx_count = self.VtxBuffer.Size - cur_vtx_offset
+    IM_ASSERT_PARANOID(remaining_idx_count >= 0 and remaining_vtx_count >= 0)
+    self:PrimUnreserve(remaining_idx_count, remaining_vtx_count)
 end
 
 function MT.ImDrawList:PathRect(a, b, rounding, flags)
     if not rounding then rounding = 0.0 end
     if not flags    then flags    = 0   end
 
-    if rounding >= 0.5 then
+    local has_rounding = IM_HAS_ROUNDING(self, rounding)
+    if has_rounding then
         IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
-        if bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0 then
-            flags = bit.bor(flags, ImDrawFlags.RoundCornersAll)
+        if bit.band(flags, ImDrawFlags.RoundMask_) == 0 then
+            flags = bit.bor(flags, ImDrawFlags.RoundAll)
         end
-        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags.RoundCornersTop) == ImDrawFlags.RoundCornersTop) or (bit.band(flags, ImDrawFlags.RoundCornersBottom) == ImDrawFlags.RoundCornersBottom)) and 0.5 or 1.0) - 1.0)
-        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags.RoundCornersLeft) == ImDrawFlags.RoundCornersLeft) or (bit.band(flags, ImDrawFlags.RoundCornersRight) == ImDrawFlags.RoundCornersRight)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.x - a.x) * (((bit.band(flags, ImDrawFlags.RoundTop) == ImDrawFlags.RoundTop) or (bit.band(flags, ImDrawFlags.RoundBottom) == ImDrawFlags.RoundBottom)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(b.y - a.y) * (((bit.band(flags, ImDrawFlags.RoundLeft) == ImDrawFlags.RoundLeft) or (bit.band(flags, ImDrawFlags.RoundRight) == ImDrawFlags.RoundRight)) and 0.5 or 1.0) - 1.0)
     end
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone) then
+    if not has_rounding or (bit.band(flags, ImDrawFlags.RoundMask_) == ImDrawFlags.RoundNone) then
         self:PathLineTo(a)
         self:PathLineTo(ImVec2(b.x, a.y))
         self:PathLineTo(b)
         self:PathLineTo(ImVec2(a.x, b.y))
     else
-        local rounding_tl = (bit.band(flags, ImDrawFlags.RoundCornersTopLeft) ~= 0) and rounding or 0.0
-        local rounding_tr = (bit.band(flags, ImDrawFlags.RoundCornersTopRight) ~= 0) and rounding or 0.0
-        local rounding_br = (bit.band(flags, ImDrawFlags.RoundCornersBottomRight) ~= 0) and rounding or 0.0
-        local rounding_bl = (bit.band(flags, ImDrawFlags.RoundCornersBottomLeft) ~= 0) and rounding or 0.0
+        local rounding_tl = (bit.band(flags, ImDrawFlags.RoundTopLeft) ~= 0) and rounding or 0.0
+        local rounding_tr = (bit.band(flags, ImDrawFlags.RoundTopRight) ~= 0) and rounding or 0.0
+        local rounding_br = (bit.band(flags, ImDrawFlags.RoundBottomRight) ~= 0) and rounding or 0.0
+        local rounding_bl = (bit.band(flags, ImDrawFlags.RoundBottomLeft) ~= 0) and rounding or 0.0
         self:PathArcToFast(ImVec2(a.x + rounding_tl, a.y + rounding_tl), rounding_tl, 6, 9)
         self:PathArcToFast(ImVec2(b.x - rounding_tr, a.y + rounding_tr), rounding_tr, 9, 12)
         self:PathArcToFast(ImVec2(b.x - rounding_br, b.y - rounding_br), rounding_br, 0, 3)
         self:PathArcToFast(ImVec2(a.x + rounding_bl, b.y - rounding_bl), rounding_bl, 3, 6)
+    end
+end
+
+function MT.ImDrawList:_AddRectFilledBaked(p_min, p_max, col, r, tex_uvs, flags)
+    local uv_tl = ImVec2(tex_uvs.x, tex_uvs.y)
+    local uv_tr = ImVec2(tex_uvs.z, tex_uvs.y)
+    local uv_br = ImVec2(tex_uvs.z, tex_uvs.w)
+    local uv_bl = ImVec2(tex_uvs.x, tex_uvs.w)
+
+    self:PrimReserve(9 * 2 * 3, 4 * 4)
+
+    local r_tl = bit.band(flags, ImDrawFlags.RoundTopLeft) ~= 0 and r or 0.0
+    local r_tr = bit.band(flags, ImDrawFlags.RoundTopRight) ~= 0 and r or 0.0
+    local r_br = bit.band(flags, ImDrawFlags.RoundBottomRight) ~= 0 and r or 0.0
+    local r_bl = bit.band(flags, ImDrawFlags.RoundBottomLeft) ~= 0 and r or 0.0
+
+    local idx = self._VtxCurrentIdx
+
+    IM_APPEND_VTX(self, p_min.x,        p_min.y, uv_tl, col)
+    IM_APPEND_VTX(self, p_min.x + r_tl, p_min.y, uv_tr, col)
+    IM_APPEND_VTX(self, p_max.x - r_tr, p_min.y, uv_tr, col)
+    IM_APPEND_VTX(self, p_max.x,        p_min.y, uv_tl, col)
+
+    IM_APPEND_VTX(self, p_min.x,        p_min.y + r_tl, uv_bl, col)
+    IM_APPEND_VTX(self, p_min.x + r_tl, p_min.y + r_tl, uv_br, col)
+    IM_APPEND_VTX(self, p_max.x - r_tr, p_min.y + r_tr, uv_br, col)
+    IM_APPEND_VTX(self, p_max.x,        p_min.y + r_tr, uv_bl, col)
+
+    IM_APPEND_VTX(self, p_min.x,        p_max.y - r_bl, uv_bl, col)
+    IM_APPEND_VTX(self, p_min.x + r_bl, p_max.y - r_bl, uv_br, col)
+    IM_APPEND_VTX(self, p_max.x - r_br, p_max.y - r_br, uv_br, col)
+    IM_APPEND_VTX(self, p_max.x,        p_max.y - r_br, uv_bl, col)
+
+    IM_APPEND_VTX(self, p_min.x,        p_max.y, uv_tl, col)
+    IM_APPEND_VTX(self, p_min.x + r_bl, p_max.y, uv_tr, col)
+    IM_APPEND_VTX(self, p_max.x - r_br, p_max.y, uv_tr, col)
+    IM_APPEND_VTX(self, p_max.x,        p_max.y, uv_tl, col)
+
+    for _ = 1, 3 do
+        for _ = 1, 3 do
+            IM_APPEND_TRI(self, idx + 4, idx + 0, idx + 1)
+            IM_APPEND_TRI(self, idx + 4, idx + 1, idx + 5)
+            idx = idx + 1
+        end
+        idx = idx + 1
     end
 end
 
@@ -3839,15 +4860,81 @@ function MT.ImDrawList:AddRectFilled(p_min, p_max, col, rounding, flags)
 
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
-    if rounding < 0.5 or (bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone) then
+    local width = p_max.x - p_min.x
+    local height = p_max.y - p_min.y
+    local min_dim = ImMin(width, height)
+    flags = bit.bor(flags, self.Flags)
+
+    if bit.band(flags, ImDrawFlags.StrokeMask_) == ImDrawFlags.StrokeLegacy and rounding < 0.5 then
         self:PrimReserve(6, 4)
         self:PrimRect(p_min, p_max, col)
+        return
+    end
+
+    if min_dim < self._FringeScale then
+        if min_dim < (1.0 / 255.0) * self._FringeScale then
+            return
+        end
+        if width < self._FringeScale then
+            col = ImAlphaMultiply(col, width * self._InvFringeScale)
+            width = self._FringeScale
+        end
+        if height < self._FringeScale then
+            col = ImAlphaMultiply(col, height * self._InvFringeScale)
+            height = self._FringeScale
+        end
+        local points = {p_min, ImVec2(p_min.x + width, p_min.y), ImVec2(p_min.x + width, p_min.y + height), ImVec2(p_min.x, p_min.y + height)}
+        self:AddConvexPolyFilled(points, 4, col, ImDrawFlags.JoinMiter)
+        return
+    end
+
+    local has_rounding = bit.band(flags, ImDrawFlags.RoundMask_) ~= ImDrawFlags.RoundNone and IM_HAS_ROUNDING(self, rounding)
+    local is_truncated = ImIsTruncated4(p_min.x, p_min.y, p_max.x, p_max.y) and ImIsTruncated(rounding)
+
+    if self._FringeScaleIsInteger and is_truncated then
+        if not has_rounding then
+            self:PrimReserve(6, 4)
+            self:PrimRect(p_min, p_max, col)
+            return
+        end
+
+        if bit.band(flags, ImDrawFlags.RoundMask_) == 0 then
+            flags = bit.bor(flags, ImDrawFlags.RoundAll)
+        end
+
+        rounding = ImMin(rounding, ImAbs(width) * (((bit.band(flags, ImDrawFlags.RoundTop) == ImDrawFlags.RoundTop) or (bit.band(flags, ImDrawFlags.RoundBottom) == ImDrawFlags.RoundBottom)) and 0.5 or 1.0) - 1.0)
+        rounding = ImMin(rounding, ImAbs(height) * (((bit.band(flags, ImDrawFlags.RoundLeft) == ImDrawFlags.RoundLeft) or (bit.band(flags, ImDrawFlags.RoundRight) == ImDrawFlags.RoundRight)) and 0.5 or 1.0) - 1.0)
+
+        local s_rounding = ImTrunc(rounding * self._InvFringeScale)
+        if s_rounding <= 0 then
+            self:PrimReserve(6, 4)
+            self:PrimRect(p_min, p_max, col)
+            return
+        end
+        local tex_corner_flags = bit.bor(ImDrawFlags.AAFill, ImDrawFlags.UseTexForRoundCorners, ImDrawFlags.AllowTexForRoundCorners_)
+        local allow_tex_corners = bit.band(flags, tex_corner_flags) == tex_corner_flags
+        if allow_tex_corners and s_rounding <= IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX then
+            IM_ASSERT_PARANOID(bit.band(self._Data.Font.OwnerAtlas.Flags, ImFontAtlasFlags.NoBakedRoundCorners) == 0)
+            local corner_size = s_rounding + 1
+            if corner_size * 2.0 * self._FringeScale < min_dim then
+                local idx = s_rounding
+                IM_ASSERT_PARANOID(idx >= 1 and idx <= IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX)
+                self:_AddRectFilledBaked(p_min, p_max, col, corner_size * self._FringeScale, self._Data.TexUvCorners[idx], flags)
+                return
+            end
+        end
+    end
+
+    if not has_rounding then
+        local points = {p_min, ImVec2(p_max.x, p_min.y), p_max, ImVec2(p_min.x, p_max.y)}
+        self:AddConvexPolyFilled(points, 4, col, ImDrawFlags.JoinMiter)
     else
         self:PathRect(p_min, p_max, rounding, flags)
-        self:PathFillConvex(col)
+        self:PathFillConvex(col, ImDrawFlags.JoinMiter)
     end
 end
 
+-- Does not support anti-aliasing when provided non-integer vertices
 --- @param p_min         ImVec2
 --- @param p_max         ImVec2
 --- @param col_upr_left  ImU32
@@ -3869,13 +4956,230 @@ function MT.ImDrawList:AddRectFilledMultiColor(p_min, p_max, col_upr_left, col_u
     self:PrimWriteVtx(ImVec2(p_min.x, p_max.y), uv, col_bot_left)
 end
 
+--- @param p_min   ImVec2
+--- @param p_max   ImVec2
+--- @param col     ImU32
+--- @param r       float
+--- @param t       float
+--- @param tex_uvs ImVec4
+--- @param flags   ImDrawFlags
+function MT.ImDrawList:_AddRectBaked(p_min, p_max, col, r, t, tex_uvs, flags)
+    local uv_tl = ImVec2(tex_uvs.x, tex_uvs.y)
+    local uv_tr = ImVec2(tex_uvs.z, tex_uvs.y)
+    local uv_br = ImVec2(tex_uvs.z, tex_uvs.w)
+    local uv_bl = ImVec2(tex_uvs.x, tex_uvs.w)
+
+    local idx_allocated = 8 * 2 * 3
+    local vtx_allocated = 8 * 4
+    self:PrimReserve(idx_allocated, vtx_allocated)
+    local start_vtx_ptr = self._VtxWritePtr
+    local start_idx_ptr = self._IdxWritePtr
+
+    if bit.band(flags, ImDrawFlags.RoundTopLeft) ~= 0 then
+        local idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, p_min.x,     p_min.y,     uv_tl, col)
+        IM_APPEND_VTX(self, p_min.x + r, p_min.y,     uv_tr, col)
+        IM_APPEND_VTX(self, p_min.x + r, p_min.y + r, uv_br, col)
+        IM_APPEND_VTX(self, p_min.x,     p_min.y + r, uv_bl, col)
+        IM_APPEND_TRI(self, idx + 0, idx + 1, idx + 2)
+        IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+    end
+
+    if bit.band(flags, ImDrawFlags.RoundTopRight) ~= 0 then
+        local idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, p_max.x - r, p_min.y,     uv_tr, col)
+        IM_APPEND_VTX(self, p_max.x,     p_min.y,     uv_tl, col)
+        IM_APPEND_VTX(self, p_max.x,     p_min.y + r, uv_bl, col)
+        IM_APPEND_VTX(self, p_max.x - r, p_min.y + r, uv_br, col)
+        IM_APPEND_TRI(self, idx + 0, idx + 1, idx + 2)
+        IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+    end
+
+    if bit.band(flags, ImDrawFlags.RoundBottomRight) ~= 0 then
+        local idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, p_max.x - r, p_max.y - r, uv_br, col)
+        IM_APPEND_VTX(self, p_max.x,     p_max.y - r, uv_bl, col)
+        IM_APPEND_VTX(self, p_max.x,     p_max.y,     uv_tl, col)
+        IM_APPEND_VTX(self, p_max.x - r, p_max.y,     uv_tr, col)
+        IM_APPEND_TRI(self, idx + 0, idx + 1, idx + 2)
+        IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+    end
+
+    if bit.band(flags, ImDrawFlags.RoundBottomLeft) ~= 0 then
+        local idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, p_min.x,     p_max.y - r, uv_bl, col)
+        IM_APPEND_VTX(self, p_min.x + r, p_max.y - r, uv_br, col)
+        IM_APPEND_VTX(self, p_min.x + r, p_max.y,     uv_tr, col)
+        IM_APPEND_VTX(self, p_min.x,     p_max.y,     uv_tl, col)
+        IM_APPEND_TRI(self, idx + 0, idx + 1, idx + 2)
+        IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+    end
+
+    local r_tl = bit.band(flags, ImDrawFlags.RoundTopLeft) ~= 0 and r or 0
+    local r_tr = bit.band(flags, ImDrawFlags.RoundTopRight) ~= 0 and r or 0
+    local r_br = bit.band(flags, ImDrawFlags.RoundBottomRight) ~= 0 and r or 0
+    local r_bl = bit.band(flags, ImDrawFlags.RoundBottomLeft) ~= 0 and r or 0
+    local opaque_uv = self._Data.TexUvWhitePixel
+
+    local idx = self._VtxCurrentIdx
+    local x0 = p_min.x + r_tl
+    local x1 = p_max.x - r_tr
+    IM_APPEND_VTX(self, x0, p_min.y,     opaque_uv, col)
+    IM_APPEND_VTX(self, x1, p_min.y,     opaque_uv, col)
+    IM_APPEND_VTX(self, x1, p_min.y + t, opaque_uv, col)
+    IM_APPEND_VTX(self, x0, p_min.y + t, opaque_uv, col)
+    IM_APPEND_TRI(self, idx + 0, idx + 1, idx + 2)
+    IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+
+    idx = self._VtxCurrentIdx
+    local y0 = p_min.y + ImMax(r_tl, t)
+    local y1 = p_max.y - ImMax(r_bl, t)
+    IM_APPEND_VTX(self, p_min.x,     y0, opaque_uv, col)
+    IM_APPEND_VTX(self, p_min.x + t, y0, opaque_uv, col)
+    IM_APPEND_VTX(self, p_min.x + t, y1, opaque_uv, col)
+    IM_APPEND_VTX(self, p_min.x,     y1, opaque_uv, col)
+    IM_APPEND_TRI(self, idx + 0, idx + 1, idx + 2)
+    IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+
+    idx = self._VtxCurrentIdx
+    y0 = p_min.y + ImMax(r_tr, t)
+    y1 = p_max.y - ImMax(r_br, t)
+    IM_APPEND_VTX(self, p_max.x - t, y0, opaque_uv, col)
+    IM_APPEND_VTX(self, p_max.x,     y0, opaque_uv, col)
+    IM_APPEND_VTX(self, p_max.x,     y1, opaque_uv, col)
+    IM_APPEND_VTX(self, p_max.x - t, y1, opaque_uv, col)
+    IM_APPEND_TRI(self, idx + 0, idx + 1, idx + 2)
+    IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+
+    idx = self._VtxCurrentIdx
+    x0 = p_min.x + r_bl
+    x1 = p_max.x - r_br
+    IM_APPEND_VTX(self, x0, p_max.y - t, opaque_uv, col)
+    IM_APPEND_VTX(self, x1, p_max.y - t, opaque_uv, col)
+    IM_APPEND_VTX(self, x1, p_max.y,     opaque_uv, col)
+    IM_APPEND_VTX(self, x0, p_max.y,     opaque_uv, col)
+    IM_APPEND_TRI(self, idx + 0, idx + 1, idx + 2)
+    IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+
+    local idx_used = self._IdxWritePtr - start_idx_ptr
+    local vtx_used = self._VtxWritePtr - start_vtx_ptr
+    IM_ASSERT_PARANOID(idx_used <= idx_allocated and vtx_used <= vtx_allocated)
+    if idx_used < idx_allocated or vtx_used < vtx_allocated then
+        self:PrimUnreserve(idx_allocated - idx_used, vtx_allocated - vtx_used)
+    end
+end
+
+function MT.ImDrawList:_AddRectTinyRounding(p_min, p_max, col, rounding, thickness, flags)
+    local screen_thickness = thickness * self._InvFringeScale
+    if screen_thickness < 1.0 then
+        if screen_thickness < 1.0 / 255.0 then
+            return
+        end
+        col = ImAlphaMultiply(col, screen_thickness)
+        screen_thickness = 1.0
+        thickness = self._FringeScale
+    end
+
+    flags = bit.bor(flags, self.Flags)
+    local outer_uv, inner_uv, fringe = self:_SelectLineTexture(screen_thickness, flags)
+
+    local auto_seg_count = self:_CalcCircleAutoSegmentCount(rounding)
+    local arc_step, arc_step_count = CalcCornerArcStepAndCount(auto_seg_count)
+    local arc_point_count = arc_step_count + 1
+
+    local vtx_count = (2 + arc_point_count) * 4 + 3
+    local idx_count = (4 + arc_point_count - 1) * 4 * 3
+
+    self:PrimReserve(idx_count, vtx_count)
+    local start_vtx_ptr = self._VtxWritePtr
+    local start_idx_ptr = self._IdxWritePtr
+
+    local corner_offset = { ImVec2(1, 1), ImVec2(-1, 1), ImVec2(-1, -1), ImVec2(1, -1) }
+    local corner_flags = { ImDrawFlags.RoundTopLeft, ImDrawFlags.RoundTopRight, ImDrawFlags.RoundBottomRight, ImDrawFlags.RoundBottomLeft }
+    local half_fringe = fringe * 0.5
+    local corner_pos = {
+        ImVec2(p_min.x - half_fringe, p_min.y - half_fringe),
+        ImVec2(p_max.x + half_fringe, p_min.y - half_fringe),
+        ImVec2(p_max.x + half_fringe, p_max.y + half_fringe),
+        ImVec2(p_min.x - half_fringe, p_max.y + half_fringe)
+    }
+    thickness = thickness + fringe
+    rounding = rounding + half_fringe
+
+    local stem_offset = ImMin(rounding, thickness)
+
+    local ratio = stem_offset / thickness
+    local stem_uv = ImVec2(outer_uv.x + (inner_uv.x - outer_uv.x) * ratio, outer_uv.y)
+
+    local base_idx = self._VtxCurrentIdx
+    IM_APPEND_VTX(self, 0, 0, inner_uv, col)
+    IM_APPEND_VTX(self, 0, 0, stem_uv, col)
+    IM_APPEND_VTX(self, 0, 0, outer_uv, col)
+
+    for corner = 1, 4 do
+        local outer_x = corner_pos[corner].x
+        local outer_y = corner_pos[corner].y
+        local stem_x = outer_x + corner_offset[corner].x * stem_offset
+        local stem_y = outer_y + corner_offset[corner].y * stem_offset
+        local inner_x = outer_x + corner_offset[corner].x * thickness
+        local inner_y = outer_y + corner_offset[corner].y * thickness
+        local is_rounded = bit.band(flags, corner_flags[corner]) ~= 0
+
+        local arc_idx = self._VtxCurrentIdx
+        if is_rounded then
+            local center_x = outer_x + corner_offset[corner].x * rounding
+            local center_y = outer_y + corner_offset[corner].y * rounding
+            local a = math.floor(IM_DRAWLIST_ARCFAST_TABLE_SIZE / 4) * (corner - 1)
+            for _ = 1, arc_point_count do
+                local dir = self._Data.ArcFastVtx[a + 1]
+                IM_APPEND_VTX(self, center_x - dir.x * rounding, center_y - dir.y * rounding, outer_uv, col)
+                a = (a + arc_step) % IM_DRAWLIST_ARCFAST_TABLE_SIZE
+            end
+        else
+            IM_APPEND_VTX(self, outer_x, outer_y, outer_uv, col)
+        end
+
+        local stem_idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, stem_x, stem_y, stem_uv, col)
+        local inner_idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, inner_x, inner_y, inner_uv, col)
+
+        if is_rounded then
+            for i = 0, arc_point_count - 2 do
+                IM_APPEND_TRI(self, stem_idx, arc_idx + i, arc_idx + i + 1)
+            end
+        end
+
+        IM_APPEND_TRI(self, base_idx + 0, arc_idx, stem_idx)
+        IM_APPEND_TRI(self, base_idx + 0, stem_idx, base_idx + 1)
+        IM_APPEND_TRI(self, base_idx + 1, stem_idx, inner_idx)
+        IM_APPEND_TRI(self, base_idx + 1, inner_idx, base_idx + 2)
+
+        base_idx = stem_idx - 1
+    end
+
+    local vtx_data = self.VtxBuffer.Data
+    ImDrawVert_Copy(vtx_data[start_vtx_ptr + 0], vtx_data[self._CmdHeader.VtxOffset + base_idx + 0])
+    ImDrawVert_Copy(vtx_data[start_vtx_ptr + 1], vtx_data[self._CmdHeader.VtxOffset + base_idx + 1])
+    ImDrawVert_Copy(vtx_data[start_vtx_ptr + 2], vtx_data[self._CmdHeader.VtxOffset + base_idx + 2])
+
+    local idx_used = self._IdxWritePtr - start_idx_ptr
+    local vtx_used = self._VtxWritePtr - start_vtx_ptr
+    IM_ASSERT_PARANOID(idx_used <= idx_count and vtx_used <= vtx_count)
+
+    if idx_used < idx_count or vtx_used < vtx_count then
+        self:PrimUnreserve(idx_count - idx_used, vtx_count - vtx_used)
+    end
+end
+
 --- @param p_min      ImVec2
 --- @param p_max      ImVec2
 --- @param col        ImU32
---- @param rounding   float
+--- @param rounding?  float
 --- @param thickness? float
 --- @param flags?     ImDrawFlags
 function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, thickness, flags)
+    if rounding  == nil then rounding  = 0.0 end
     if thickness == nil then thickness = 1.0 end
     if flags     == nil then flags     = 0   end
 
@@ -3884,21 +5188,264 @@ function MT.ImDrawList:AddRect(p_min, p_max, col, rounding, thickness, flags)
     if bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
-    if bit.band(self.Flags, ImDrawListFlags.AntiAliasedLines) ~= 0 then
-        self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.50, 0.50), rounding, flags)
-    else
-        self:PathRect(p_min + ImVec2(0.50, 0.50), p_max - ImVec2(0.49, 0.49), rounding, flags)
+
+    flags = bit.bor(flags, self.Flags)
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        if bit.band(flags, ImDrawFlags.AALines) ~= 0 then
+            self:PathRect(ImVec2(p_min.x + 0.50, p_min.y + 0.50), ImVec2(p_max.x - 0.50, p_max.y - 0.50), rounding, flags)
+        else
+            self:PathRect(ImVec2(p_min.x + 0.50, p_min.y + 0.50), ImVec2(p_max.x - 0.49, p_max.y - 0.49), rounding, flags)
+        end
+        self:PathStroke(col, thickness, bit.bor(ImDrawFlags.Closed, ImDrawFlags.JoinMiter, ImDrawFlags.StrokeCenter, bit.band(flags, bit.bnot(ImDrawFlags.StrokeMask_))))
+        return
     end
 
-    self:PathStroke(col, thickness, ImDrawFlags.Closed)
+    local has_rounding = IM_HAS_ROUNDING(self, rounding)
+
+    local outer_min = ImVec2(p_min.x, p_min.y)
+    local outer_max = ImVec2(p_max.x, p_max.y)
+    local outer_rounding = rounding
+
+    local offset = 0.0
+    if stroke_pos == ImDrawFlags.StrokeCenter then
+        offset = thickness * 0.5
+    elseif stroke_pos == ImDrawFlags.StrokeCenterBiased then
+        offset = self:_CalculateCenterBiasedOffset(thickness)
+    elseif stroke_pos == ImDrawFlags.StrokeOutside then
+        offset = thickness
+    end
+    outer_min.x = outer_min.x - offset
+    outer_min.y = outer_min.y - offset
+    outer_max.x = outer_max.x + offset
+    outer_max.y = outer_max.y + offset
+    if has_rounding then
+        outer_rounding = outer_rounding + offset
+    end
+
+    local width = outer_max.x - outer_min.x
+    local height = outer_max.y - outer_min.y
+    local half_min_dim = ImMin(width, height) * 0.5
+    if half_min_dim <= thickness then
+        self:AddRectFilled(outer_min, outer_max, col, outer_rounding, flags)
+        return
+    end
+
+    if bit.band(flags, ImDrawFlags.RoundMask_) == 0 then
+        flags = bit.bor(flags, ImDrawFlags.RoundAll)
+    end
+    if has_rounding then
+        outer_rounding = ImMin(outer_rounding, ImAbs(width) * (((bit.band(flags, ImDrawFlags.RoundTop) == ImDrawFlags.RoundTop) or (bit.band(flags, ImDrawFlags.RoundBottom) == ImDrawFlags.RoundBottom)) and 0.5 or 1.0) - 1.0)
+        outer_rounding = ImMin(outer_rounding, ImAbs(height) * (((bit.band(flags, ImDrawFlags.RoundLeft) == ImDrawFlags.RoundLeft) or (bit.band(flags, ImDrawFlags.RoundRight) == ImDrawFlags.RoundRight)) and 0.5 or 1.0) - 1.0)
+    end
+
+    if self._FringeScaleIsInteger and ImIsTruncated4(outer_min.x, outer_min.y, outer_max.x, outer_max.y) and ImIsTruncated4(outer_rounding, thickness, 0.0, 0.0) then
+        local s_rounding = ImTrunc(outer_rounding * self._InvFringeScale)
+        local s_thickness = ImTrunc(thickness * self._InvFringeScale)
+        if s_thickness <= 0 then
+            return
+        end
+
+        if s_rounding <= 0 or bit.band(flags, ImDrawFlags.RoundMask_) == ImDrawFlags.RoundNone then
+            local opaque_uv = self._Data.TexUvWhitePixel
+            local t = s_thickness * self._FringeScale
+
+            self:PrimReserve(8 * 3, 8)
+            local idx = self._VtxCurrentIdx
+            IM_APPEND_VTX(self, outer_min.x,     outer_min.y,     opaque_uv, col)
+            IM_APPEND_VTX(self, outer_min.x + t, outer_min.y + t, opaque_uv, col)
+            IM_APPEND_VTX(self, outer_max.x,     outer_min.y,     opaque_uv, col)
+            IM_APPEND_VTX(self, outer_max.x - t, outer_min.y + t, opaque_uv, col)
+            IM_APPEND_VTX(self, outer_max.x,     outer_max.y,     opaque_uv, col)
+            IM_APPEND_VTX(self, outer_max.x - t, outer_max.y - t, opaque_uv, col)
+            IM_APPEND_VTX(self, outer_min.x,     outer_max.y,     opaque_uv, col)
+            IM_APPEND_VTX(self, outer_min.x + t, outer_max.y - t, opaque_uv, col)
+
+            IM_APPEND_TRI(self, idx + 0, idx + 3, idx + 1)
+            IM_APPEND_TRI(self, idx + 0, idx + 2, idx + 3)
+            IM_APPEND_TRI(self, idx + 2, idx + 5, idx + 3)
+            IM_APPEND_TRI(self, idx + 2, idx + 4, idx + 5)
+            IM_APPEND_TRI(self, idx + 4, idx + 7, idx + 5)
+            IM_APPEND_TRI(self, idx + 4, idx + 6, idx + 7)
+            IM_APPEND_TRI(self, idx + 6, idx + 1, idx + 7)
+            IM_APPEND_TRI(self, idx + 6, idx + 0, idx + 1)
+            return
+        end
+        local tex_corner_flags = bit.bor(ImDrawFlags.AALines, ImDrawFlags.UseTexForRoundCorners, ImDrawFlags.AllowTexForRoundCorners_)
+        local allow_tex_corners = bit.band(flags, tex_corner_flags) == tex_corner_flags
+        if allow_tex_corners and s_thickness < IM_DRAWLIST_TEX_CORNERS_THICKNESS_MAX and s_rounding <= IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX then
+            IM_ASSERT_PARANOID(s_thickness > 0 and s_rounding > 0)
+            IM_ASSERT_PARANOID(bit.band(self._Data.Font.OwnerAtlas.Flags, ImFontAtlasFlags.NoBakedRoundCorners) == 0)
+            local size = ImMax(s_rounding, s_thickness)
+            local idx = s_thickness * IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX + s_rounding
+            IM_ASSERT_PARANOID(idx >= 1 and idx <= IM_DRAWLIST_TEX_CORNERS_ROUNDING_MAX * IM_DRAWLIST_TEX_CORNERS_THICKNESS_MAX)
+            local tex_uvs = self._Data.TexUvCorners[idx]
+            self:_AddRectBaked(outer_min, outer_max, col, size * self._FringeScale, thickness, tex_uvs, flags)
+            return
+        end
+    end
+
+    if not has_rounding or bit.band(flags, ImDrawFlags.RoundMask_) == ImDrawFlags.RoundNone then
+        local points = {outer_min, ImVec2(outer_max.x, outer_min.y), outer_max, ImVec2(outer_min.x, outer_max.y)}
+        self:_AddPolyline(points, 4, col, thickness, bit.bor(ImDrawFlags.Closed, ImDrawFlags.JoinMiter, ImDrawFlags.StrokeInside), half_min_dim)
+        self._Path.Size = 0
+    else
+        if thickness + 0.75 * self._FringeScale > outer_rounding then
+            self:_AddRectTinyRounding(outer_min, outer_max, col, outer_rounding, thickness, flags)
+            return
+        end
+        local rounding_tl = bit.band(flags, ImDrawFlags.RoundTopLeft) ~= 0 and outer_rounding or 0.0
+        local rounding_tr = bit.band(flags, ImDrawFlags.RoundTopRight) ~= 0 and outer_rounding or 0.0
+        local rounding_br = bit.band(flags, ImDrawFlags.RoundBottomRight) ~= 0 and outer_rounding or 0.0
+        local rounding_bl = bit.band(flags, ImDrawFlags.RoundBottomLeft) ~= 0 and outer_rounding or 0.0
+        self:PathArcToFast(ImVec2(outer_min.x + rounding_tl, outer_min.y + rounding_tl), rounding_tl, 6, 9)
+        self:PathArcToFast(ImVec2(outer_max.x - rounding_tr, outer_min.y + rounding_tr), rounding_tr, 9, 12)
+        self:PathArcToFast(ImVec2(outer_max.x - rounding_br, outer_max.y - rounding_br), rounding_br, 0, 3)
+        self:PathArcToFast(ImVec2(outer_min.x + rounding_bl, outer_max.y - rounding_bl), rounding_bl, 3, 6)
+        self:_AddPolyline(self._Path.Data, self._Path.Size, col, thickness, bit.bor(ImDrawFlags.Closed, ImDrawFlags.JoinMiter, ImDrawFlags.StrokeInside, bit.band(flags, bit.bnot(ImDrawFlags.StrokeMask_))), half_min_dim)
+        self._Path.Size = 0
+    end
 end
 
-function MT.ImDrawList:AddLine(p1, p2, col, thickness)
-    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
+function MT.ImDrawList:_AddLine(p1, p2, col, thickness, flags)
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
 
-    self:PathLineTo(p1 + ImVec2(0.5, 0.5))
-    self:PathLineTo(p2 + ImVec2(0.5, 0.5))
-    self:PathStroke(col, thickness)
+    local screen_thickness = thickness * self._InvFringeScale
+    if screen_thickness < 1.0 then
+        if screen_thickness < 1.0 / 255.0 then
+            return
+        end
+        col = ImAlphaMultiply(col, screen_thickness)
+        screen_thickness = 1.0
+        thickness = self._FringeScale
+    end
+
+    flags = bit.bor(flags, self.Flags)
+    local uv0, uv1, fringe = self:_SelectLineTexture(screen_thickness, flags)
+
+    local dir_x = p2.x - p1.x
+    local dir_y = p2.y - p1.y
+    local d2 = dir_x * dir_x + dir_y * dir_y
+    local inv_len = d2 > 0.0 and ImRsqrtPrecise(d2) or 0.0
+    dir_x = dir_x * inv_len
+    dir_y = dir_y * inv_len
+    local norm_x = -dir_y
+    local norm_y = dir_x
+
+    local col_trans = bit.band(col, bit.bnot(IM_COL32_A_MASK))
+
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeCenter)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        flags = bit.band(bit.bor(flags, ImDrawFlags.JoinMiter), bit.bnot(ImDrawFlags.AALineEnds))
+    end
+
+    local thickness0 = (thickness + fringe) * 0.5
+    if stroke_pos == ImDrawFlags.StrokeOutside then
+        thickness0 = thickness + fringe * 0.5
+    elseif stroke_pos == ImDrawFlags.StrokeCenterBiased then
+        thickness0 = self:_CalculateCenterBiasedOffset(thickness) + fringe * 0.5
+    elseif stroke_pos == ImDrawFlags.StrokeInside then
+        thickness0 = fringe * 0.5
+    end
+    local thickness1 = (thickness + fringe) - thickness0
+
+    local ratio = thickness0 / (thickness0 + thickness1)
+    local uv2 = ImVec2(uv0.x + (uv1.x - uv0.x) * ratio, uv0.y)
+
+    local half_aa = self._FringeScale * 0.5
+    local half_thickness = thickness * 0.5
+    local aa_end_flags = bit.bor(ImDrawFlags.AALines, ImDrawFlags.AALineEnds)
+    local use_aa_ends = bit.band(flags, aa_end_flags) == aa_end_flags
+
+    if not use_aa_ends then
+        self:PrimReserve(2 * 3, 4)
+    else
+        self:PrimReserve(6 * 3, 8)
+    end
+
+    local base_idx = self._VtxCurrentIdx
+    local p1_x = p1.x
+    local p1_y = p1.y
+    local p2_x = p2.x
+    local p2_y = p2.y
+
+    if bit.band(flags, ImDrawFlags.CapSquare) ~= 0 then
+        p1_x = p1_x - dir_x * half_thickness
+        p1_y = p1_y - dir_y * half_thickness
+        p2_x = p2_x + dir_x * half_thickness
+        p2_y = p2_y + dir_y * half_thickness
+    end
+
+    if not use_aa_ends then
+        base_idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, p1_x - norm_x * thickness0, p1_y - norm_y * thickness0, uv0, col)
+        IM_APPEND_VTX(self, p1_x + norm_x * thickness1, p1_y + norm_y * thickness1, uv1, col)
+        IM_APPEND_VTX(self, p2_x - norm_x * thickness0, p2_y - norm_y * thickness0, uv0, col)
+        IM_APPEND_VTX(self, p2_x + norm_x * thickness1, p2_y + norm_y * thickness1, uv1, col)
+
+        IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+        IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+    else
+        local pa_x = p1_x - dir_x * half_aa
+        local pa_y = p1_y - dir_y * half_aa
+        local pb_x = p1_x + dir_x * half_aa
+        local pb_y = p1_y + dir_y * half_aa
+
+        base_idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, pa_x - norm_x * thickness0, pa_y - norm_y * thickness0, uv0, col_trans)
+        IM_APPEND_VTX(self, pa_x + norm_x * thickness1, pa_y + norm_y * thickness1, uv1, col_trans)
+
+        local next_base_idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, pb_x - norm_x * thickness0, pb_y - norm_y * thickness0, uv0, col)
+        IM_APPEND_VTX(self, pb_x + norm_x * thickness1, pb_y + norm_y * thickness1, uv1, col)
+
+        IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+        IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+        base_idx = next_base_idx
+
+        pa_x = p2_x - dir_x * half_aa
+        pa_y = p2_y - dir_y * half_aa
+        pb_x = p2_x + dir_x * half_aa
+        pb_y = p2_y + dir_y * half_aa
+
+        next_base_idx = self._VtxCurrentIdx
+        IM_APPEND_VTX(self, pa_x - norm_x * thickness0, pa_y - norm_y * thickness0, uv0, col)
+        IM_APPEND_VTX(self, pa_x + norm_x * thickness1, pa_y + norm_y * thickness1, uv1, col)
+        IM_APPEND_VTX(self, pb_x - norm_x * thickness0, pb_y - norm_y * thickness0, uv0, col_trans)
+        IM_APPEND_VTX(self, pb_x + norm_x * thickness1, pb_y + norm_y * thickness1, uv1, col_trans)
+
+        IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+        IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+        base_idx = next_base_idx
+
+        IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
+        IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
+    end
+end
+
+--- @param p1         ImVec2
+--- @param p2         ImVec2
+--- @param col        ImU32
+--- @param thickness? float
+--- @param flags?     ImDrawFlags
+function MT.ImDrawList:AddLine(p1, p2, col, thickness, flags)
+    if thickness == nil then thickness = 1.0 end
+    if flags     == nil then flags     = 0   end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    flags = bit.bor(flags, self.Flags)
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeCenter)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        self:_AddLine(ImVec2(p1.x + 0.5, p1.y + 0.5), ImVec2(p2.x + 0.5, p2.y + 0.5), col, thickness, flags)
+        return
+    end
+
+    self:_AddLine(p1, p2, col, thickness, flags)
 end
 
 --- @param min_x      float
@@ -3906,15 +5453,46 @@ end
 --- @param y          float
 --- @param col        ImU32
 --- @param thickness? float
-function MT.ImDrawList:AddLineH(min_x, max_x, y, col, thickness)
+--- @param flags?     ImDrawFlags
+function MT.ImDrawList:AddLineH(min_x, max_x, y, col, thickness, flags)
     if thickness == nil then thickness = 1.0 end
+    if flags     == nil then flags     = 0   end
 
     if bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
-    self:PathLineTo(ImVec2(min_x + 0.5, y + 0.5))
-    self:PathLineTo(ImVec2(max_x + 0.5, y + 0.5))
-    self:PathStroke(col, thickness)
+
+    flags = bit.bor(flags, self.Flags)
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        self:_AddLine(ImVec2(min_x + 0.5, y + 0.5), ImVec2(max_x + 0.5, y + 0.5), col, thickness, flags)
+        return
+    end
+
+    local top_y = y
+    if stroke_pos == ImDrawFlags.StrokeCenter then
+        top_y = top_y - thickness * 0.5
+    elseif stroke_pos == ImDrawFlags.StrokeCenterBiased then
+        top_y = top_y - self:_CalculateCenterBiasedOffset(thickness)
+    elseif stroke_pos == ImDrawFlags.StrokeOutside then
+        top_y = top_y - thickness
+    end
+
+    if self._FringeScaleIsInteger and ImIsTruncated4(min_x, max_x, top_y, thickness) and bit.band(flags, ImDrawFlags.CapSquare) == 0 then
+        if thickness < self._FringeScale then
+            if thickness < (1.0 / 255.0) * self._FringeScale then
+                return
+            end
+            col = ImAlphaMultiply(col, thickness * self._InvFringeScale)
+            thickness = self._FringeScale
+        end
+
+        self:PrimReserve(6, 4)
+        self:PrimRect(ImVec2(min_x, top_y), ImVec2(max_x, top_y + thickness), col)
+    else
+        flags = bit.bor(bit.band(flags, bit.bnot(ImDrawFlags.StrokeMask_)), stroke_pos)
+        self:_AddLine(ImVec2(min_x, y), ImVec2(max_x, y), col, thickness, flags)
+    end
 end
 
 --- @param x          float
@@ -3922,35 +5500,90 @@ end
 --- @param max_y      float
 --- @param col        ImU32
 --- @param thickness? float
-function MT.ImDrawList:AddLineV(x, min_y, max_y, col, thickness)
+--- @param flags?     ImDrawFlags
+function MT.ImDrawList:AddLineV(x, min_y, max_y, col, thickness, flags)
     if thickness == nil then thickness = 1.0 end
+    if flags     == nil then flags     = 0   end
 
     if bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
-    self:PathLineTo(ImVec2(x + 0.5, min_y + 0.5))
-    self:PathLineTo(ImVec2(x + 0.5, max_y + 0.5))
-    self:PathStroke(col, thickness)
+
+    flags = bit.bor(flags, self.Flags)
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        self:_AddLine(ImVec2(x + 0.5, min_y + 0.5), ImVec2(x + 0.5, max_y + 0.5), col, thickness, flags)
+        return
+    end
+
+    local left_x = x
+    if stroke_pos == ImDrawFlags.StrokeCenter then
+        left_x = left_x - thickness * 0.5
+    elseif stroke_pos == ImDrawFlags.StrokeCenterBiased then
+        left_x = left_x - self:_CalculateCenterBiasedOffset(thickness)
+    elseif stroke_pos == ImDrawFlags.StrokeOutside then
+        left_x = left_x - thickness
+    end
+
+    if self._FringeScaleIsInteger and ImIsTruncated4(left_x, min_y, max_y, thickness) and bit.band(flags, ImDrawFlags.CapSquare) == 0 then
+        if thickness < self._FringeScale then
+            if thickness < (1.0 / 255.0) * self._FringeScale then
+                return
+            end
+            col = ImAlphaMultiply(col, thickness * self._InvFringeScale)
+            thickness = self._FringeScale
+        end
+
+        self:PrimReserve(6, 4)
+        self:PrimRect(ImVec2(left_x, min_y), ImVec2(left_x + thickness, max_y), col)
+    else
+        flags = bit.bor(bit.band(flags, bit.bnot(ImDrawFlags.StrokeMask_)), stroke_pos)
+        self:_AddLine(ImVec2(x, max_y), ImVec2(x, min_y), col, thickness, flags)
+    end
 end
 
-function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness)
-    if bit.band(col, IM_COL32_A_MASK) == 0 then
-        return
-    end
+function MT.ImDrawList:AddQuad(p1, p2, p3, p4, col, thickness, flags)
+    if thickness == nil then thickness = 1.0 end
+    if flags     == nil then flags     = 0   end
 
-    self:PathLineTo(p1)
-    self:PathLineTo(p2)
-    self:PathLineTo(p3)
-    self:PathStroke(col, thickness, ImDrawFlags.Closed)
+    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
+
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
+    flags = bit.bor(bit.band(flags, bit.bnot(ImDrawFlags.StrokeMask_)), stroke_pos)
+    local points = {p1, p2, p3, p4}
+    self:_AddPolyline(points, 4, col, thickness, bit.bor(flags, ImDrawFlags.Closed), math.huge)
+end
+
+function MT.ImDrawList:AddQuadFilled(p1, p2, p3, p4, col)
+    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
+
+    local points = {p1, p2, p3, p4}
+    self:AddConvexPolyFilled(points, 4, col)
+end
+
+function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness, flags)
+    if thickness == nil then thickness = 1.0 end
+    if flags     == nil then flags     = 0   end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then return end
+
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
+    flags = bit.bor(bit.band(flags, bit.bnot(ImDrawFlags.StrokeMask_)), stroke_pos)
+    local points = {p1, p2, p3}
+    self:_AddPolyline(points, 3, col, thickness, bit.bor(flags, ImDrawFlags.Closed), math.huge)
 end
 
 function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
     if bit.band(col, IM_COL32_A_MASK) == 0 then return end
 
-    self:PathLineTo(p1)
-    self:PathLineTo(p2)
-    self:PathLineTo(p3)
-    self:PathFillConvex(col)
+    local points = {p1, p2, p3}
+    self:AddConvexPolyFilled(points, 3, col)
+end
+
+local function ApproxApothem(num_segments)
+    IM_ASSERT_PARANOID(num_segments >= 3)
+    local u = 1.0 / num_segments
+    return ((4.058712 * u * u) - 4.934802) * u * u + 1.0
 end
 
 --- @param center       ImVec2
@@ -3958,28 +5591,57 @@ end
 --- @param col          ImU32
 --- @param num_segments int
 --- @param thickness    float
-function MT.ImDrawList:AddCircle(center, radius, col, num_segments, thickness)
+--- @param flags?       ImDrawFlags
+function MT.ImDrawList:AddCircle(center, radius, col, num_segments, thickness, flags)
     if num_segments == nil then num_segments = 0   end
     if thickness    == nil then thickness    = 1.0 end
+    if flags        == nil then flags        = 0   end
 
-    if bit.band(col, IM_COL32_A_MASK) == 0 or radius < 0.5 then
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
 
-    if num_segments <= 0 then
-        -- Use arc with automatic segment count
-        self:_PathArcToFastEx(center, radius - 0.5, 0, IM_DRAWLIST_ARCFAST_SAMPLE_MAX, 0)
-        self._Path.Size = self._Path.Size - 1
-    else
-        -- Explicit segment count (still clamp to avoid drawing insanely tessellated shapes)
-        num_segments = ImClamp(num_segments, 3, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
-
-        -- Because we are filling a closed shape we remove 1 from the count of segments/points
-        local a_max = (IM_PI * 2.0) * (num_segments - 1) / num_segments
-        self:PathArcTo(center, radius - 0.5, 0.0, a_max, num_segments - 1)
+    flags = bit.bor(flags, self.Flags)
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        radius = radius - 0.5
+        stroke_pos = ImDrawFlags.StrokeCenter
     end
 
-    self:PathStroke(col, thickness, ImDrawFlags.Closed)
+    radius = ImMax(0.01, radius)
+
+    local outer_radius = radius
+    if stroke_pos == ImDrawFlags.StrokeCenter then
+        outer_radius = radius + thickness * 0.5
+    elseif stroke_pos == ImDrawFlags.StrokeCenterBiased then
+        outer_radius = radius + self:_CalculateCenterBiasedOffset(thickness)
+    elseif stroke_pos == ImDrawFlags.StrokeOutside then
+        outer_radius = radius + thickness
+    end
+    if outer_radius <= thickness then
+        self:AddCircleFilled(center, outer_radius, col, num_segments)
+        return
+    end
+
+    if num_segments <= 0 and outer_radius <= self._Data.ArcFastRadiusCutoff then
+        local a_step = math.floor(IM_DRAWLIST_ARCFAST_SAMPLE_MAX / self:_CalcCircleAutoSegmentCount(outer_radius))
+        self:_PathArcToFastEx(center, radius, 0, IM_DRAWLIST_ARCFAST_SAMPLE_MAX, a_step)
+        self._Path.Size = self._Path.Size - 1
+    else
+        if num_segments <= 0 then
+            num_segments = self:_CalcCircleAutoSegmentCount(outer_radius)
+        end
+        num_segments = ImClamp(num_segments, 3, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
+        local a_max = (IM_PI * 2.0) * (num_segments - 1) / num_segments
+        self:PathArcTo(center, radius, 0.0, a_max, num_segments - 1)
+    end
+
+    if self._Path.Size >= 3 then
+        local unit_apothem = ApproxApothem(self._Path.Size)
+        local edge_dist = radius * unit_apothem
+        self:_AddPolyline(self._Path.Data, self._Path.Size, col, thickness, bit.bor(ImDrawFlags.Closed, ImDrawFlags.JoinMiter, stroke_pos), edge_dist)
+    end
+    self._Path.Size = 0
 end
 
 --- @param center       ImVec2
@@ -3989,24 +5651,208 @@ end
 function MT.ImDrawList:AddCircleFilled(center, radius, col, num_segments)
     if num_segments == nil then num_segments = 0 end
 
-    if bit.band(col, IM_COL32_A_MASK) == 0 or radius < 0.5 then
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
 
-    if num_segments <= 0 then
-        -- Use arc with automatic segment count
+    local min_radius = self._FringeScale * 1.41421356 * 0.5
+    if radius < min_radius then
+        if radius < (1.0 / 255.0) * min_radius then
+            return
+        end
+        col = ImAlphaMultiply(col, radius / min_radius)
+        radius = min_radius
+    end
+
+    if num_segments <= 0 and radius <= self._Data.ArcFastRadiusCutoff then
         self:_PathArcToFastEx(center, radius, 0, IM_DRAWLIST_ARCFAST_SAMPLE_MAX, 0)
         self._Path.Size = self._Path.Size - 1
     else
-        -- Explicit segment count (still clamp to avoid drawing insanely tessellated shapes)
+        if num_segments <= 0 then
+            num_segments = self:_CalcCircleAutoSegmentCount(radius)
+        end
         num_segments = ImClamp(num_segments, 3, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
-
-        -- Because we are filling a closed shape we remove 1 from the count of segments/points
         local a_max = (IM_PI * 2.0) * (num_segments - 1) / num_segments
         self:PathArcTo(center, radius, 0.0, a_max, num_segments - 1)
     end
 
+    self:PathFillConvex(col, ImDrawFlags.JoinMiter)
+end
+
+--- @param center       ImVec2
+--- @param radius       float
+--- @param col          ImU32
+--- @param num_segments int
+--- @param thickness?   float
+--- @param flags?       ImDrawFlags
+function MT.ImDrawList:AddNgon(center, radius, col, num_segments, thickness, flags)
+    if thickness == nil then thickness = 1.0 end
+    if flags     == nil then flags     = 0   end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 or num_segments <= 2 then
+        return
+    end
+
+    flags = bit.bor(flags, self.Flags)
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        radius = radius - 0.5
+        stroke_pos = ImDrawFlags.StrokeCenter
+    end
+
+    radius = ImMax(0.01, radius)
+
+    local unit_apothem = ApproxApothem(num_segments)
+    local edge_dist = radius * unit_apothem
+
+    if radius < thickness * 2.0 then
+        local outer_radius = radius
+        if stroke_pos == ImDrawFlags.StrokeCenter then
+            outer_radius = radius + thickness * 0.5
+        elseif stroke_pos == ImDrawFlags.StrokeCenterBiased then
+            outer_radius = radius + self:_CalculateCenterBiasedOffset(thickness)
+        elseif stroke_pos == ImDrawFlags.StrokeOutside then
+            outer_radius = radius + thickness
+        end
+        if outer_radius * unit_apothem <= thickness then
+            self:AddNgonFilled(center, outer_radius, col, num_segments)
+            return
+        end
+    end
+
+    local a_max = (IM_PI * 2.0) * (num_segments - 1) / num_segments
+    self:PathArcTo(center, radius, 0.0, a_max, num_segments - 1)
+    self:_AddPolyline(self._Path.Data, self._Path.Size, col, thickness, bit.bor(ImDrawFlags.Closed, ImDrawFlags.JoinMiter, stroke_pos), edge_dist)
+    self._Path.Size = 0
+end
+
+--- @param center       ImVec2
+--- @param radius       float
+--- @param col          ImU32
+--- @param num_segments int
+function MT.ImDrawList:AddNgonFilled(center, radius, col, num_segments)
+    if bit.band(col, IM_COL32_A_MASK) == 0 or num_segments <= 2 then
+        return
+    end
+
+    local diameter = radius * 2.0
+    if diameter < self._FringeScale then
+        if diameter < (1.0 / 255.0) * self._FringeScale then
+            return
+        end
+        col = ImAlphaMultiply(col, diameter * self._InvFringeScale)
+        radius = self._FringeScale * 0.5
+    end
+
+    local a_max = (IM_PI * 2.0) * (num_segments - 1) / num_segments
+    self:PathArcTo(center, radius, 0.0, a_max, num_segments - 1)
+    self:PathFillConvex(col, ImDrawFlags.JoinMiter)
+end
+
+--- @param center        ImVec2
+--- @param radius        ImVec2
+--- @param col           ImU32
+--- @param rot?          float
+--- @param num_segments? int
+--- @param thickness?    float
+--- @param flags?        ImDrawFlags
+function MT.ImDrawList:AddEllipse(center, radius, col, rot, num_segments, thickness, flags)
+    if rot          == nil then rot          = 0.0 end
+    if num_segments == nil then num_segments = 0   end
+    if thickness    == nil then thickness    = 1.0 end
+    if flags        == nil then flags        = 0   end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
+    if stroke_pos == ImDrawFlags.StrokeLegacy then
+        stroke_pos = ImDrawFlags.StrokeCenter
+    end
+
+    local rad = ImVec2(radius.x, radius.y)
+    rad.x = ImMax(0.01, rad.x)
+    rad.y = ImMax(0.01, rad.y)
+
+    if num_segments <= 0 then
+        num_segments = self:_CalcCircleAutoSegmentCount(ImMax(rad.x, rad.y))
+    end
+
+    self._Path:reserve(self._Path.Size + num_segments + 1)
+    local a_max = IM_PI * 2.0 * (num_segments - 1) / num_segments
+    self:PathEllipticalArcTo(center, rad, rot, 0.0, a_max, num_segments - 1)
+
+    local max_inner_offset = ImMin(rad.x, rad.y)
+    self:_AddPolyline(self._Path.Data, self._Path.Size, col, thickness, bit.bor(ImDrawFlags.Closed, ImDrawFlags.JoinMiter, stroke_pos), max_inner_offset)
+    self._Path.Size = 0
+end
+
+--- @param center        ImVec2
+--- @param radius        ImVec2
+--- @param col           ImU32
+--- @param rot?          float
+--- @param num_segments? int
+function MT.ImDrawList:AddEllipseFilled(center, radius, col, rot, num_segments)
+    if rot          == nil then rot          = 0.0 end
+    if num_segments == nil then num_segments = 0   end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    local rad = ImVec2(radius.x, radius.y)
+    local diameter_x = rad.x * 2.0
+    local diameter_y = rad.y * 2.0
+    local min_dim = ImMin(diameter_x, diameter_y)
+
+    if min_dim < self._FringeScale then
+        if min_dim < (1.0 / 255.0) * self._FringeScale then
+            return
+        end
+        if diameter_x < self._FringeScale then
+            col = ImAlphaMultiply(col, diameter_x * self._InvFringeScale)
+            rad.x = self._FringeScale * 0.5
+        end
+        if diameter_y < self._FringeScale then
+            col = ImAlphaMultiply(col, diameter_y * self._InvFringeScale)
+            rad.y = self._FringeScale * 0.5
+        end
+    end
+
+    if num_segments <= 0 then
+        num_segments = self:_CalcCircleAutoSegmentCount(ImMax(radius.x, radius.y))
+    end
+
+    local a_max = IM_PI * 2.0 * (num_segments - 1) / num_segments
+    self:PathEllipticalArcTo(center, radius, rot, 0.0, a_max, num_segments - 1)
     self:PathFillConvex(col)
+end
+
+function MT.ImDrawList:AddBezierCubic(p1, p2, p3, p4, col, thickness, num_segments, flags)
+    if num_segments == nil then num_segments = 0 end
+    if flags        == nil then flags        = 0 end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    self:PathLineTo(p1)
+    self:PathBezierCubicCurveTo(p2, p3, p4, num_segments)
+    self:PathStroke(col, thickness, flags)
+end
+
+function MT.ImDrawList:AddBezierQuadratic(p1, p2, p3, col, thickness, num_segments, flags)
+    if num_segments == nil then num_segments = 0 end
+    if flags        == nil then flags        = 0 end
+
+    if bit.band(col, IM_COL32_A_MASK) == 0 then
+        return
+    end
+
+    self:PathLineTo(p1)
+    self:PathBezierQuadraticCurveTo(p2, p3, num_segments)
+    self:PathStroke(col, thickness, flags)
 end
 
 --- @param font                ImFont
@@ -4083,16 +5929,18 @@ end
 --- @param rounding float
 --- @param flags    ImDrawFlags
 function MT.ImDrawList:AddImageRounded(tex_ref, p_min, p_max, uv_min, uv_max, col, rounding, flags)
+    if flags == nil then flags = 0 end
+
     if bit.band(col, IM_COL32_A_MASK) == 0 then
         return
     end
 
     IM_ASSERT(bit.band(flags, 0x0F) == 0, "Misuse of legacy hardcoded ImDrawCornerFlags values!")
-    if bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0 then
-        flags = bit.bor(flags, ImDrawFlags.RoundCornersAll)
+    if bit.band(flags, ImDrawFlags.RoundMask_) == 0 then
+        flags = bit.bor(flags, ImDrawFlags.RoundAll)
     end
 
-    if rounding < 0.5 or bit.band(flags, ImDrawFlags.RoundCornersMask_) == ImDrawFlags.RoundCornersNone then
+    if rounding < 0.5 or bit.band(flags, ImDrawFlags.RoundMask_) == ImDrawFlags.RoundNone then
         self:AddImage(tex_ref, p_min, p_max, uv_min, uv_max, col)
         return
     end
@@ -4104,7 +5952,7 @@ function MT.ImDrawList:AddImageRounded(tex_ref, p_min, p_max, uv_min, uv_max, co
 
     local vert_start_idx = self.VtxBuffer.Size + 1
     self:PathRect(p_min, p_max, rounding, flags)
-    self:PathFillConvex(col)
+    self:PathFillConvex(col, ImDrawFlags.JoinMiter)
     local vert_end_idx = self.VtxBuffer.Size + 1
     ImGui.ShadeVertsLinearUV(self, vert_start_idx, vert_end_idx, p_min, p_max, uv_min, uv_max, true)
 
@@ -4161,16 +6009,17 @@ end
 --- @param a_max_sample int
 --- @param a_step       int
 function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, a_step)
-    if radius < 0.5 then
+    if not IM_HAS_ROUNDING(self, radius) then
         self._Path:push_back(center)
         return
     end
 
     if a_step <= 0 then
-        a_step = math.floor(IM_DRAWLIST_ARCFAST_SAMPLE_MAX / self:_CalcCircleAutoSegmentCount(radius))
+        local auto_seg_count = self:_CalcCircleAutoSegmentCount(radius)
+        a_step = CalcCornerArcStepAndCount(auto_seg_count)
+    else
+        a_step = ImClamp(a_step, 1, math.floor(IM_DRAWLIST_ARCFAST_TABLE_SIZE / 4))
     end
-
-    a_step = ImClamp(a_step, 1, math.floor(IM_DRAWLIST_ARCFAST_TABLE_SIZE / 4))
 
     local sample_range = ImAbs(a_max_sample - a_min_sample)
     local a_next_step = a_step
@@ -4249,7 +6098,7 @@ function MT.ImDrawList:_PathArcToFastEx(center, radius, a_min_sample, a_max_samp
 end
 
 function MT.ImDrawList:PathArcToFast(center, radius, a_min_of_12, a_max_of_12)
-    if radius < 0.5 then
+    if not IM_HAS_ROUNDING(self, radius) then
         self._Path:push_back(center)
         return
     end
@@ -4263,7 +6112,7 @@ end
 --- @param a_max        float
 --- @param num_segments int
 function MT.ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
-    if radius < 0.5 then
+    if not IM_HAS_ROUNDING(self, radius) then
         self._Path:push_back(center)
         return
     end
@@ -4285,7 +6134,7 @@ end
 function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
     if num_segments == nil then num_segments = 0 end
 
-    if radius < 0.5 then
+    if not IM_HAS_ROUNDING(self, radius) then
         self._Path:push_back(center)
         return
     end
@@ -4298,11 +6147,15 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
     if radius <= self._Data.ArcFastRadiusCutoff then
         local a_is_reverse = a_max < a_min
 
-        local a_min_sample_f = IM_DRAWLIST_ARCFAST_SAMPLE_MAX * a_min / (IM_PI * 2.0)
-        local a_max_sample_f = IM_DRAWLIST_ARCFAST_SAMPLE_MAX * a_max / (IM_PI * 2.0)
+        local auto_seg_count = self:_CalcCircleAutoSegmentCount(radius)
+        local arc_step, arc_step_count = CalcCornerArcStepAndCount(auto_seg_count)
+        local arc_seg_count = arc_step_count * 4
 
-        local a_min_sample = a_is_reverse and ImFloor(a_min_sample_f) or ImCeil(a_min_sample_f)
-        local a_max_sample = a_is_reverse and ImCeil(a_max_sample_f) or ImFloor(a_max_sample_f)
+        local a_min_sample_f = arc_seg_count * a_min / (IM_PI * 2.0)
+        local a_max_sample_f = arc_seg_count * a_max / (IM_PI * 2.0)
+
+        local a_min_sample = (a_is_reverse and ImFloor(a_min_sample_f) or ImCeil(a_min_sample_f)) * arc_step
+        local a_max_sample = (a_is_reverse and ImCeil(a_max_sample_f) or ImFloor(a_max_sample_f)) * arc_step
         local a_mid_samples = a_is_reverse and ImMax(a_min_sample - a_max_sample, 0) or ImMax(a_max_sample - a_min_sample, 0)
 
         local a_min_segment_angle = a_min_sample * IM_PI * 2.0 / IM_DRAWLIST_ARCFAST_SAMPLE_MAX
@@ -4313,7 +6166,7 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
         self._Path:reserve(self._Path.Size + (a_mid_samples + 1 + (a_emit_start and 1 or 0) + (a_emit_end and 1 or 0)))
 
         if a_emit_start      then self._Path:push_back(ImVec2(center.x + ImCos(a_min) * radius, center.y + ImSin(a_min) * radius)) end
-        if a_mid_samples > 0 then self:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, 0) end
+        if a_mid_samples > 0 then self:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, arc_step) end
         if a_emit_end        then self._Path:push_back(ImVec2(center.x + ImCos(a_max) * radius, center.y + ImSin(a_max) * radius)) end
     else
         local arc_length = ImAbs(a_max - a_min)
@@ -4321,6 +6174,114 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
         local arc_segment_count = ImMax(ImCeil(circle_segment_count * arc_length / (IM_PI * 2.0)), 1)
 
         self:_PathArcToN(center, radius, a_min, a_max, arc_segment_count)
+    end
+end
+
+--- @param center        ImVec2
+--- @param radius        ImVec2
+--- @param rot           float
+--- @param a_min         float
+--- @param a_max         float
+--- @param num_segments? int
+function MT.ImDrawList:PathEllipticalArcTo(center, radius, rot, a_min, a_max, num_segments)
+    if num_segments == nil then num_segments = 0 end
+    if num_segments <= 0 then
+        num_segments = self:_CalcCircleAutoSegmentCount(ImMax(radius.x, radius.y))
+    end
+
+    self._Path:reserve(self._Path.Size + num_segments + 1)
+    local cos_rot = ImCos(rot)
+    local sin_rot = ImSin(rot)
+    for i = 0, num_segments do
+        local a = a_min + (i / num_segments) * (a_max - a_min)
+        local point_x = ImCos(a) * radius.x
+        local point_y = ImSin(a) * radius.y
+        local rel_x = point_x * cos_rot - point_y * sin_rot
+        local rel_y = point_x * sin_rot + point_y * cos_rot
+        self._Path:push_back(ImVec2(rel_x + center.x, rel_y + center.y))
+    end
+end
+
+local function ImBezierCubicCalc(p1, p2, p3, p4, t)
+    local u = 1.0 - t
+    local w1 = u * u * u
+    local w2 = 3.0 * u * u * t
+    local w3 = 3.0 * u * t * t
+    local w4 = t * t * t
+    return ImVec2(w1 * p1.x + w2 * p2.x + w3 * p3.x + w4 * p4.x, w1 * p1.y + w2 * p2.y + w3 * p3.y + w4 * p4.y)
+end
+
+local function ImBezierQuadraticCalc(p1, p2, p3, t)
+    local u = 1.0 - t
+    local w1 = u * u
+    local w2 = 2.0 * u * t
+    local w3 = t * t
+    return ImVec2(w1 * p1.x + w2 * p2.x + w3 * p3.x, w1 * p1.y + w2 * p2.y + w3 * p3.y)
+end
+
+local function PathBezierCubicCurveToCasteljau(path, x1, y1, x2, y2, x3, y3, x4, y4, max_error_sqr, level)
+    local dx = x4 - x1
+    local dy = y4 - y1
+    local d2 = ImAbs((x2 - x4) * dy - (y2 - y4) * dx)
+    local d3 = ImAbs((x3 - x4) * dy - (y3 - y4) * dx)
+    if (d2 + d3) * (d2 + d3) < max_error_sqr * (dx * dx + dy * dy) then
+        path:push_back(ImVec2(x4, y4))
+    elseif level < 10 then
+        local x12, y12 = (x1 + x2) * 0.5, (y1 + y2) * 0.5
+        local x23, y23 = (x2 + x3) * 0.5, (y2 + y3) * 0.5
+        local x34, y34 = (x3 + x4) * 0.5, (y3 + y4) * 0.5
+        local x123, y123 = (x12 + x23) * 0.5, (y12 + y23) * 0.5
+        local x234, y234 = (x23 + x34) * 0.5, (y23 + y34) * 0.5
+        local x1234, y1234 = (x123 + x234) * 0.5, (y123 + y234) * 0.5
+        PathBezierCubicCurveToCasteljau(path, x1, y1, x12, y12, x123, y123, x1234, y1234, max_error_sqr, level + 1)
+        PathBezierCubicCurveToCasteljau(path, x1234, y1234, x234, y234, x34, y34, x4, y4, max_error_sqr, level + 1)
+    end
+end
+
+local function PathBezierQuadraticCurveToCasteljau(path, x1, y1, x2, y2, x3, y3, max_error_sqr, level)
+    local dx = x3 - x1
+    local dy = y3 - y1
+    local det = (x2 - x3) * dy - (y2 - y3) * dx
+    if det * det * 4.0 < max_error_sqr * (dx * dx + dy * dy) then
+        path:push_back(ImVec2(x3, y3))
+    elseif level < 10 then
+        local x12, y12 = (x1 + x2) * 0.5, (y1 + y2) * 0.5
+        local x23, y23 = (x2 + x3) * 0.5, (y2 + y3) * 0.5
+        local x123, y123 = (x12 + x23) * 0.5, (y12 + y23) * 0.5
+        PathBezierQuadraticCurveToCasteljau(path, x1, y1, x12, y12, x123, y123, max_error_sqr, level + 1)
+        PathBezierQuadraticCurveToCasteljau(path, x123, y123, x23, y23, x3, y3, max_error_sqr, level + 1)
+    end
+end
+
+function MT.ImDrawList:PathBezierCubicCurveTo(p2, p3, p4, num_segments)
+    if num_segments == nil then num_segments = 0 end
+
+    local p1 = self._Path.Data[self._Path.Size]
+    if num_segments == 0 then
+        IM_ASSERT(self._Data.CurveTessellationMaxError > 0.0)
+        local max_error = self._Data.CurveTessellationMaxError * self._FringeScale
+        PathBezierCubicCurveToCasteljau(self._Path, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y, max_error * max_error, 0)
+    else
+        local t_step = 1.0 / num_segments
+        for i_step = 1, num_segments do
+            self._Path:push_back(ImBezierCubicCalc(p1, p2, p3, p4, t_step * i_step))
+        end
+    end
+end
+
+function MT.ImDrawList:PathBezierQuadraticCurveTo(p2, p3, num_segments)
+    if num_segments == nil then num_segments = 0 end
+
+    local p1 = self._Path.Data[self._Path.Size]
+    if num_segments == 0 then
+        IM_ASSERT(self._Data.CurveTessellationMaxError > 0.0)
+        local max_error = self._Data.CurveTessellationMaxError * self._FringeScale
+        PathBezierQuadraticCurveToCasteljau(self._Path, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, max_error * max_error, 0)
+    else
+        local t_step = 1.0 / num_segments
+        for i_step = 1, num_segments do
+            self._Path:push_back(ImBezierQuadraticCalc(p1, p2, p3, t_step * i_step))
+        end
     end
 end
 
@@ -4345,7 +6306,8 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     if y > clip_rect.w then
         return
     end
-    if bit.band(draw_list.Flags, ImDrawListFlags.TextNoPixelSnap) == 0 then
+    flags = bit.bor(flags, draw_list.Flags)
+    if bit.band(flags, ImDrawFlags.TextNoPixelSnap) == 0 then
         x = IM_TRUNC(x)
         y = IM_TRUNC(y)
     end
@@ -4586,7 +6548,7 @@ function ImGui.RenderCheckMark(draw_list, pos, col, sz)
     draw_list:PathLineTo(ImVec2(bx - third, by - third))
     draw_list:PathLineTo(ImVec2(bx, by))
     draw_list:PathLineTo(ImVec2(bx + third * 2.0, by - third * 2.0))
-    draw_list:PathStroke(col, thickness)
+    draw_list:PathStroke(col, thickness, ImDrawFlags.AALineEnds)
 end
 
 -- Render an arrow. 'pos' is position of the arrow tip. half_sz.x is length from base to tip. half_sz.y is length on each side
@@ -4669,7 +6631,7 @@ function ImGui.RenderRectFilledInRangeH(draw_list, rect, col, fill_x0, fill_x1, 
         end
     end
 
-    draw_list:PathFillConvex(col)
+    draw_list:PathFillConvex(col, ImDrawFlags.JoinMiter)
 end
 
 --- @param r_in      ImRect
@@ -4682,19 +6644,19 @@ function ImGui.CalcRoundingFlagsForRectInRect(r_in, r_outer, threshold)
     local round_t = r_in.Min.y <= r_outer.Min.y + threshold
     local round_b = r_in.Max.y >= r_outer.Max.y - threshold
 
-    local flags = ImDrawFlags.RoundCornersNone
+    local flags = ImDrawFlags.RoundNone
 
     if round_t and round_l then
-        flags = bit.bor(flags, ImDrawFlags.RoundCornersTopLeft)
+        flags = bit.bor(flags, ImDrawFlags.RoundTopLeft)
     end
     if round_t and round_r then
-        flags = bit.bor(flags, ImDrawFlags.RoundCornersTopRight)
+        flags = bit.bor(flags, ImDrawFlags.RoundTopRight)
     end
     if round_b and round_l then
-        flags = bit.bor(flags, ImDrawFlags.RoundCornersBottomLeft)
+        flags = bit.bor(flags, ImDrawFlags.RoundBottomLeft)
     end
     if round_b and round_r then
-        flags = bit.bor(flags, ImDrawFlags.RoundCornersBottomRight)
+        flags = bit.bor(flags, ImDrawFlags.RoundBottomRight)
     end
 
     return flags
@@ -4716,8 +6678,8 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
     if rounding == nil then rounding = 0.0 end
     if flags    == nil then flags    = 0   end
 
-    if bit.band(flags, ImDrawFlags.RoundCornersMask_) == 0 then
-        flags = ImDrawFlags.RoundCornersDefault_
+    if bit.band(flags, ImDrawFlags.RoundMask_) == 0 then
+        flags = ImDrawFlags.RoundAll
     end
 
     if bit.rshift(bit.band(col, IM_COL32_A_MASK), IM_COL32_A_SHIFT) < 0xFF then
@@ -4756,19 +6718,19 @@ function ImGui.RenderColorRectWithAlphaCheckerboard(draw_list, p_min, p_max, col
                     goto __CONTINUE_INNER__
                 end
 
-                cell_flags = ImDrawFlags.RoundCornersNone
+                cell_flags = ImDrawFlags.RoundNone
                 if y1 <= p_min.y then
-                    if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopLeft) end
-                    if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersTopRight) end
+                    if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundTopLeft) end
+                    if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundTopRight) end
                 end
                 if y2 >= p_max.y then
-                    if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomLeft) end
-                    if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundCornersBottomRight) end
+                    if x1 <= p_min.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundBottomLeft) end
+                    if x2 >= p_max.x then cell_flags = bit.bor(cell_flags, ImDrawFlags.RoundBottomRight) end
                 end
 
                 -- Combine flags
-                if flags == ImDrawFlags.RoundCornersNone or cell_flags == ImDrawFlags.RoundCornersNone then
-                    cell_flags = ImDrawFlags.RoundCornersNone
+                if flags == ImDrawFlags.RoundNone or cell_flags == ImDrawFlags.RoundNone then
+                    cell_flags = ImDrawFlags.RoundNone
                 else
                     cell_flags = bit.band(cell_flags, flags)
                 end

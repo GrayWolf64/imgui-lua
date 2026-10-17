@@ -552,7 +552,7 @@ function DemoWindowWidgetsMixedValues()
         ImGui.SameLine()
         ImGui.RadioButtonEx("RadioButton Mixed##2", true)
         local color = { 0.5, 0.5, 0.5, 0.5 }
-        ImGui.ColorEdit4("ColorEdit4", color, ImGuiColorEditFlags.None)
+        ImGui.ColorEdit4("ColorEdit4", color)
         ImGui.PopItemFlag()
 
         ImGui.TreePop()
@@ -890,6 +890,10 @@ end
 end
 
 local function ShowExampleAppImageViewer()
+    -- TODO:
+end
+
+local function ShowExampleAppCustomRendering()
     -- TODO:
 end
 

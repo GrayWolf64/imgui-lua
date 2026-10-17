@@ -472,14 +472,7 @@ function ImGui.ButtonBehavior(bb, id, flags)
                 -- Avoid pressing multiple keys from triggering excessive amount of repeat events
                 local key1 = ImGui.GetKeyData(g, ImGuiKey.Space)
                 local key2 = ImGui.GetKeyData(g, ImGuiKey.Enter)
--- ImGuiKey_NavGamepadActivate
-local nav_gamepad_activate
-if g.IO.ConfigNavSwapGamepadButtons then
-    nav_gamepad_activate = ImGuiKey.GamepadFaceRight
-else
-    nav_gamepad_activate = ImGuiKey.GamepadFaceDown
-end
-                local key3 = ImGui.GetKeyData(g, nav_gamepad_activate)
+                local key3 = ImGui.GetKeyData(g, ImGuiKey_NavGamepadActivate())
                 local t1 = ImMax(ImMax(key1.DownDuration, key2.DownDuration), key3.DownDuration)
                 nav_activated_by_inputs = ImGui.CalcTypematicRepeatAmount(t1 - g.IO.DeltaTime, t1, g.IO.KeyRepeatDelay, g.IO.KeyRepeatRate) > 0
             end
@@ -737,7 +730,7 @@ function ImGui.CloseButton(id, pos)
         window.DrawList:AddRectFilled(bb.Min, bb.Max, bg_col)
     end
 
-    local cross_center = bb:GetCenter() - ImVec2(0.5, 0.5)
+    local cross_center = bb:GetCenter()
     local cross_extent = g.FontSize * 0.5 * 0.7071 - 1
     local cross_col = ImGui.GetColorU32(ImGuiCol.Text)
     local cross_thickness = 1.0 -- FIXME-DPI
@@ -1625,7 +1618,7 @@ function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
 
     local sep1_x1 = pos.x
     local sep2_x2 = bb.Max.x
-    local seps_y = ImTrunc((bb.Min.y + bb.Max.y) * 0.5 + 0.999)
+    local seps_y = ImTrunc((bb.Min.y + bb.Max.y) * 0.5) + 1.0
 
     local label_avail_w = ImMax(0.0, sep2_x2 - sep1_x1 - padding.x * 2.0)
     local label_pos = ImVec2(pos.x + padding.x + ImMax(0.0, (label_avail_w - label_size.x - extra_w) * style.SeparatorTextAlign.x), pos.y + text_baseline_y)  -- FIXME-ALIGN
@@ -1640,11 +1633,11 @@ function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
         local sep2_x1 = label_pos.x + label_size.x + extra_w + style.ItemSpacing.x
 
         if sep1_x2 > sep1_x1 and separator_thickness > 0.0 then
-            window.DrawList:AddLineH(sep1_x1, sep1_x2, seps_y, separator_col, separator_thickness)
+            window.DrawList:AddLineH(sep1_x1, sep1_x2, seps_y, separator_col, separator_thickness, ImDrawFlags.StrokeCenterBiased)
         end
 
         if sep2_x2 > sep2_x1 and separator_thickness > 0.0 then
-            window.DrawList:AddLineH(sep2_x1, sep2_x2, seps_y, separator_col, separator_thickness)
+            window.DrawList:AddLineH(sep2_x1, sep2_x2, seps_y, separator_col, separator_thickness, ImDrawFlags.StrokeCenterBiased)
         end
 
         if g.LogEnabled then
@@ -1658,7 +1651,7 @@ function ImGui.SeparatorTextEx(id, label, label_end, extra_w)
         end
 
         if separator_thickness > 0.0 then
-            window.DrawList:AddLineH(sep1_x1, sep2_x2, seps_y, separator_col, separator_thickness)
+            window.DrawList:AddLineH(sep1_x1, sep2_x2, seps_y, separator_col, separator_thickness, ImDrawFlags.StrokeCenterBiased)
         end
     end
 end
@@ -1759,14 +1752,14 @@ function ImGui.BeginCombo(label, preview_value, flags)
     ImGui.RenderNavCursor(bb, id)
 
     if bit.band(flags, ImGuiComboFlags.NoPreview) == 0 then
-        window.DrawList:AddRectFilled(bb.Min, ImVec2(value_x2, bb.Max.y), frame_col, style.FrameRounding, (bit.band(flags, ImGuiComboFlags.NoArrowButton) ~= 0) and ImDrawFlags.RoundCornersAll or ImDrawFlags.RoundCornersLeft)
+        window.DrawList:AddRectFilled(bb.Min, ImVec2(value_x2, bb.Max.y), frame_col, style.FrameRounding, (bit.band(flags, ImGuiComboFlags.NoArrowButton) ~= 0) and ImDrawFlags.RoundAll or ImDrawFlags.RoundLeft)
     end
 
     if bit.band(flags, ImGuiComboFlags.NoArrowButton) == 0 then
         local bg_col = ImGui.GetColorU32((popup_open or hovered) and ImGuiCol.ButtonHovered or ImGuiCol.Button)
         local text_col = ImGui.GetColorU32(ImGuiCol.Text)
 
-        window.DrawList:AddRectFilled(ImVec2(value_x2, bb.Min.y), bb.Max, bg_col, style.FrameRounding, (w <= arrow_size) and ImDrawFlags.RoundCornersAll or ImDrawFlags.RoundCornersRight)
+        window.DrawList:AddRectFilled(ImVec2(value_x2, bb.Min.y), bb.Max, bg_col, style.FrameRounding, (w <= arrow_size) and ImDrawFlags.RoundAll or ImDrawFlags.RoundRight)
 
         if value_x2 + arrow_size - style.FramePadding.x <= bb.Max.x then
             ImGui.RenderArrow(window.DrawList, ImVec2(value_x2 + style.FramePadding.y, bb.Min.y + style.FramePadding.y), text_col, ImGuiDir.Down, 1.0)
@@ -2471,11 +2464,8 @@ function ImGui.TempInputScalar(bb, id, label, data_type, data, format, clamp_min
     if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0 then
         local state = ImGui.GetInputTextState(g.LastItemData.ID)
         if state then
-            if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0 then
-                value_changed = value_changed or state.EditedThisFrame or state.ValidatedThisFrame
-            else
-                value_changed = value_changed or state.ValidatedThisFrame
-            end
+            local live_edit = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0
+            value_changed = value_changed or state.ValidatedThisFrame or (live_edit and state.EditedThisFrame)
         end
     end
     if value_changed then
@@ -2549,11 +2539,8 @@ function ImGui.InputScalar(label, data_type, data, step, step_fast, format, flag
     if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0 then
         local state = ImGui.GetInputTextState(g.LastItemData.ID)
         if state then
-            if bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0 then
-                value_changed = value_changed or state.EditedThisFrame or state.ValidatedThisFrame
-            else
-                value_changed = value_changed or state.ValidatedThisFrame
-            end
+            local live_edit = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0
+            value_changed = value_changed or state.ValidatedThisFrame or (live_edit and state.EditedThisFrame)
         end
     end
 
@@ -2867,14 +2854,7 @@ end
 local function ShortcutsForCancel(id)
     local g = GImGui
     local is_cancel_with_keyboard = ImGui.Shortcut(ImGuiKey.Escape, ImGuiInputFlags.None, id)
--- ImGuiKey_NavGamepadCancel
-local nav_gamepad_cancel
-if g.IO.ConfigNavSwapGamepadButtons then
-    nav_gamepad_cancel = ImGuiKey.GamepadFaceDown
-else
-    nav_gamepad_cancel = ImGuiKey.GamepadFaceRight
-end
-    local is_cancel_with_gamepad = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0 and ImGui.Shortcut(nav_gamepad_cancel, ImGuiInputFlags.None, id)
+    local is_cancel_with_gamepad = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0 and ImGui.Shortcut(ImGuiKey_NavGamepadCancel(), ImGuiInputFlags.None, id)
     local is_cancel_with_mouse = ImGui.IsMouseReleased(ImGuiMouseButton.Right, id)
     if is_cancel_with_mouse then
         ImGui.SetKeyOwner(ImGuiKey.MouseRight, id)
@@ -5048,17 +5028,8 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         local is_enter            = ImGui.Shortcut(ImGuiKey.Enter, f_repeat, id) or ImGui.Shortcut(ImGuiKey.KeypadEnter, f_repeat, id)
         local is_ctrl_enter       = ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.Enter), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Ctrl, ImGuiKey.KeypadEnter), f_repeat, id)
         local is_shift_enter      = ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.Enter), f_repeat, id) or ImGui.Shortcut(bit.bor(ImGuiMod_Shift, ImGuiKey.KeypadEnter), f_repeat, id)
--- ImGuiKey_NavGamepadActivate / ImGuiKey_NavGamepadCancel
-local nav_gamepad_activate, nav_gamepad_cancel
-if io.ConfigNavSwapGamepadButtons then
-    nav_gamepad_activate = ImGuiKey.GamepadFaceRight
-    nav_gamepad_cancel   = ImGuiKey.GamepadFaceDown
-else
-    nav_gamepad_activate = ImGuiKey.GamepadFaceDown
-    nav_gamepad_cancel   = ImGuiKey.GamepadFaceRight
-end
-        local is_gamepad_validate = nav_gamepad_active and ImGui.IsKeyPressed(nav_gamepad_activate, false)
-        local is_cancel           = ImGui.Shortcut(ImGuiKey.Escape, f_repeat, id) or (nav_gamepad_active and ImGui.Shortcut(nav_gamepad_cancel, f_repeat, id))
+        local is_gamepad_validate = nav_gamepad_active and ImGui.IsKeyPressed(ImGuiKey_NavGamepadActivate(), false)
+        local is_cancel           = ImGui.Shortcut(ImGuiKey.Escape, f_repeat, id) or (nav_gamepad_active and ImGui.Shortcut(ImGuiKey_NavGamepadCancel(), f_repeat, id))
 
         if ImGui.IsKeyPressed(ImGuiKey.LeftArrow) then
             state:OnKeyPressed(bit.bor(is_startend_key_down and STB_TEXTEDIT_K_LINESTART or (is_wordmove_key_down and STB_TEXTEDIT_K_WORDLEFT or STB_TEXTEDIT_K_LEFT), k_mask))
@@ -5533,10 +5504,10 @@ end
         local cursor_is_visible = (not g.IO.ConfigInputTextCursorBlink) or (state.CursorAnim <= 0.0) or (ImFmod(state.CursorAnim, 1.20) <= 0.80)
 
         local cursor_screen_pos = ImTrunc(draw_pos + cursor_offset - draw_scroll)
-        local cursor_screen_rect = ImRect(cursor_screen_pos.x, cursor_screen_pos.y - g.FontSize + 0.5, cursor_screen_pos.x + 1.0, cursor_screen_pos.y - 1.5)
+        local cursor_screen_rect = ImRect(cursor_screen_pos.x, cursor_screen_pos.y - g.FontSize + 1.0, cursor_screen_pos.x + 1.0, cursor_screen_pos.y - 1.0)
 
         if cursor_is_visible and cursor_screen_rect:Overlaps(clip_rect) then
-            draw_window.DrawList:AddLineV(cursor_screen_rect.Min.x, cursor_screen_rect.Min.y, cursor_screen_rect.Max.y, ImGui.GetColorU32(ImGuiCol.InputTextCursor), style.InputTextCursorSize)
+            draw_window.DrawList:AddLineV(cursor_screen_rect.Min.x, cursor_screen_rect.Min.y, cursor_screen_rect.Max.y, ImGui.GetColorU32(ImGuiCol.InputTextCursor), style.InputTextCursorSize, ImDrawFlags.StrokeInside)
         end
 
         if not is_readonly and g.ActiveId == id then
@@ -5664,10 +5635,12 @@ local fmt_table_float = {
     { "H:%0.3f", "S:%0.3f", "V:%0.3f", "A:%0.3f" }  -- Long display for HSVA
 }
 
---- @param label string
---- @param col   float[]
---- @param flags ImGuiColorEditFlags
+--- @param label  string
+--- @param col    float[]
+--- @param flags? ImGuiColorEditFlags
 function ImGui.ColorEdit4(label, col, flags)
+    if flags == nil then flags = 0 end
+
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
         return false
@@ -6425,11 +6398,11 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
     elseif bit.band(flags, ImGuiColorEditFlags.AlphaPreviewHalf) ~= 0 and col_rgb.w < 1.0 then
         local mid_x = IM_ROUND((bb.Min.x + bb.Max.x) * 0.5)
         if bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
-            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, ImVec2(bb.Min.x + grid_step, bb.Min.y), bb.Max, ImGui.ColorConvertFloat4ToU32(col_rgb), g.Style.Alpha, grid_step, ImVec2(-grid_step, 0.0), rounding, ImDrawFlags.RoundCornersRight)
+            ImGui.RenderColorRectWithAlphaCheckerboard(window.DrawList, ImVec2(bb.Min.x + grid_step, bb.Min.y), bb.Max, ImGui.ColorConvertFloat4ToU32(col_rgb), g.Style.Alpha, grid_step, ImVec2(-grid_step, 0.0), rounding, ImDrawFlags.RoundRight)
         else
-            window.DrawList:AddRectFilled(ImVec2(bb.Min.x + grid_step, bb.Min.y), bb.Max, ImGui.GetColorU32(col_rgb), rounding, ImDrawFlags.RoundCornersRight)
+            window.DrawList:AddRectFilled(ImVec2(bb.Min.x + grid_step, bb.Min.y), bb.Max, ImGui.GetColorU32(col_rgb), rounding, ImDrawFlags.RoundRight)
         end
-        window.DrawList:AddRectFilled(bb.Min, ImVec2(mid_x, bb.Max.y), ImGui.GetColorU32(col_rgb_without_alpha), rounding, ImDrawFlags.RoundCornersLeft)
+        window.DrawList:AddRectFilled(bb.Min, ImVec2(mid_x, bb.Max.y), ImGui.GetColorU32(col_rgb_without_alpha), rounding, ImDrawFlags.RoundLeft)
     else
         local col_source = (bit.band(flags, ImGuiColorEditFlags.AlphaOpaque) ~= 0) and col_rgb_without_alpha or col_rgb
         if col_source.w < 1.0 and bit.band(flags, ImGuiColorEditFlags.AlphaNoBg) == 0 then
@@ -7030,23 +7003,55 @@ function ImGui.TreeNodeDrawLineToChildNode(target_pos)
     end
 
     local parent_data = g.TreeNodeStack.Data[g.TreeNodeStack.Size]
-    local x1 = ImTrunc(parent_data.DrawLinesX1)
+    local half_size = g.Style.TreeLinesSize * 0.5
+    local x1 = ImTrunc(parent_data.DrawLinesX1 - half_size) + half_size
     local x2 = ImTrunc(target_pos.x - g.Style.ItemInnerSpacing.x)
-    local y = ImTrunc(target_pos.y)
+    local y = ImTrunc(target_pos.y - half_size) + half_size
     local rounding = (g.Style.TreeLinesRounding > 0.0) and ImMin(x2 - x1, g.Style.TreeLinesRounding) or 0.0
     parent_data.DrawLinesToNodesY2 = ImMax(parent_data.DrawLinesToNodesY2, y - rounding)
     if x1 >= x2 then
         return
     end
-    if rounding > 0.0 then
-        x1 = x1 + 0.5 + rounding
+    if rounding > 0.0 and rounding > half_size then
+        x1 = x1 + rounding
         window.DrawList:PathArcToFast(ImVec2(x1, y - rounding), rounding, 6, 3)
         if x1 < x2 then
             window.DrawList:PathLineTo(ImVec2(x2, y))
         end
         window.DrawList:PathStroke(ImGui.GetColorU32(ImGuiCol.TreeLines), g.Style.TreeLinesSize)
     else
-        window.DrawList:AddLineH(x1, x2, y, ImGui.GetColorU32(ImGuiCol.TreeLines), g.Style.TreeLinesSize)
+        x1 = x1 + half_size
+        window.DrawList:AddLine(ImVec2(x1, y), ImVec2(x2, y), ImGui.GetColorU32(ImGuiCol.TreeLines), g.Style.TreeLinesSize)
+    end
+end
+
+--- @param data ImGuiTreeNodeStackData
+function ImGui.TreeNodeDrawLineToTreePop(data)
+    local g = GImGui
+    local window = g.CurrentWindow
+    local y1 = ImMax(data.NavRect.Max.y, window.ClipRect.Min.y)
+    local y2 = data.DrawLinesToNodesY2
+    if bit.band(data.TreeFlags, ImGuiTreeNodeFlags.DrawLinesFull) ~= 0 then
+        local y2_full = window.DC.CursorPos.y
+        if g.CurrentTable then
+            y2_full = ImMax(g.CurrentTable.RowPosY2, y2_full)
+        end
+        y2_full = ImTrunc(y2_full - g.Style.ItemSpacing.y - g.FontSize * 0.5)
+        if y2 + (g.Style.ItemSpacing.y + g.Style.TreeLinesRounding) < y2_full then
+            y2 = y2_full
+        end
+    end
+    y2 = ImMin(y2, window.ClipRect.Max.y)
+    if y2 <= y1 then
+        return
+    end
+    local x = ImTrunc(data.DrawLinesX1 - g.Style.TreeLinesSize * 0.5) + g.Style.TreeLinesSize * 0.5
+    if data.DrawLinesTableColumn ~= -1 then
+        ImGui.TablePushColumnChannel(data.DrawLinesTableColumn)
+    end
+    window.DrawList:AddLine(ImVec2(x, y1), ImVec2(x, y2), ImGui.GetColorU32(ImGuiCol.TreeLines), g.Style.TreeLinesSize)
+    if data.DrawLinesTableColumn ~= -1 then
+        ImGui.TablePopColumnChannel()
     end
 end
 
