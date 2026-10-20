@@ -306,6 +306,9 @@ end
 --- @field Textures            table<ITexture> # All the `ITexture` available
 --- @field TextureInUseMarkers table<bool>     # Keep the in-use status of textures
 --- @field Window              Panel
+--- @field CurrentSampler      TEXFILTER
+--- @field OldClippingEnabled  bool
+--- @field OldFogMode          MATERIAL_FOG
 
 --- @return ImGui_ImplGMOD_Data
 --- @nodiscard
@@ -317,6 +320,10 @@ local function ImGui_ImplGMOD_Data()
         NumFramesInFlight = 2,
         Time = 0,
         Window = nil,
+
+        CurrentSampler = TEXFILTER.LINEAR,
+        OldClippingEnabled = false,
+        OldFogMode = MATERIAL_FOG_NONE,
 
         ImeData = nil,
         ImeDirty = false
@@ -545,16 +552,14 @@ local function ImGui_ImplGMOD_UpdateMonitors()
     bd.WantUpdateMonitors = false
 end
 
-local g_CurrentSampler = TEXFILTER.LINEAR
-
 local function ImGui_ImplGMOD_DrawCallback_ResetRenderState() end
 
 local function ImGui_ImplGMOD_DrawCallback_SetSamplerNearest()
-    g_CurrentSampler = TEXFILTER.POINT
+    ImGui_ImplGMOD_GetBackendData().CurrentSampler = TEXFILTER.POINT
 end
 
 local function ImGui_ImplGMOD_DrawCallback_SetSamplerLinear()
-    g_CurrentSampler = TEXFILTER.LINEAR
+    ImGui_ImplGMOD_GetBackendData().CurrentSampler = TEXFILTER.LINEAR
 end
 
 --- @param window Panel
@@ -658,22 +663,34 @@ local function ImGui_ImplGMOD_NewFrame()
     ImGui_ImplGMOD_UpdateMouseCursor(io, platform_io)
 end
 
-local function ImGui_ImplGMOD_SetupRenderState()
+--- @param bd ImGui_ImplGMOD_Data
+local function ImGui_ImplGMOD_BackupRenderState(bd)
+    bd.OldClippingEnabled = render.EnableClipping(false)
+    bd.OldFogMode = render.GetFogMode()
+end
+
+--- @param bd ImGui_ImplGMOD_Data
+local function ImGui_ImplGMOD_SetupRenderState(bd)
     render.SetViewPort(0, 0, ScrW(), ScrH())
 
     render.CullMode(MATERIAL_CULLMODE_NONE)
     render.OverrideBlend(true, BLEND_SRC_ALPHA, BLEND_ONE_MINUS_SRC_ALPHA, BLENDFUNC_ADD, BLEND_ONE, BLEND_ONE_MINUS_SRC_ALPHA, BLENDFUNC_ADD)
     render.FogMode(MATERIAL_FOG_NONE)
     render.SetStencilEnable(false)
-    render.EnableClipping(true)
-    render.SuppressEngineLighting(true)
-    g_CurrentSampler = TEXFILTER.LINEAR
+    render.EnableClipping(false)
+    render.SetScissorRect(0, 0, 0, 0, false)
+    render.SetMaterial(g_EngineMaterial)
+    bd.CurrentSampler = TEXFILTER.LINEAR
 end
 
-local function ImGui_ImplGMOD_RestoreRenderState()
+--- @param bd ImGui_ImplGMOD_Data
+local function ImGui_ImplGMOD_RestoreRenderState(bd)
+    render.SetScissorRect(0, 0, 0, 0, false)
+    render.CullMode(MATERIAL_CULLMODE_CCW)
     render.OverrideBlend(false)
-    render.EnableClipping(false)
-    render.SuppressEngineLighting(false)
+    render.FogMode(bd.OldFogMode)
+    render.SetStencilEnable(false)
+    render.EnableClipping(bd.OldClippingEnabled)
 end
 
 local bitAnd, bitRShift = bit.band, bit.rshift
@@ -684,6 +701,47 @@ local meshAdvVtx   = mesh.AdvanceVertex
 
 local function u32ToRGBA(col)
     return bitAnd(bitRShift(col, 0), 0xFF), bitAnd(bitRShift(col, 8), 0xFF), bitAnd(bitRShift(col, 16), 0xFF), bitAnd(bitRShift(col, 24), 0xFF)
+end
+
+-- GMod dynamic meshes are limited to 32768 vertices, keep chunks triangle-aligned
+local MAX_MESH_ELEM_COUNT = 32766
+
+local function DrawIndexedTriangles(idx_data, vtx_data, pcmd)
+    for elem_start = 0, pcmd.ElemCount - 1, MAX_MESH_ELEM_COUNT do
+        local elem_count = pcmd.ElemCount - elem_start
+        if elem_count > MAX_MESH_ELEM_COUNT then
+            elem_count = MAX_MESH_ELEM_COUNT
+        end
+        mesh.Begin(MATERIAL_TRIANGLES, elem_count / 3)
+
+        -- It's strongly recommended here that number indices are used instead of string keys
+        for i = elem_start, elem_start + elem_count - 1, 3 do
+            local idx0 = idx_data[pcmd.IdxOffset + 1 + i]
+            local idx1 = idx_data[pcmd.IdxOffset + 2 + i]
+            local idx2 = idx_data[pcmd.IdxOffset + 3 + i]
+
+            local vtx0 = vtx_data[pcmd.VtxOffset + idx0]
+            local vtx1 = vtx_data[pcmd.VtxOffset + idx1]
+            local vtx2 = vtx_data[pcmd.VtxOffset + idx2]
+
+            meshPosition(vtx0[1][1], vtx0[1][2], 0)
+            meshTexCoord(0, vtx0[2][1], vtx0[2][2])
+            meshColor(u32ToRGBA(vtx0[3]))
+            meshAdvVtx()
+
+            meshPosition(vtx1[1][1], vtx1[1][2], 0)
+            meshTexCoord(0, vtx1[2][1], vtx1[2][2])
+            meshColor(u32ToRGBA(vtx1[3]))
+            meshAdvVtx()
+
+            meshPosition(vtx2[1][1], vtx2[1][2], 0)
+            meshTexCoord(0, vtx2[2][1], vtx2[2][2])
+            meshColor(u32ToRGBA(vtx2[3]))
+            meshAdvVtx()
+        end
+
+        mesh.End()
+    end
 end
 
 function ImGui_ImplGMOD_RenderDrawData(draw_data)
@@ -701,18 +759,17 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
         end
     end
 
-    ImGui_ImplGMOD_SetupRenderState()
-
-    render.SetMaterial(g_EngineMaterial)
+    ImGui_ImplGMOD_BackupRenderState(bd)
+    ImGui_ImplGMOD_SetupRenderState(bd)
 
     local idx_data, vtx_data
     for _, draw_list in draw_data.CmdLists:iter() do
-        idx_data = draw_list.IdxBuffer; vtx_data = draw_list.VtxBuffer
+        idx_data = draw_list.IdxBuffer.Data; vtx_data = draw_list.VtxBuffer.Data
 
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.UserCallback ~= nil then
                 if pcmd.UserCallback == ImGui_ImplGMOD_DrawCallback_ResetRenderState then
-                    ImGui_ImplGMOD_SetupRenderState()
+                    ImGui_ImplGMOD_SetupRenderState(bd)
                 else
                     pcmd.UserCallback(draw_list, pcmd)
                 end
@@ -727,40 +784,12 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 local tex_id = pcmd:GetTexID()
                 g_EngineMaterial:SetTexture("$basetexture", bd.Textures[tex_id])
 
-                mesh.Begin(MATERIAL_TRIANGLES, pcmd.ElemCount / 3)
-
-                -- It's strongly recommended here that number indices are used instead of string keys
-                for i = 0, pcmd.ElemCount - 1, 3 do
-                    local idx0 = idx_data[pcmd.IdxOffset + 1 + i]
-                    local idx1 = idx_data[pcmd.IdxOffset + 2 + i]
-                    local idx2 = idx_data[pcmd.IdxOffset + 3 + i]
-
-                    local vtx0 = vtx_data[pcmd.VtxOffset + idx0]
-                    local vtx1 = vtx_data[pcmd.VtxOffset + idx1]
-                    local vtx2 = vtx_data[pcmd.VtxOffset + idx2]
-
-                    meshPosition(vtx0[1][1], vtx0[1][2], 0)
-                    meshTexCoord(0, vtx0[2][1], vtx0[2][2])
-                    meshColor(u32ToRGBA(vtx0[3]))
-                    meshAdvVtx()
-
-                    meshPosition(vtx1[1][1], vtx1[1][2], 0)
-                    meshTexCoord(0, vtx1[2][1], vtx1[2][2])
-                    meshColor(u32ToRGBA(vtx1[3]))
-                    meshAdvVtx()
-
-                    meshPosition(vtx2[1][1], vtx2[1][2], 0)
-                    meshTexCoord(0, vtx2[2][1], vtx2[2][2])
-                    meshColor(u32ToRGBA(vtx2[3]))
-                    meshAdvVtx()
-                end
-
                 -- FIXME: this is currently broken!
                 -- https://github.com/Facepunch/garrysmod-issues/issues/6918
-                render.PushFilterMin(g_CurrentSampler)
-                render.PushFilterMag(g_CurrentSampler)
+                render.PushFilterMin(bd.CurrentSampler)
+                render.PushFilterMag(bd.CurrentSampler)
 
-                mesh.End()
+                DrawIndexedTriangles(idx_data, vtx_data, pcmd)
 
                 render.PopFilterMin()
                 render.PopFilterMag()
@@ -770,7 +799,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
         end
     end
 
-    ImGui_ImplGMOD_RestoreRenderState()
+    ImGui_ImplGMOD_RestoreRenderState(bd)
 end
 
 -- Currently there's no way to destroy a `ITexture` unless you disconnect

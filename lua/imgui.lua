@@ -7400,10 +7400,10 @@ end
 --- @return ImU32
 function ImGui.ColorConvertFloat4ToU32(in_col)
     local out_col = 0
-    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.x), IM_COL32_R_SHIFT))
-    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.y), IM_COL32_G_SHIFT))
-    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.z), IM_COL32_B_SHIFT))
-    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.w), IM_COL32_A_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col[1]), IM_COL32_R_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col[2]), IM_COL32_G_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col[3]), IM_COL32_B_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col[4]), IM_COL32_A_SHIFT))
     return out_col
 end
 

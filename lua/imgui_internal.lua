@@ -323,29 +323,23 @@ end
 
 --- @param lhs ImVec2
 --- @return float
-function ImLengthSqr(lhs) return (lhs.x * lhs.x) + (lhs.y * lhs.y) end
+function ImLengthSqr(lhs) return (lhs[1] * lhs[1]) + (lhs[2] * lhs[2]) end
 
 --- @param v     ImVec2
 --- @param cos_a float
 --- @param sin_a float
 --- @return ImVec2
 --- @nodiscard
-function ImRotate(v, cos_a, sin_a)
-    return ImVec2(v.x * cos_a - v.y * sin_a, v.x * sin_a + v.y * cos_a)
-end
+function ImRotate(v, cos_a, sin_a) return ImVec2(v[1] * cos_a - v[2] * sin_a, v[1] * sin_a + v[2] * cos_a) end
 
 --- @param a ImVec2
 --- @param b ImVec2
-function ImDot(a, b)
-    return a.x * b.x + a.y * b.y
-end
+function ImDot(a, b) return a[1] * b[1] + a[2] * b[2] end
 
 --- @param lhs ImVec2
 --- @param rhs ImVec2
 --- @nodiscard
-function ImMul(lhs, rhs)
-    return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
-end
+function ImMul(lhs, rhs) return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2]) end
 
 --- @param str    char[]
 --- @param begin? int

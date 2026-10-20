@@ -1988,11 +1988,12 @@ function ImGui.DataTypeGetInfo(data_type)
     return GDataTypeInfo[data_type + 1]
 end
 
---- @param buf       char[]
+--- @param buf?      char[]
 --- @param buf_size  int
 --- @param data_type ImGuiDataType
 --- @param data      number
 --- @param format    string
+--- @return string
 function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     local str
     if     data_type == ImGuiDataType.S32 then
@@ -2014,8 +2015,11 @@ function ImGui.DataTypeFormatString(buf, buf_size, data_type, data, format)
     else
         IM_ASSERT(false)
     end
-    local src = ImStr2Buf(str, buf_size)
-    ImStd.memmove(buf, 1, src, 1, #src)
+    if buf ~= nil then
+        local src = ImStr2Buf(str, buf_size)
+        ImStd.memmove(buf, 1, src, 1, #src)
+    end
+    return str
 end
 
 --- @param data_type ImGuiDataType
@@ -3034,12 +3038,11 @@ function ImGui.DragScalar(label, data_type, data, v_speed, min, max, format, fla
 
     -- Display value using user-provided display format so user can add prefix/suffix/decorations to the value
     local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
-    local value_buf, value_buf_size = {}, 64
-    ImGui.DataTypeFormatString(value_buf, value_buf_size, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
+    local value_text = ImGui.DataTypeFormatString(nil, 0, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
     if is_mixed then
         ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextMixedValue])
     end
-    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImBuf2Str(value_buf), nil, nil, ImVec2(0.5, 0.5))
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, value_text, nil, nil, ImVec2(0.5, 0.5))
     if is_mixed then
         ImGui.PopStyleColor()
     end
@@ -3568,12 +3571,11 @@ function ImGui.SliderScalar(label, data_type, data, min, max, format, flags)
     --     ImGui.LogSetNextTextDecoration("{", "}")
     -- end
     local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
-    local value_buf, value_buf_size = {}, 64
-    ImGui.DataTypeFormatString(value_buf, value_buf_size, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
+    local value_text = ImGui.DataTypeFormatString(nil, 0, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
     if is_mixed then
         ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextMixedValue])
     end
-    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, ImBuf2Str(value_buf), nil, nil, ImVec2(0.5, 0.5))
+    ImGui.RenderTextClipped(frame_bb.Min, frame_bb.Max, value_text, nil, nil, ImVec2(0.5, 0.5))
     if is_mixed then
         ImGui.PopStyleColor()
     end
@@ -3773,12 +3775,11 @@ function ImGui.VSliderScalar(label, size, data_type, data, min, max, format, fla
     end
 
     local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
-    local value_buf, value_buf_size = {}, 64
-    ImGui.DataTypeFormatString(value_buf, value_buf_size, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
+    local value_text = ImGui.DataTypeFormatString(nil, 0, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
     if is_mixed then
         ImGui.PushStyleColor(ImGuiCol.Text, g.Style.Colors[ImGuiCol.TextMixedValue])
     end
-    ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, ImBuf2Str(value_buf), nil, nil, ImVec2(0.5, 0.0))
+    ImGui.RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, value_text, nil, nil, ImVec2(0.5, 0.0))
     if is_mixed then
         ImGui.PopStyleColor()
     end

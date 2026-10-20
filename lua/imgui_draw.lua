@@ -1,6 +1,16 @@
 --- ImGui Sincerely WIP
 -- (Draw Code)
 
+-- LUA: Single reusable temporary for immediate value-copy operations only.
+-- Do _NOT_ do anything like this: `foo(_ImVec2(a, b), _ImVec2(c, d))`
+local _ImVec2 do
+local _v = ImVec2()
+--- @param x number
+--- @param y number
+--- @return ImVec2
+function _ImVec2(x, y) _v[1] = x; _v[2] = y; return _v end
+end
+
 FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
 FONT_ATLAS_DEFAULT_TEX_DATA_H = 27
 
@@ -310,8 +320,9 @@ end
 --- @param col0           ImU32
 --- @param col1           ImU32
 function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx, vert_end_idx, gradient_p0, gradient_p1, col0, col1)
-    local gradient_extent = gradient_p1 - gradient_p0
-    local gradient_inv_length2 = 1.0 / ImLengthSqr(gradient_extent)
+    local gradient_p0_x, gradient_p0_y = gradient_p0[1], gradient_p0[2]
+    local gradient_x, gradient_y = ImVec2_SubVA(gradient_p1, gradient_p0_x, gradient_p0_y)
+    local gradient_inv_length2 = 1.0 / (gradient_x * gradient_x + gradient_y * gradient_y)
 
     local col0_r = bit.band(bit.rshift(col0, IM_COL32_R_SHIFT), 0xFF)
     local col0_g = bit.band(bit.rshift(col0, IM_COL32_G_SHIFT), 0xFF)
@@ -324,7 +335,8 @@ function ImGui.ShadeVertsLinearColorGradientKeepAlpha(draw_list, vert_start_idx,
     for vert_idx = vert_start_idx, vert_end_idx - 1 do
         local vert = draw_list.VtxBuffer.Data[vert_idx]
 
-        local d = ImDot(vert[1] - gradient_p0, gradient_extent)
+        local pos_x, pos_y = ImVec2_SubVA(vert[1], gradient_p0_x, gradient_p0_y)
+        local d = pos_x * gradient_x + pos_y * gradient_y
         local t = ImClamp(d * gradient_inv_length2, 0.0, 1.0)
 
         local r = math.floor(col0_r + col_delta_r * t)
@@ -1984,30 +1996,38 @@ local function InitCornerGeometry(cx, cy, rounding, circle_segment_max_error, li
     local arc_step, arc_step_count = CalcCornerArcStepAndCount(auto_seg_count)
     local arc_point_count = arc_step_count + 1
 
-    local points = {}
-    points[#points + 1] = ImVec2(cx - rounding, cy + 1.0)
-
+    -- LUA: Stream adjacent points instead of allocating temp array
+    local prev_x = cx - rounding
+    local prev_y = cy + 1.0
     local da = (arc_step / IM_DRAWLIST_ARCFAST_TABLE_SIZE) * IM_PI * 2.0
     local a = IM_PI
-    for _ = 1, arc_point_count do
-        points[#points + 1] = ImVec2(cx + ImCos(a) * rounding, cy + ImSin(a) * rounding)
-        a = a + da
-    end
 
-    points[#points + 1] = ImVec2(cx + 1.0, cy - rounding)
+    local num_lines = arc_point_count + 1
+    for i = 1, num_lines do
+        local next_x, next_y
+        if i <= arc_point_count then
+            next_x = cx + ImCos(a) * rounding
+            next_y = cy + ImSin(a) * rounding
+            a = a + da
+        else
+            next_x = cx + 1.0
+            next_y = cy - rounding
+        end
 
-    for i = 1, #points - 1 do
-        local diff_x = points[i + 1].x - points[i].x
-        local diff_y = points[i + 1].y - points[i].y
+        local diff_x = next_x - prev_x
+        local diff_y = next_y - prev_y
         local inv_d = ImRsqrtPrecise(diff_x * diff_x + diff_y * diff_y)
         local normal = line_normals[i] or ImVec2()
         normal.x = diff_y * inv_d
         normal.y = -diff_x * inv_d
         line_normals[i] = normal
-        line_distances[i] = -(points[i].x * normal.x + points[i].y * normal.y)
+        line_distances[i] = -(prev_x * normal.x + prev_y * normal.y)
+
+        prev_x = next_x
+        prev_y = next_y
     end
 
-    return #points - 1
+    return num_lines
 end
 
 local function SampleConvex(x, y, line_normals, line_distances, num_lines)
@@ -3714,8 +3734,8 @@ local IM_POLYLINE_CONVEX_POLY_MAX_BEVELS = 2
 
 local function IM_APPEND_VTX(draw_list, x, y, uv, col)
     local vtx = draw_list.VtxBuffer.Data[draw_list._VtxWritePtr]
-    vtx[1].x = x
-    vtx[1].y = y
+    vtx[1][1] = x
+    vtx[1][2] = y
     ImVec2_Copy(vtx[2], uv)
     vtx[3] = col
     draw_list._VtxWritePtr = draw_list._VtxWritePtr + 1
@@ -3751,7 +3771,7 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col, flags)
 
         local base_idx = self._VtxCurrentIdx
         for i = 1, vtx_count do
-            IM_APPEND_VTX(self, points[i].x, points[i].y, uv, col)
+            IM_APPEND_VTX(self, points[i][1], points[i][2], uv, col)
         end
         for i = 3, points_count do
             IM_APPEND_TRI(self, base_idx, base_idx + i - 2, base_idx + i - 1)
@@ -3776,17 +3796,17 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col, flags)
     for i1 = 1, points_count do
         local p0 = points[i0]
         local p1 = points[i1]
-        local dx = p1.x - p0.x
-        local dy = p1.y - p0.y
+        local dx = p1[1] - p0[1]
+        local dy = p1[2] - p0[2]
         local d2 = dx * dx + dy * dy
         if d2 > 0.0 then
             local inv_len = ImRsqrtPrecise(d2)
             dx = dx * inv_len
             dy = dy * inv_len
         end
-        temp_buffer[i0].x = dy
-        temp_buffer[i0].y = -dx
-        temp_buffer[points_count + i0].x = d2
+        temp_buffer[i0][1] = dy
+        temp_buffer[i0][2] = -dx
+        temp_buffer[points_count + i0][1] = d2
         i0 = i1
     end
 
@@ -3805,15 +3825,15 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col, flags)
             local p1 = points[i1]
             local n0 = temp_buffer[i0]
             local n1 = temp_buffer[i1]
-            local cos_theta = n0.x * n1.x + n0.y * n1.y
+            local cos_theta = n0[1] * n1[1] + n0[2] * n1[2]
             local cos_theta_clamped = ImMax(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
             local miter_scale_factor = ImMin(1000.0, 1.0 / (1.0 + cos_theta_clamped))
-            local miter_offset_x = (n0.x + n1.x) * miter_scale_factor * half_aa
-            local miter_offset_y = (n0.y + n1.y) * miter_scale_factor * half_aa
+            local miter_offset_x = (n0[1] + n1[1]) * miter_scale_factor * half_aa
+            local miter_offset_y = (n0[2] + n1[2]) * miter_scale_factor * half_aa
 
             local inner_vtx = vtx_data[inner_vtx_ptr]
-            inner_vtx[1].x = p1.x - miter_offset_x
-            inner_vtx[1].y = p1.y - miter_offset_y
+            inner_vtx[1][1] = p1[1] - miter_offset_x
+            inner_vtx[1][2] = p1[2] - miter_offset_y
             ImVec2_Copy(inner_vtx[2], uv)
             inner_vtx[3] = col
             inner_vtx_ptr = inner_vtx_ptr + 1
@@ -3822,7 +3842,7 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col, flags)
             local inner_idx = vtx_inner_idx + i1 - 1
             local outer_idx = self._VtxCurrentIdx
 
-            IM_APPEND_VTX(self, p1.x + miter_offset_x, p1.y + miter_offset_y, uv, col_trans)
+            IM_APPEND_VTX(self, p1[1] + miter_offset_x, p1[2] + miter_offset_y, uv, col_trans)
             IM_APPEND_TRI(self, prev_outer_idx, outer_idx, inner_idx)
             IM_APPEND_TRI(self, prev_outer_idx, inner_idx, prev_inner_idx)
 
@@ -3836,17 +3856,17 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col, flags)
             local p1 = points[i1]
             local n0 = temp_buffer[i0]
             local n1 = temp_buffer[i1]
-            local cos_theta = n0.x * n1.x + n0.y * n1.y
+            local cos_theta = n0[1] * n1[1] + n0[2] * n1[2]
             local cos_theta_clamped = ImMax(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
             local miter_scale_factor = ImMin(1000.0, 1.0 / (1.0 + cos_theta_clamped))
-            local miter_offset_x = (n0.x + n1.x) * miter_scale_factor
-            local miter_offset_y = (n0.y + n1.y) * miter_scale_factor
+            local miter_offset_x = (n0[1] + n1[1]) * miter_scale_factor
+            local miter_offset_y = (n0[2] + n1[2]) * miter_scale_factor
 
             local miter_distance_sqr = miter_offset_x * miter_offset_x + miter_offset_y * miter_offset_y
             local bevel = miter_distance_sqr > miter_distance_limit_sqr
             if bevel then
                 local ref_thickness_sqr = half_aa * half_aa
-                local limit_sqr = ImMax(temp_buffer[points_count + i0].x, temp_buffer[points_count + i1].x)
+                local limit_sqr = ImMax(temp_buffer[points_count + i0][1], temp_buffer[points_count + i1][1])
                 local ref_miter_dist_sqr = miter_distance_sqr * ref_thickness_sqr
                 if ref_miter_dist_sqr > limit_sqr then
                     local scale = ImSqrt(limit_sqr / ref_miter_dist_sqr)
@@ -3859,8 +3879,8 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col, flags)
             miter_offset_y = miter_offset_y * half_aa
 
             local inner_vtx = vtx_data[inner_vtx_ptr]
-            inner_vtx[1].x = p1.x - miter_offset_x
-            inner_vtx[1].y = p1.y - miter_offset_y
+            inner_vtx[1][1] = p1[1] - miter_offset_x
+            inner_vtx[1][2] = p1[2] - miter_offset_y
             ImVec2_Copy(inner_vtx[2], uv)
             inner_vtx[3] = col
             inner_vtx_ptr = inner_vtx_ptr + 1
@@ -3872,14 +3892,14 @@ function MT.ImDrawList:AddConvexPolyFilled(points, points_count, col, flags)
             if bevel and bevel_count < IM_POLYLINE_CONVEX_POLY_MAX_BEVELS then
                 bevel_count = bevel_count + 1
 
-                IM_APPEND_VTX(self, p1.x + n0.x * half_aa, p1.y + n0.y * half_aa, uv, col_trans)
-                IM_APPEND_VTX(self, p1.x + n1.x * half_aa, p1.y + n1.y * half_aa, uv, col_trans)
+                IM_APPEND_VTX(self, p1[1] + n0[1] * half_aa, p1[2] + n0[2] * half_aa, uv, col_trans)
+                IM_APPEND_VTX(self, p1[1] + n1[1] * half_aa, p1[2] + n1[2] * half_aa, uv, col_trans)
                 IM_APPEND_TRI(self, prev_outer_idx, outer_idx, inner_idx)
                 IM_APPEND_TRI(self, prev_outer_idx, inner_idx, prev_inner_idx)
                 IM_APPEND_TRI(self, outer_idx, outer_idx + 1, inner_idx)
                 outer_idx = outer_idx + 1
             else
-                IM_APPEND_VTX(self, p1.x + miter_offset_x, p1.y + miter_offset_y, uv, col_trans)
+                IM_APPEND_VTX(self, p1[1] + miter_offset_x, p1[2] + miter_offset_y, uv, col_trans)
                 IM_APPEND_TRI(self, prev_outer_idx, outer_idx, inner_idx)
                 IM_APPEND_TRI(self, prev_outer_idx, inner_idx, prev_inner_idx)
             end
@@ -4205,11 +4225,11 @@ function MT.ImDrawList:AddConcavePolyFilled(points, points_count, col)
         for i1 = 1, points_count do
             local p0 = points[i0]
             local p1 = points[i1]
-            local dx = p1.x - p0.x
-            local dy = p1.y - p0.y
+            local dx = p1[1] - p0[1]
+            local dy = p1[2] - p0[2]
             dx, dy = IM_NORMALIZE2F_OVER_ZERO(dx, dy)
-            temp_normals[i0].x = dy
-            temp_normals[i0].y = -dx
+            temp_normals[i0][1] = dy
+            temp_normals[i0][2] = -dx
             i0 = i1
         end
 
@@ -4218,15 +4238,15 @@ function MT.ImDrawList:AddConcavePolyFilled(points, points_count, col)
         for i1 = 1, points_count do
             local n0 = temp_normals[i0]
             local n1 = temp_normals[i1]
-            local dm_x = (n0.x + n1.x) * 0.5
-            local dm_y = (n0.y + n1.y) * 0.5
+            local dm_x = (n0[1] + n1[1]) * 0.5
+            local dm_y = (n0[2] + n1[2]) * 0.5
             dm_x, dm_y = IM_FIXNORMAL2F(dm_x, dm_y)
             dm_x = dm_x * AA_SIZE * 0.5
             dm_y = dm_y * AA_SIZE * 0.5
 
             local vtx_write_ptr = self._VtxWritePtr
-            vtx_data[vtx_write_ptr + 0][1].x = points[i1].x - dm_x; vtx_data[vtx_write_ptr + 0][1].y = points[i1].y - dm_y; ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], uv); vtx_data[vtx_write_ptr + 0][3] = col
-            vtx_data[vtx_write_ptr + 1][1].x = points[i1].x + dm_x; vtx_data[vtx_write_ptr + 1][1].y = points[i1].y + dm_y; ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], uv); vtx_data[vtx_write_ptr + 1][3] = col_trans
+            vtx_data[vtx_write_ptr + 0][1][1] = points[i1][1] - dm_x; vtx_data[vtx_write_ptr + 0][1][2] = points[i1][2] - dm_y; ImVec2_Copy(vtx_data[vtx_write_ptr + 0][2], uv); vtx_data[vtx_write_ptr + 0][3] = col
+            vtx_data[vtx_write_ptr + 1][1][1] = points[i1][1] + dm_x; vtx_data[vtx_write_ptr + 1][1][2] = points[i1][2] + dm_y; ImVec2_Copy(vtx_data[vtx_write_ptr + 1][2], uv); vtx_data[vtx_write_ptr + 1][3] = col_trans
             self._VtxWritePtr = vtx_write_ptr + 2
 
             local idx_write_ptr = self._IdxWritePtr
@@ -4466,13 +4486,13 @@ function MT.ImDrawList:_SelectLineTexture(screen_thickness, flags)
         end
 
         local tex_uvs = self._Data.TexUvLines[texture_idx]
-        local uv0 = ImVec2(tex_uvs.x, tex_uvs.z)
-        local uv1 = ImVec2(tex_uvs.y, tex_uvs.z)
-        local fringe = self._FringeScale * screen_thickness * tex_uvs.w
+        local uv0 = ImVec2(tex_uvs[1], tex_uvs[3])
+        local uv1 = ImVec2(tex_uvs[2], tex_uvs[3])
+        local fringe = self._FringeScale * screen_thickness * tex_uvs[4]
         return uv0, uv1, fringe
     else
         local opaque_uv = self._Data.TexUvWhitePixel
-        return ImVec2(opaque_uv.x, opaque_uv.y), ImVec2(opaque_uv.x, opaque_uv.y), 0.0
+        return ImVec2(opaque_uv[1], opaque_uv[2]), ImVec2(opaque_uv[1], opaque_uv[2]), 0.0
     end
 end
 
@@ -4517,25 +4537,25 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
     local normals = self._Data.TempBuffer.Data
     local sqr_lengths_start = points_count + 1
     for i = 1, points_count - 1 do
-        local dx = points[i + 1].x - points[i].x
-        local dy = points[i + 1].y - points[i].y
+        local dx = points[i + 1][1] - points[i][1]
+        local dy = points[i + 1][2] - points[i][2]
         local d2 = dx * dx + dy * dy
         local inv_len = d2 > 0.0 and ImRsqrtPrecise(d2) or 0.0
-        normals[i].x = -dy * inv_len
-        normals[i].y = dx * inv_len
-        normals[sqr_lengths_start + i - 1].x = d2
+        normals[i][1] = -dy * inv_len
+        normals[i][2] = dx * inv_len
+        normals[sqr_lengths_start + i - 1][1] = d2
     end
     if bit.band(flags, ImDrawFlags.Closed) ~= 0 then
-        local dx = points[1].x - points[points_count].x
-        local dy = points[1].y - points[points_count].y
+        local dx = points[1][1] - points[points_count][1]
+        local dy = points[1][2] - points[points_count][2]
         local d2 = dx * dx + dy * dy
         local inv_len = d2 > 0.0 and ImRsqrtPrecise(d2) or 0.0
-        normals[points_count].x = -dy * inv_len
-        normals[points_count].y = dx * inv_len
-        normals[sqr_lengths_start + points_count - 1].x = d2
+        normals[points_count][1] = -dy * inv_len
+        normals[points_count][2] = dx * inv_len
+        normals[sqr_lengths_start + points_count - 1][1] = d2
     else
         ImVec2_Copy(normals[points_count], normals[points_count - 1])
-        normals[sqr_lengths_start + points_count - 1].x = 0.0
+        normals[sqr_lengths_start + points_count - 1][1] = 0.0
     end
 
     local uv0, uv1, fringe = self:_SelectLineTexture(screen_thickness, flags)
@@ -4582,13 +4602,13 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
     local len_sqr1
 
     local ratio = thickness0 / (thickness0 + thickness1)
-    local uv2 = ImVec2(uv0.x + (uv1.x - uv0.x) * ratio, uv0.y)
+    local uv2 = ImVec2(uv0[1] + (uv1[1] - uv0[1]) * ratio, uv0[2])
 
     if thickness1 > max_inner_offset then
         thickness1 = max_inner_offset
         local s = (thickness0 + thickness1) / (thickness + fringe)
-        local du = uv1.x - uv0.x
-        uv1.x = uv0.x + du * s
+        local du = uv1[1] - uv0[1]
+        uv1[1] = uv0[1] + du * s
     end
 
     local half_aa = self._FringeScale * 0.5
@@ -4603,28 +4623,28 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
         point_end = point_end - 1
         p1 = points[1]
         n1 = normals[1]
-        len_sqr1 = normals[sqr_lengths_start].x
+        len_sqr1 = normals[sqr_lengths_start][1]
 
-        local dir = ImVec2(n1.y, -n1.x)
+        local dir = ImVec2(n1[2], -n1[1])
         if bit.band(flags, ImDrawFlags.CapSquare) ~= 0 then
             p1 = p1 - dir * half_thickness
         end
 
         if not use_aa_ends then
             base_idx = self._VtxCurrentIdx
-            IM_APPEND_VTX(self, p1.x - n1.x * thickness0, p1.y - n1.y * thickness0, uv0, col)
-            IM_APPEND_VTX(self, p1.x + n1.x * thickness1, p1.y + n1.y * thickness1, uv1, col)
+            IM_APPEND_VTX(self, p1[1] - n1[1] * thickness0, p1[2] - n1[2] * thickness0, uv0, col)
+            IM_APPEND_VTX(self, p1[1] + n1[1] * thickness1, p1[2] + n1[2] * thickness1, uv1, col)
         else
             local pa = p1 - dir * half_aa
             local pb = p1 + dir * half_aa
 
             base_idx = self._VtxCurrentIdx
-            IM_APPEND_VTX(self, pa.x - n1.x * thickness0, pa.y - n1.y * thickness0, uv0, col_trans)
-            IM_APPEND_VTX(self, pa.x + n1.x * thickness1, pa.y + n1.y * thickness1, uv1, col_trans)
+            IM_APPEND_VTX(self, pa[1] - n1[1] * thickness0, pa[2] - n1[2] * thickness0, uv0, col_trans)
+            IM_APPEND_VTX(self, pa[1] + n1[1] * thickness1, pa[2] + n1[2] * thickness1, uv1, col_trans)
 
             local next_base_idx = self._VtxCurrentIdx
-            IM_APPEND_VTX(self, pb.x - n1.x * thickness0, pb.y - n1.y * thickness0, uv0, col)
-            IM_APPEND_VTX(self, pb.x + n1.x * thickness1, pb.y + n1.y * thickness1, uv1, col)
+            IM_APPEND_VTX(self, pb[1] - n1[1] * thickness0, pb[2] - n1[2] * thickness0, uv0, col)
+            IM_APPEND_VTX(self, pb[1] + n1[1] * thickness1, pb[2] + n1[2] * thickness1, uv1, col)
 
             IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
             IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
@@ -4633,7 +4653,7 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
     else
         p1 = points[points_count]
         n1 = normals[points_count]
-        len_sqr1 = normals[sqr_lengths_start + points_count - 1].x
+        len_sqr1 = normals[sqr_lengths_start + points_count - 1][1]
 
         base_idx = self._VtxCurrentIdx
         IM_APPEND_VTX(self, 0, 0, uv0, col)
@@ -4646,15 +4666,15 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
             p1 = points[point_idx]
             n1 = normals[point_idx]
 
-            local cos_theta = n0.x * n1.x + n0.y * n1.y
-            local cos_theta_clamped = ImMax(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
-            local miter_scale_factor = ImMin(1000.0, 1.0 / (1.0 + cos_theta_clamped))
-            local miter_offset_x = (n0.x + n1.x) * miter_scale_factor
-            local miter_offset_y = (n0.y + n1.y) * miter_scale_factor
+            local cos_theta = n0[1] * n1[1] + n0[2] * n1[2]
+            local cos_theta_clamped = math.max(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
+            local miter_scale_factor = math.min(1000.0, 1.0 / (1.0 + cos_theta_clamped))
+            local miter_offset_x = (n0[1] + n1[1]) * miter_scale_factor
+            local miter_offset_y = (n0[2] + n1[2]) * miter_scale_factor
 
             local next_base_idx = self._VtxCurrentIdx
-            IM_APPEND_VTX(self, p1.x - miter_offset_x * thickness0, p1.y - miter_offset_y * thickness0, uv0, col)
-            IM_APPEND_VTX(self, p1.x + miter_offset_x * thickness1, p1.y + miter_offset_y * thickness1, uv1, col)
+            IM_APPEND_VTX(self, p1[1] - miter_offset_x * thickness0, p1[2] - miter_offset_y * thickness0, uv0, col)
+            IM_APPEND_VTX(self, p1[1] + miter_offset_x * thickness1, p1[2] + miter_offset_y * thickness1, uv1, col)
 
             IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
             IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
@@ -4667,20 +4687,20 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
             local len_sqr0 = len_sqr1
             p1 = points[point_idx]
             n1 = normals[point_idx]
-            len_sqr1 = normals[sqr_lengths_start + point_idx - 1].x
+            len_sqr1 = normals[sqr_lengths_start + point_idx - 1][1]
 
-            local cos_theta = n0.x * n1.x + n0.y * n1.y
-            local sin_theta = n0.y * n1.x - n0.x * n1.y
-            local cos_theta_clamped = ImMax(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
-            local miter_scale_factor = ImMin(1000.0, 1.0 / (1.0 + cos_theta_clamped))
-            local miter_offset_x = (n0.x + n1.x) * miter_scale_factor
-            local miter_offset_y = (n0.y + n1.y) * miter_scale_factor
+            local cos_theta = n0[1] * n1[1] + n0[2] * n1[2]
+            local sin_theta = n0[2] * n1[1] - n0[1] * n1[2]
+            local cos_theta_clamped = math.max(IM_POLYLINE_MITER_ANGLE_LIMIT, cos_theta)
+            local miter_scale_factor = math.min(1000.0, 1.0 / (1.0 + cos_theta_clamped))
+            local miter_offset_x = (n0[1] + n1[1]) * miter_scale_factor
+            local miter_offset_y = (n0[2] + n1[2]) * miter_scale_factor
             local miter_distance_sqr = miter_offset_x * miter_offset_x + miter_offset_y * miter_offset_y
 
             if miter_distance_sqr > miter_distance_limit_sqr then
                 local ref_thickness = sin_theta < 0.0 and thickness1 or thickness0
                 local ref_thickness_sqr = ref_thickness * ref_thickness
-                local limit_sqr = ImMax(ImMax(len_sqr0, len_sqr1), ref_thickness_sqr)
+                local limit_sqr = math.max(math.max(len_sqr0, len_sqr1), ref_thickness_sqr)
                 local ref_miter_dist_sqr = miter_distance_sqr * ref_thickness_sqr
                 if ref_miter_dist_sqr > limit_sqr then
                     local scale = ImSqrt(limit_sqr / ref_miter_dist_sqr)
@@ -4688,17 +4708,17 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
                     miter_offset_y = miter_offset_y * scale
                 end
 
-                local bn_x, bn_y = IM_NORMALIZE2F_OVER_ZERO(n0.x + n1.x, n0.y + n1.y)
-                local side_offset = ((n0.x * bn_x + n0.y * bn_y) - 1.0) / (n0.y * bn_x - n0.x * bn_y)
+                local bn_x, bn_y = IM_NORMALIZE2F_OVER_ZERO(n0[1] + n1[1], n0[2] + n1[2])
+                local side_offset = ((n0[1] * bn_x + n0[2] * bn_y) - 1.0) / (n0[2] * bn_x - n0[1] * bn_y)
                 local sd_x = bn_y * side_offset
                 local sd_y = -bn_x * side_offset
 
                 if sin_theta < 0.0 then
-                    IM_APPEND_VTX(self, p1.x - (bn_x + sd_x) * thickness0, p1.y - (bn_y + sd_y) * thickness0, uv0, col)
-                    IM_APPEND_VTX(self, p1.x, p1.y, uv2, col)
+                    IM_APPEND_VTX(self, p1[1] - (bn_x + sd_x) * thickness0, p1[2] - (bn_y + sd_y) * thickness0, uv0, col)
+                    IM_APPEND_VTX(self, p1[1], p1[2], uv2, col)
                     local next_base_idx = self._VtxCurrentIdx
-                    IM_APPEND_VTX(self, p1.x - (bn_x - sd_x) * thickness0, p1.y - (bn_y - sd_y) * thickness0, uv0, col)
-                    IM_APPEND_VTX(self, p1.x + miter_offset_x * thickness1, p1.y + miter_offset_y * thickness1, uv1, col)
+                    IM_APPEND_VTX(self, p1[1] - (bn_x - sd_x) * thickness0, p1[2] - (bn_y - sd_y) * thickness0, uv0, col)
+                    IM_APPEND_VTX(self, p1[1] + miter_offset_x * thickness1, p1[2] + miter_offset_y * thickness1, uv1, col)
 
                     IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 5)
                     IM_APPEND_TRI(self, base_idx + 0, base_idx + 5, base_idx + 1)
@@ -4707,11 +4727,11 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
                     IM_APPEND_TRI(self, base_idx + 3, base_idx + 4, base_idx + 5)
                     base_idx = next_base_idx
                 else
-                    IM_APPEND_VTX(self, p1.x + (bn_x + sd_x) * thickness1, p1.y + (bn_y + sd_y) * thickness1, uv1, col)
-                    IM_APPEND_VTX(self, p1.x, p1.y, uv2, col)
+                    IM_APPEND_VTX(self, p1[1] + (bn_x + sd_x) * thickness1, p1[2] + (bn_y + sd_y) * thickness1, uv1, col)
+                    IM_APPEND_VTX(self, p1[1], p1[2], uv2, col)
                     local next_base_idx = self._VtxCurrentIdx
-                    IM_APPEND_VTX(self, p1.x - miter_offset_x * thickness0, p1.y - miter_offset_y * thickness0, uv0, col)
-                    IM_APPEND_VTX(self, p1.x + (bn_x - sd_x) * thickness1, p1.y + (bn_y - sd_y) * thickness1, uv1, col)
+                    IM_APPEND_VTX(self, p1[1] - miter_offset_x * thickness0, p1[2] - miter_offset_y * thickness0, uv0, col)
+                    IM_APPEND_VTX(self, p1[1] + (bn_x - sd_x) * thickness1, p1[2] + (bn_y - sd_y) * thickness1, uv1, col)
 
                     IM_APPEND_TRI(self, base_idx + 0, base_idx + 4, base_idx + 2)
                     IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 1)
@@ -4722,8 +4742,8 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
                 end
             else
                 local next_base_idx = self._VtxCurrentIdx
-                IM_APPEND_VTX(self, p1.x - miter_offset_x * thickness0, p1.y - miter_offset_y * thickness0, uv0, col)
-                IM_APPEND_VTX(self, p1.x + miter_offset_x * thickness1, p1.y + miter_offset_y * thickness1, uv1, col)
+                IM_APPEND_VTX(self, p1[1] - miter_offset_x * thickness0, p1[2] - miter_offset_y * thickness0, uv0, col)
+                IM_APPEND_VTX(self, p1[1] + miter_offset_x * thickness1, p1[2] + miter_offset_y * thickness1, uv1, col)
 
                 IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
                 IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
@@ -4738,14 +4758,14 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
         p1 = points[points_count]
         n1 = normals[points_count]
 
-        local dir = ImVec2(n1.y, -n1.x)
+        local dir = ImVec2(n1[2], -n1[1])
         if bit.band(flags, ImDrawFlags.CapSquare) ~= 0 then
             p1 = p1 + dir * half_thickness
         end
 
         if not use_aa_ends then
-            IM_APPEND_VTX(self, p1.x - n1.x * thickness0, p1.y - n1.y * thickness0, uv0, col)
-            IM_APPEND_VTX(self, p1.x + n1.x * thickness1, p1.y + n1.y * thickness1, uv1, col)
+            IM_APPEND_VTX(self, p1[1] - n1[1] * thickness0, p1[2] - n1[2] * thickness0, uv0, col)
+            IM_APPEND_VTX(self, p1[1] + n1[1] * thickness1, p1[2] + n1[2] * thickness1, uv1, col)
 
             IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
             IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
@@ -4754,10 +4774,10 @@ function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags,
             local pb = p1 + dir * half_aa
 
             local next_base_idx = self._VtxCurrentIdx
-            IM_APPEND_VTX(self, pa.x - n1.x * thickness0, pa.y - n1.y * thickness0, uv0, col)
-            IM_APPEND_VTX(self, pa.x + n1.x * thickness1, pa.y + n1.y * thickness1, uv1, col)
-            IM_APPEND_VTX(self, pb.x - n1.x * thickness0, pb.y - n1.y * thickness0, uv0, col_trans)
-            IM_APPEND_VTX(self, pb.x + n1.x * thickness1, pb.y + n1.y * thickness1, uv1, col_trans)
+            IM_APPEND_VTX(self, pa[1] - n1[1] * thickness0, pa[2] - n1[2] * thickness0, uv0, col)
+            IM_APPEND_VTX(self, pa[1] + n1[1] * thickness1, pa[2] + n1[2] * thickness1, uv1, col)
+            IM_APPEND_VTX(self, pb[1] - n1[1] * thickness0, pb[2] - n1[2] * thickness0, uv0, col_trans)
+            IM_APPEND_VTX(self, pb[1] + n1[1] * thickness1, pb[2] + n1[2] * thickness1, uv1, col_trans)
 
             IM_APPEND_TRI(self, base_idx + 0, base_idx + 2, base_idx + 3)
             IM_APPEND_TRI(self, base_idx + 0, base_idx + 3, base_idx + 1)
@@ -6122,7 +6142,7 @@ function MT.ImDrawList:_PathArcToN(center, radius, a_min, a_max, num_segments)
     self._Path:reserve(self._Path.Size + (num_segments + 1))
     for i = 0, num_segments do
         local a = a_min + (i / num_segments) * (a_max - a_min)
-        self._Path:push_back(ImVec2(center.x + ImCos(a) * radius, center.y + ImSin(a) * radius))
+        self._Path:push_back(_ImVec2(center[1] + ImCos(a) * radius, center[2] + ImSin(a) * radius))
     end
 end
 
@@ -6165,9 +6185,9 @@ function MT.ImDrawList:PathArcTo(center, radius, a_min, a_max, num_segments)
 
         self._Path:reserve(self._Path.Size + (a_mid_samples + 1 + (a_emit_start and 1 or 0) + (a_emit_end and 1 or 0)))
 
-        if a_emit_start      then self._Path:push_back(ImVec2(center.x + ImCos(a_min) * radius, center.y + ImSin(a_min) * radius)) end
+        if a_emit_start      then self._Path:push_back(_ImVec2(center.x + ImCos(a_min) * radius, center.y + ImSin(a_min) * radius)) end
         if a_mid_samples > 0 then self:_PathArcToFastEx(center, radius, a_min_sample, a_max_sample, arc_step) end
-        if a_emit_end        then self._Path:push_back(ImVec2(center.x + ImCos(a_max) * radius, center.y + ImSin(a_max) * radius)) end
+        if a_emit_end        then self._Path:push_back(_ImVec2(center.x + ImCos(a_max) * radius, center.y + ImSin(a_max) * radius)) end
     else
         local arc_length = ImAbs(a_max - a_min)
         local circle_segment_count = self:_CalcCircleAutoSegmentCount(radius)
@@ -6198,7 +6218,7 @@ function MT.ImDrawList:PathEllipticalArcTo(center, radius, rot, a_min, a_max, nu
         local point_y = ImSin(a) * radius.y
         local rel_x = point_x * cos_rot - point_y * sin_rot
         local rel_y = point_x * sin_rot + point_y * cos_rot
-        self._Path:push_back(ImVec2(rel_x + center.x, rel_y + center.y))
+        self._Path:push_back(_ImVec2(rel_x + center.x, rel_y + center.y))
     end
 end
 
@@ -6208,7 +6228,7 @@ local function ImBezierCubicCalc(p1, p2, p3, p4, t)
     local w2 = 3.0 * u * u * t
     local w3 = 3.0 * u * t * t
     local w4 = t * t * t
-    return ImVec2(w1 * p1.x + w2 * p2.x + w3 * p3.x + w4 * p4.x, w1 * p1.y + w2 * p2.y + w3 * p3.y + w4 * p4.y)
+    return _ImVec2(w1 * p1.x + w2 * p2.x + w3 * p3.x + w4 * p4.x, w1 * p1.y + w2 * p2.y + w3 * p3.y + w4 * p4.y)
 end
 
 local function ImBezierQuadraticCalc(p1, p2, p3, t)
@@ -6216,7 +6236,7 @@ local function ImBezierQuadraticCalc(p1, p2, p3, t)
     local w1 = u * u
     local w2 = 2.0 * u * t
     local w3 = t * t
-    return ImVec2(w1 * p1.x + w2 * p2.x + w3 * p3.x, w1 * p1.y + w2 * p2.y + w3 * p3.y)
+    return _ImVec2(w1 * p1.x + w2 * p2.x + w3 * p3.x, w1 * p1.y + w2 * p2.y + w3 * p3.y)
 end
 
 local function PathBezierCubicCurveToCasteljau(path, x1, y1, x2, y2, x3, y3, x4, y4, max_error_sqr, level)
@@ -6225,7 +6245,7 @@ local function PathBezierCubicCurveToCasteljau(path, x1, y1, x2, y2, x3, y3, x4,
     local d2 = ImAbs((x2 - x4) * dy - (y2 - y4) * dx)
     local d3 = ImAbs((x3 - x4) * dy - (y3 - y4) * dx)
     if (d2 + d3) * (d2 + d3) < max_error_sqr * (dx * dx + dy * dy) then
-        path:push_back(ImVec2(x4, y4))
+        path:push_back(_ImVec2(x4, y4))
     elseif level < 10 then
         local x12, y12 = (x1 + x2) * 0.5, (y1 + y2) * 0.5
         local x23, y23 = (x2 + x3) * 0.5, (y2 + y3) * 0.5
@@ -6243,7 +6263,7 @@ local function PathBezierQuadraticCurveToCasteljau(path, x1, y1, x2, y2, x3, y3,
     local dy = y3 - y1
     local det = (x2 - x3) * dy - (y2 - y3) * dx
     if det * det * 4.0 < max_error_sqr * (dx * dx + dy * dy) then
-        path:push_back(ImVec2(x3, y3))
+        path:push_back(_ImVec2(x3, y3))
     elseif level < 10 then
         local x12, y12 = (x1 + x2) * 0.5, (y1 + y2) * 0.5
         local x23, y23 = (x2 + x3) * 0.5, (y2 + y3) * 0.5

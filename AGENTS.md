@@ -1,43 +1,47 @@
-# AGENTS.md — Syncing with upstream dear imgui
+# Project instructions
 
-Notes for LLM agents porting upstream C++ commits to this Lua port.
+Instructions in this file apply repository-wide. Read nested `AGENTS.md` files before changing files below their directories; nested files add or override local guidance.
 
-## Repos
+## Project map
 
-- Lua port (this repo): `lua/` mirrors `imgui*.cpp/h` file-by-file (`imgui.cpp` → `imgui.lua`, `imgui_internal.h` → `imgui_internal.lua`, etc.)
-- C++ fork used as sync source: `Documents/REPO/imgui` (has `upstream` remote = ocornut/imgui)
-- Reference branch: `master` for core, **docking** for viewport-related code
+- `lua/` contains Lua port of Dear ImGui. Read `lua/AGENTS.md` before changing it.
+- `lua/backends/` contains platform/render backends. Read `lua/backends/AGENTS.md` too.
+- `lua/autorun/` contains Garry's Mod loading, tests, and temporary profiling workloads.
+- C++ sync source is `~/Documents/REPO/imgui`, with `upstream` pointing to `ocornut/imgui`.
+- Use C++ `master` for core changes and official `docking` for viewport-related changes.
 
-## Sync workflow
+## Upstream sync workflow
 
-1. `git log --oneline <last-synced>..<target>` in the C++ fork to list commits
-2. Review each commit diff; skip backend/example/docs/CI-only commits and C++-only constructs (macros like IM_FMTARGS, static analysis annotations)
-3. Port applicable changes to `lua/`
-4. Stage only (`git add`) unless told to commit
-5. Commit message format: header `Sync some changes until ocornut/imgui@<full-hash> (included)`, details only when asked
-6. Fast-forward the C++ fork: `git merge --ff-only <target>`; user pushes
+1. In C++ checkout, run `git log --oneline <last-synced>..<target>` and review every commit and diff.
+2. Skip backend/example/docs/CI-only commits and C++-only annotations or macros when they have no Lua-visible effect.
+3. Port applicable behavior into corresponding files under `lua/`.
+4. Preserve upstream names, structure, ordering, and behavior unless Lua or Garry's Mod requires adaptation.
+5. Record meaningful Lua-specific divergence using the `LUA:` convention in `lua/AGENTS.md`, and report unnecessary structural divergence.
+6. Stage changed project files. Do not commit, push, rewrite history, or fast-forward C++ checkout unless user explicitly asks.
+7. If asked to commit a sync, use header `Sync some changes until ocornut/imgui@<full-hash> (included)`; add details only when requested.
+8. If asked to advance C++ fork, use `git merge --ff-only <target>`; user handles pushes unless explicitly delegated.
 
-## Lua port rules
+## Git and change discipline
 
-- **Numbers are doubles**: int-overflow/cast fixes are usually no-ops — note them as skipped
-- **LuaJIT `bit.*` is 32-bit and wraps**: shifts >= 32 or negative need guards (example see `TREE_NODE_GET_DEPTH_MASK`)
-- **`goto` cannot jump forward into scope of locals declared after it** — hoist declarations above loops (GMod LuaJIT rejects the file otherwise, killing everything the file defines)
-- **1-based indexing**: `Data[i]` arrays, `(yi+1)%2` ≡ C++ `(yi^1)&1` parity tricks
-- **Runtime-conditional C macros**: can port as zero-argument functions preserving exact upstream macro names if suitable
-- **0 is truthy in Lua**: `and/or` chains are safe for numeric bit ops
-- **Tables vs values**: use `ImVec2_Copy`/`ImRect_Copy` etc. where C++ assigns structs by value
-- **Widget returns**: value widgets return `updated_value, changed`; e.g. `Checkbox()` returns `pressed, updated_value`
-- **Pointer refs**: when pointer identity matters, represent C++ element pointers as 1-based indices (e.g. `item_ref = 1`, value `items[item_ref]`); translate `&item != item_ref` to `i ~= item_ref`
-- **Raw scratch reinterpretation**: Lua cannot reinterpret typed `ImVector` storage as C++ does. Use one flat Lua-specific buffer mirroring upstream regions; do not add scratch wrapper classes, nested owner tables, or cached stack objects
+- Preserve unrelated user changes. Never reset, discard, or overwrite them.
+- Stage only intended project files. Keep temporary benchmarks and generated profiler workloads unstaged.
+- Exact upstream enum renames should not retain compatibility aliases unless requested.
+- Do not activate upstream `#if 0` or disabled experiments.
+- Preserve known upstream oddities unless Lua correctness requires a documented adaptation.
+- Use `--force-with-lease`, never plain `--force`, if user explicitly asks to push rewritten `sync` history.
 
-## Style rules
+## Validation
 
-- Files use CRLF line endings — preserve them
-- Comments added during porting: no trailing `.`
-- Drop `[OBSOLETE]` code/comments entirely — do not port obsolete fallbacks
-- Keep `--- @field` annotations column-aligned within their block
-- Drop upstream comments (FIXME, NB, issue refs) where the surrounding code is ported
+- Run `git diff --check` and inspect staged diff before reporting completion.
+- Garry's Mod behavior still needs runtime validation for rendering, input, callbacks, and engine API limits.
+- Use deterministic workloads and compare like-for-like profiles; profiling procedure is in `lua/AGENTS.md`.
 
-## Environment
+## Profiling and experiments
 
-- No lua/luajit interpreter available — verify syntax by careful review (especially `goto` scope rules)
+- Supported in-game profiling uses `gm_jit_profile` and `gmcl_lj_flamegraph`.
+- IDA Pro 9.1 is available for headless native-code analysis at `~/.ida-pro-9.1/idat`. Use it to inspect Garry's Mod engine bindings when Lua-visible behavior cannot explain a limit; keep analysis scripts and generated reports outside repository, normally under `/tmp`.
+- Reverse engineering is for understanding exposed behavior and performance, not modifying game binaries or bypassing security controls.
+- Garry's Mod intentionally disables `jit.attach`, `jit.util`, `jit.dump`, and related introspection APIs. Do not binary-patch or bypass those controls.
+- Flamegraphs identify CPU costs; constructor counters and GC deltas identify allocation costs. Use both.
+- Optimize measured hotspots, not syntax volume. Re-run equivalent workloads and separate inclusive attribution from exclusive work.
+- Remove temporary stress tests from `lua/autorun/imgui_test.lua` when profiling ends.
