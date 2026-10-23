@@ -703,44 +703,90 @@ local function u32ToRGBA(col)
     return bitAnd(bitRShift(col, 0), 0xFF), bitAnd(bitRShift(col, 8), 0xFF), bitAnd(bitRShift(col, 16), 0xFF), bitAnd(bitRShift(col, 24), 0xFF)
 end
 
--- GMod dynamic meshes are limited to 32768 vertices, keep chunks triangle-aligned
-local MAX_MESH_ELEM_COUNT = 32766
+local function meshVtx(vtx)
+    meshPosition(vtx[1][1], vtx[1][2], 0)
+    meshTexCoord(0, vtx[2][1], vtx[2][2])
+    meshColor(u32ToRGBA(vtx[3]))
+    meshAdvVtx()
+end
 
-local function DrawIndexedTriangles(idx_data, vtx_data, pcmd)
-    for elem_start = 0, pcmd.ElemCount - 1, MAX_MESH_ELEM_COUNT do
-        local elem_count = pcmd.ElemCount - elem_start
-        if elem_count > MAX_MESH_ELEM_COUNT then
-            elem_count = MAX_MESH_ELEM_COUNT
+-- GMod dynamic meshes are limited to 32768 vertices and indices
+local MAX_MESH_INDEX_COUNT = 32768
+local MAX_MESH_TRIANGLE_ELEM_COUNT = math.floor(MAX_MESH_INDEX_COUNT / 3) * 3
+local MAX_MESH_QUAD_COUNT = math.floor(MAX_MESH_INDEX_COUNT / 6)
+-- Amortize additional mesh.Begin()/End() calls
+local MIN_MESH_QUAD_RUN = 16
+
+-- Submit an index range as triangle-list chunks.
+local function _DrawIndexedTriangles(idx_data, vtx_data, pcmd, elem_start, elem_count)
+    local idx_offset = pcmd.IdxOffset
+    local vtx_offset = pcmd.VtxOffset
+    local elem_end = elem_start + elem_count
+    for chunk_start = elem_start, elem_end - 1, MAX_MESH_TRIANGLE_ELEM_COUNT do
+        local chunk_count = math.min(elem_end - chunk_start, MAX_MESH_TRIANGLE_ELEM_COUNT)
+        mesh.Begin(MATERIAL_TRIANGLES, chunk_count / 3)
+        for i = chunk_start, chunk_start + chunk_count - 1, 3 do
+            meshVtx(vtx_data[vtx_offset + idx_data[idx_offset + 1 + i]])
+            meshVtx(vtx_data[vtx_offset + idx_data[idx_offset + 2 + i]])
+            meshVtx(vtx_data[vtx_offset + idx_data[idx_offset + 3 + i]])
         end
-        mesh.Begin(MATERIAL_TRIANGLES, elem_count / 3)
-
-        -- It's strongly recommended here that number indices are used instead of string keys
-        for i = elem_start, elem_start + elem_count - 1, 3 do
-            local idx0 = idx_data[pcmd.IdxOffset + 1 + i]
-            local idx1 = idx_data[pcmd.IdxOffset + 2 + i]
-            local idx2 = idx_data[pcmd.IdxOffset + 3 + i]
-
-            local vtx0 = vtx_data[pcmd.VtxOffset + idx0]
-            local vtx1 = vtx_data[pcmd.VtxOffset + idx1]
-            local vtx2 = vtx_data[pcmd.VtxOffset + idx2]
-
-            meshPosition(vtx0[1][1], vtx0[1][2], 0)
-            meshTexCoord(0, vtx0[2][1], vtx0[2][2])
-            meshColor(u32ToRGBA(vtx0[3]))
-            meshAdvVtx()
-
-            meshPosition(vtx1[1][1], vtx1[1][2], 0)
-            meshTexCoord(0, vtx1[2][1], vtx1[2][2])
-            meshColor(u32ToRGBA(vtx1[3]))
-            meshAdvVtx()
-
-            meshPosition(vtx2[1][1], vtx2[1][2], 0)
-            meshTexCoord(0, vtx2[2][1], vtx2[2][2])
-            meshColor(u32ToRGBA(vtx2[3]))
-            meshAdvVtx()
-        end
-
         mesh.End()
+    end
+end
+
+-- Submit canonical `a, b, c, a, c, d` pairs as four-vertex quad chunks.
+local function _DrawIndexedQuads(idx_data, vtx_data, pcmd, elem_start, quad_count)
+    local idx_offset = pcmd.IdxOffset
+    local vtx_offset = pcmd.VtxOffset
+    for chunk_start = 0, quad_count - 1, MAX_MESH_QUAD_COUNT do
+        local chunk_count = math.min(quad_count - chunk_start, MAX_MESH_QUAD_COUNT)
+        mesh.Begin(MATERIAL_QUADS, chunk_count)
+        for quad = chunk_start, chunk_start + chunk_count - 1 do
+            local idx_base = idx_offset + elem_start + quad * 6
+            meshVtx(vtx_data[vtx_offset + idx_data[idx_base + 1]])
+            meshVtx(vtx_data[vtx_offset + idx_data[idx_base + 2]])
+            meshVtx(vtx_data[vtx_offset + idx_data[idx_base + 3]])
+            meshVtx(vtx_data[vtx_offset + idx_data[idx_base + 6]])
+        end
+        mesh.End()
+    end
+end
+
+local function _CountIndexedQuadRun(idx_data, idx_offset, elem_start, elem_end)
+    local elem = elem_start
+    while elem + 5 < elem_end do
+        local idx_base = idx_offset + elem
+        if idx_data[idx_base + 1] ~= idx_data[idx_base + 4] or idx_data[idx_base + 3] ~= idx_data[idx_base + 5] then
+            break
+        end
+        elem = elem + 6
+    end
+    return (elem - elem_start) / 6
+end
+
+-- Route index ranges through triangles or quads to reduce Lua-to-C vertex submission calls.
+-- Each quad submits 4 instead of 6 vertices, saving 8 mesh calls: 2 vertices × (Position + TexCoord + Color + AdvanceVertex).
+local function DrawIndexed(idx_data, vtx_data, pcmd)
+    if pcmd.ElemCount < MIN_MESH_QUAD_RUN * 6 then
+        _DrawIndexedTriangles(idx_data, vtx_data, pcmd, 0, pcmd.ElemCount)
+        return
+    end
+
+    local idx_off, elem, elem_end = pcmd.IdxOffset, 0, pcmd.ElemCount
+    local quad_count = _CountIndexedQuadRun(idx_data, idx_off, elem, elem_end)
+    while elem < elem_end do
+        if quad_count >= MIN_MESH_QUAD_RUN then
+            _DrawIndexedQuads(idx_data, vtx_data, pcmd, elem, quad_count)
+            elem = elem + quad_count * 6
+            quad_count = _CountIndexedQuadRun(idx_data, idx_off, elem, elem_end)
+        else
+            local triangle_start = elem
+            repeat
+                elem = elem + (quad_count > 0 and quad_count * 6 or 3)
+                quad_count = _CountIndexedQuadRun(idx_data, idx_off, elem, elem_end)
+            until elem >= elem_end or quad_count >= MIN_MESH_QUAD_RUN
+            _DrawIndexedTriangles(idx_data, vtx_data, pcmd, triangle_start, elem - triangle_start)
+        end
     end
 end
 
@@ -789,7 +835,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 render.PushFilterMin(bd.CurrentSampler)
                 render.PushFilterMag(bd.CurrentSampler)
 
-                DrawIndexedTriangles(idx_data, vtx_data, pcmd)
+                DrawIndexed(idx_data, vtx_data, pcmd)
 
                 render.PopFilterMin()
                 render.PopFilterMag()
