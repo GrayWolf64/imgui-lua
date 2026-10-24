@@ -832,10 +832,6 @@ function ImFontBaked()
     return this
 end
 
---- @class ImFontRemapGlyphIndex
---- @field FontSrcIdx int # 1-based source index
---- @field GlyphIdx   int # Raw glyph index in TTF/OTF file
-
 --- @class ImFont
 --- @field LastBaked                ImFontBaked
 --- @field OwnerAtlas               ImFontAtlas
@@ -848,7 +844,7 @@ end
 --- @field FallbackChar             ImWchar
 --- @field Used8kPagesMap           ImU8[]                 # 1-based table
 --- @field EllipsisAutoBake         bool
---- @field RemapPairs               table<ImGuiID, ImWchar|ImFontRemapGlyphIndex> # LUA: No ImGuiStorage
+--- @field RemapPairs               table<ImGuiID, integer> # LUA: No ImGuiStorage
 --- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont

@@ -8571,7 +8571,7 @@ end
 function ImGui.IsPopupOpenRequestForItem(popup_flags, id)
     local g = GImGui
     local mouse_button = ImGui.GetMouseButtonFromPopupFlags(popup_flags)
-    if ImGui.IsMouseReleased(mouse_button) and ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup) then
+    if ImGui.IsMouseReleased(mouse_button, id) and ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup) then
         return true
     end
     if g.NavOpenContextMenuItemId == id and (ImGui.IsItemFocused() or id == g.CurrentWindow.MoveId) then

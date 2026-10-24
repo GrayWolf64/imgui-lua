@@ -838,7 +838,7 @@ function MT.ImDrawList:PathStroke(col, thickness, flags)
     if not thickness then thickness = 1.0 end
     if not flags     then flags     = 0   end
 
-    self:_AddPolyline(self._Path.Data, self._Path.Size, col, thickness, flags, math.huge)
+    self:_AddPolyline(self._Path.Data, self._Path.Size, col, thickness, flags, FLT_MAX)
     self._Path.Size = 0
 end
 
@@ -1402,7 +1402,7 @@ end
 --- @field Stb                  ImStbTexteditState  # State for stb_textedit.lua
 --- @field Flags                ImGuiInputTextFlags
 --- @field ID                   ImGuiID             # widget id owning the text state
---- @field LastFrameActive      int                 # Last used frame-count (unused)
+--- @field LastFrameActive      int
 --- @field TextLen              int                 # UTF-8 length of the string in TextA (in bytes)
 --- @field TextSrc              ImStringBuffer      # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
 --- @field TextA                ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
@@ -2347,29 +2347,29 @@ local function ImDrawDataBuilder()
 end
 
 --- @class ImGuiViewportP : ImGuiViewport
---- @field Window?                     ImGuiWindow
---- @field Idx                         int                      # Initial value = -1, then becomes 1-based index
---- @field LastFrameActive             int
---- @field LastFocusedStampCount       int
---- @field LastNameHash                ImGuiID
---- @field LastPos                     ImVec2
---- @field LastSize                    ImVec2
---- @field Alpha                       float
---- @field LastAlpha                   float
---- @field LastFocusedHadNavWindow     bool
---- @field PlatformMonitor             short
+--- @field Window?                      ImGuiWindow
+--- @field Idx                          int                      # Initial value = -1, then becomes 1-based index
+--- @field LastFrameActive              int
+--- @field LastFocusedStampCount        int
+--- @field LastNameHash                 ImGuiID
+--- @field LastPos                      ImVec2
+--- @field LastSize                     ImVec2
+--- @field Alpha                        float
+--- @field LastAlpha                    float
+--- @field LastFocusedHadNavWindow      bool
+--- @field PlatformMonitor              short
 --- @field BgFgDrawListsLastFrameActive [int, int]               # 1-based
 --- @field BgFgDrawListsLastTimeActive  [int, int]               # 1-based
 --- @field BgFgDrawLists                [ImDrawList, ImDrawList] # 1-based
---- @field DrawDataP                   ImDrawData
---- @field DrawDataBuilder             ImDrawDataBuilder
---- @field LastPlatformPos             ImVec2
---- @field LastPlatformSize            ImVec2
---- @field LastRendererSize            ImVec2
---- @field WorkInsetMin                ImVec2
---- @field WorkInsetMax                ImVec2
---- @field BuildWorkInsetMin           ImVec2
---- @field BuildWorkInsetMax           ImVec2
+--- @field DrawDataP                    ImDrawData
+--- @field DrawDataBuilder              ImDrawDataBuilder
+--- @field LastPlatformPos              ImVec2
+--- @field LastPlatformSize             ImVec2
+--- @field LastRendererSize             ImVec2
+--- @field WorkInsetMin                 ImVec2
+--- @field WorkInsetMax                 ImVec2
+--- @field BuildWorkInsetMin            ImVec2
+--- @field BuildWorkInsetMax            ImVec2
 local IMGUI_VIEWPORT_P = {}
 IMGUI_VIEWPORT_P.__index = IMGUI_VIEWPORT_P
 

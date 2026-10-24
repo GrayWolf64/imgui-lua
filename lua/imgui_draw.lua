@@ -2031,7 +2031,7 @@ local function InitCornerGeometry(cx, cy, rounding, circle_segment_max_error, li
 end
 
 local function SampleConvex(x, y, line_normals, line_distances, num_lines)
-    local result = -math.huge
+    local result = -FLT_MAX
     for i = 1, num_lines do
         local normal = line_normals[i]
         local d = normal.x * x + normal.y * y + line_distances[i]
@@ -2498,6 +2498,11 @@ function MT.ImFont:AddRemapCodepoint(from_codepoint, to_codepoint)
     self.RemapPairs[from_codepoint] = to_codepoint
 end
 
+local IMFONT_REMAPVALUE_GLYPHIDX_SHIFT   = 0
+local IMFONT_REMAPVALUE_GLYPHIDX_MASK    = 0xFFFF
+local IMFONT_REMAPVALUE_FONTSRCIDX_SHIFT = 16
+local IMFONT_REMAPVALUE_FONTSRCIDX_MASK  = 0xFF0000
+
 --- @param from_codepoint ImWchar
 --- @param font_src_idx   int # 1-based source index, or -1 for last added source
 --- @param glyph_idx      int # Raw glyph index in TTF/OTF file
@@ -2505,9 +2510,10 @@ function MT.ImFont:AddRemapCodepointToGlyphIndex(from_codepoint, font_src_idx, g
     if font_src_idx == -1 then
         font_src_idx = self.Sources.Size
     end
-    IM_ASSERT(font_src_idx >= 1 and font_src_idx <= self.Sources.Size and font_src_idx <= 256)
-    IM_ASSERT(glyph_idx >= 0 and glyph_idx <= 0xFFFF)
-    self.RemapPairs[from_codepoint] = { FontSrcIdx = font_src_idx, GlyphIdx = glyph_idx }
+    IM_ASSERT(font_src_idx >= 1 and font_src_idx <= self.Sources.Size and bit.band(bit.lshift(font_src_idx - 1, IMFONT_REMAPVALUE_FONTSRCIDX_SHIFT), bit.bnot(IMFONT_REMAPVALUE_FONTSRCIDX_MASK)) == 0)
+    IM_ASSERT(glyph_idx >= 0 and bit.band(bit.lshift(glyph_idx, IMFONT_REMAPVALUE_GLYPHIDX_SHIFT), bit.bnot(IMFONT_REMAPVALUE_GLYPHIDX_MASK)) == 0)
+    local data = bit.bor(bit.lshift(1, 31), bit.lshift(font_src_idx - 1, IMFONT_REMAPVALUE_FONTSRCIDX_SHIFT), bit.lshift(glyph_idx, IMFONT_REMAPVALUE_GLYPHIDX_SHIFT))
+    self.RemapPairs[from_codepoint] = data
 end
 
 --- @param atlas     ImFontAtlas
@@ -2520,10 +2526,15 @@ end
 local function ImFontAtlas_FontHookRemapCodepoint(atlas, font, codepoint)
     -- IM_UNUSED(atlas)
     local data = font.RemapPairs[codepoint]
-    if type(data) == "table" then
-        return -1, data.FontSrcIdx, data.GlyphIdx
+    if not data then
+        return codepoint, -1, -1
     end
-    return data or codepoint, -1, -1
+    if bit.band(data, bit.lshift(1, 31)) ~= 0 then
+        local font_src_idx = bit.rshift(bit.band(data, IMFONT_REMAPVALUE_FONTSRCIDX_MASK), IMFONT_REMAPVALUE_FONTSRCIDX_SHIFT) + 1
+        local glyph_idx = bit.rshift(bit.band(data, IMFONT_REMAPVALUE_GLYPHIDX_MASK), IMFONT_REMAPVALUE_GLYPHIDX_SHIFT)
+        return -1, font_src_idx, glyph_idx
+    end
+    return data, -1, -1
 end
 
 --- @param baked                ImFontBaked
@@ -3379,8 +3390,10 @@ function MT.ImDrawList:_SetDrawListSharedData(data)
     end
 end
 
--- TODO:
 function MT.ImDrawList:_ResetForNewFrame()
+    if self._Splitter._Count > 1 then
+        self._Splitter:Merge(self)
+    end
     self.CmdBuffer:resize(0)
     self.IdxBuffer:resize(0)
     self.VtxBuffer:resize(0)
@@ -3624,8 +3637,10 @@ function MT.ImDrawListSplitter:Merge(draw_list)
     draw_list.IdxBuffer:resize(draw_list.IdxBuffer.Size + new_idx_buffer_count)
     for i = 2, self._Count do
         local channel = self._Channels.Data[i]
+        -- LUA: Transfer ownership; channel contents are discarded after merge
         for cmd_n = 1, channel._CmdBuffer.Size do
             draw_list.CmdBuffer.Data[cmd_write] = channel._CmdBuffer.Data[cmd_n]
+            channel._CmdBuffer.Data[cmd_n] = nil
             cmd_write = cmd_write + 1
         end
         for idx_n = 1, channel._IdxBuffer.Size do
@@ -4512,7 +4527,7 @@ end
 function MT.ImDrawList:AddPolyline(points, points_count, col, thickness, flags)
     if flags == nil then flags = 0 end
 
-    self:_AddPolyline(points, points_count, col, thickness, flags, math.huge)
+    self:_AddPolyline(points, points_count, col, thickness, flags, FLT_MAX)
 end
 
 function MT.ImDrawList:_AddPolyline(points, points_count, col, thickness, flags, max_inner_offset)
@@ -5571,7 +5586,7 @@ function MT.ImDrawList:AddQuad(p1, p2, p3, p4, col, thickness, flags)
     local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
     flags = bit.bor(bit.band(flags, bit.bnot(ImDrawFlags.StrokeMask_)), stroke_pos)
     local points = {p1, p2, p3, p4}
-    self:_AddPolyline(points, 4, col, thickness, bit.bor(flags, ImDrawFlags.Closed), math.huge)
+    self:_AddPolyline(points, 4, col, thickness, bit.bor(flags, ImDrawFlags.Closed), FLT_MAX)
 end
 
 function MT.ImDrawList:AddQuadFilled(p1, p2, p3, p4, col)
@@ -5590,7 +5605,7 @@ function MT.ImDrawList:AddTriangle(p1, p2, p3, col, thickness, flags)
     local stroke_pos = GetStrokePos(flags, ImDrawFlags.StrokeInside)
     flags = bit.bor(bit.band(flags, bit.bnot(ImDrawFlags.StrokeMask_)), stroke_pos)
     local points = {p1, p2, p3}
-    self:_AddPolyline(points, 3, col, thickness, bit.bor(flags, ImDrawFlags.Closed), math.huge)
+    self:_AddPolyline(points, 3, col, thickness, bit.bor(flags, ImDrawFlags.Closed), FLT_MAX)
 end
 
 function MT.ImDrawList:AddTriangleFilled(p1, p2, p3, col)
