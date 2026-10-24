@@ -505,6 +505,62 @@ local function DemoWindowWidgetsLiveEdit()
     -- TODO:
 end
 
+local DemoWindowWidgetsMixedValues do
+
+local use_liveedit = false
+local items = { 12.0, 0.0, 0.0 }
+
+function DemoWindowWidgetsMixedValues()
+    if ImGui.TreeNode("Mixed Values") then
+        local item_ref = 1
+        local is_mixed = items[item_ref] ~= items[2] or items[item_ref] ~= items[3]
+        _, use_liveedit = ImGui.Checkbox("ImGuiItemFlags.LiveEditOnInput", use_liveedit)
+
+        ImGui.SeparatorText("Scalar/Text Widgets")
+        ImGui.PushItemFlag(ImGuiItemFlags.LiveEditOnInput, use_liveedit)
+        ImGui.PushItemFlag(ImGuiItemFlags.MixedValue, is_mixed)
+        local edited, changed
+        items[item_ref], changed = ImGui.DragFloat("DragFloat", items[item_ref])
+        edited = changed
+        items[item_ref], changed = ImGui.SliderFloat("SliderFloat", items[item_ref], 0.0, 100.0)
+        edited = edited or changed
+        items[item_ref], changed = ImGui.InputFloat("InputFloat", items[item_ref], 1.0)
+        edited = edited or changed
+        if edited then
+            for i = 1, 3 do
+                if i ~= item_ref then
+                    items[i] = items[item_ref]
+                end
+            end
+        end
+        ImGui.PopItemFlag()
+
+        ImGui.Text("Underlying data:")
+        items[1] = ImGui.InputFloat("item 0 (ref)", items[1])
+        items[2] = ImGui.InputFloat("item 1", items[2])
+        items[3] = ImGui.InputFloat("item 2", items[3])
+        ImGui.PopItemFlag()
+
+        ImGui.SeparatorText("Others Widgets")
+        ImGui.Text("(note: edits are not applied in this demo)")
+        local b_on, b_off = true, false
+        _, b_on = ImGui.Checkbox("Checkbox On", b_on)
+        _, b_off = ImGui.Checkbox("Checkbox Off", b_off)
+        ImGui.PushItemFlag(ImGuiItemFlags.MixedValue, true)
+        _, b_off = ImGui.Checkbox("Checkbox Mixed", b_off)
+        ImGui.RadioButtonEx("RadioButton Mixed", true)
+        ImGui.SameLine()
+        ImGui.RadioButtonEx("RadioButton Mixed##2", true)
+        local color = { 0.5, 0.5, 0.5, 0.5 }
+        ImGui.ColorEdit4("ColorEdit4", color)
+        ImGui.PopItemFlag()
+
+        ImGui.TreePop()
+    end
+end
+
+end
+
 local DemoWindowWidgetsPlotting
 do
 
@@ -685,6 +741,7 @@ local function DemoWindowWidgets()
     DemoWindowWidgetsColorAndPickers()
     DemoWindowWidgetsImages()
     DemoWindowWidgetsLiveEdit()
+    DemoWindowWidgetsMixedValues()
     DemoWindowWidgetsPlotting()
     DemoWindowWidgetsProgressBars()
     DemoWindowWidgetsVerticalSliders()
@@ -833,6 +890,10 @@ end
 end
 
 local function ShowExampleAppImageViewer()
+    -- TODO:
+end
+
+local function ShowExampleAppCustomRendering()
     -- TODO:
 end
 

@@ -679,7 +679,7 @@ function ImGui.UpdateCurrentFontSize(restore_font_size_after_scaling)
     final_size = ImGui.GetRoundedFontSize(final_size)
     final_size = ImClamp(final_size, 4.0, IMGUI_FONT_SIZE_MAX)
     if (g.Font ~= nil and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) ~= 0) then
-        g.Font.CurrentRasterizerDensity = g.FontRasterizerDensity
+        g.Font.CurrentRasterizerDensity = g.CurrentPixelDensity
     end
     g.FontSize = final_size
     g.FontBaked = (g.Font ~= nil and window ~= nil) and g.Font:GetFontBaked(final_size) or nil
@@ -1153,6 +1153,37 @@ function ImGui.IsMouseDragging(button, lock_threshold)
         return false
     end
     return ImGui.IsMouseDragPastThreshold(button, lock_threshold)
+end
+
+--- @param button?         ImGuiMouseButton
+--- @param lock_threshold? float
+--- @return ImVec2
+function ImGui.GetMouseDragDelta(button, lock_threshold)
+    if button         == nil then button         = 0    end
+    if lock_threshold == nil then lock_threshold = -1.0 end
+
+    local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
+    if lock_threshold < 0.0 then
+        lock_threshold = g.IO.MouseDragThreshold
+    end
+    if g.IO.MouseDown[button] or g.IO.MouseReleased[button] then
+        if g.IO.MouseDragMaxDistanceSqr[button] >= lock_threshold * lock_threshold then
+            if ImGui.IsMousePosValid(g.IO.MousePos) and ImGui.IsMousePosValid(g.IO.MouseClickedPos[button]) then
+                return g.IO.MousePos - g.IO.MouseClickedPos[button]
+            end
+        end
+    end
+    return ImVec2(0.0, 0.0)
+end
+
+--- @param button? ImGuiMouseButton
+function ImGui.ResetMouseDragDelta(button)
+    if button == nil then button = 0 end
+
+    local g = GImGui
+    IM_ASSERT(button >= 0 and button < 3) -- IM_COUNTOF(g.IO.MouseDown)
+    ImVec2_Copy(g.IO.MouseClickedPos[button], g.IO.MousePos)
 end
 
 --- @param pos ImVec2
@@ -2840,9 +2871,64 @@ function ImGui.IsKeyPressedEx(key, flags, owner_id)
     return true
 end
 
--- TODO:
+local GKeyNames = {
+    "Tab", "LeftArrow", "RightArrow", "UpArrow", "DownArrow", "PageUp", "PageDown",
+    "Home", "End", "Insert", "Delete", "Backspace", "Space", "Enter", "Escape",
+    "LeftCtrl", "LeftShift", "LeftAlt", "LeftSuper", "RightCtrl", "RightShift", "RightAlt", "RightSuper", "Menu",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H",
+    "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+    "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+    "F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "F24",
+    "Apostrophe", "Comma", "Minus", "Period", "Slash", "Semicolon", "Equal", "LeftBracket",
+    "Backslash", "RightBracket", "GraveAccent", "CapsLock", "ScrollLock", "NumLock", "PrintScreen",
+    "Pause", "Keypad0", "Keypad1", "Keypad2", "Keypad3", "Keypad4", "Keypad5", "Keypad6",
+    "Keypad7", "Keypad8", "Keypad9", "KeypadDecimal", "KeypadDivide", "KeypadMultiply",
+    "KeypadSubtract", "KeypadAdd", "KeypadEnter", "KeypadEqual",
+    "AppBack", "AppForward", "Oem102",
+    "GamepadStart", "GamepadBack",
+    "GamepadFaceLeft", "GamepadFaceRight", "GamepadFaceUp", "GamepadFaceDown",
+    "GamepadDpadLeft", "GamepadDpadRight", "GamepadDpadUp", "GamepadDpadDown",
+    "GamepadL1", "GamepadR1", "GamepadL2", "GamepadR2", "GamepadL3", "GamepadR3",
+    "GamepadLStickLeft", "GamepadLStickRight", "GamepadLStickUp", "GamepadLStickDown",
+    "GamepadRStickLeft", "GamepadRStickRight", "GamepadRStickUp", "GamepadRStickDown",
+    "MouseLeft", "MouseRight", "MouseMiddle", "MouseX1", "MouseX2", "MouseWheelX", "MouseWheelY",
+    "ModCtrl", "ModShift", "ModAlt", "ModSuper"
+}
+IM_ASSERT(ImGuiKey.NamedKey_COUNT == #GKeyNames)
+
+--- @param key ImGuiKey
+--- @return string
+function ImGui.GetKeyName(key)
+    if key == ImGuiKey.None then
+        return "None"
+    end
+    IM_ASSERT(ImGui.IsNamedKeyOrMod(key), "Support for user key indices was dropped in favor of ImGuiKey. Please update backend and user code.")
+    if bit.band(key, ImGuiMod_Mask_) ~= 0 then
+        key = ImGui.ConvertSingleModFlagToKey(key)
+    end
+    if not ImGui.IsNamedKey(key) then
+        return "Unknown"
+    end
+    return GKeyNames[key - ImGuiKey.NamedKey_BEGIN + 1]
+end
+
+--- @param key_chord ImGuiKeyChord
+--- @return string
 function ImGui.GetKeyChordName(key_chord)
-    error("NOT IMPLEMENTED", 2)
+    local key = bit.band(key_chord, bit.bnot(ImGuiMod_Mask_))
+    if ImGui.IsLRModKey(key) then
+        key_chord = bit.band(key_chord, bit.bnot(GetModForLRModKey(key)))
+    end
+
+    local parts = {}
+    if bit.band(key_chord, ImGuiMod_Ctrl) ~= 0 then parts[#parts + 1] = "Ctrl" end
+    if bit.band(key_chord, ImGuiMod_Shift) ~= 0 then parts[#parts + 1] = "Shift" end
+    if bit.band(key_chord, ImGuiMod_Alt) ~= 0 then parts[#parts + 1] = "Alt" end
+    if bit.band(key_chord, ImGuiMod_Super) ~= 0 then parts[#parts + 1] = "Super" end
+    if key ~= ImGuiKey.None or key_chord == ImGuiKey.None then
+        parts[#parts + 1] = ImGui.GetKeyName(key)
+    end
+    return table.concat(parts, "+")
 end
 
 --- @param t0           float
@@ -3120,6 +3206,18 @@ function ImGui.SetShortcutRouting(key_chord, flags, owner_id)
         -- IMGUI_DEBUG_LOG_INPUTROUTING("--> granting current route")
     end
     return routing_data.RoutingCurr == owner_id
+end
+
+--- @return ImVec2
+function ImGui.GetMousePosOnOpeningCurrentPopup()
+    local g = GImGui
+    local mouse_pos
+    if g.BeginPopupStack.Size > 0 then
+        mouse_pos = g.BeginPopupStack.Data[g.BeginPopupStack.Size].OpenMousePos
+    else
+        mouse_pos = g.IO.MousePos
+    end
+    return ImVec2(mouse_pos.x, mouse_pos.y)
 end
 
 --- @param mouse_pos? ImVec2
@@ -4302,7 +4400,7 @@ local function RenderWindowOuterBorders(window)
 
     if g.Style.FrameBorderSize > 0 and (bit.band(window.Flags, ImGuiWindowFlags.NoTitleBar) == 0) then
         local y = window.Pos.y + window.TitleBarHeight - 1
-        window.DrawList:AddLineH(window.Pos.x + border_size * 0.5, window.Pos.x + window.Size.x - border_size * 0.5, y, border_col, g.Style.FrameBorderSize)
+        window.DrawList:AddLineH(window.Pos.x + border_size, window.Pos.x + window.Size.x - border_size, y, border_col, g.Style.FrameBorderSize, ImDrawFlags.StrokeCenterBiased)
     end
 end
 
@@ -4345,7 +4443,7 @@ local function RenderWindowDecorations(window, title_bar_rect, title_bar_is_high
 
             if bit.band(bg_col, IM_COL32_A_MASK) ~= 0 then
                 local bg_rect = ImRect(window.Pos + ImVec2(0, window.TitleBarHeight), window.Pos + window.Size)
-                local bg_rounding_flags = (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and ImDrawFlags.RoundCornersAll or ImDrawFlags.RoundCornersBottom
+                local bg_rounding_flags = (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and ImDrawFlags.RoundAll or ImDrawFlags.RoundBottom
                 local bg_draw_list = window.DrawList
                 bg_draw_list:AddRectFilled(bg_rect.Min, bg_rect.Max, bg_col, window_rounding, bg_rounding_flags)
             end
@@ -4354,16 +4452,16 @@ local function RenderWindowDecorations(window, title_bar_rect, title_bar_is_high
         -- Title bar
         if bit.band(flags, ImGuiWindowFlags.NoTitleBar) == 0 and not window.DockIsActive then
             local title_bar_col = ImGui.GetColorU32(title_bar_is_highlight and ImGuiCol.TitleBgActive or ImGuiCol.TitleBg)
-            window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundCornersTop)
+            window.DrawList:AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags.RoundTop)
         end
 
         -- Menu bar
         if bit.band(flags, ImGuiWindowFlags.MenuBar) ~= 0 then
             local menu_bar_rect = window:MenuBarRect()
             menu_bar_rect:ClipWith(window:Rect())
-            window.DrawList:AddRectFilled(menu_bar_rect.Min, menu_bar_rect.Max, ImGui.GetColorU32(ImGuiCol.MenuBarBg), (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and window_rounding or 0.0, ImDrawFlags.RoundCornersTop)
+            window.DrawList:AddRectFilled(menu_bar_rect.Min, menu_bar_rect.Max, ImGui.GetColorU32(ImGuiCol.MenuBarBg), (bit.band(flags, ImGuiWindowFlags.NoTitleBar) ~= 0) and window_rounding or 0.0, ImDrawFlags.RoundTop)
             if style.FrameBorderSize > 0.0 and menu_bar_rect.Max.y < window.Pos.y + window.Size.y then
-                window.DrawList:AddLineH(menu_bar_rect.Min.x + window_border_size * 0.5, menu_bar_rect.Max.x - window_border_size * 0.5, menu_bar_rect.Max.y, ImGui.GetColorU32(ImGuiCol.Border), style.FrameBorderSize)
+                window.DrawList:AddLineH(menu_bar_rect.Min.x + window_border_size, menu_bar_rect.Max.x - window_border_size, menu_bar_rect.Max.y, ImGui.GetColorU32(ImGuiCol.Border), style.FrameBorderSize, ImDrawFlags.StrokeCenterBiased)
             end
         end
 
@@ -4574,7 +4672,7 @@ local function SetCurrentWindow(window)
     if window then
         if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasTextures) ~= 0 then
             local viewport = window.Viewport
-            g.FontRasterizerDensity = (viewport.FramebufferScale.x ~= 0.0) and viewport.FramebufferScale.x or g.IO.DisplayFramebufferScale.x
+            g.CurrentPixelDensity = (viewport.FramebufferScale.x ~= 0.0) and viewport.FramebufferScale.x or g.IO.DisplayFramebufferScale.x
         end
 
         local backup_skip_items = window.SkipItems
@@ -4751,6 +4849,28 @@ function ImGui.SetNextWindowBgAlpha(alpha)
     g.NextWindowData.BgAlphaVal = alpha
 end
 
+function ImGui.SetNextWindowFlags(flags, enabled)
+    local g = GImGui
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasWindowFlags) == 0 then
+        g.NextWindowData.WindowFlagsSet = 0
+        g.NextWindowData.WindowFlagsClear = 0
+    end
+    g.NextWindowData.WindowFlagsSet = enabled and bit.bor(g.NextWindowData.WindowFlagsSet, flags) or bit.band(g.NextWindowData.WindowFlagsSet, bit.bnot(flags))
+    g.NextWindowData.WindowFlagsClear = (not enabled) and bit.bor(g.NextWindowData.WindowFlagsClear, flags) or bit.band(g.NextWindowData.WindowFlagsClear, bit.bnot(flags))
+    g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasWindowFlags)
+end
+
+function ImGui.SetNextWindowChildFlags(flags, enabled)
+    local g = GImGui
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags) == 0 then
+        g.NextWindowData.ChildFlagsSet = 0
+        g.NextWindowData.ChildFlagsClear = 0
+    end
+    g.NextWindowData.ChildFlagsSet = enabled and bit.bor(g.NextWindowData.ChildFlagsSet, flags) or bit.band(g.NextWindowData.ChildFlagsSet, bit.bnot(flags))
+    g.NextWindowData.ChildFlagsClear = (not enabled) and bit.bor(g.NextWindowData.ChildFlagsClear, flags) or bit.band(g.NextWindowData.ChildFlagsClear, bit.bnot(flags))
+    g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags)
+end
+
 function ImGui.GetWindowDrawList()
     local window = ImGui.GetCurrentWindow()
     return window.DrawList
@@ -4800,6 +4920,10 @@ function ImGui.BeginChildEx(name, id, size_arg, child_flags, window_flags)
     local g = GImGui
     local parent_window = g.CurrentWindow
     IM_ASSERT(id ~= 0)
+
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags) ~= 0 then
+        child_flags = bit.band(bit.bor(child_flags, g.NextWindowData.ChildFlagsSet), bit.bnot(g.NextWindowData.ChildFlagsClear))
+    end
 
     -- Sanity check as it is likely that some user will accidentally pass ImGuiWindowFlags into the ImGuiChildFlags argument
     local ImGuiChildFlags_SupportedMask_ = bit.bor(ImGuiChildFlags.Borders, ImGuiChildFlags.AlwaysUseWindowPadding, ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY, ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize, ImGuiChildFlags.FrameStyle, ImGuiChildFlags.NavFlattened)
@@ -4858,14 +4982,7 @@ function ImGui.BeginChildEx(name, id, size_arg, child_flags, window_flags)
         end
     end
     ImGui.SetNextWindowSize(size)
-
-    -- Forward child flags (we allow prior settings to merge but it'll only work for adding flags)
-    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags) ~= 0 then
-        g.NextWindowData.ChildFlags = bit.bor(g.NextWindowData.ChildFlags, child_flags)
-    else
-        g.NextWindowData.ChildFlags = child_flags
-    end
-    g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags)
+    ImGui.SetNextWindowChildFlags(child_flags, true)
 
     -- Build up name. If you need to append to a same child from multiple location in the ID stack, use BeginChild(ImGuiID id) with a stable value.
     -- FIXME: 2023/11/14: commented out shorted version. We had an issue with multiple ### in child window path names, which the trailing hash helped workaround.
@@ -5134,6 +5251,10 @@ function ImGui.Begin(name, open, flags)
         window = CreateNewWindow(name, flags) --- @cast window ImGuiWindow
     end
 
+    if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasWindowFlags) ~= 0 then
+        flags = bit.band(bit.bor(flags, g.NextWindowData.WindowFlagsSet), bit.bnot(g.NextWindowData.WindowFlagsClear))
+    end
+
     local current_frame = g.FrameCount
     local first_begin_of_the_frame = (window.LastFrameActive ~= current_frame)
     window.IsFallbackWindow = (g.CurrentWindowStack.Size == 0 and g.WithinFrameScopeWithImplicitWindow)
@@ -5160,7 +5281,7 @@ function ImGui.Begin(name, open, flags)
         end
         window.FlagsPreviousFrame = window.Flags
         window.Flags = flags
-        window.ChildFlags = (bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags) ~= 0) and g.NextWindowData.ChildFlags or 0
+        window.ChildFlags = (bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags) ~= 0) and g.NextWindowData.ChildFlagsSet or 0
         window.LastFrameActive = current_frame
         window.LastTimeActive = g.Time
         window.BeginOrderWithinParent = 0
@@ -5301,6 +5422,18 @@ function ImGui.Begin(name, open, flags)
 
         if window.MemoryCompacted then
             ImGui.GcAwakeTransientWindowBuffers(window)
+        end
+
+        local window_title_visible_elsewhere = false
+        if g.NavWindowingListWindow ~= nil and g.NavWindowingListWindow.WasActive and bit.band(flags, ImGuiWindowFlags.NoNavFocus) == 0 then
+            window_title_visible_elsewhere = true
+        end
+        if bit.band(flags, ImGuiWindowFlags.ChildMenu) ~= 0 then
+            window_title_visible_elsewhere = true
+        end
+        if (window_title_visible_elsewhere or window_just_activated_by_user) and not window_just_created and name ~= window.Name then
+            window.Name = name
+            window.DrawList._OwnerName = window.Name
         end
 
         -- UPDATE CONTENTS SIZE, UPDATE HIDDEN STATUS
@@ -5662,6 +5795,7 @@ function ImGui.Begin(name, open, flags)
         window.DecoInnerSizeX1 = 0.0; window.DecoInnerSizeY1 = 0.0
 
         IM_ASSERT(window.DrawList.CmdBuffer.Size == 1 and window.DrawList.CmdBuffer.Data[1].ElemCount == 0)
+        window.DrawList:_SetPixelDensity(window.Viewport.FramebufferScale.x)
         window.DrawList:PushTexture(g.Font.OwnerAtlas.TexRef)
         ImGui.PushClipRect(host_rect.Min, host_rect.Max, false)
 
@@ -6554,22 +6688,31 @@ local function SetupDrawListSharedData()
         virtual_space:Add(viewport:GetMainRect())
     end
     g.DrawListSharedData.ClipRectFullscreen = virtual_space:ToVec4()
-    g.DrawListSharedData.CurveTessellationTol = g.Style.CurveTessellationTol
+    g.DrawListSharedData.CurveTessellationMaxError = g.Style.CurveTessellationMaxError
     g.DrawListSharedData:SetCircleTessellationMaxError(g.Style.CircleTessellationMaxError)
-    g.DrawListSharedData.InitialFlags = ImDrawListFlags.None
-    if g.Style.AntiAliasedLines then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedLines)
-    end
-    if g.Style.AntiAliasedLinesUseTex and not bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedLines) then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedLinesUseTex)
+    g.DrawListSharedData.InitialDrawFlags = ImDrawFlags.None
+    if bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedLines) ~= 0 then
+        g.Style.AntiAliasedLines = false
+        g.Style.AntiAliasedLineEnds = false
     end
     if g.Style.AntiAliasedFill then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AntiAliasedFill)
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.AAFill)
     end
-    if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset) then
-        g.DrawListSharedData.InitialFlags = bit.bor(g.DrawListSharedData.InitialFlags, ImDrawListFlags.AllowVtxOffset)
+    if g.Style.AntiAliasedLines then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.AALines)
     end
-    g.DrawListSharedData.InitialFringeScale = 1.0
+    if g.Style.AntiAliasedLineEnds then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.AALineEnds)
+    end
+    if g.IO.ConfigDebugDrawListDefaultsToStrokeLegacy then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.StrokeLegacy)
+    end
+    if bit.band(g.IO.Fonts.Flags, ImFontAtlasFlags.NoBakedRoundCorners) == 0 then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.UseTexForRoundCorners, ImDrawFlags.AllowTexForRoundCorners_)
+    end
+    if bit.band(g.IO.BackendFlags, ImGuiBackendFlags.RendererHasVtxOffset) ~= 0 then
+        g.DrawListSharedData.InitialDrawFlags = bit.bor(g.DrawListSharedData.InitialDrawFlags, ImDrawFlags.UseVtxOffset)
+    end
 end
 
 --- @param viewport ImGuiViewportP
@@ -6594,16 +6737,16 @@ local function InitViewportDrawData(viewport)
     draw_data.FrameCount    = g.FrameCount
     draw_data.TotalVtxCount = 0
     draw_data.TotalIdxCount = 0
-    draw_data.DisplayPos    = viewport.Pos
+    ImVec2_Copy(draw_data.DisplayPos, viewport.Pos)
     if is_minimized then
         draw_data.DisplaySize = ImVec2(0.0, 0.0)
     else
         ImVec2_Copy(draw_data.DisplaySize, viewport.Size)
     end
     if viewport.FramebufferScale.x ~= 0.0 then
-        draw_data.FramebufferScale = viewport.FramebufferScale
+        ImVec2_Copy(draw_data.FramebufferScale, viewport.FramebufferScale)
     else
-        draw_data.FramebufferScale = g.IO.DisplayFramebufferScale
+        ImVec2_Copy(draw_data.FramebufferScale, g.IO.DisplayFramebufferScale)
     end
 
     draw_data.OwnerViewport = viewport
@@ -6658,10 +6801,12 @@ local function GetViewportBgFgDrawList(viewport, drawlist_no, drawlist_name)
         viewport.BgFgDrawLists[drawlist_no] = draw_list
     end
 
-    if viewport.BgFgDrawListsLastTimeActive[drawlist_no] ~= g.Time then
+    if viewport.BgFgDrawListsLastFrameActive[drawlist_no] ~= g.FrameCount then
         draw_list:_ResetForNewFrame()
+        draw_list:_SetPixelDensity(viewport.FramebufferScale.x)
         draw_list:PushTexture(g.IO.Fonts.TexRef)
         draw_list:PushClipRect(viewport.Pos, viewport.Pos + viewport.Size, false)
+        viewport.BgFgDrawListsLastFrameActive[drawlist_no] = g.FrameCount
         viewport.BgFgDrawListsLastTimeActive[drawlist_no] = g.Time
     end
 
@@ -7067,7 +7212,7 @@ function ImGui.Render()
 
     for _, viewport in g.Viewports:iter() do
         InitViewportDrawData(viewport)
-        if viewport.BgFgDrawLists[1] ~= nil and viewport.BgFgDrawListsLastTimeActive[1] == g.Time then
+        if viewport.BgFgDrawLists[1] ~= nil and viewport.BgFgDrawListsLastFrameActive[1] == g.FrameCount then
             ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], ImGui.GetBackgroundDrawList(viewport))
         end
     end
@@ -7098,7 +7243,7 @@ function ImGui.Render()
     for _, viewport in g.Viewports:iter() do
         FlattenDrawDataIntoSingleLayer(viewport.DrawDataBuilder)
 
-        if viewport.BgFgDrawLists[2] ~= nil and viewport.BgFgDrawListsLastTimeActive[2] == g.Time then
+        if viewport.BgFgDrawLists[2] ~= nil and viewport.BgFgDrawListsLastFrameActive[2] == g.FrameCount then
             ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[1], ImGui.GetForegroundDrawList(viewport))
         end
 
@@ -7255,10 +7400,10 @@ end
 --- @return ImU32
 function ImGui.ColorConvertFloat4ToU32(in_col)
     local out_col = 0
-    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.x), IM_COL32_R_SHIFT))
-    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.y), IM_COL32_G_SHIFT))
-    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.z), IM_COL32_B_SHIFT))
-    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col.w), IM_COL32_A_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col[1]), IM_COL32_R_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col[2]), IM_COL32_G_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col[3]), IM_COL32_B_SHIFT))
+    out_col = bit.bor(out_col, bit.lshift(IM_F32_TO_INT8_SAT(in_col[4]), IM_COL32_A_SHIFT))
     return out_col
 end
 
@@ -7693,7 +7838,7 @@ function CalcNextScrollFromScrollTargetAndClamp(window)
 
             scroll[axis] = scroll_target - center_ratio * (window.SizeFull[axis] - decoration_size[axis])
         end
-        scroll[axis] = ImRound64(ImMax(scroll[axis], 0.0))
+        scroll[axis] = ImRoundPositive64(ImMax(scroll[axis], 0.0))
         if not window.Collapsed and not window.SkipItems then
             scroll[axis] = ImMin(scroll[axis], window.ScrollMax[axis])
         end
@@ -8171,12 +8316,7 @@ function ImGui.BeginPopupMenuEx(id, label, extra_window_flags)
     end
 
     if bit.band(extra_window_flags, ImGuiWindowFlags.ChildWindow) ~= 0 and bit.band(extra_window_flags, ImGuiWindowFlags.AlwaysAutoResize) ~= 0 then
-        if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags) ~= 0 then
-            g.NextWindowData.ChildFlags = bit.bor(g.NextWindowData.ChildFlags, ImGuiChildFlags.AlwaysAutoResize)
-        else
-            g.NextWindowData.ChildFlags = ImGuiChildFlags.AlwaysAutoResize
-        end
-        g.NextWindowData.HasFlags = bit.bor(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasChildFlags)
+        ImGui.SetNextWindowChildFlags(ImGuiChildFlags.AlwaysAutoResize, true)
     end
 
     IM_ASSERT(bit.band(extra_window_flags, ImGuiWindowFlags.ChildMenu) ~= 0)
@@ -8431,7 +8571,7 @@ end
 function ImGui.IsPopupOpenRequestForItem(popup_flags, id)
     local g = GImGui
     local mouse_button = ImGui.GetMouseButtonFromPopupFlags(popup_flags)
-    if ImGui.IsMouseReleased(mouse_button) and ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup) then
+    if ImGui.IsMouseReleased(mouse_button, id) and ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup) then
         return true
     end
     if g.NavOpenContextMenuItemId == id and (ImGui.IsItemFocused() or id == g.CurrentWindow.MoveId) then
@@ -9361,12 +9501,12 @@ function ImGui.NavUpdate()
     g.NavActivateFlags = ImGuiActivateFlags.None
 
     if g.NavId ~= 0 and g.NavCursorVisible and not g.NavWindowingTarget and g.NavWindow and bit.band(g.NavWindow.Flags, ImGuiWindowFlags.NoNavInputs) == 0 then
-        local activate_down = (nav_keyboard_active and ImGui.IsKeyDown(ImGuiKey.Space, ImGuiKeyOwner_NoOwner)) or (nav_gamepad_active and ImGui.IsKeyDown(ImGuiKey.NavGamepadActivate, ImGuiKeyOwner_NoOwner))
-        local activate_pressed = activate_down and ((nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Space, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner)) or (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey.NavGamepadActivate, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner)))
+        local activate_down = (nav_keyboard_active and ImGui.IsKeyDown(ImGuiKey.Space, ImGuiKeyOwner_NoOwner)) or (nav_gamepad_active and ImGui.IsKeyDown(ImGuiKey_NavGamepadActivate(), ImGuiKeyOwner_NoOwner))
+        local activate_pressed = activate_down and ((nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Space, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner)) or (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey_NavGamepadActivate(), ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner)))
         local input_pressed_keyboard = nav_keyboard_active and (ImGui.IsKeyPressedEx(ImGuiKey.Enter, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner) or ImGui.IsKeyPressedEx(ImGuiKey.KeypadEnter, ImGuiInputFlags.None, ImGuiKeyOwner_NoOwner))
         local input_pressed_gamepad = false
-        if activate_down and nav_gamepad_active and ImGui.IsKeyDown(ImGuiKey.NavGamepadActivate, ImGuiKeyOwner_NoOwner) and bit.band(g.NavIdItemFlags, ImGuiItemFlags.Inputable) ~= 0 then
-            if ImGui.GetKeyData(g, ImGuiKey.NavGamepadActivate).DownDurationPrev < NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY and ImGui.GetKeyData(g, ImGuiKey.NavGamepadActivate).DownDuration >= NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY then
+        if activate_down and nav_gamepad_active and ImGui.IsKeyDown(ImGuiKey_NavGamepadActivate(), ImGuiKeyOwner_NoOwner) and bit.band(g.NavIdItemFlags, ImGuiItemFlags.Inputable) ~= 0 then
+            if ImGui.GetKeyData(g, ImGuiKey_NavGamepadActivate()).DownDurationPrev < NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY and ImGui.GetKeyData(g, ImGuiKey_NavGamepadActivate()).DownDuration >= NAV_ACTIVATE_INPUT_WITH_GAMEPAD_DELAY then
                 input_pressed_gamepad = true
             end
         end
@@ -9469,7 +9609,8 @@ function ImGui.NavUpdateCancelRequest()
     local g = GImGui
     local nav_gamepad_active = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableGamepad) ~= 0 and bit.band(g.IO.BackendFlags, ImGuiBackendFlags.HasGamepad) ~= 0
     local nav_keyboard_active = bit.band(g.IO.ConfigFlags, ImGuiConfigFlags.NavEnableKeyboard) ~= 0
-    if not (nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Escape, 0, ImGuiKeyOwner_NoOwner)) and not (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey.NavGamepadCancel, 0, ImGuiKeyOwner_NoOwner)) then
+
+    if not (nav_keyboard_active and ImGui.IsKeyPressedEx(ImGuiKey.Escape, 0, ImGuiKeyOwner_NoOwner)) and not (nav_gamepad_active and ImGui.IsKeyPressedEx(ImGuiKey_NavGamepadCancel(), 0, ImGuiKeyOwner_NoOwner)) then
         return
     end
 
@@ -9767,6 +9908,7 @@ function ImGui.NavInitRequestApplyResult()
         g.NavJustMovedToFocusScopeId = result.FocusScopeId
         g.NavJustMovedToKeyMods = 0
         g.NavJustMovedToIsTabbing = false
+        g.NavJustMovedToIsInit = true
         g.NavJustMovedToHasSelectionData = bit.band(result.ItemFlags, ImGuiItemFlags.HasSelectionUserData) ~= 0
     end
 
@@ -9848,6 +9990,7 @@ function ImGui.NavMoveRequestApplyResult()
         g.NavJustMovedToFocusScopeId = result.FocusScopeId
         g.NavJustMovedToKeyMods = g.NavMoveKeyMods
         g.NavJustMovedToIsTabbing = bit.band(g.NavMoveFlags, ImGuiNavMoveFlags.IsTabbing) ~= 0
+        g.NavJustMovedToIsInit = false
         g.NavJustMovedToHasSelectionData = bit.band(result.ItemFlags, ImGuiItemFlags.HasSelectionUserData) ~= 0
     end
 
@@ -10600,6 +10743,10 @@ function ImGui.AddUpdateViewport(window, id, pos, size, flags)
     viewport.LastFrameActive = g.FrameCount
     viewport:UpdateWorkRect()
     IM_ASSERT(window == nil or viewport.ID == window.ID)
+
+    if viewport.FramebufferScale.x <= 0.0 or viewport.FramebufferScale.y <= 0.0 or viewport.ID == IMGUI_VIEWPORT_DEFAULT_ID then
+        ImVec2_Copy(viewport.FramebufferScale, g.IO.DisplayFramebufferScale)
+    end
 
     if window ~= nil then
         window.ViewportOwned = true

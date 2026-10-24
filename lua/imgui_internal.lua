@@ -21,18 +21,6 @@ local t_sort = table.sort
 --- @alias ImString char[]|string
 --- @alias ImStringBuffer char[]
 
--- NOTE: temporary solution
---- @param buf       char[]
---- @param buf_begin int
---- @param buf_end   int    # exclusive
-function ImGui._ByteArrayToString(buf, buf_begin, buf_end)
-    local str = {}
-    for i = buf_begin, buf_end - 1 do
-        table.insert(str, string.char(buf[i]))
-    end
-    return table.concat(str)
-end
-
 --- @type ImGuiContext?
 local GImGui
 
@@ -67,7 +55,8 @@ ImAbs  = math.abs
 ImFabs = math.abs
 ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
-ImRound64 = function(val) return math.floor(val + 0.5) end -- FIXME: Positive values only
+ImRoundPositive64 = function(val) return math.floor(val + 0.5) end
+ImRoundSigned64 = function(val) return val >= 0.0 and math.floor(val + 0.5) or math.ceil(val - 0.5) end
 
 ImCeil  = math.ceil
 ImSin   = math.sin
@@ -149,23 +138,37 @@ function ImTrunc(v)
     end
 end
 
+--- @param x float
+--- @return bool
+function ImIsTruncated(x) return _Trunc(x) == x end
+
+--- @param x float
+--- @param y float
+--- @param z float
+--- @param w float
+--- @return bool
+function ImIsTruncated4(x, y, z, w)
+    return _Trunc(x) == x and _Trunc(y) == y and _Trunc(z) == z and _Trunc(w) == w
+end
+
 ImTrunc64 = _Trunc
 
 --- @param f float
 function ImCeilFast(f)
     local i
-    if f >= 0 then i = math.floor(f) else i = math.ceil(f) end -- same as `ImTrunc()`
+    if f >= 0 then i = math.floor(f) else i = math.ceil(f) end -- same as `_Trunc()`
     if f > i then return i + 1 end
     return i
 end
 
 function IM_ROUNDUP_TO_EVEN(n) return (ImCeil((n) / 2) * 2) end
 function ImRsqrt(x)            return (1 / ImSqrt(x))       end
+ImRsqrtPrecise = ImRsqrt
 
 function IM_TRUNC(VAL) return math.floor(VAL) end -- Positive values only!
 function IM_ROUND(VAL) return math.floor(VAL + 0.5) end
 
-function ImFloor(f) if f >= 0 or math.floor(f) == f then return math.floor(f) else return math.floor(f) - 1 end end
+function ImFloor(f) return math.floor(f) end
 
 --- @param v int
 function ImIsPowerOfTwo(v)
@@ -320,29 +323,23 @@ end
 
 --- @param lhs ImVec2
 --- @return float
-function ImLengthSqr(lhs) return (lhs.x * lhs.x) + (lhs.y * lhs.y) end
+function ImLengthSqr(lhs) return (lhs[1] * lhs[1]) + (lhs[2] * lhs[2]) end
 
 --- @param v     ImVec2
 --- @param cos_a float
 --- @param sin_a float
 --- @return ImVec2
 --- @nodiscard
-function ImRotate(v, cos_a, sin_a)
-    return ImVec2(v.x * cos_a - v.y * sin_a, v.x * sin_a + v.y * cos_a)
-end
+function ImRotate(v, cos_a, sin_a) return ImVec2(v[1] * cos_a - v[2] * sin_a, v[1] * sin_a + v[2] * cos_a) end
 
 --- @param a ImVec2
 --- @param b ImVec2
-function ImDot(a, b)
-    return a.x * b.x + a.y * b.y
-end
+function ImDot(a, b) return a[1] * b[1] + a[2] * b[2] end
 
 --- @param lhs ImVec2
 --- @param rhs ImVec2
 --- @nodiscard
-function ImMul(lhs, rhs)
-    return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y)
-end
+function ImMul(lhs, rhs) return ImVec2(lhs[1] * rhs[1], lhs[2] * rhs[2]) end
 
 --- @param str    char[]
 --- @param begin? int
@@ -555,7 +552,6 @@ ImGuiNavLayer =
 }
 
 ImGuiItemFlags.ReadOnly               = bitLShift(1, 11)
-ImGuiItemFlags.MixedValue             = bitLShift(1, 12)
 ImGuiItemFlags.NoWindowHoverableCheck = bitLShift(1, 13)
 ImGuiItemFlags.AllowOverlap           = bitLShift(1, 14)
 ImGuiItemFlags.NoNavDisableMouseHover = bitLShift(1, 15)
@@ -823,8 +819,15 @@ function MT.ImDrawList:PathLineToMergeDuplicate(pos)
     end
 end
 
-function MT.ImDrawList:PathFillConvex(col)
-    self:AddConvexPolyFilled(self._Path.Data, self._Path.Size, col)
+function MT.ImDrawList:PathFillConvex(col, flags)
+    if flags == nil then flags = 0 end
+
+    self:AddConvexPolyFilled(self._Path.Data, self._Path.Size, col, flags)
+    self._Path.Size = 0
+end
+
+function MT.ImDrawList:PathFillConcave(col)
+    self:AddConcavePolyFilled(self._Path.Data, self._Path.Size, col)
     self._Path.Size = 0
 end
 
@@ -835,7 +838,7 @@ function MT.ImDrawList:PathStroke(col, thickness, flags)
     if not thickness then thickness = 1.0 end
     if not flags     then flags     = 0   end
 
-    self:AddPolyline(self._Path.Data, self._Path.Size, col, thickness, flags)
+    self:_AddPolyline(self._Path.Data, self._Path.Size, col, thickness, flags, FLT_MAX)
     self._Path.Size = 0
 end
 
@@ -847,23 +850,24 @@ function ImGui.SetNextItemColorMarker(col)
 end
 
 --- @class ImDrawListSharedData
---- @field TexUvWhitePixel       ImVec2
---- @field TexUvLines            ImVec4[]
---- @field FontAtlas             ImFontAtlas
---- @field Font                  ImFont
---- @field FontSize              float
---- @field FontScale             float
---- @field CurveTessellationTol  float
+--- @field TexUvWhitePixel            ImVec2
+--- @field TexUvLines                 ImVec4[]
+--- @field TexUvCorners               ImVec4[]
+--- @field FontAtlas                  ImFontAtlas
+--- @field Font                       ImFont
+--- @field FontSize                   float
+--- @field FontScale                  float
+--- @field CurveTessellationMaxError  float
 --- @field CircleTessellationMaxError float
---- @field InitialFringeScale    float
---- @field InitialFlags          ImDrawListFlags
---- @field ClipRectFullscreen?   ImVec4
---- @field TempBuffer            ImVector<ImVec2>
---- @field DrawLists             ImVector<ImDrawList>
---- @field Context?              ImGuiContext
---- @field ArcFastVtx            table<ImVec2>        # 1-based table
---- @field ArcFastRadiusCutoff   float
---- @field CircleSegmentCounts   table<int>           # 1-based table
+--- @field InitialDrawFlags           ImDrawFlags
+--- @field ClipRectFullscreen?        ImVec4
+--- @field TempBuffer                 ImVector<ImVec2>
+--- @field _TempBuffer                table                   # LUA: Flat triangulator storage; C++ reinterprets TempBuffer bytes
+--- @field DrawLists                  table<ImDrawList, true> # LUA: Weak-key non-owning registry
+--- @field Context?                   ImGuiContext
+--- @field ArcFastVtx                 table<ImVec2>           # 1-based table
+--- @field ArcFastRadiusCutoff        float
+--- @field CircleSegmentCounts        table<int>              # 1-based table
 MT.ImDrawListSharedData = {}
 MT.ImDrawListSharedData.__index = MT.ImDrawListSharedData
 
@@ -873,20 +877,21 @@ function ImDrawListSharedData()
     local this = setmetatable({
         TexUvWhitePixel = nil,
         TexUvLines      = nil,
+        TexUvCorners    = nil,
         FontAtlas       = nil,
 
         Font      = nil,
         FontSize  = 0,
         FontScale = 0,
 
-        CurveTessellationTol  = 0,
+        CurveTessellationMaxError  = 0,
         CircleTessellationMaxError = 0,
-        InitialFringeScale    = 1,
 
-        InitialFlags          = 0,
-        ClipRectFullscreen    = nil,
-        TempBuffer            = ImVector(ImVec2),
-        DrawLists             = ImVector(),
+        InitialDrawFlags   = 0,
+        ClipRectFullscreen = nil,
+        TempBuffer         = ImVector(ImVec2),
+        _TempBuffer        = {},
+        DrawLists          = setmetatable({}, { __mode = "k" }),
 
         ArcFastVtx          = {},
         ArcFastRadiusCutoff = nil,
@@ -924,6 +929,9 @@ end
 --- @field BakedDiscardedCount      int
 --- @field PackIdMouseCursors       ImFontAtlasRectId
 --- @field PackIdLinesTexData       ImFontAtlasRectId
+--- @field PackIdCornersTexData     ImFontAtlasRectId
+--- @field TexUvLines               ImVec4[]                       # 0-based table
+--- @field TexUvCorners             ImVec4[]                       # 1-based table
 MT.ImFontAtlasBuilder = {}
 MT.ImFontAtlasBuilder.__index = MT.ImFontAtlasBuilder
 
@@ -952,8 +960,12 @@ function ImFontAtlasBuilder()
     this.BakedMap            = {}
     this.BakedDiscardedCount = 0
 
-    this.PackIdMouseCursors = -1
-    this.PackIdLinesTexData = -1
+    this.PackIdMouseCursors   = -1
+    this.PackIdLinesTexData   = -1
+    this.PackIdCornersTexData = -1
+
+    this.TexUvLines   = {}
+    this.TexUvCorners = {}
 
     return this
 end
@@ -975,6 +987,8 @@ function ImFontStackData(font, font_size_before_scaling, font_size_after_scaling
         FontSizeAfterScaling  = font_size_after_scaling
     }
 end
+
+ImGuiCol.TextMixedValue = ImGuiCol.TextDisabled
 
 --- `GetVarPtr()` is currently only used on `g.Style` in Dear ImGui, and we don't have pointers!
 --- @class ImGuiStyleVarInfo
@@ -1130,8 +1144,10 @@ end
 --- @field SizeVal              ImVec2?
 --- @field ContentSizeVal       ImVec2?
 --- @field ScrollVal            ImVec2?
---- @field WindowFlags          ImGuiWindowFlags?
---- @field ChildFlags           ImGuiChildFlags?
+--- @field WindowFlagsSet       ImGuiWindowFlags? # Flags to set. Use SetNextWindowFlags()
+--- @field WindowFlagsClear     ImGuiWindowFlags?
+--- @field ChildFlagsSet        ImGuiChildFlags?  # Flags to set. Use SetNextWindowChildFlags()
+--- @field ChildFlagsClear      ImGuiChildFlags?
 --- @field CollapsedVal         boolean?
 --- @field SizeConstraintRect   ImRect?
 --- @field SizeCallback         function?
@@ -1160,8 +1176,10 @@ function ImGuiNextWindowData()
         SizeVal              = ImVec2(),
         ContentSizeVal       = ImVec2(),
         ScrollVal            = ImVec2(),
-        WindowFlags          = nil,
-        ChildFlags           = nil,
+        WindowFlagsSet       = nil,
+        WindowFlagsClear     = nil,
+        ChildFlagsSet        = nil,
+        ChildFlagsClear      = nil,
         CollapsedVal         = nil,
         SizeConstraintRect   = nil,
         SizeCallback         = nil,
@@ -1268,11 +1286,11 @@ function ImGuiStyle()
         DisplaySafeAreaPadding = ImVec2(3, 3),
         DisplayWindowPadding = ImVec2(19, 19),
 
-        AntiAliasedLines = true,
-        AntiAliasedLinesUseTex = true,
-        AntiAliasedFill = true,
+        AntiAliasedLines    = true,
+        AntiAliasedLineEnds = false,
+        AntiAliasedFill     = true,
 
-        CurveTessellationTol       = 1.25,
+        CurveTessellationMaxError  = 1.12,
         CircleTessellationMaxError = 0.30,
 
         HoverStationaryDelay = 0.15,
@@ -1343,7 +1361,8 @@ function ImGuiWindowStackData()
         ParentLastItemDataBackup            = ImGuiLastItemData(),
         StackSizesInBegin                   = nil,
         DisabledOverrideReenable            = nil,
-        DisabledOverrideReenableAlphaBackup = nil
+        DisabledOverrideReenableAlphaBackup = nil,
+        ParentLastComboPreviewRect          = ImRect()
     }
 end
 
@@ -1353,7 +1372,10 @@ end
 --- @field BackupCursorMaxPos           ImVec2
 --- @field BackupCursorPosPrevLine      ImVec2
 --- @field BackupPrevLineTextBaseOffset float
+--- @field BackupWorkRectMaxX           float
+--- @field BackupContentRectMaxX        float
 --- @field BackupLayout                 ImGuiLayoutType
+--- @field WithinPreview                bool
 
 --- @return ImGuiComboPreviewData
 --- @nodiscard
@@ -1364,7 +1386,10 @@ local function ImGuiComboPreviewData()
         BackupCursorMaxPos           = ImVec2(),
         BackupCursorPosPrevLine      = ImVec2(),
         BackupPrevLineTextBaseOffset = 0.0,
-        BackupLayout                 = 0
+        BackupWorkRectMaxX           = 0.0,
+        BackupContentRectMaxX        = 0.0,
+        BackupLayout                 = 0,
+        WithinPreview                = false
     }
 end
 
@@ -1377,6 +1402,7 @@ end
 --- @field Stb                  ImStbTexteditState  # State for stb_textedit.lua
 --- @field Flags                ImGuiInputTextFlags
 --- @field ID                   ImGuiID             # widget id owning the text state
+--- @field LastFrameActive      int
 --- @field TextLen              int                 # UTF-8 length of the string in TextA (in bytes)
 --- @field TextSrc              ImStringBuffer      # == TextA.Data unless read-only, in which case == buf passed to InputText(). For _ReadOnly fields, pointer will be null outside the InputText() call
 --- @field TextA                ImVector<char>      # main UTF8 buffer. TextA.Size is a buffer size! Should always be >= buf_size passed by user (and of course >= CurLenA + 1)
@@ -1392,6 +1418,7 @@ end
 --- @field SelectedAllMouseLock bool                # after a double-click to select all, we ignore further mouse drags to update selection
 --- @field EditedBefore         bool                # edited since activated
 --- @field EditedThisFrame      bool                # edited this frame
+--- @field ValidatedThisFrame   bool
 MT.ImGuiInputTextState = {}
 MT.ImGuiInputTextState.__index = MT.ImGuiInputTextState
 
@@ -1419,6 +1446,7 @@ local function ImGuiInputTextState()
         SelectedAllMouseLock = false,
         EditedBefore = false,
         EditedThisFrame = false,
+        ValidatedThisFrame = false,
     }
 
     return setmetatable(this, MT.ImGuiInputTextState)
@@ -1607,7 +1635,7 @@ end
 --- @field FontSize                           float
 --- @field FontSizeBase                       float
 --- @field FontBakedScale                     float
---- @field FontRasterizerDensity              float
+--- @field CurrentPixelDensity                float
 --- @field DrawListSharedData                 ImDrawListSharedData
 --- @field NextItemData                       ImGuiNextItemData
 --- @field LastItemData                       ImGuiLastItemData
@@ -1616,6 +1644,7 @@ end
 --- @field WithinEndPopupID                   ImGuiID
 --- @field StyleVarStack                      ImVector
 --- @field AnyIdHasBeenEditedThisFrame        bool
+--- @field MixedValueLabel                    string?
 --- @field ActiveId                           ImGuiID
 --- @field ActiveIdMouseButton                ImS8
 --- @field Windows                            ImVector<ImGuiWindow>
@@ -1769,6 +1798,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         NavCursorHideFrames = 0,
         NavHighlightItemUnderNav = false,
         NavIdIsAlive = false,
+        NavJustMovedToIsInit = false,
         NavInputSource = ImGuiInputSource.Keyboard,
         NavWindowingTarget = nil, NavWindowingTargetAnim = nil, NavWindowingListWindow = nil,
         NavWindowingTimer = 0.0, NavWindowingHighlightAlpha = 0.0,
@@ -1840,7 +1870,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         FontRefSize = 0.0,
 
-        FontRasterizerDensity = 1.0,
+        CurrentPixelDensity = 1.0,
 
         FontAtlases = ImVector(),
 
@@ -1869,6 +1899,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         MouseCursor = ImGuiMouseCursor.Arrow,
         MouseStationaryTimer = 0.0,
 
+        MixedValueLabel = "-",
         InputTextState = ImGuiInputTextState(),
         InputTextLineIndex = ImGuiTextIndex(),
         InputTextDeactivatedState = ImGuiInputTextDeactivatedState(),
@@ -2316,28 +2347,29 @@ local function ImDrawDataBuilder()
 end
 
 --- @class ImGuiViewportP : ImGuiViewport
---- @field Window?                     ImGuiWindow
---- @field Idx                         int                      # Initial value = -1, then becomes 1-based index
---- @field LastFrameActive             int
---- @field LastFocusedStampCount       int
---- @field LastNameHash                ImGuiID
---- @field LastPos                     ImVec2
---- @field LastSize                    ImVec2
---- @field Alpha                       float
---- @field LastAlpha                   float
---- @field LastFocusedHadNavWindow     bool
---- @field PlatformMonitor             short
---- @field BgFgDrawListsLastTimeActive [int, int]               # 1-based
---- @field BgFgDrawLists               [ImDrawList, ImDrawList] # 1-based
---- @field DrawDataP                   ImDrawData
---- @field DrawDataBuilder             ImDrawDataBuilder
---- @field LastPlatformPos             ImVec2
---- @field LastPlatformSize            ImVec2
---- @field LastRendererSize            ImVec2
---- @field WorkInsetMin                ImVec2
---- @field WorkInsetMax                ImVec2
---- @field BuildWorkInsetMin           ImVec2
---- @field BuildWorkInsetMax           ImVec2
+--- @field Window?                      ImGuiWindow
+--- @field Idx                          int                      # Initial value = -1, then becomes 1-based index
+--- @field LastFrameActive              int
+--- @field LastFocusedStampCount        int
+--- @field LastNameHash                 ImGuiID
+--- @field LastPos                      ImVec2
+--- @field LastSize                     ImVec2
+--- @field Alpha                        float
+--- @field LastAlpha                    float
+--- @field LastFocusedHadNavWindow      bool
+--- @field PlatformMonitor              short
+--- @field BgFgDrawListsLastFrameActive [int, int]               # 1-based
+--- @field BgFgDrawListsLastTimeActive  [int, int]               # 1-based
+--- @field BgFgDrawLists                [ImDrawList, ImDrawList] # 1-based
+--- @field DrawDataP                    ImDrawData
+--- @field DrawDataBuilder              ImDrawDataBuilder
+--- @field LastPlatformPos              ImVec2
+--- @field LastPlatformSize             ImVec2
+--- @field LastRendererSize             ImVec2
+--- @field WorkInsetMin                 ImVec2
+--- @field WorkInsetMax                 ImVec2
+--- @field BuildWorkInsetMin            ImVec2
+--- @field BuildWorkInsetMax            ImVec2
 local IMGUI_VIEWPORT_P = {}
 IMGUI_VIEWPORT_P.__index = IMGUI_VIEWPORT_P
 
@@ -2403,6 +2435,7 @@ function ImGuiViewportP()
     this.LastFocusedHadNavWindow = false
     this.PlatformMonitor = -1
 
+    this.BgFgDrawListsLastFrameActive = {-1, -1}
     this.BgFgDrawListsLastTimeActive = {-1, -1}
     this.BgFgDrawLists = {nil, nil}
     this.DrawDataP = ImDrawData()
@@ -2421,16 +2454,17 @@ function ImGuiViewportP()
 end
 
 --- @class ImFontLoader
---- @field Name                       string
---- @field LoaderInit?                fun(atlas: ImFontAtlas): bool
---- @field LoaderShutdown?            fun(atlas: ImFontAtlas)
---- @field FontSrcInit?               fun(atlas: ImFontAtlas, src: ImFontConfig): bool
---- @field FontSrcDestroy?            fun(atlas: ImFontAtlas, src: ImFontConfig)
---- @field FontSrcContainsGlyph?      fun(atlas: ImFontAtlas, src: ImFontConfig, codepoint: ImWchar): bool
---- @field FontBakedInit?             fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any): bool
---- @field FontBakedDestroy?          fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
---- @field FontBakedLoadGlyph         fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, codepoint: ImWchar, out_glyph?: ImFontGlyph, advance_x?: float): bool, float?
---- @field FontBakedSrcLoaderDataSize unsigned_int
+--- @field Name                              string
+--- @field LoaderInit?                       fun(atlas: ImFontAtlas): bool
+--- @field LoaderShutdown?                   fun(atlas: ImFontAtlas)
+--- @field FontSrcInit?                      fun(atlas: ImFontAtlas, src: ImFontConfig): bool
+--- @field FontSrcDestroy?                   fun(atlas: ImFontAtlas, src: ImFontConfig)
+--- @field FontSrcGetGlyphIndexFromCodepoint fun(atlas: ImFontAtlas, src: ImFontConfig, codepoint: ImWchar): int
+--- @field FontSrcContainsGlyph?             fun(atlas: ImFontAtlas, src: ImFontConfig, glyph_index: int): bool
+--- @field FontBakedInit?                    fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any): bool
+--- @field FontBakedDestroy?                 fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
+--- @field FontBakedLoadGlyph                fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, glyph_index: int, out_glyph?: ImFontGlyph, advance_x?: float): bool, float?
+--- @field FontBakedSrcLoaderDataSize        unsigned_int
 MT.ImFontLoader = {}
 MT.ImFontLoader.__index = MT.ImFontLoader
 
@@ -2440,15 +2474,16 @@ function ImFontLoader()
     --- @type ImFontLoader
     local this = setmetatable({}, MT.ImFontLoader)
 
-    this.Name                 = nil
-    this.LoaderInit           = nil
-    this.LoaderShutdown       = nil
-    this.FontSrcInit          = nil
-    this.FontSrcDestroy       = nil
-    this.FontSrcContainsGlyph = nil
-    this.FontBakedInit        = nil
-    this.FontBakedDestroy     = nil
-    this.FontBakedLoadGlyph   = nil
+    this.Name                              = nil
+    this.LoaderInit                        = nil
+    this.LoaderShutdown                    = nil
+    this.FontSrcInit                       = nil
+    this.FontSrcDestroy                    = nil
+    this.FontSrcGetGlyphIndexFromCodepoint = nil
+    this.FontSrcContainsGlyph              = nil
+    this.FontBakedInit                     = nil
+    this.FontBakedDestroy                  = nil
+    this.FontBakedLoadGlyph                = nil
 
     this.FontBakedSrcLoaderDataSize = 0
 
@@ -2497,7 +2532,7 @@ end
 --- @field FontBaked   ImFontBaked
 --- @field Glyph       ImFontGlyph
 --- @field Pixels      unsigned_char[]
---- @field _PixelsBase int             # LUA: in cpp code the `Pixels` is a pointer. we can do this to avoid creating another custom structure to mimic it
+--- @field _PixelsBase int             # LUA: In cpp code the `Pixels` is a pointer. we can do this to avoid creating another custom structure to mimic it
 --- @field Format      ImTextureFormat
 --- @field Pitch       int
 --- @field Width       int
@@ -2647,6 +2682,10 @@ ImGuiKey.NavKeyboardTweakSlow = ImGuiMod_Ctrl
 ImGuiKey.NavKeyboardTweakFast = ImGuiMod_Shift
 ImGuiKey.NavGamepadTweakSlow = ImGuiKey.GamepadL1
 ImGuiKey.NavGamepadTweakFast = ImGuiKey.GamepadR1
+--- @return ImGuiKey
+function ImGuiKey_NavGamepadActivate() return (GImGui.IO.ConfigNavSwapGamepadButtons and ImGuiKey.GamepadFaceRight or ImGuiKey.GamepadFaceDown) end
+--- @return ImGuiKey
+function ImGuiKey_NavGamepadCancel() return (GImGui.IO.ConfigNavSwapGamepadButtons and ImGuiKey.GamepadFaceDown or ImGuiKey.GamepadFaceRight) end
 ImGuiKey.NavGamepadMenu = ImGuiKey.GamepadFaceLeft
 ImGuiKey.NavGamepadContextMenu = ImGuiKey.GamepadFaceUp
 

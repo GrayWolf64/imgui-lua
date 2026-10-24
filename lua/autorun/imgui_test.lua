@@ -121,7 +121,8 @@ else
         local function main_render()
             ImGui_ImplGMOD.RenderDrawData(ImGui.GetDrawData())
 
-            if bit.band(io.ConfigFlags, ImGuiConfigFlags.ViewportsEnable) ~= 0 then
+            local viewports_enabled = bit.band(io.ConfigFlags, ImGuiConfigFlags.ViewportsEnable) ~= 0
+            if viewports_enabled and not gui.IsGameUIVisible() then
                 ImGui.UpdatePlatformWindows()
                 ImGui.RenderPlatformWindowsDefault()
             end
