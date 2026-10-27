@@ -765,7 +765,7 @@ local function _CountIndexedQuadRun(idx_data, idx_offset, elem_start, elem_end)
 end
 
 -- Route index ranges through triangles or quads to reduce Lua-to-C vertex submission calls.
--- Each quad submits 4 instead of 6 vertices, saving 8 mesh calls: 2 vertices × (Position + TexCoord + Color + AdvanceVertex).
+-- Each quad submits 4 instead of 6 vertices, saving 8 mesh calls: 2 vertices * (Position + TexCoord + Color + AdvanceVertex).
 local function DrawIndexed(idx_data, vtx_data, pcmd)
     if pcmd.ElemCount < MIN_MESH_QUAD_RUN * 6 then
         _DrawIndexedTriangles(idx_data, vtx_data, pcmd, 0, pcmd.ElemCount)

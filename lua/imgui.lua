@@ -1483,8 +1483,6 @@ function ImGui.SetCursorScreenPos(pos)
 end
 
 -- Lock horizontal starting position + capture group bounding box into one "item" (so you can use IsItemHovered() or layout primitives such as SameLine() on whole group, etc.)
--- Groups are currently a mishmash of functionalities which should perhaps be clarified and separated.
--- FIXME-OPT: Could we safely early out on ->SkipItems?
 function ImGui.BeginGroup()
     local g = GImGui
     local window = g.CurrentWindow
@@ -2036,7 +2034,6 @@ function MT.ImGuiWindow:GetID(id)
 end
 
 -- This is only used in rare/specific situations to manufacture an ID out of nowhere
--- FIXME: Consider instead storing last non-zero ID + count of successive zero-ID, and combine those?
 --- @param p_abs ImVec2
 --- @return ImGuiID
 function MT.ImGuiWindow:GetIDFromPos(p_abs)
@@ -2091,7 +2088,6 @@ function ImGui.MarkItemEdited(id)
     g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Edited)
 
     if g.ActiveId == id or g.ActiveId == 0 then
-        -- FIXME: Can't we fully rely on LastItemData yet?
         g.AnyIdHasBeenEditedThisFrame = true
         g.ActiveIdHasBeenEditedThisFrame = true
         g.ActiveIdHasBeenEditedBefore = true
@@ -2102,7 +2098,6 @@ function ImGui.MarkItemEdited(id)
 
     -- We accept a MarkItemEdited() on drag and drop targets (see https://github.com/ocornut/imgui/issues/1875#issuecomment-978243343)
     -- We accept 'ActiveIdPreviousFrame == id' for InputText() returning an edit after it has been taken ActiveId away (#4714)
-    -- FIXME: This assert is getting a bit meaningless over time. It helped detect some unusual use cases but eventually it is becoming an unnecessary restriction.
     IM_ASSERT(g.DragDropActive or g.ActiveId == id or g.ActiveId == 0 or g.DeactivatedItemData.ID == id or g.ActiveIdPreviousFrame == id or g.NavJustMovedToId or (g.CurrentMultiSelect ~= nil and g.BoxSelectState.IsActive))
 
     -- IM_ASSERT(g.CurrentWindow.DC.LastItemId == id)
@@ -2113,7 +2108,6 @@ end
 --- @param flags  ImGuiHoveredFlags
 function ImGui.IsWindowContentHoverable(window, flags)
     -- An active popup disable hovering on other windows (apart from its own children)
-    -- FIXME-OPT: This could be cached/stored within the window.
     local g = GImGui
     if g.NavWindow then
         local focused_root_window = g.NavWindow.RootWindowDockTree
@@ -3926,7 +3920,6 @@ local function UpdateWindowManualResize(window, resize_grip_count, resize_grip_c
         end
         if held and g.IO.MouseDoubleClicked[0] then
             -- Double-clicking bottom or right border auto-fit on this axis
-            -- FIXME: Support top and right borders: rework CalcResizePosSizeFromAnyCorner() to be reusable in both cases.
             if border_n == 1 or border_n == 3 then -- Right and bottom border
                 local size_auto_fit = CalcWindowAutoFitSize(window, window.ContentSizeIdeal, bit.lshift(1, axis - 1))
                 size_target[axis] = CalcWindowSizeAfterConstraint(window, size_auto_fit)[axis]
@@ -4256,7 +4249,6 @@ end
 
 end
 
---- Another overly complex function until we reorganize everything into a nice all-in-one helper.
 --- This is made more complex because we have dissociated the layout rectangle (pos_min .. pos_max) from 'ellipsis_max_x' which may be beyond it.
 --- This is because in the context of tabs we selectively hide part of the text when the Close Button appears, but we don't want the ellipsis to move.
 --- @param draw_list           ImDrawList
@@ -4284,7 +4276,6 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
     -- draw_list:AddLine(ImVec2(pos_max.x, pos_min.y - 4), ImVec2(pos_max.x, pos_max.y + 6), IM_COL32(0, 0, 255, 255))
     -- draw_list:AddLine(ImVec2(ellipsis_max_x, pos_min.y - 2), ImVec2(ellipsis_max_x, pos_max.y + 3), IM_COL32(0, 255, 0, 255))
 
-    -- FIXME: We could technically remove (last_glyph->AdvanceX - last_glyph->X1) from text_size.x here and save a few pixels.
     if text_size.x > pos_max.x - pos_min.x then
         -- Hello wo...
         -- |       |   |
@@ -4629,7 +4620,6 @@ function ImGui.UpdateWindowSkipRefresh(window)
     end
 
     if bit.band(g.NextWindowData.RefreshFlagsVal, ImGuiWindowRefreshFlags.TryToAvoidRefresh) ~= 0 then
-        -- FIXME-IDLE: Tests for e.g. mouse clicks or keyboard while focused.
         if window.Appearing then  -- If currently appearing
             return
         end
@@ -5361,7 +5351,6 @@ function ImGui.Begin(name, open, flags)
     if bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasPos) ~= 0 then
         window_pos_set_by_api = (bit.band(window.SetWindowPosAllowFlags, g.NextWindowData.PosCond) ~= 0)
         if window_pos_set_by_api and ImLengthSqr(g.NextWindowData.PosPivotVal) > 1e-5 then
-            -- FIXME: Look into removing the branch so everything can go through this same code path for consistency.
             ImVec2_Copy(window.SetWindowPosVal, g.NextWindowData.PosVal)
             ImVec2_Copy(window.SetWindowPosPivot, g.NextWindowData.PosPivotVal)
             window.SetWindowPosAllowFlags = bit.band(window.SetWindowPosAllowFlags, bit.bnot(bit.bor(ImGuiCond.Once, ImGuiCond.FirstUseEver, ImGuiCond.Appearing)))
@@ -5873,7 +5862,6 @@ function ImGui.Begin(name, open, flags)
         window.ContentRegionRect.Max.y = window.ContentRegionRect.Min.y + (window.ContentSizeExplicit.y ~= 0.0 and window.ContentSizeExplicit.y or (window.Size.y - window.WindowPadding.y * 2.0 - (window.DecoOuterSizeY1 + window.DecoOuterSizeY2)))
 
         -- Setup drawing context
-        -- (NB: That term "drawing context / DC" lost its meaning a long time ago. Initially was meant to hold transient data only. Nowadays difference between window-> and window->DC-> is dubious.)
         window.DC.Indent.x = window.DecoOuterSizeX1 + window.WindowPadding.x - window.Scroll.x
         window.DC.GroupOffset.x = 0.0
         window.DC.ColumnsOffset.x = 0.0
@@ -6634,7 +6622,6 @@ function ImGui.UpdateMouseWheel()
     end
 
     -- Maintain a rough average of moving magnitude on both axes
-    -- FIXME: should by based on wall clock time rather than frame-counter
     g.WheelingAxisAvg.x = ImStd.ImExponentialMovingAverage(g.WheelingAxisAvg.x, ImAbs(wheel.x), 30)
     g.WheelingAxisAvg.y = ImStd.ImExponentialMovingAverage(g.WheelingAxisAvg.y, ImAbs(wheel.y), 30)
 
@@ -7050,7 +7037,6 @@ function ImGui.NewFrame()
         g.HoverItemDelayId = 0
     elseif g.HoverItemDelayTimer > 0.0 then
         -- This gives a little bit of leeway before clearing the hover timer, allowing mouse to cross gaps
-        -- We could expose 0.25f as style.HoverClearDelay but I am not sure of the logic yet, this is particularly subtle.
         g.HoverItemDelayClearTimer = g.HoverItemDelayClearTimer + g.IO.DeltaTime
         if g.HoverItemDelayClearTimer >= ImMax(0.25, g.IO.DeltaTime * 2.0) then  -- ~7 frames at 30 Hz + allow for low framerate
             g.HoverItemDelayTimer = 0.0
@@ -8520,11 +8506,6 @@ function ImGui.FindBestWindowPosForPopup(window)
 
     if bit.band(window.Flags, ImGuiWindowFlags.Tooltip) ~= 0 then
         -- Position tooltip (always follows mouse + clamp within outer boundaries)
-        -- FIXME:
-        -- - Too many paths. One problem is that FindBestWindowPosForPopupEx() doesn't allow passing a suggested position (so touch screen path doesn't use it by default).
-        -- - Drag and drop tooltips are not using this path either: BeginTooltipEx() manually sets their position.
-        -- - Require some tidying up. In theory we could handle both cases in same location, but requires a bit of shuffling
-        --   as drag and drop tooltips are calling SetNextWindowPos() leading to 'window_pos_set_by_api' being set in Begin().
         IM_ASSERT(g.CurrentWindow == window)
         local scale = g.Style.MouseCursorScale
         local ref_pos = ImGui.NavCalcPreferredRefPos(ImGuiWindowFlags.Tooltip)
@@ -8875,7 +8856,6 @@ function ImGui.NavCalcPreferredRefPos(window_type)
     if source == ImGuiInputSource.Mouse then
         -- Mouse (we need a fallback in case the mouse becomes invalid after being used)
         -- The +1.0f offset when stored by OpenPopupEx() allows reopening this or another popup (same or another mouse button) while not moving the mouse, it is pretty standard.
-        -- In theory we could move that +1.0f offset in OpenPopupEx()
         local p = ImGui.IsMousePosValid(g.IO.MousePos) and g.IO.MousePos or g.MouseLastValidPos
         return ImVec2(p.x + 1.0, p.y)
     else

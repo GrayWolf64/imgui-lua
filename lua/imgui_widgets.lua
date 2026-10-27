@@ -419,7 +419,6 @@ function ImGui.ButtonBehavior(bb, id, flags)
 
                 if bit.band(flags, ImGuiButtonFlags.PressedOnRelease) ~= 0 then
                     -- FIXME: Traditionally ImGuiButtonFlags.PressedOnRelease never took ActiveId. Adding it in 2026-03-20 since ImGuiButtonFlags_NoHoldingActiveId can always be added.
-                    -- We don't yet perform an explicit ClearActiveID() to reduce scope of change, but this possibility could be investigated.
                     if bit.band(flags, ImGuiButtonFlags.NoHoldingActiveId) == 0 then
                         ImGui.SetActiveID(id, window) -- Hold on ID
                     end
@@ -444,7 +443,6 @@ function ImGui.ButtonBehavior(bb, id, flags)
             end
 
             -- 'Repeat' mode acts when held regardless of _PressedOn flags (see table above).
-            -- Relies on repeat logic of IsMouseClicked() but we may as well do it ourselves if we end up exposing finer RepeatDelay/RepeatRate settings.
             if g.ActiveId == id and (bit.band(item_flags, ImGuiItemFlags.ButtonRepeat) ~= 0) then
                 if g.IO.MouseDownDuration[g.ActiveIdMouseButton] > 0.0 and ImGui.IsMouseClickedEx(g.ActiveIdMouseButton, ImGuiInputFlags.Repeat, test_owner_id) then
                     pressed = true
@@ -1402,8 +1400,6 @@ function ImGui.TextLink(label)
     local line_colf = ImVec4()
     ImVec4_Copy(line_colf, text_colf)
     do
-        -- FIXME-STYLE: Read comments above. This widget is NOT written in the same style as some earlier widgets,
-        -- as we are currently experimenting/planning a different styling system.
         local h, s, v = ImGui.ColorConvertRGBtoHSV(text_colf.x, text_colf.y, text_colf.z)
         if held or hovered then
             v = ImSaturate(v + (held and 0.4 or 0.3))
@@ -1550,7 +1546,6 @@ function ImGui.SeparatorEx(flags, thickness)
         end
 
         -- We don't provide our width to the layout so that it doesn't get feed back into AutoFit
-        -- FIXME: This prevents ->CursorMaxPos based bounding box evaluation from working (e.g. TableEndCell)
         local bb = ImRect(ImVec2(x1, window.DC.CursorPos.y), ImVec2(x2, window.DC.CursorPos.y + thickness))
         ImGui.ItemSize(ImVec2(0.0, thickness))
 
@@ -1576,7 +1571,6 @@ function ImGui.Separator()
         return
     end
 
-    -- Those flags should eventually be configurable by the user
     local flags
     if window.DC.LayoutType == ImGuiLayoutType.Horizontal then
         flags = ImGuiSeparatorFlags.Vertical
@@ -1835,8 +1829,6 @@ function ImGui.BeginComboPopup(popup_id, bb, flags)
     local name = ImFormatString("##Combo_%02d", g.BeginComboDepth)
 
     -- Set position given a custom constraint (peak into expected window size so we can position it)
-    -- FIXME: This might be easier to express with an hypothetical SetNextWindowPosConstraints() function?
-    -- FIXME: This might be moved to Begin() or at least around the same spot where Tooltips and other Popups are calling FindBestWindowPosForPopupEx()?
     local popup_window = ImGui.FindWindowByName(name)
     if popup_window then
         if popup_window.WasActive then
@@ -1850,7 +1842,6 @@ function ImGui.BeginComboPopup(popup_id, bb, flags)
         end
     end
 
-    -- We don't use BeginPopupEx() solely because we have a custom name string, which we could make an argument to BeginPopupEx()
     local window_flags = bit.bor(ImGuiWindowFlags.AlwaysAutoResize, ImGuiWindowFlags.Popup, ImGuiWindowFlags.NoTitleBar, ImGuiWindowFlags.NoResize, ImGuiWindowFlags.NoSavedSettings, ImGuiWindowFlags.NoMove)
     ImGui.PushStyleVarX(ImGuiStyleVar.WindowPadding, g.Style.FramePadding.x) -- Horizontally align ourselves with the framed text
     local _, ret = ImGui.Begin(name, nil, window_flags)
@@ -1898,7 +1889,6 @@ function ImGui.BeginComboPreview()
     IM_ASSERT_USER_ERROR_RET(g.LastItemData.Rect.Min.x == preview_data.PreviewRect.Min.x and g.LastItemData.Rect.Min.y == preview_data.PreviewRect.Min.y, "Call BeginComboPreview() after EndCombo()!")
     IM_ASSERT_USER_ERROR_RET(not preview_data.WithinPreview, "Cannot recurse BeginComboPreview(): call EndComboPreview() before opening another combo")
 
-    -- FIXME: This could be contained in a PushWorkRect() api
     ImVec2_Copy(preview_data.BackupCursorPos, window.DC.CursorPos)
     ImVec2_Copy(preview_data.BackupCursorMaxPos, window.DC.CursorMaxPos)
     ImVec2_Copy(preview_data.BackupCursorPosPrevLine, window.DC.CursorPosPrevLine)
@@ -4663,7 +4653,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         ImVec2_Copy(draw_window.DC.CursorPos, draw_window.DC.CursorPos + style.FramePadding)
         inner_size.x = inner_size.x - draw_window.ScrollbarSizes.x
 
-        -- FIXME: Could this be a ImGuiChildFlags to affect the SetLastItemDataForWindow() call?
         g.LastItemData.ID = id
         g.LastItemData.ItemFlags = item_data_backup.ItemFlags
         g.LastItemData.StatusFlags = item_data_backup.StatusFlags
@@ -4757,7 +4746,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         end
 
         -- Preserve cursor position and undo/redo stack if we come back to same widget
-        -- FIXME: Since we reworked this on 2022/06, may want to differentiate recycle_cursor vs recycle_undostate?
         local recycle_state = (state.ID == id and not init_changed_specs_multiline)
         if (recycle_state and not init_changed_specs_readonly and (state.TextLen ~= buf_len or (state.TextA.Data == nil or ImStd.strncmp(state.TextA.Data, buf, buf_len) ~= 0))) then
             recycle_state = false
@@ -4832,7 +4820,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             ImGui.SetKeyOwner(ImGuiKey.PageUp, id)
             ImGui.SetKeyOwner(ImGuiKey.PageDown, id)
         end
-        -- FIXME: May be a problem to always steal Alt on OSX, would ideally still allow an uninterrupted Alt down-up to toggle menu
         if is_osx then
             ImGui.SetKeyOwner(ImGuiMod_Alt, id)
         end
@@ -4920,7 +4907,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
             if multiclick_count % 2 == 0 then
                 -- Double-click: Select word
                 -- We always use the "Mac" word advance for double-click select vs Ctrl+Right which use the platform dependent variant:
-                -- FIXME: There are likely many ways to improve this behavior, but there's no "right" behavior (depends on use-case, software, OS)
                 local is_bol = (state.Stb.cursor == 1) or ImStb.TEXTEDIT_GETCHAR(state, state.Stb.cursor - 1) == 10
                 if stbte.HAS_SELECTION(state.Stb) or not is_bol then
                     state:OnKeyPressed(STB_TEXTEDIT_K_WORDLEFT)
@@ -4975,7 +4961,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                 end
             end
 
-            -- FIXME: Implement Shift+Tab
         end
 
         -- Process regular text input
@@ -5533,7 +5518,6 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
         item_data_backup.StatusFlags = bit.bor(item_data_backup.StatusFlags, bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredWindow))
 
         -- ...and then we need to undo the group overriding last item data, which gets a bit messy as EndGroup() tries to forward scrollbar being active...
-        -- FIXME: This quite messy/tricky, should attempt to get rid of the child window.
         ImGui.EndGroup()
         if g.LastItemData.ID == 0 or g.LastItemData.ID ~= ImGui.GetWindowScrollbarID(draw_window, ImGuiAxis.Y) then
             g.LastItemData.ID = id
@@ -6425,7 +6409,6 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
     end
 
     -- Drag and Drop Source
-    -- NB: The ActiveId test is merely an optional micro-optimization, BeginDragDropSource() does the same test.
     -- if g.ActiveId == id and bit.band(flags, ImGuiColorEditFlags.NoDragDrop) == 0 and ImGui.BeginDragDropSource() then
     --     if bit.band(flags, ImGuiColorEditFlags.NoAlpha) ~= 0 then
     --         ImGui.SetDragDropPayload(IMGUI_PAYLOAD_TYPE_COLOR_3F, col_rgb, ImGuiCond.Once)
@@ -7173,7 +7156,6 @@ function ImGui.Selectable(label, selected, flags, size_arg)
     end
 
     -- Selectables are meant to be tightly packed together with no click-gap, so we extend their box to cover spacing between selectable.
-    -- FIXME: Not part of layout so not included in clipper calculation, but ItemSize currently doesn't allow offsetting CursorPos.
     local bb = ImRect(min_x, pos.y, min_x + size.x, pos.y + size.y)
     if bit.band(flags, ImGuiSelectableFlags.NoPadWithHalfSpacing) == 0 then
         local spacing_x = span_all_columns and 0.0 or style.ItemSpacing.x
@@ -7223,8 +7205,6 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         ImGui.BeginDisabled()
     end
 
-    -- FIXME: We can standardize the behavior of those two, we could also keep the fast path of override ClipRect + full push on render only,
-    -- which would be advantageous since most selectable are not selected.
     if span_all_columns then
         if g.CurrentTable then
             ImGui.TablePushBackgroundChannel()
@@ -7301,7 +7281,6 @@ function ImGui.Selectable(label, selected, flags, size_arg)
         local highlighted = hovered or (bit.band(flags, ImGuiSelectableFlags.Highlight) ~= 0)
 
         if highlighted or selected then
-            -- Between 1.91.0 and 1.91.4 we made selected Selectable use an arbitrary lerp between _Header and _HeaderHovered. Removed that now. (#8106)
             local col
             if held and highlighted then
                 col = ImGui.GetColorU32(ImGuiCol.HeaderActive)
@@ -7603,10 +7582,8 @@ function MT.ImGuiMenuColumns:DeclColumns(w_icon, w_label, w_shortcut, w_mark)
     return ImMax(self.TotalWidth, self.NextTotalWidth)
 end
 
--- FIXME: Provided a rectangle perhaps e.g. a BeginMenuBarEx() could be used anywhere..
 -- Currently the main responsibility of this function being to setup clip-rect + horizontal layout + menu navigation layer.
 -- Ideally we also want this to be responsible for claiming space out of the main window scrolling rectangle, in which case ImGuiWindowFlags.MenuBar will become unnecessary.
--- Then later the same system could be used for multiple menu-bars, scrollbars, side-bars.
 function ImGui.BeginMenuBar()
     local window = ImGui.GetCurrentWindow()
     if window.SkipItems then
