@@ -848,6 +848,7 @@ function ImGui.SetCurrentContext(ctx)
     GImGui = ctx
 
     ImGui._SetCurrentContext_Internal(ctx)
+    ImGui._SetCurrentContext_Draw(ctx)
     ImGui._SetCurrentContext_Widgets(ctx)
     ImGui._SetCurrentContext_Tables(ctx)
 end

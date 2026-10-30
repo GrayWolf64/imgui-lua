@@ -495,6 +495,30 @@ function IM_VECTOR:index_from_ptr(p)
     IM_ASSERT(false, "index_from_ptr failed!")
 end
 
+ImGuiStorage =
+{
+    --- @param storage table<ImGuiID, integer|boolean>
+    --- @param key ImGuiID
+    --- @param default_val? integer
+    --- @return integer
+    GetInt = function(storage, key, default_val)
+        if default_val == nil then default_val = 0 end
+
+        local value = storage[key]
+        if value == nil then return default_val end
+        if value == true then return 1 end
+        if value == false then return 0 end
+        return value
+    end,
+
+    --- @param storage table<ImGuiID, integer|boolean>
+    --- @param key ImGuiID
+    --- @param value integer
+    SetInt = function(storage, key, value)
+        storage[key] = value
+    end
+}
+
 --- @class ImDrawCmd
 --- @field ClipRect               ImVec4
 --- @field TexRef                 ImTextureRef
@@ -844,7 +868,7 @@ end
 --- @field FallbackChar             ImWchar
 --- @field Used8kPagesMap           ImU8[]                 # 1-based table
 --- @field EllipsisAutoBake         bool
---- @field RemapPairs               table<ImGuiID, integer> # LUA: No ImGuiStorage
+--- @field RemapPairs               table<ImGuiID, integer> # LUA: Plain table storage
 --- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont

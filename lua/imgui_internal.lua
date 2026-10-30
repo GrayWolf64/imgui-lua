@@ -39,6 +39,7 @@ IM_TABSIZE = 4
 
 FLT_MIN = 1.1754943508223e-38
 FLT_MAX = 3.4028234663853e+38
+FLT_EPSILON = 1.1920928955078e-07
 DBL_MAX = 1.7976931348623e+308
 INT_MIN = -0x7fffffff - 1
 INT_MAX = 0x7fffffff
@@ -56,7 +57,16 @@ ImFabs = math.abs
 ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
 ImRoundPositive64 = function(val) return math.floor(val + 0.5) end
-ImRoundSigned64 = function(val) return val >= 0.0 and math.floor(val + 0.5) or math.ceil(val - 0.5) end
+
+local function _RoundSigned64(val) return val >= 0.0 and math.floor(val + 0.5) or math.ceil(val - 0.5) end
+
+--- @overload fun(val: float): float
+--- @overload fun(val: ImVec2): ImVec2
+function ImRoundSigned64(val)
+    if     type(val) == "number" then return _RoundSigned64(val)
+    elseif type(val) == "table"  then return ImVec2(_RoundSigned64(val[1]), _RoundSigned64(val[2]))
+    end
+end
 
 ImCeil  = math.ceil
 ImSin   = math.sin
@@ -925,7 +935,7 @@ end
 --- @field LockDisableResize        bool
 --- @field PreloadedAllGlyphsRanges bool
 --- @field BakedPool                ImVector<ImFontBaked>
---- @field BakedMap                 table<ImGuiID, any>            # LUA: No ImGuiStorage
+--- @field BakedMap                 table<ImGuiID, any>
 --- @field BakedDiscardedCount      int
 --- @field PackIdMouseCursors       ImFontAtlasRectId
 --- @field PackIdLinesTexData       ImFontAtlasRectId
@@ -1285,6 +1295,9 @@ function ImGuiStyle()
 
         DisplaySafeAreaPadding = ImVec2(3, 3),
         DisplayWindowPadding = ImVec2(19, 19),
+
+        SymbolArrowSizeFactor      = ImVec2(0.72, 0.40),
+        SymbolArrowThicknessFactor = 0.30,
 
         AntiAliasedLines    = true,
         AntiAliasedLineEnds = false,
@@ -2155,7 +2168,7 @@ end
 --- @field RootWindow                         ImGuiWindow
 --- @field RootWindowPopupTree                ImGuiWindow
 --- @field RootWindowDockTree                 ImGuiWindow
---- @field StateStorage                       {[ImGuiID]: bool}
+--- @field StateStorage                       table<ImGuiID, integer>
 --- @field MemoryDrawListIdxCapacity          int
 --- @field MemoryDrawListVtxCapacity          int
 --- @field MemoryCompacted                    bool

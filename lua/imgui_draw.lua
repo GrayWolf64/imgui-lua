@@ -1,6 +1,14 @@
 --- ImGui Sincerely WIP
 -- (Draw Code)
 
+local GImGui
+
+-- This is currently only used in main code `ImGui.SetCurrentContext()`
+--- @param ctx ImGuiContext?
+function ImGui._SetCurrentContext_Draw(ctx)
+    GImGui = ctx
+end
+
 -- LUA: Single reusable temporary for immediate value-copy operations only.
 -- Do _NOT_ do anything like this: `foo(_ImVec2(a, b), _ImVec2(c, d))`
 local _ImVec2 do
@@ -113,15 +121,15 @@ function ImGui.StyleColorsDark(dst)
     local colors = style.Colors
 
     colors[ImGuiCol.Text]                      = ImVec4(1.00, 1.00, 1.00, 1.00)
-    colors[ImGuiCol.TextDisabled]              = ImVec4(0.50, 0.50, 0.50, 1.00)
-    colors[ImGuiCol.WindowBg]                  = ImVec4(0.06, 0.06, 0.06, 0.94)
+    colors[ImGuiCol.TextDisabled]              = ImVec4(0.58, 0.58, 0.58, 1.00)
+    colors[ImGuiCol.WindowBg]                  = ImVec4(0.15, 0.15, 0.15, 1.00)
     colors[ImGuiCol.ChildBg]                   = ImVec4(0.00, 0.00, 0.00, 0.00)
     colors[ImGuiCol.PopupBg]                   = ImVec4(0.08, 0.08, 0.08, 0.94)
     colors[ImGuiCol.Border]                    = ImVec4(0.43, 0.43, 0.50, 0.50)
     colors[ImGuiCol.BorderShadow]              = ImVec4(0.00, 0.00, 0.00, 0.00)
-    colors[ImGuiCol.FrameBg]                   = ImVec4(0.16, 0.29, 0.48, 0.54)
-    colors[ImGuiCol.FrameBgHovered]            = ImVec4(0.26, 0.59, 0.98, 0.40)
-    colors[ImGuiCol.FrameBgActive]             = ImVec4(0.26, 0.59, 0.98, 0.67)
+    colors[ImGuiCol.FrameBg]                   = ImVec4(0.10, 0.10, 0.10, 1.00)
+    colors[ImGuiCol.FrameBgHovered]            = ImVec4(0.19, 0.25, 0.31, 1.00)
+    colors[ImGuiCol.FrameBgActive]             = ImVec4(0.21, 0.33, 0.47, 1.00)
     colors[ImGuiCol.TitleBg]                   = ImVec4(0.04, 0.04, 0.04, 1.00)
     colors[ImGuiCol.TitleBgActive]             = ImVec4(0.16, 0.29, 0.48, 1.00)
     colors[ImGuiCol.TitleBgCollapsed]          = ImVec4(0.00, 0.00, 0.00, 0.51)
@@ -158,9 +166,9 @@ function ImGui.StyleColorsDark(dst)
     colors[ImGuiCol.PlotLinesHovered]          = ImVec4(1.00, 0.43, 0.35, 1.00)
     colors[ImGuiCol.PlotHistogram]             = ImVec4(0.90, 0.70, 0.00, 1.00)
     colors[ImGuiCol.PlotHistogramHovered]      = ImVec4(1.00, 0.60, 0.00, 1.00)
-    colors[ImGuiCol.TableHeaderBg]             = ImVec4(0.19, 0.19, 0.20, 1.00)
-    colors[ImGuiCol.TableBorderStrong]         = ImVec4(0.31, 0.31, 0.35, 1.00)
-    colors[ImGuiCol.TableBorderLight]          = ImVec4(0.23, 0.23, 0.25, 1.00)
+    colors[ImGuiCol.TableHeaderBg]             = ImVec4(0.28, 0.28, 0.29, 1.00)
+    colors[ImGuiCol.TableBorderStrong]         = ImVec4(0.40, 0.40, 0.45, 1.00)
+    colors[ImGuiCol.TableBorderLight]          = ImVec4(0.32, 0.32, 0.34, 1.00)
     colors[ImGuiCol.TableRowBg]                = ImVec4(0.00, 0.00, 0.00, 0.00)
     colors[ImGuiCol.TableRowBgAlt]             = ImVec4(1.00, 1.00, 1.00, 0.06)
     colors[ImGuiCol.TextLink]                  = colors[ImGuiCol.HeaderActive]
@@ -422,7 +430,6 @@ local ImFontAtlasFontDestroyOutput
 
 local ImFontBaked_BuildGrowIndex
 local ImFontBaked_BuildLoadGlyph
-local ImFontBaked_BuildLoadGlyphAdvanceX
 
 local ImTextInitClassifiers
 local ImTextClassifierGet
@@ -2495,7 +2502,7 @@ end
 --- @param to_codepoint   ImWchar
 function MT.ImFont:AddRemapCodepoint(from_codepoint, to_codepoint)
     IM_ASSERT(to_codepoint >= 0 and to_codepoint <= IM_UNICODE_CODEPOINT_MAX)
-    self.RemapPairs[from_codepoint] = to_codepoint
+    ImGuiStorage.SetInt(self.RemapPairs, from_codepoint, to_codepoint)
 end
 
 local IMFONT_REMAPVALUE_GLYPHIDX_SHIFT   = 0
@@ -2513,7 +2520,7 @@ function MT.ImFont:AddRemapCodepointToGlyphIndex(from_codepoint, font_src_idx, g
     IM_ASSERT(font_src_idx >= 1 and font_src_idx <= self.Sources.Size and bit.band(bit.lshift(font_src_idx - 1, IMFONT_REMAPVALUE_FONTSRCIDX_SHIFT), bit.bnot(IMFONT_REMAPVALUE_FONTSRCIDX_MASK)) == 0)
     IM_ASSERT(glyph_idx >= 0 and bit.band(bit.lshift(glyph_idx, IMFONT_REMAPVALUE_GLYPHIDX_SHIFT), bit.bnot(IMFONT_REMAPVALUE_GLYPHIDX_MASK)) == 0)
     local data = bit.bor(bit.lshift(1, 31), bit.lshift(font_src_idx - 1, IMFONT_REMAPVALUE_FONTSRCIDX_SHIFT), bit.lshift(glyph_idx, IMFONT_REMAPVALUE_GLYPHIDX_SHIFT))
-    self.RemapPairs[from_codepoint] = data
+    ImGuiStorage.SetInt(self.RemapPairs, from_codepoint, data)
 end
 
 --- @param atlas     ImFontAtlas
@@ -2525,10 +2532,7 @@ end
 --- @nodiscard
 local function ImFontAtlas_FontHookRemapCodepoint(atlas, font, codepoint)
     -- IM_UNUSED(atlas)
-    local data = font.RemapPairs[codepoint]
-    if not data then
-        return codepoint, -1, -1
-    end
+    local data = ImGuiStorage.GetInt(font.RemapPairs, codepoint, codepoint)
     if bit.band(data, bit.lshift(1, 31)) ~= 0 then
         local font_src_idx = bit.rshift(bit.band(data, IMFONT_REMAPVALUE_FONTSRCIDX_MASK), IMFONT_REMAPVALUE_FONTSRCIDX_SHIFT) + 1
         local glyph_idx = bit.rshift(bit.band(data, IMFONT_REMAPVALUE_GLYPHIDX_MASK), IMFONT_REMAPVALUE_GLYPHIDX_SHIFT)
@@ -6526,36 +6530,62 @@ function MT.ImFont:RenderText(draw_list, size, pos, col, clip_rect, text, text_b
     draw_list._VtxCurrentIdx = vtx_index
 end
 
---- @param draw_list ImDrawList
---- @param pos       ImVec2
---- @param color     ImU32
---- @param dir       ImGuiDir
---- @param scale?    float
-function ImGui.RenderArrow(draw_list, pos, color, dir, scale)
-    if scale == nil then scale = 1.0 end
+local g_ImGuiDirCosSin = {
+    [ImGuiDir.Left]  = ImVec2(-1.0,  0.0),
+    [ImGuiDir.Right] = ImVec2( 1.0,  0.0),
+    [ImGuiDir.Up]    = ImVec2( 0.0, -1.0),
+    [ImGuiDir.Down]  = ImVec2( 0.0,  1.0)
+}
 
-    local h = draw_list._Data.FontSize * 1.00
-    local r = h * 0.40 * scale
+--- @param draw_list   ImDrawList
+--- @param pos         ImVec2
+--- @param col         ImU32
+--- @param cos_a       float
+--- @param sin_a       float
+--- @param scale       float
+--- @param arrow_sizes ImVec2
+--- @param arrow_th    float
+function ImGui.RenderArrowEx(draw_list, pos, col, cos_a, sin_a, scale, arrow_sizes, arrow_th)
+    local is_fill = arrow_th <= 0.0
+    local r = draw_list._Data.FontSize * 0.50 * scale
+    local thickness = is_fill and 0.0 or IM_ROUND(ImClamp(r * arrow_th, 1.0, r * 0.5))
 
-    local center = pos + ImVec2(h * 0.50, h * 0.50 * scale)
+    local bias = is_fill and (r * 0.05) or (thickness * 0.8 * 0.7071)
+    local center_x = pos.x + r + bias * cos_a
+    local center_y = pos.y + r + bias * sin_a
 
-    local a, b, c
+    local arrow_h = arrow_sizes.y * r
+    local arrow_w = arrow_sizes.x * r
+    local p = {
+        ImVec2(center_x - arrow_h * cos_a - arrow_w * -sin_a, center_y - arrow_h * sin_a - arrow_w * cos_a),
+        ImVec2(center_x + arrow_h * cos_a,                    center_y + arrow_h * sin_a),
+        ImVec2(center_x - arrow_h * cos_a + arrow_w * -sin_a, center_y - arrow_h * sin_a + arrow_w * cos_a)
+    }
 
-    if dir == ImGuiDir.Up or dir == ImGuiDir.Down then
-        if dir == ImGuiDir.Up then r = -r end
-        a = ImVec2( 0.000,  0.750) * r
-        b = ImVec2(-0.866, -0.750) * r
-        c = ImVec2( 0.866, -0.750) * r
-    elseif dir == ImGuiDir.Left or dir == ImGuiDir.Right then
-        if dir == ImGuiDir.Left then r = -r end
-        a = ImVec2( 0.750,  0.000) * r
-        b = ImVec2(-0.750,  0.866) * r
-        c = ImVec2(-0.750, -0.866) * r
-    elseif dir == ImGuiDir.None or dir == ImGuiDir.COUNT then
-        IM_ASSERT(false)
+    if is_fill and cos_a * sin_a >= -FLT_EPSILON and cos_a * sin_a <= FLT_EPSILON then
+        p[1] = ImRoundSigned64(p[1])
+        p[2] = ImRoundSigned64(p[2])
+        p[3] = ImRoundSigned64(p[3])
     end
 
-    draw_list:AddTriangleFilled(center + a, center + b, center + c, color)
+    if is_fill then
+        draw_list:AddConvexPolyFilled(p, 3, col)
+    else
+        draw_list:_AddPolyline(p, 3, col, thickness, bit.bor(ImDrawFlags.StrokeInside, ImDrawFlags.AALineEnds), FLT_MAX)
+    end
+end
+
+--- @param draw_list ImDrawList
+--- @param pos       ImVec2
+--- @param col       ImU32
+--- @param dir       ImGuiDir
+--- @param scale?    float
+function ImGui.RenderArrow(draw_list, pos, col, dir, scale)
+    if scale == nil then scale = 1.0 end
+
+    local g = GImGui
+    local cos_sin = g_ImGuiDirCosSin[dir]
+    ImGui.RenderArrowEx(draw_list, pos, col, cos_sin.x, cos_sin.y, scale, g.Style.SymbolArrowSizeFactor, g.Style.SymbolArrowThicknessFactor)
 end
 
 --- @param draw_list ImDrawList
@@ -6584,25 +6614,6 @@ function ImGui.RenderCheckMark(draw_list, pos, col, sz)
     draw_list:PathLineTo(ImVec2(bx, by))
     draw_list:PathLineTo(ImVec2(bx + third * 2.0, by - third * 2.0))
     draw_list:PathStroke(col, thickness, ImDrawFlags.AALineEnds)
-end
-
--- Render an arrow. 'pos' is position of the arrow tip. half_sz.x is length from base to tip. half_sz.y is length on each side
---- @param draw_list ImDrawList
---- @param pos       ImVec2
---- @param half_sz   ImVec2
---- @param direction ImGuiDir
---- @param col       ImU32
-function ImGui.RenderArrowPointingAt(draw_list, pos, half_sz, direction, col)
-    if direction == ImGuiDir.Left then
-        draw_list:AddTriangleFilled(ImVec2(pos.x + half_sz.x, pos.y - half_sz.y), ImVec2(pos.x + half_sz.x, pos.y + half_sz.y), pos, col)
-    elseif direction == ImGuiDir.Right then
-        draw_list:AddTriangleFilled(ImVec2(pos.x - half_sz.x, pos.y + half_sz.y), ImVec2(pos.x - half_sz.x, pos.y - half_sz.y), pos, col)
-    elseif direction == ImGuiDir.Up then
-        draw_list:AddTriangleFilled(ImVec2(pos.x + half_sz.x, pos.y + half_sz.y), ImVec2(pos.x - half_sz.x, pos.y + half_sz.y), pos, col)
-    elseif direction == ImGuiDir.Down then
-        draw_list:AddTriangleFilled(ImVec2(pos.x - half_sz.x, pos.y - half_sz.y), ImVec2(pos.x + half_sz.x, pos.y - half_sz.y), pos, col)
-    elseif direction == ImGuiDir.None or direction == ImGuiDir.COUNT then
-    end
 end
 
 local function ImAcos01(x)

@@ -5879,6 +5879,19 @@ function ImGui.ColorEdit3(label, col, flags)
     return ImGui.ColorEdit4(label, col, bit.bor(flags, ImGuiColorEditFlags.NoAlpha))
 end
 
+--- @param draw_list ImDrawList
+--- @param pos       ImVec2
+--- @param half_sz   ImVec2
+--- @param direction ImGuiDir
+--- @param col       ImU32
+local function RenderArrowPointingAt(draw_list, pos, half_sz, direction, col)
+    if direction == ImGuiDir.Left then
+        draw_list:AddTriangleFilled(ImVec2(pos.x + half_sz.x, pos.y - half_sz.y), ImVec2(pos.x + half_sz.x, pos.y + half_sz.y), pos, col)
+    elseif direction == ImGuiDir.Right then
+        draw_list:AddTriangleFilled(ImVec2(pos.x - half_sz.x, pos.y + half_sz.y), ImVec2(pos.x - half_sz.x, pos.y - half_sz.y), pos, col)
+    end
+end
+
 -- Helper for ColorPicker4()
 --- @param draw_list ImDrawList
 --- @param pos       ImVec2
@@ -5887,10 +5900,10 @@ end
 --- @param alpha     float
 local function RenderArrowsForVerticalBar(draw_list, pos, half_sz, bar_w, alpha)
     local alpha8 = IM_F32_TO_INT8_SAT(alpha)
-    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + half_sz.x + 1,         pos.y), ImVec2(half_sz.x + 2, half_sz.y + 1), ImGuiDir.Right, IM_COL32(0, 0, 0, alpha8))
-    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + half_sz.x,             pos.y), half_sz,                              ImGuiDir.Right, IM_COL32(255, 255, 255, alpha8))
-    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x - 1, pos.y), ImVec2(half_sz.x + 2, half_sz.y + 1), ImGuiDir.Left,  IM_COL32(0, 0, 0, alpha8))
-    ImGui.RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x,     pos.y), half_sz,                              ImGuiDir.Left,  IM_COL32(255, 255, 255, alpha8))
+    RenderArrowPointingAt(draw_list, ImVec2(pos.x + half_sz.x + 1,         pos.y), ImVec2(half_sz.x + 2, half_sz.y + 1), ImGuiDir.Right, IM_COL32(0, 0, 0, alpha8))
+    RenderArrowPointingAt(draw_list, ImVec2(pos.x + half_sz.x,             pos.y), half_sz,                              ImGuiDir.Right, IM_COL32(255, 255, 255, alpha8))
+    RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x - 1, pos.y), ImVec2(half_sz.x + 2, half_sz.y + 1), ImGuiDir.Left,  IM_COL32(0, 0, 0, alpha8))
+    RenderArrowPointingAt(draw_list, ImVec2(pos.x + bar_w - half_sz.x,     pos.y), half_sz,                              ImGuiDir.Left,  IM_COL32(255, 255, 255, alpha8))
 end
 
 do --[[ColorPicker4]]
@@ -6619,10 +6632,17 @@ function ImGui.TreeNode(label)
 end
 
 --- @param storage_id ImGuiID
-function ImGui.TreeNodeGetOpen(storage_id)
+--- @param flags?     ImGuiTreeNodeFlags
+function ImGui.TreeNodeGetOpen(storage_id, flags)
+    if flags == nil then flags = 0 end
+    if bit.band(flags, ImGuiTreeNodeFlags.Leaf) ~= 0 then
+        return true
+    end
+
     local g = GImGui
     local storage = g.CurrentWindow.DC.StateStorage
-    return (storage[storage_id]) and true or false
+    local default_value = bit.band(flags, ImGuiTreeNodeFlags.DefaultOpen) ~= 0 and 1 or 0
+    return ImGuiStorage.GetInt(storage, storage_id, default_value) ~= 0
 end
 
 --- @param storage_id ImGuiID
@@ -6630,7 +6650,7 @@ end
 function ImGui.TreeNodeSetOpen(storage_id, is_open)
     local g = GImGui
     local storage = g.CurrentWindow.DC.StateStorage
-    storage[storage_id] = is_open
+    ImGuiStorage.SetInt(storage, storage_id, is_open and 1 or 0)
 end
 
 --- @param storage_id ImGuiID
@@ -6650,8 +6670,8 @@ function ImGui.TreeNodeUpdateNextOpen(storage_id, flags)
             is_open = g.NextItemData.OpenVal
             ImGui.TreeNodeSetOpen(storage_id, is_open)
         else
-            local stored_value = storage[storage_id]
-            if stored_value == nil then
+            local stored_value = ImGuiStorage.GetInt(storage, storage_id, -1)
+            if stored_value == -1 then
                 is_open = g.NextItemData.OpenVal
                 ImGui.TreeNodeSetOpen(storage_id, is_open)
             else
@@ -6659,7 +6679,8 @@ function ImGui.TreeNodeUpdateNextOpen(storage_id, flags)
             end
         end
     else
-        is_open = (storage[storage_id] == nil) and (bit.band(flags, ImGuiTreeNodeFlags.DefaultOpen) ~= 0) or storage[storage_id]
+        local default_value = bit.band(flags, ImGuiTreeNodeFlags.DefaultOpen) ~= 0 and 1 or 0
+        is_open = ImGuiStorage.GetInt(storage, storage_id, default_value) ~= 0
     end
 
     if g.LogEnabled and bit.band(flags, ImGuiTreeNodeFlags.NoAutoOpenOnLog) == 0 and (window.DC.TreeDepth - g.LogDepthRef) < g.LogDepthToExpand then
@@ -6889,7 +6910,7 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
 
         if toggled then
             is_open = not is_open
-            window.DC.StateStorage[storage_id] = is_open
+            ImGuiStorage.SetInt(window.DC.StateStorage, storage_id, is_open and 1 or 0)
             g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.ToggledOpen)
         end
     end
@@ -6945,7 +6966,7 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
             if bit.band(flags, ImGuiTreeNodeFlags.Bullet) ~= 0 then
                 ImGui.RenderBullet(window.DrawList, ImVec2(text_pos.x - text_offset_x * 0.5, text_pos.y + g.FontSize * 0.5), text_col)
             elseif not is_leaf then
-                ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x - text_offset_x + padding.x, text_pos.y + g.FontSize * 0.15), text_col, is_open and ((bit.band(flags, ImGuiTreeNodeFlags.UpsideDownArrow) ~= 0) and ImGuiDir.Up or ImGuiDir.Down) or ImGuiDir.Right, 0.70)
+                ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x + g.FontSize * 0.15 - text_offset_x + padding.x, text_pos.y + g.FontSize * 0.15), text_col, is_open and ((bit.band(flags, ImGuiTreeNodeFlags.UpsideDownArrow) ~= 0) and ImGuiDir.Up or ImGuiDir.Down) or ImGuiDir.Right, 0.70)
             end
             -- if g.LogEnabled then
             --     ImGui.LogSetNextTextDecoration(">", nil)
@@ -7439,6 +7460,9 @@ function ImGui.PlotEx(plot_type, label, values_getter, data, values_count, value
             elseif plot_type == ImGuiPlotType.Histogram then
                 if pos1.x >= pos0.x + 2.0 then
                     pos1.x = pos1.x - 1.0
+                end
+                if pos0.y > pos1.y then
+                    pos0.y, pos1.y = pos1.y, pos0.y
                 end
                 window.DrawList:AddRectFilled(pos0, pos1, idx_hovered == v1_idx and col_hovered or col_base)
             end

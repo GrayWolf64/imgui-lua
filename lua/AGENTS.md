@@ -25,7 +25,7 @@ Keep upstream helper/type names and control-flow shape unless Lua requires adapt
 - `goto` cannot jump forward into scope of locals declared after it. Hoist locals when needed. Use labels such as `__CONTINUE__`, never `continue`.
 - LuaJIT has a 200-local limit per function/chunk. Avoid unnecessary file-scope aliases and large local declarations.
 - Runtime-conditional C macros may become zero-argument functions preserving exact upstream names. Keep callable helpers outside numeric enum tables.
-- Scalar truncation should use `_Trunc()` where overloaded vector dispatch is unwanted.
+- For known nonnegative scalar value truncations, use `math.floor()`. Otherwise consider using `ImTrunc`.
 
 ## Values, references, and storage
 
