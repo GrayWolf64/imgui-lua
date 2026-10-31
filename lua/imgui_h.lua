@@ -1100,7 +1100,7 @@ end
 
 --- @return ImGuiKeyData
 --- @nodiscard
-function ImGuiKeyData() return { Down = false, DownDuration = 0.0, DownDurationPrev = 0.0, AnalogValue = 0.0 } end
+function ImGuiKeyData() return { Down = false, DownDuration = -1.0, DownDurationPrev = -1.0, AnalogValue = 0.0 } end
 
 --- @enum ImGuiConfigFlags
 ImGuiConfigFlags = {
@@ -1139,8 +1139,8 @@ function ImGuiIO()
 
         DisplayFramebufferScale = ImVec2(1.0, 1.0),
 
-        MousePos = ImVec2(),
-        MousePosPrev = ImVec2(),
+        MousePos = ImVec2(-FLT_MAX, -FLT_MAX),
+        MousePosPrev = ImVec2(-FLT_MAX, -FLT_MAX),
 
         WantSetMousePos = false,
 
@@ -1159,9 +1159,11 @@ function ImGuiIO()
 
         ConfigMacOSXBehaviors = false,
         ConfigNavSwapGamepadButtons = false,
+        ConfigNavCaptureKeyboard = true,
         ConfigNavCursorVisibleAuto = true,
         ConfigNavCursorVisibleAlways = false,
         ConfigInputTrickleEventQueue = true,
+        ConfigInputTextCursorBlink = true,
         ConfigWindowsResizeFromEdges = true,
 
         ConfigDebugIniSettings = false,
@@ -1490,7 +1492,6 @@ ImGuiChildFlags = {
 }
 
 ImGuiChildFlags.ResizeBoth = bitOr(ImGuiChildFlags.ResizeX, ImGuiChildFlags.ResizeY)
-ImGuiChildFlags.ResizeXAndY = ImGuiChildFlags.ResizeBoth
 
 --- @enum ImGuiNextItemDataFlags
 ImGuiNextItemDataFlags = {
@@ -1609,7 +1610,6 @@ ImGuiButtonFlags = {
 ImGuiButtonFlags.MouseButtonMask_  = bitOr(ImGuiButtonFlags.MouseButtonLeft, ImGuiButtonFlags.MouseButtonRight, ImGuiButtonFlags.MouseButtonMiddle)
 ImGuiButtonFlags.PressedOnMask_    = bitOr(ImGuiButtonFlags.PressedOnClick, ImGuiButtonFlags.PressedOnClickRelease, ImGuiButtonFlags.PressedOnClickReleaseAnywhere, ImGuiButtonFlags.PressedOnRelease, ImGuiButtonFlags.PressedOnDoubleClick, ImGuiButtonFlags.PressedOnDragDropHold)
 ImGuiButtonFlags.PressedOnDefault_ = ImGuiButtonFlags.PressedOnClickRelease
-ImGuiButtonFlags.NoKeyModifiers    = ImGuiButtonFlags.NoKeyModsAllowed
 
 --- @enum ImGuiStyleVar
 ImGuiStyleVar = {
