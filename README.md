@@ -4,10 +4,6 @@
 
 ## Progress
 
-<img src="misc/images/current.png" alt="Example" width="880" height="640">
-
-_This image may be outdated!_ 
-
 | Subsystems | Stage                            |
 | ---------- | -------------------------------- |
 | Fonts(ttf) | Completed, syncing with `main`   |
