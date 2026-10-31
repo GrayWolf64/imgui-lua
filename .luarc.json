@@ -23,5 +23,11 @@
     "workspace.library": [
         "${addons}/garrysmod/module/library"
     ],
+    // FIXME: maybe remove these when it's fixed
+    // https://github.com/LuaLS/lua-language-server/issues/3474
+    "diagnostics.ignoredFiles": "Disable",
+    "workspace.ignoreDir": [
+        "/lua/backends/"
+    ],
     "runtime.version": "LuaJIT"
 }
