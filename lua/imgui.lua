@@ -2354,6 +2354,13 @@ function ImGui.SetLastItemDataForWindow(window, rect)
     end
 end
 
+--- @param window ImGuiWindow
+--- @param rect   ImRect
+function ImGui.SetLastItemDataForChildWindowItem(window, rect)
+    local g = GImGui
+    ImGui.SetLastItemData(window.ChildId, g.CurrentItemFlags, window.DC.ChildItemStatusFlags, rect)
+end
+
 --- @param c unsigned_int
 function MT.ImGuiIO:AddInputCharacter(c)
     IM_ASSERT(self.Ctx ~= nil)
@@ -4902,7 +4909,23 @@ function ImGui.GetItemRectMax()
     return g.LastItemData.Rect.Max
 end
 
---- @param name         string
+--- @param id            ImGuiID|string
+--- @param size_arg?     ImVec2
+--- @param child_flags?  ImGuiChildFlags
+--- @param window_flags? ImGuiWindowFlags
+function ImGui.BeginChild(id, size_arg, child_flags, window_flags)
+    if size_arg     == nil then size_arg     = ImVec2(0.0, 0.0) end
+    if child_flags  == nil then child_flags  = ImGuiChildFlags.None end
+    if window_flags == nil then window_flags = ImGuiWindowFlags.None end
+
+    if type(id) == "string" then
+        local _id = ImGui.GetCurrentWindow():GetID(id)
+        return ImGui.BeginChildEx(id, _id, size_arg, child_flags, window_flags)
+    end
+    return ImGui.BeginChildEx(nil, id, size_arg, child_flags, window_flags)
+end
+
+--- @param name         string?
 --- @param id           ImGuiID
 --- @param size_arg     ImVec2
 --- @param child_flags  ImGuiChildFlags
@@ -4933,7 +4956,7 @@ function ImGui.BeginChildEx(name, id, size_arg, child_flags, window_flags)
     end
 
     -- Set window flags
-    window_flags = bit.bor(window_flags, ImGuiWindowFlags.ChildWindow, ImGuiWindowFlags.NoTitleBar)
+    window_flags = bit.bor(window_flags, ImGuiWindowFlags.ChildWindow, ImGuiWindowFlags.NoTitleBar, ImGuiWindowFlags.NoDocking)
     window_flags = bit.bor(window_flags, bit.band(parent_window.Flags, ImGuiWindowFlags.NoMove)) -- Inherit the NoMove flag
     if bit.band(child_flags, bit.bor(ImGuiChildFlags.AutoResizeX, ImGuiChildFlags.AutoResizeY, ImGuiChildFlags.AlwaysAutoResize)) ~= 0 then
         window_flags = bit.bor(window_flags, ImGuiWindowFlags.AlwaysAutoResize)
@@ -5025,6 +5048,47 @@ function ImGui.BeginChildEx(name, id, size_arg, child_flags, window_flags)
     end
 
     return ret
+end
+
+function ImGui.EndChild()
+    local g = GImGui
+    local child_window = g.CurrentWindow
+
+    local backup_within_end_child_id = g.WithinEndChildID
+    IM_ASSERT(bit.band(child_window.Flags, ImGuiWindowFlags.ChildWindow) ~= 0)
+
+    g.WithinEndChildID = child_window.ID
+    local child_size = ImVec2()
+    ImVec2_Copy(child_size, child_window.Size)
+    ImGui.End()
+    if child_window.BeginCount == 1 then
+        local parent_window = g.CurrentWindow
+        local bb = ImRect(parent_window.DC.CursorPos, parent_window.DC.CursorPos + child_size)
+        ImGui.ItemSize(child_size)
+        local nav_flattened = bit.band(child_window.ChildFlags, ImGuiChildFlags.NavFlattened) ~= 0
+        if (child_window.DC.NavLayersActiveMask ~= 0 or child_window.DC.NavWindowHasScrollY) and not nav_flattened then
+            ImGui.ItemAdd(bb, child_window.ChildId)
+            ImGui.RenderNavCursor(bb, child_window.ChildId)
+
+            if child_window.DC.NavLayersActiveMask == 0 and child_window == g.NavWindow then
+                ImGui.RenderNavCursor(ImRect(bb.Min - ImVec2(2, 2), bb.Max + ImVec2(2, 2)), g.NavId, ImGuiNavRenderCursorFlags.Compact)
+            end
+        else
+            ImGui.ItemAdd(bb, child_window.ChildId, nil, ImGuiItemFlags.NoNav)
+            if nav_flattened then
+                parent_window.DC.NavLayersActiveMaskNext = bit.bor(parent_window.DC.NavLayersActiveMaskNext, child_window.DC.NavLayersActiveMaskNext)
+            end
+        end
+        if g.HoveredWindow == child_window then
+            g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredWindow)
+        end
+        child_window.DC.ChildItemStatusFlags = g.LastItemData.StatusFlags
+    else
+        ImGui.SetLastItemDataForChildWindowItem(child_window, child_window:Rect())
+    end
+
+    g.WithinEndChildID = backup_within_end_child_id
+    g.LogLinePosY = -FLT_MAX
 end
 
 --- @param window ImGuiWindow

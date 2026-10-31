@@ -2088,6 +2088,7 @@ end
 --- @field TreeRecordsClippedNodesY2Mask ImU32
 --- @field ChildWindows                  ImVector<ImGuiWindow>
 --- @field LayoutType                    ImGuiLayoutType
+--- @field ChildItemStatusFlags          ImGuiItemStatusFlags
 
 --- @return ImGuiWindowTempData
 --- @nodiscard
@@ -2128,7 +2129,8 @@ local function ImGuiWindowTempData()
         ChildWindows = ImVector(),
         StateStorage = nil,
 
-        LayoutType = nil
+        LayoutType = nil,
+        ChildItemStatusFlags = ImGuiItemStatusFlags.None
     }
 end
 
