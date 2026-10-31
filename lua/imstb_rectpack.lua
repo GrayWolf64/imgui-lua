@@ -137,7 +137,7 @@ local function stbrp_setup_allow_out_of_mem(context, allow_out_of_mem)
     if allow_out_of_mem then
         context.align = 1
     else
-        context.align = (context.width + context.num_nodes - 1) / context.num_nodes
+        context.align = math.floor((context.width + context.num_nodes - 1) / context.num_nodes)
     end
 end
 

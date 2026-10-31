@@ -4482,7 +4482,7 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
                 goto __CONTINUE__
             end
 
-            s = s + ImStd.ImStrlen(buf) - s -- FIXME:
+            s = s + ImStd.ImStrlen(buf, s)
             trailing_line_already_counted = true
 
             do break end
@@ -4493,11 +4493,8 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
         end
     end
 
-    local out_buf_end
-    if out_buf_end ~= nil then
-        out_buf_end = s
-        buf_end = s
-    end
+    buf_end = s
+
     if size == 0 then
         line_index.Offsets:push_back(0)
         size = size + 1
@@ -4509,7 +4506,7 @@ local function InputTextLineIndexBuild(flags, line_index, buf, buf_end, wrap_wid
             line_index.Offsets:push_back(s - 1)
         end
     end
-    return size, out_buf_end
+    return size, buf_end
 end
 
 --- @param t        table
@@ -5138,7 +5135,7 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
                     ImStd.ImTextCharToUtf8(c_utf8, c)
                     local out_len = ImStd.ImStrlen(c_utf8)
                     clipboard_filtered:resize(clipboard_filtered.Size + out_len)
-                    ImStd.memmove(clipboard_filtered.Data, clipboard_filtered.Size - out_len, c_utf8, 1, out_len)
+                    ImStd.memmove(clipboard_filtered.Data, clipboard_filtered.Size - out_len + 1, c_utf8, 1, out_len)
 
                     :: __CONTINUE__ ::
                 end
@@ -5367,19 +5364,12 @@ function ImGui.InputTextEx(label, hint, buf, buf_size, size_arg, flags, callback
     local line_count = 1
     if is_multiline then
         local will_scroll_y = state and ((state.CursorFollow and render_cursor) or (state.CursorCenterY and (render_cursor or render_selection)))
-        --- @cast buf_display_end int
-        local out_buf_end
-        line_count, out_buf_end = InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1))
-        if buf_display_end then
-            buf_display_end = out_buf_end
-        end
+        line_count, buf_display_end = InputTextLineIndexBuild(flags, line_index, buf_display, buf_display_end, wrap_width, will_scroll_y and INT_MAX or (line_visible_n1 + 1))
     end
     line_index.EndOffset = buf_display_end - 1
     line_visible_n1 = ImMin(line_visible_n1, line_count + 1)
 
     local text_size_y = line_count * g.FontSize
-
-    --- @cast buf_display_end int
     local cursor_offset = (render_cursor and state) and InputTextLineIndexGetPosOffset(g, state, line_index, buf_display, buf_display_end, state.Stb.cursor) or ImVec2(0.0, 0.0)
     local draw_scroll = ImVec2()
 
@@ -7503,7 +7493,7 @@ end
 --- @return float
 --- @package
 local function Plot_ArrayGetter(data, idx)
-    return data.Values[idx * data.Stride]
+    return data.Values[(idx - 1) * data.Stride + 1]
 end
 
 --- @param label            string
