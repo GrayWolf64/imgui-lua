@@ -495,6 +495,73 @@ function IM_VECTOR:index_from_ptr(p)
     IM_ASSERT(false, "index_from_ptr failed!")
 end
 
+--- @class ImGuiTextBuffer
+--- @field Buf ImVector<char>
+local IMGUI_TEXT_BUFFER = {}
+IMGUI_TEXT_BUFFER.__index = function(t, k)
+    if type(k) == "number" then
+        return t.Buf.Data[k]
+    end
+    return IMGUI_TEXT_BUFFER[k]
+end
+
+--- @return ImGuiTextBuffer
+--- @nodiscard
+function ImGuiTextBuffer()
+    return setmetatable({ Buf = ImVector() }, IMGUI_TEXT_BUFFER)
+end
+
+function IMGUI_TEXT_BUFFER:begin() return 1 end
+function IMGUI_TEXT_BUFFER:end_() return self:size() + 1 end
+function IMGUI_TEXT_BUFFER:size() return self.Buf.Size > 0 and self.Buf.Size - 1 or 0 end
+function IMGUI_TEXT_BUFFER:empty() return self.Buf.Size <= 1 end
+function IMGUI_TEXT_BUFFER:clear() self.Buf:clear() end
+function IMGUI_TEXT_BUFFER:c_str() return self:empty() and "" or ImBuf2Str(self.Buf.Data) end
+
+--- @param size int
+function IMGUI_TEXT_BUFFER:resize(size) if self.Buf.Size > size then self.Buf.Data[size + 1] = 0 end self.Buf:resize(size ~= 0 and size + 1 or 0, 0) end
+--- @param capacity int
+function IMGUI_TEXT_BUFFER:reserve(capacity) self.Buf:reserve(capacity) end
+
+--- @param str      string
+--- @param str_end? int
+function IMGUI_TEXT_BUFFER:append(str, str_end)
+    local len
+    if str_end ~= nil then
+        len = str_end - 1
+    else
+        local zero = string.find(str, "\0", 1, true)
+        len = zero and zero - 1 or #str
+    end
+
+    local write_off = self.Buf.Size ~= 0 and self.Buf.Size or 1
+    local needed_sz = write_off + len
+    if write_off + len >= self.Buf.Capacity then
+        local new_capacity = self.Buf.Capacity * 2
+        self.Buf:reserve(needed_sz > new_capacity and needed_sz or new_capacity)
+    end
+    self.Buf:resize(needed_sz)
+    local _byte = string.byte
+    for i = 1, len do
+        self.Buf.Data[write_off + i - 1] = _byte(str, i)
+    end
+    self.Buf.Data[needed_sz] = 0
+end
+
+--- @param fmt string
+--- @param ... any
+function IMGUI_TEXT_BUFFER:appendf(fmt, ...)
+    self:appendfv(fmt, ...)
+end
+
+--- @param fmt string
+--- @param ... any
+function IMGUI_TEXT_BUFFER:appendfv(fmt, ...)
+    local text = string.format(fmt, ...)
+    if #text == 0 then return end
+    self:append(text, #text + 1)
+end
+
 ImGuiStorage =
 {
     --- @param storage table<ImGuiID, integer|boolean>

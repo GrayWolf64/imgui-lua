@@ -106,7 +106,7 @@ function ImGui.TextEx(text, text_end, flags)
 
                 local line_size = ImGui.CalcTextSizeEx(text, line, line_end)
                 text_size.x = ImMax(text_size.x, line_size.x)
-                ImGui.RenderText(pos, text, line, nil, false)
+                ImGui.RenderText(pos, text, line, line_end, false)
                 line = line_end + 1
                 line_rect.Min.y = line_rect.Min.y + line_height
                 line_rect.Max.y = line_rect.Max.y + line_height
