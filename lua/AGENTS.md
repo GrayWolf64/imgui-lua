@@ -45,6 +45,7 @@ Keep upstream helper/type names and control-flow shape unless Lua requires adapt
 - Value widgets return `updated_value, changed`. Follow each existing wrapper's established ordering; for example `Checkbox()` returns `pressed, updated_value`.
 - Demo state should persist or reset according to upstream intent.
 - Lua strings replace temporary C++ character buffers when equivalent. Display-only scalar formatting should consume strings directly.
+- Lua `string.*` patterns (not full regular expressions) may replace manual parsing when substantially simpler and not performance-critical. Preserve parsing semantics; this is an allowed exception to upstream control-flow matching and stdio use.
 - `ImBuf2Str()` uses chunked conversion; avoid unpacking huge buffers into one call.
 - Drop `[OBSOLETE]` code and fallback paths entirely.
 

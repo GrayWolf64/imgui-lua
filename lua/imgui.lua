@@ -122,13 +122,30 @@ local TOOLTIP_DEFAULT_PIVOT_TOUCH  = ImVec2(0.5, 1.0) -- Multiplied by g.Style.M
 local IMGUI_VIEWPORT_DEFAULT_ID = 0x11111111
 
 local string = string
-ImFormatString = string.format -- TODO: an simplified version that operates on byte tables directly?
-
---- @module "imstd_minstdio"
-ImStd.sscanf = IM_INCLUDE"imstd_minstdio.lua"
-
 local math = math
 local bit  = bit
+
+--- @param format string
+--- @param ...    any
+--- @return string
+function ImFormatString(format, ...)
+    local args = { ... }
+    local arg_index = 0
+    for conversion in string.gmatch(format, "%%[-+ #0]*%d*%.?%d*([%a%%])") do
+        if conversion == "%" then goto __CONTINUE__ end
+        arg_index = arg_index + 1
+        if not string.find("diuoxX", conversion, 1, true) then goto __CONTINUE__ end
+
+        local value = math.modf(args[arg_index]) % (UINT_MAX + 1)
+        if (conversion == "d" or conversion == "i") and value > INT_MAX then
+            value = value - (UINT_MAX + 1)
+        end
+        args[arg_index] = value
+
+        :: __CONTINUE__ ::
+    end
+    return string.format(format, unpack(args, 1, select("#", ...)))
+end
 
 ---------------------------------------------------------------------------------------
 -- [SECTION] MISC HELPERS/UTILITIES (File functions)
@@ -605,6 +622,144 @@ function ImStd.ImTriangleClosestPoint(a, b, c, p)
     else
         return proj_ca
     end
+end
+
+do
+
+local _byte = string.byte
+
+local CHAR_PERCENT = _byte'%'
+local CHAR_PLUS, CHAR_MINUS = _byte'+', _byte'-'
+local function isspace(c) return c == 32 or c == 9 end
+
+local function clamp_if_overflow(val, is_unsigned)
+    if is_unsigned then
+        if val > UINT_MAX or val < -UINT_MAX then return UINT_MAX end
+        if val < 0 then return val + UINT_MAX + 1 end
+    else
+        if val > INT_MAX then return INT_MAX end
+        if val < INT_MIN then return INT_MIN end
+    end
+    return val
+end
+
+--- @param buffer       char[]
+--- @param buffer_begin int
+--- @param format       string
+--- @param result       table  # table to store parsed values
+--- @param ...          (fun(value: number): number)|nil # optional converter per result
+function ImStd.sscanf(buffer, buffer_begin, format, result, ...)
+    local input = ImBuf2Str(buffer)
+    local p = buffer_begin
+    local f = 1 -- format_begin
+    local format_len = #format
+    local items_matched = 0
+    local converter_count = select("#", ...)
+
+    while f <= format_len do
+        if isspace(_byte(format, f, f)) then
+            p = string.match(input, "^[ \t]*()", p)
+            f = f + 1
+
+            goto __CONTINUE__
+        end
+
+        if _byte(format, f, f) ~= CHAR_PERCENT then
+            if buffer[p] == _byte(format, f, f) then
+                p = p + 1
+                f = f + 1
+            else
+                return items_matched
+            end
+
+            goto __CONTINUE__
+        end
+
+        -- encountered % in fmt
+        f = f + 1
+
+        -- %%
+        if _byte(format, f, f) == CHAR_PERCENT then
+            if buffer[p] == CHAR_PERCENT then
+                p = p + 1
+                f = f + 1
+            else
+                return items_matched
+            end
+
+            goto __CONTINUE__
+        end
+
+        local width_str, modifier, conversion, next_f =
+            string.match(format, "^(%d*)(l?)([duxXfF])()", f)
+        if not conversion or (modifier == "l" and conversion ~= "f") then
+            return items_matched
+        end
+
+        local width = tonumber(width_str) or 0
+        if width == 0 then
+            width = math.huge
+        end
+
+        local base
+        local is_float = conversion == "f" or conversion == "F"
+        if     conversion == "x" or conversion == "X" then
+            base = 16
+        elseif conversion == "d" or conversion == "u" then
+            base = 10
+        end
+        f = next_f
+
+        p = string.match(input, "^[ \t]*()", p)
+
+        local sign = 1
+        if is_float or base == 10 then
+            if buffer[p] == CHAR_PLUS or buffer[p] == CHAR_MINUS then
+                sign = buffer[p] == CHAR_MINUS and -1 or 1
+                p = p + 1
+                if not is_float then
+                    width = width - 1
+                end
+            end
+        end
+
+        -- inf, nan are not handled
+        local val
+        if is_float then
+            local token, next_p = string.match(input, "^([0-9]*%.?[0-9]*)()", p)
+            if token == "" then
+                return items_matched
+            end
+            p = next_p
+
+            val = sign * (tonumber(token) or 0)
+        else
+            local pattern = base == 10 and "^[0-9]+" or "^[0-9a-fA-F]+"
+            local _, token_end = string.find(input, pattern, p)
+            if not token_end or width <= 0 then
+                return items_matched
+            end
+            token_end = math.min(token_end, p + width - 1)
+            local token = string.sub(input, p, token_end)
+            p = token_end + 1
+            val = clamp_if_overflow(sign * tonumber(token, base), conversion ~= "d")
+        end
+
+        items_matched = items_matched + 1
+        if items_matched <= converter_count then
+            local convert = select(items_matched, ...)
+            if convert then
+                val = convert(val)
+            end
+        end
+        result[items_matched] = val
+
+        :: __CONTINUE__ ::
+    end
+
+    return items_matched
+end
+
 end
 
 --- @param dst     char[]

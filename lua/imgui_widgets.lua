@@ -2107,7 +2107,7 @@ function ImGui.DataTypeApplyFromText(buf, data_type, data, format, data_when_emp
 
     local v32 = 0
     local res = {}
-    if ImStd.sscanf(buf, 1, format, res) < 1 then
+    if ImStd.sscanf(buf, 1, format, res, data_type == ImGuiDataType.S32 and ImS32 or nil) < 1 then
         return data, false
     end
     if type_info.Size >= 4 then
