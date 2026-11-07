@@ -2223,13 +2223,13 @@ function ImGui.RoundScalarWithFormatT(format, data_type, v)
     -- IM_UNUSED(data_type)
     IM_ASSERT(data_type == ImGuiDataType.Float or data_type == ImGuiDataType.Double)
     local fmt_start = ImParseFormatFindStart(format)
-    if string.byte(format, fmt_start) ~= 37 or string.byte(format, fmt_start + 1) == 37 then
+    if fmt_start == nil or string.byte(format, fmt_start) ~= 37 or string.byte(format, fmt_start + 1) == 37 then
         return v -- Don't apply if the value is not visible in the format string
     end
 
-    -- TODO: Sanitize format
+    local fmt_sanitized = ImParseFormatSanitizeForPrinting(string.sub(format, fmt_start))
 
-    local str = ImFormatString(format, v)
+    local str = ImFormatString(fmt_sanitized, v)
 
     v = ImAtof(str) or v
     return v
@@ -2279,19 +2279,21 @@ local function ImParseFormatFindEnd(fmt, pos)
     return len + 1
 end
 
--- TODO: temporary patch. does not look good
 --- @param fmt string
 local function ImParseFormatTrimDecorations(fmt)
     local fmt_start = ImParseFormatFindStart(fmt)
-    if string.byte(fmt, fmt_start) ~= 37 then -- '%'
+    if fmt_start == nil or string.byte(fmt, fmt_start) ~= 37 then -- '%'
         return ""
     end
-    --- @cast fmt_start int
     local fmt_end = ImParseFormatFindEnd(fmt, fmt_start)
-    if string.byte(fmt, fmt_end) ~= 37 then
-        return string.sub(fmt, fmt_start)
-    end
-    return string.sub(fmt, fmt_start, fmt_end)
+    return string.sub(fmt, fmt_start, fmt_end - 1)
+end
+
+--- @param fmt_in string
+--- @return string
+function ImParseFormatSanitizeForPrinting(fmt_in)
+    local fmt_end = ImParseFormatFindEnd(fmt_in, 1)
+    return (string.gsub(string.sub(fmt_in, 1, fmt_end - 1), "['$_]", ""))
 end
 
 --- @param fmt_in       string

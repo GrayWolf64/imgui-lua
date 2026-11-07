@@ -1483,6 +1483,20 @@ function ImGui.SetCursorScreenPos(pos)
     window.DC.IsSetPos = true
 end
 
+function ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
+    local g = GImGui
+    local window = g.CurrentWindow
+    IM_ASSERT(window.DC.IsSetPos)
+    window.DC.IsSetPos = false
+    if window.DC.CursorPos.x <= window.DC.CursorMaxPos.x and window.DC.CursorPos.y <= window.DC.CursorMaxPos.y then
+        return
+    end
+    if window.SkipItems then
+        return
+    end
+    IM_ASSERT_USER_ERROR(0, "Code uses SetCursorPos()/SetCursorScreenPos() to extend window/parent boundaries.\nPlease submit an item e.g. Dummy() afterwards in order to grow window/parent boundaries.")
+end
+
 -- Lock horizontal starting position + capture group bounding box into one "item" (so you can use IsItemHovered() or layout primitives such as SameLine() on whole group, etc.)
 function ImGui.BeginGroup()
     local g = GImGui
@@ -1524,7 +1538,7 @@ function ImGui.EndGroup()
     IM_ASSERT(group_data.WindowID == window.ID) -- EndGroup() in wrong window?
 
     if (window.DC.IsSetPos) then
-        -- TODO: ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
+        ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
     end
 
     local group_bb = ImRect(group_data.BackupCursorPos, ImMax(ImMax(window.DC.CursorMaxPos, g.LastItemData.Rect.Max), group_data.BackupCursorPos))
@@ -1846,7 +1860,24 @@ function ImGui.BringWindowToDisplayBehind(window, behind_window)
     local g = GImGui
     window = window.RootWindow
     behind_window = behind_window.RootWindow
-    -- TODO:
+    local pos_wnd = ImGui.FindWindowDisplayIndex(window)
+    local pos_beh = ImGui.FindWindowDisplayIndex(behind_window)
+    if pos_wnd < pos_beh then
+        local copy_count = pos_beh - pos_wnd - 1
+        ImStd.memmove(g.Windows.Data, pos_wnd, g.Windows.Data, pos_wnd + 1, copy_count)
+        g.Windows.Data[pos_beh - 1] = window
+    else
+        local copy_count = pos_wnd - pos_beh
+        ImStd.memmove(g.Windows.Data, pos_beh + 1, g.Windows.Data, pos_beh, copy_count)
+        g.Windows.Data[pos_beh] = window
+    end
+end
+
+--- @param window ImGuiWindow
+--- @return int # 1-based index
+function ImGui.FindWindowDisplayIndex(window)
+    local g = GImGui
+    return g.Windows:find_index(window)
 end
 
 --- @param under_this_window? ImGuiWindow
@@ -4788,6 +4819,12 @@ function ImGui.SetWindowSize(window, size, cond)
     -- end
 end
 
+--- @return bool
+function ImGui.IsWindowAppearing()
+    local window = ImGui.GetCurrentWindowRead()
+    return window.Appearing
+end
+
 --- @param window ImGuiWindow
 function ImGui.SetWindowHiddenAndSkipItemsForCurrentFrame(window)
     window.Hidden = true
@@ -5880,7 +5917,8 @@ function ImGui.Begin(name, open, flags)
                 window.DrawList = parent_window.DrawList
             end
 
-            local title_bar_is_highlight = (g.NavWindow == window) -- TODO: proper cond, just simple highlight now
+            local window_to_highlight = g.NavWindowingTarget or g.NavWindow
+            local title_bar_is_highlight = want_focus or (window_to_highlight ~= nil and (window.RootWindowForTitleBarHighlight == window_to_highlight.RootWindowForTitleBarHighlight or (window.DockNode ~= nil and window.DockNode == window_to_highlight.DockNode)))
 
             RenderWindowDecorations(window, title_bar_rect, title_bar_is_highlight, handle_borders_and_resize_grips, resize_grip_col, resize_grip_draw_size)
 
@@ -6126,6 +6164,10 @@ function ImGui.End()
     if (window.SkipRefresh) then
         IM_ASSERT(window.DrawList == nil)
         window.DrawList = window.DrawListInst
+    end
+
+    if window.DC.IsSetPos then
+        ImGui.ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
     end
 
     -- Pop from window stack
@@ -6925,7 +6967,9 @@ local function AddWindowToDrawData(window, layer)
     local g = GImGui
     local viewport = window.Viewport
     g.IO.MetricsRenderWindows = g.IO.MetricsRenderWindows + 1
-    -- TODO: splitter
+    if window.DrawList._Splitter._Count > 1 then
+        window.DrawList:ChannelsMerge()
+    end
     ImGui.AddDrawListToDrawDataEx(viewport.DrawDataP, viewport.DrawDataBuilder.Layers[layer], window.DrawList)
     for _, child in window.DC.ChildWindows:iter() do
         if (ImGui.IsWindowActiveAndVisible(child)) then -- Clipped children may have been marked not active

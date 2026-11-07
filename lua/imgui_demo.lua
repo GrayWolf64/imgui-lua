@@ -7,7 +7,16 @@ local IM_MIN = math.min
 local IM_MAX = math.max
 local function IM_CLAMP(V, MN, MX) return (V < MN) and MN or (V > MX) and MX or V end
 
--- TODO: HelpMarker()
+--- @param desc string
+local function HelpMarker(desc)
+    ImGui.TextDisabled("(?)")
+    if ImGui.BeginItemTooltip() then
+        ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35.0)
+        ImGui.TextUnformatted(desc)
+        ImGui.PopTextWrapPos()
+        ImGui.EndTooltip()
+    end
+end
 -- TODO: ImColor helpers?
 
 --- @class ImGuiDemoWindowData
@@ -146,6 +155,7 @@ local function DemoWindowMenuBar(demo_data)
         end
         if ImGui.BeginMenu("Examples") then
             ImGui.SeparatorText("Concepts")
+            _, demo_data.ShowAppImageViewer = ImGui.MenuItem("Image viewer", nil, demo_data.ShowAppImageViewer)
             _, demo_data.ShowAppFullscreen = ImGui.MenuItem("Fullscreen window", nil, demo_data.ShowAppFullscreen)
 
             ImGui.EndMenu()
@@ -901,8 +911,29 @@ end
 
 end
 
-local function ShowExampleAppImageViewer()
-    -- TODO:
+local ShowExampleAppImageViewer do
+
+local image_viewer = ExampleImageViewerData()
+
+function ShowExampleAppImageViewer(open)
+    local atlas = ImGui.GetIO().Fonts
+    local tex_ref = atlas.TexRef
+    local tex_w = atlas.TexData.Width
+    local tex_h = atlas.TexData.Height
+    local visible
+    open, visible = ImGui.Begin("Example: Image Viewer", open)
+    if visible then
+        ExampleImageViewer_DrawOptions(image_viewer)
+        local canvas_size = ImGui.GetContentRegionAvail()
+        local canvas_min_size = ImGui.IsWindowAppearing() and ImVec2(3.0 * tex_w, 4.0 * tex_h) or ImVec2(1.0, 1.0)
+        canvas_size = ImVec2(IM_MAX(canvas_size.x, canvas_min_size.x), IM_MAX(canvas_size.y, canvas_min_size.y))
+        ExampleImageViewer_DrawCanvas(image_viewer, canvas_size, tex_ref, tex_w, tex_h)
+    end
+    ImGui.End()
+
+    return open
+end
+
 end
 
 local function ShowExampleAppCustomRendering()
@@ -962,6 +993,7 @@ local no_docking        = false
 local unsaved_document  = false
 
 function ImGui.ShowDemoWindow(open)
+    if demo_data.ShowAppImageViewer then demo_data.ShowAppImageViewer = ShowExampleAppImageViewer(demo_data.ShowAppImageViewer) end
     if demo_data.ShowAppFullscreen then demo_data.ShowAppFullscreen = ShowExampleAppFullscreen(demo_data.ShowAppFullscreen) end
 
     if demo_data.ShowMetrics then
