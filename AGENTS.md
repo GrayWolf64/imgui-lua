@@ -15,11 +15,16 @@ Instructions in this file apply repository-wide. Read nested `AGENTS.md` files b
 1. In C++ checkout, run `git log --oneline <last-synced>..<target>` and review every commit and diff.
 2. Skip backend/example/docs/CI-only commits and C++-only annotations or macros when they have no Lua-visible effect.
 3. Port applicable behavior into corresponding files under `lua/`.
-4. Preserve upstream names, structure, ordering, and behavior unless Lua or Garry's Mod requires adaptation.
-5. Record meaningful Lua-specific divergence using the `LUA:` convention in `lua/AGENTS.md`, and report unnecessary structural divergence.
+4. Follow the upstream fidelity rules below.
+5. Document required adaptations according to `lua/AGENTS.md` and report unnecessary divergence.
 6. Stage changed project files. Do not commit, push, rewrite history, or fast-forward C++ checkout unless user explicitly asks.
 7. If asked to commit a sync, use header `Sync some changes until ocornut/imgui@<full-hash> (included)`; add details only when requested.
 8. If asked to advance C++ fork, use `git merge --ff-only <target>`; user handles pushes unless explicitly delegated.
+
+## Upstream fidelity
+
+- For all porting work, read the corresponding C++ source before editing and compare the result against it before finishing.
+- Preserve upstream naming, structure, ordering, and behavior, including known oddities. Adapt only for Lua/Garry's Mod requirements, established binding conventions, or documented exceptions. Keep unrelated cleanup separate.
 
 ## Git and change discipline
 
@@ -27,7 +32,6 @@ Instructions in this file apply repository-wide. Read nested `AGENTS.md` files b
 - Stage only intended project files. Keep temporary benchmarks and generated profiler workloads unstaged.
 - Exact upstream enum renames should not retain compatibility aliases unless requested.
 - Do not activate upstream `#if 0` or disabled experiments.
-- Preserve known upstream oddities unless Lua correctness requires a documented adaptation.
 - Use `--force-with-lease`, never plain `--force`, if user explicitly asks to push rewritten `sync` history.
 
 ## Validation

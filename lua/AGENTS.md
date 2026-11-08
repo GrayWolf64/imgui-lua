@@ -13,7 +13,7 @@ Lua files mirror upstream Dear ImGui files where practical:
 - `imgui_internal.h` → `imgui_internal.lua`
 - public declarations and shared types → `imgui_h.lua`
 
-Keep upstream helper/type names and control-flow shape unless Lua requires adaptation. Unsupported table demos remain explicit `-- TODO:` stubs rather than invented substitutes.
+Unsupported table demos remain explicit `-- TODO:` stubs rather than invented substitutes.
 
 ## Lua and LuaJIT semantics
 
@@ -21,7 +21,7 @@ Keep upstream helper/type names and control-flow shape unless Lua requires adapt
 - LuaJIT `bit.*` is signed 32-bit and wraps. Guard negative shifts and shifts `>= 32` where C++ semantics differ.
 - `0` is truthy. Audit C++ boolean/numeric conversions and ternary translations carefully.
 - Do not use `a and nil or b` or similar chains when true branch may be `false` or `nil`; use explicit branches.
-- Arrays and `ImVector.Data` are 1-based. Translate pointer arithmetic, parity tricks, and end conditions deliberately.
+- Arrays and `ImVector.Data` are 1-based. Translate indices and pointer arithmetic by meaning; do not mechanically shift other numeric values.
 - `goto` cannot jump forward into scope of locals declared after it. Hoist locals when needed. Use labels such as `__CONTINUE__`, never `continue`.
 - LuaJIT has a 200-local limit per function/chunk. Avoid unnecessary file-scope aliases and large local declarations.
 - Runtime-conditional C macros may become zero-argument functions preserving exact upstream names. Keep callable helpers outside numeric enum tables.
@@ -43,6 +43,7 @@ Keep upstream helper/type names and control-flow shape unless Lua requires adapt
 ## API behavior
 
 - Value widgets return `updated_value, changed`. Follow each existing wrapper's established ordering; for example `Checkbox()` returns `pressed, updated_value`.
+- Adapt overloaded APIs consistently with existing Lua bindings.
 - Demo state should persist or reset according to upstream intent.
 - Lua strings replace temporary C++ character buffers when equivalent. Display-only scalar formatting should consume strings directly.
 - Lua `string.*` patterns (not full regular expressions) may replace manual parsing when substantially simpler and not performance-critical. Preserve parsing semantics; this is an allowed exception to upstream control-flow matching and stdio use.
@@ -59,7 +60,6 @@ Keep upstream helper/type names and control-flow shape unless Lua requires adapt
 - Generic `ImArena` use is secondary; do not introduce arenas when direct writes are simpler.
 - `bit.*` calls are LuaJIT-recognized builtins. Do not mechanically alias them project-wide; localize only in measured hot functions.
 - Hybrid helpers such as `ImMin`/`ImMax` support numbers and vectors. In numeric-only measured loops, direct `math.min`/`math.max`, function-local aliases, or explicit scalar branches may avoid type dispatch. Profile before broad replacement.
-- LuaJIT may hoist stable `math.*`/`bit.*` table and function guards, but not operations whose operands change each iteration.
 - Preserve upstream tessellation and DrawList behavior. Avoid specialized widget-only renderers unless measured gain clearly justifies divergence.
 - Allocation reduction and CPU reduction are separate claims; measure both.
 
@@ -67,13 +67,14 @@ Keep upstream helper/type names and control-flow shape unless Lua requires adapt
 
 - Preserve CRLF line endings; verify after edits.
 - Comments added during ports have no trailing period.
-- Keep comments sparse. Use concise `LUA:` comments only for necessary semantic divergence.
+- Keep comments sparse. Use concise `LUA:` comments only for non-obvious semantic adaptations.
 - Keep `--- @field` annotations aligned within their block.
 - Drop upstream FIXME, NB, and issue-reference comments when surrounding code is ported unless comment remains essential locally.
-- Preserve upstream naming even when Lua style would normally differ.
+- LuaLS annotation reference: https://luals.github.io/wiki/annotations/
 
 ## Validation
 
+- Test affected behavior and edge cases; syntax checks alone are not sufficient.
 - Syntax-check every changed Lua file with local LuaJIT when available:
   ```sh
   ~/Documents/REPO/LuaJIT/src/luajit -e 'assert(loadfile("path/to/file.lua"))'
