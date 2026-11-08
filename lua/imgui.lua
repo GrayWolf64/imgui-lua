@@ -2142,7 +2142,7 @@ function ImGui.SetActiveID(id, window)
         end
 
         if g.MovingWindow and (g.ActiveId == g.MovingWindow.MoveId) then
-            print("SetActiveID() cancel MovingWindow")
+            IMGUI_DEBUG_LOG_ACTIVEID("SetActiveID() cancel MovingWindow")
             ImGui.StopMouseMovingWindow()
         end
     end
