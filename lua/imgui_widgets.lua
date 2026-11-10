@@ -4193,6 +4193,11 @@ end
 
 function MT.ImGuiInputTextState:HasSelection() return self.Stb.select_start ~= self.Stb.select_end end
 
+function MT.ImGuiInputTextState:ClearSelection()
+    self.Stb.select_start = self.Stb.cursor
+    self.Stb.select_end = self.Stb.cursor
+end
+
 function MT.ImGuiInputTextState:SelectAll()
     self.Stb.select_start = 1
     self.Stb.cursor = self.TextLen + 1
