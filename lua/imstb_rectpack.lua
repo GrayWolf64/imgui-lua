@@ -1,5 +1,5 @@
 --- ImGui Sincerely
--- This is a Lua port of original `imstb_rectpack.h`
+-- This is a Lua port of original `imstb_rectpack.h` (v1.02)
 
 -- ALL TABLES IN THIS FILE ARE 1-BASED!
 -- Avoids table creation when possible
@@ -375,11 +375,17 @@ end
 local function rect_height_compare(a, b)
     if a.h > b.h then
         return true
-    elseif a.h < b.h then
-        return false
-    else
-        return a.w > b.w
     end
+    if a.h < b.h then
+        return false
+    end
+    if a.w > b.w then
+        return true
+    end
+    if a.w < b.w then
+        return false
+    end
+    return a.was_packed < b.was_packed
 end
 
 --- @param a stbrp_rect
