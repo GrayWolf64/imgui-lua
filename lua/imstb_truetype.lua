@@ -1,5 +1,5 @@
 --- ImGui Sincerely
--- This is a Lua port of original `imstb_truetype.h`
+-- This is a Lua port of original `imstb_truetype.h` (v1.27)
 
 --- STBTT_RASTERIZER_VERSION == 2
 
@@ -458,16 +458,13 @@ end
 --- @param b        stbtt__buf
 --- @param key      int
 --- @param outcount int
---- @return int[]
---- @nodiscard
-local function stbtt__dict_get_ints(b, key, outcount)
+--- @param out      int[]
+local function stbtt__dict_get_ints(b, key, outcount, out)
     local operands = stbtt__dict_get(b, key)
-    local out = {}
     for i = 1, outcount do
         if operands.cursor >= operands.size then break end
         out[i] = stbtt__cff_int(operands)
     end
-    return out
 end
 
 --- @param b stbtt__buf
@@ -513,10 +510,15 @@ end
 ---     stbtt_GetGlyphSVG
 ---     stbtt_GetCodepointSVG
 ---     stbtt_GetCodepointKernAdvance
+---     stbtt_GetGlyphVMetrics
+---     stbtt_GetFontHMetrics
 ---     stbtt_GetFontVMetricsOS2
 ---     stbtt_GetCodepointHMetrics
+---     stbtt_GetCodepointVMetrics
+---     stbtt_ScaleForPixelWidth
 ---     stbtt_ScaleForMappingEmToPixels
 ---     stbtt_GetFontBoundingBox
+---     stbtt_GetFontUnderlineMetrics
 ---     stbtt_GetCodepointBitmapBox
 ---     stbtt_GetCodepointBitmapBoxSubpixel
 ---     stbtt_GetCodepointBox
@@ -576,12 +578,13 @@ end
 --- @param cff      stbtt__buf
 --- @param fontdict stbtt__buf
 local function stbtt__get_subrs(cff, fontdict)
-    local private_loc = stbtt__dict_get_ints(fontdict, 18, 2)
+    local subrsoff, private_loc = { 0 }, { 0, 0 }
+    stbtt__dict_get_ints(fontdict, 18, 2, private_loc)
     if (private_loc[2] == 0 or private_loc[1] == 0) then
         return stbtt__new_buf(nil, 0)
     end
     local pdict = stbtt__buf_range(cff, private_loc[2], private_loc[1])
-    local subrsoff = stbtt__dict_get_ints(pdict, 19, 1)
+    stbtt__dict_get_ints(pdict, 19, 1, subrsoff)
     if subrsoff[1] == 0 then
         return stbtt__new_buf(nil, 0)
     end
@@ -593,6 +596,7 @@ end
 local function stbtt_InitFont_internal(info, data, fontstart)
     local cmap
     local numTables
+    local symbol_map = 0
 
     info.data = data
     info.fontstart = fontstart
@@ -615,6 +619,7 @@ local function stbtt_InitFont_internal(info, data, fontstart)
             return false
         end
     else
+        local cstype, charstrings, fdarrayoff, fdselectoff = { 2 }, { 0 }, { 0 }, { 0 }
         local cff = stbtt__find_table(data, fontstart, "CFF ")
         if cff == 0 then
             return false
@@ -637,10 +642,10 @@ local function stbtt_InitFont_internal(info, data, fontstart)
         stbtt__cff_get_index(b) -- string INDEX
         info.gsubrs = stbtt__cff_get_index(b)
 
-        local charstrings = stbtt__dict_get_ints(topdict, 17, 1)
-        local cstype      = stbtt__dict_get_ints(topdict, bit.bor(0x100, 6), 1)
-        local fdarrayoff  = stbtt__dict_get_ints(topdict, bit.bor(0x100, 36), 1)
-        local fdselectoff = stbtt__dict_get_ints(topdict, bit.bor(0x100, 37), 1)
+        stbtt__dict_get_ints(topdict, 17, 1, charstrings)
+        stbtt__dict_get_ints(topdict, bit.bor(0x100, 6), 1, cstype)
+        stbtt__dict_get_ints(topdict, bit.bor(0x100, 36), 1, fdarrayoff)
+        stbtt__dict_get_ints(topdict, bit.bor(0x100, 37), 1, fdselectoff)
         info.subrs = stbtt__get_subrs(b, topdict)
 
         if cstype[1] ~= 2 then
@@ -684,11 +689,17 @@ local function stbtt_InitFont_internal(info, data, fontstart)
 
             if ms_eid == STBTT_MS_EID.UNICODE_BMP or ms_eid == STBTT_MS_EID.UNICODE_FULL then
                 info.index_map = cmap + ttULONG(data, encoding_record + 4)
+            elseif ms_eid == STBTT_MS_EID.SYMBOL then
+                symbol_map = cmap + ttULONG(data, encoding_record + 4)
             end
         elseif platform_id == STBTT_PLATFORM_ID.UNICODE then
             info.index_map = cmap + ttULONG(data, encoding_record + 4)
         end
     end
+    if info.index_map == 0 then
+        info.index_map = symbol_map
+    end
+
     if info.index_map == 0 then
         return false
     end
@@ -758,11 +769,17 @@ function stbtt_FindGlyphIndex(info, unicode_codepoint)
             end
 
             local offset = ttUSHORT(data, index_map + 14 + segcount * 6 + 2 + 2 * item)
+            local delta = ttSHORT(data, index_map + 14 + segcount * 4 + 2 + 2 * item)
             if offset == 0 then
-                return stbtt_uint16(unicode_codepoint + ttSHORT(data, index_map + 14 + segcount * 4 + 2 + 2 * item))
+                return stbtt_uint16(unicode_codepoint + delta)
             end
 
-            return ttUSHORT(data, offset + (unicode_codepoint - start) * 2 + index_map + 14 + segcount * 6 + 2 + 2 * item)
+            local index = ttUSHORT(data, offset + (unicode_codepoint - start) * 2 + index_map + 14 + segcount * 6 + 2 + 2 * item)
+            if index ~= 0 then
+                index = stbtt_uint16(index + delta)
+            end
+
+            return index
         end
     elseif format == 12 or format == 13 then
         local ngroups = ttULONG(data, index_map + 12)
@@ -827,10 +844,10 @@ end
 
 --- @return integer, integer?, integer?, integer?, integer?
 local function stbtt_GetGlyphBox(info, glyph_index)
-    local n, x0, y0, x1, y1
+    local x0, y0, x1, y1
 
     if info.cff.size ~= 0 then
-        n, x0, y0, x1, y1 = stbtt__GetGlyphInfoT2(info, glyph_index)
+        return stbtt__GetGlyphInfoT2(info, glyph_index)
     else
         local g = stbtt__GetGlyfOffset(info, glyph_index)
         if g < 0 then return 0 end
@@ -984,8 +1001,8 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                     num_vertices = stbtt__close_shape(vertices, num_vertices, was_off, start_off, sx, sy, scx, scy, cx, cy)
                 end
 
-                -- now start the new one
-                start_off = (bit.band(flags, 1) == 0)
+                -- Avoid looking ahead at the end of a contour
+                start_off = bit.band(flags, 1) == 0 and i - 1 < ttUSHORT(data, endPtsOfContours + j * 2)
                 if start_off then
                     scx = x
                     scy = y
@@ -1085,6 +1102,10 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
 
             m = STBTT_sqrt(mtx[1] * mtx[1] + mtx[2] * mtx[2])
             n = STBTT_sqrt(mtx[3] * mtx[3] + mtx[4] * mtx[4])
+            if bit.band(flags, bit.lshift(1, 11)) ~= 0 and bit.band(flags, bit.lshift(1, 12)) == 0 then
+                mtx[5] = mtx[5] * m
+                mtx[6] = mtx[6] * n
+            end
 
             comp_num_vertices, comp_verts = stbtt_GetGlyphShape(info, gidx)
             if comp_num_vertices > 0 then
@@ -1092,12 +1113,12 @@ local function stbtt__GetGlyphShapeTT(info, glyph_index)
                     local v = comp_verts[i]
                     local x = v.x
                     local y = v.y
-                    v.x = stbtt_int16(m * (mtx[1] * x + mtx[3] * y + mtx[5]))
-                    v.y = stbtt_int16(n * (mtx[2] * x + mtx[4] * y + mtx[6]))
+                    v.x = stbtt_int16(mtx[1] * x + mtx[3] * y + mtx[5])
+                    v.y = stbtt_int16(mtx[2] * x + mtx[4] * y + mtx[6])
                     x = v.cx
                     y = v.cy
-                    v.cx = stbtt_int16(m * (mtx[1] * x + mtx[3] * y + mtx[5]))
-                    v.cy = stbtt_int16(n * (mtx[2] * x + mtx[4] * y + mtx[6]))
+                    v.cx = stbtt_int16(mtx[1] * x + mtx[3] * y + mtx[5])
+                    v.cy = stbtt_int16(mtx[2] * x + mtx[4] * y + mtx[6])
                 end
 
                 if num_vertices == 0 then -- LUA: No malloc
@@ -1149,6 +1170,7 @@ local function stbtt__csctx_v(c, vtx_type, x, y, cx, cy, cx1, cy1)
         c.pvertices[c.num_vertices + 1].cx1 = stbtt_int16(cx1)
         c.pvertices[c.num_vertices + 1].cy1 = stbtt_int16(cy1)
     end
+    c.num_vertices = c.num_vertices + 1
 end
 
 --- @param ctx stbtt__csctx
@@ -2420,6 +2442,7 @@ end
 
 --- UNIMPLEMENTED / UNUSED:
 ---     stbtt__ray_intersect_bezier
+---     stbtt__equal
 ---     stbtt__compute_crossings_x
 ---     stbtt__cuberoot
 ---     stbtt__solve_cubic
@@ -2437,6 +2460,8 @@ end
 ---     stbtt__CompareUTF8toUTF16_bigendian_prefix
 ---     stbtt_CompareUTF8toUTF16_bigendian_internal
 ---     stbtt_GetFontNameString
+---     stbtt_GetFontNameDefault
+---     stbtt__ConvertUTF16BEtoUTF8
 ---     stbtt__matchpair
 ---     stbtt__matches
 
