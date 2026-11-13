@@ -1,5 +1,5 @@
 --- ImGui Sincerely
--- This is a Lua port of original `imstb_textedit.h`
+-- This is a Lua port of original `imstb_textedit.h` (v1.15)
 
 -- ALL TABLES IN THIS FILE ARE 1-BASED!
 -- Character Indexing:
@@ -399,40 +399,24 @@ function stb_textedit_find_charpos(find, str, n, single_line)
     local z = STB_TEXTEDIT_STRINGLEN(str)
     local first
 
-    -- special case if it's at the end (may not be needed?)
-    if n == z + 1 and single_line then
-        STB_TEXTEDIT_LAYOUTROW(r, str, 1)
-        find.y = 0
-        find.first_char = 1
-        find.length = z
-        find.height = r.ymax - r.ymin
-        find.x = r.x1
-
-        return
-    end
-
     -- search rows to find the one that straddles character n
     find.y = 0
 
     local i = 1
     while true do
         STB_TEXTEDIT_LAYOUTROW(r, str, i)
-        if n < i + r.num_chars - 1 then
-            break
-        end
-        if str.LastMoveDirectionLR == ImGuiDir.Right and str.Stb.cursor > 1 and str.Stb.cursor == i + r.num_chars and STB_TEXTEDIT_GETCHAR(str, i + r.num_chars - 1) ~= STB_TEXTEDIT_NEWLINE then -- [IMGUI] Wrapping point handling
-            break
-        end
-        if (i - 1) + r.num_chars == z and z > 0 and STB_TEXTEDIT_GETCHAR(str, z) ~= STB_TEXTEDIT_NEWLINE then -- [IMGUI] special handling for last line
-            break
+        -- at a soft-wrap boundary, the cursor side determines the row
+        if n <= i + r.num_chars then
+            if n < i + r.num_chars or r.num_chars == 0 or single_line then
+                break
+            end
+            if STB_TEXTEDIT_GETCHAR(str, i + r.num_chars - 1) ~= STB_TEXTEDIT_NEWLINE and (n == z + 1 or str.LastMoveDirectionLR == ImGuiDir.Right) then
+                break
+            end
         end
         prev_start = i
         i = i + r.num_chars
         find.y = find.y + r.baseline_y_delta
-        if i == z + 1 then -- [IMGUI]
-            r.num_chars = 0
-            break
-        end
     end
 
     find.first_char = i
@@ -444,7 +428,7 @@ function stb_textedit_find_charpos(find, str, n, single_line)
     -- now scan to find xpos
     find.x = r.x0
     i = 1
-    while first + i <= n + 1 do
+    while first + i <= n do
         find.x = find.x + STB_TEXTEDIT_GETWIDTH(str, first, i)
         i = IMSTB_TEXTEDIT_GETNEXTCHARINDEX(str, first + i - 1) - first + 1
     end
@@ -578,8 +562,7 @@ local function stb_textedit_paste_internal(str, state, text, len)
     return false
 end
 
--- API key: process text input
--- [IMGUI] Added stb_textedit_text(), extracted out and called by stb_textedit_key() for backward compatibility.
+-- API text: process text input
 --- @param str       IMSTB_TEXTEDIT_STRING
 --- @param state     STB_TexteditState
 --- @param text      IMSTB_TEXTEDIT_CHARTYPE[]
@@ -607,6 +590,14 @@ local function stb_textedit_text(str, state, text, text_len)
             state.has_preferred_x = false
         end
     end
+end
+
+-- API char: process a character input
+--- @param str   IMSTB_TEXTEDIT_STRING
+--- @param state STB_TexteditState
+--- @param ch    IMSTB_TEXTEDIT_CHARTYPE
+local function stb_textedit_char(str, state, ch)
+    stb_textedit_text(str, state, { ch }, 1)
 end
 
 local stb_textedit_key do
@@ -806,8 +797,14 @@ function stb_textedit_key(str, state, key)
             end
             local x
 
-            -- can only go up if there's a previous row
+            -- if there's no previous row set cursor to start of the line
             if find.prev_first == find.first_char then
+                state.cursor = find.first_char
+                stb_textedit_clamp(str, state)
+
+                if sel then
+                    state.select_end = state.cursor
+                end
                 break
             end
 
@@ -1113,6 +1110,8 @@ function stb_text_undo(str, state)
     end
 
     state.cursor = u.where + u.insert_length
+    state.select_start = state.cursor
+    state.select_end = state.cursor
 
     s.undo_point = s.undo_point - 1
     s.redo_point = s.redo_point - 1
@@ -1159,6 +1158,8 @@ function stb_text_redo(str, state)
     end
 
     state.cursor = r.where + r.insert_length
+    state.select_start = state.cursor
+    state.select_end = state.cursor
 
     s.undo_point = s.undo_point + 1
     s.redo_point = s.redo_point + 1
@@ -1226,6 +1227,7 @@ return {
     initialize_state = stb_textedit_clear_state,
 
     text = stb_textedit_text,
+    char = stb_textedit_char,
     key = stb_textedit_key,
 
     makeundo_replace = stb_text_makeundo_replace,
