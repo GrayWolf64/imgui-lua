@@ -9,6 +9,9 @@
 -- Official hardcoded data: https://github.com/Facepunch/garrysmod/blob/972df225ae326086db3ccda084dc8001cd62a70e/garrysmod/lua/vgui/dframe.lua#L65
 local VGUI_HONOR_DOCK_PADDING = true
 
+-- Remove when https://github.com/Facepunch/garrysmod-issues/issues/6918 is fixed or a better solution is found
+local TEXFILTER_RESET_WORKAROUND = true
+
 -- TODO: do we have cleaner ways of doing this?
 --- @param panel Panel
 local function VGUI_GetClientAreaOffset(panel)
@@ -119,6 +122,24 @@ local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", S
     ["$linearwrite"   ] = 1, -- Disables SRGB conversion of shader results
     ["$gammacolorread"] = 1  -- Disables SRGB conversion of color texture read
 })
+
+local ImGui_ImplGMOD_SamplerResetWorkaround do
+    local mat_blank = Material("vgui/white")
+    local mesh_reset = Mesh(mat_blank) -- _NOT_ destroyed on our own!
+    mesh.Begin(mesh_reset, MATERIAL_TRIANGLES, 1)
+    for i = 1, 3 do
+        mesh.Position(0, 0, 0) mesh.AdvanceVertex()
+    end
+    mesh.End()
+
+    -- A zero-area draw binds a different texture so the next draw refreshes sampler overrides
+    function ImGui_ImplGMOD_SamplerResetWorkaround()
+        if not TEXFILTER_RESET_WORKAROUND then return end
+        render.SetMaterial(mat_blank)
+        mesh_reset:Draw()
+        render.SetMaterial(g_EngineMaterial)
+    end
+end
 
 -- We don't have a game-level cursor setter in GMod, so just set cursor for the hovered panel that happens to be our viewport
 local function GMOD_VGuiSetCursor(panel, cursor_type)
@@ -814,6 +835,8 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
         for _, pcmd in draw_list.CmdBuffer:iter() do
             if pcmd.UserCallback ~= nil then
+                -- Refresh restored filters for callback draws
+                ImGui_ImplGMOD_SamplerResetWorkaround()
                 if pcmd.UserCallback == ImGui_ImplGMOD_DrawCallback_ResetRenderState then
                     ImGui_ImplGMOD_SetupRenderState(bd)
                 else
@@ -830,11 +853,11 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 local tex_id = pcmd:GetTexID()
                 g_EngineMaterial:SetTexture("$basetexture", bd.Textures[tex_id])
 
-                -- FIXME: this is currently broken!
-                -- https://github.com/Facepunch/garrysmod-issues/issues/6918
                 render.PushFilterMin(bd.CurrentSampler)
                 render.PushFilterMag(bd.CurrentSampler)
 
+                -- Apply current filter
+                ImGui_ImplGMOD_SamplerResetWorkaround()
                 DrawIndexed(idx_data, vtx_data, pcmd)
 
                 render.PopFilterMin()
@@ -845,6 +868,8 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
         end
     end
 
+    -- Refresh restored filters for subsequent external draws
+    ImGui_ImplGMOD_SamplerResetWorkaround()
     ImGui_ImplGMOD_RestoreRenderState(bd)
 end
 
