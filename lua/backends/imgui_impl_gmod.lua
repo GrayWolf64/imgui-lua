@@ -323,9 +323,12 @@ local function ImGui_ImplGMOD_Texture()
     }
 end
 
+local g_Textures = {} -- All the `ITexture` available
+local g_TextureInUseMarkers = {} -- Keep the in-use status of textures
+
 --- @class ImGui_ImplGMOD_Data
---- @field Textures            table<ITexture> # All the `ITexture` available
---- @field TextureInUseMarkers table<bool>     # Keep the in-use status of textures
+--- @field Textures            table<ITexture> # For convenience
+--- @field TextureInUseMarkers table<bool>     # For convenience
 --- @field Window              Panel
 --- @field CurrentSampler      TEXFILTER
 --- @field OldClippingEnabled  bool
@@ -335,8 +338,8 @@ end
 --- @nodiscard
 local function ImGui_ImplGMOD_Data()
     return {
-        Textures = {},
-        TextureInUseMarkers = {},
+        Textures = g_Textures,
+        TextureInUseMarkers = g_TextureInUseMarkers,
 
         NumFramesInFlight = 2,
         Time = 0,
