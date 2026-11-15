@@ -83,10 +83,6 @@ local BUTTON_MAP = {
     [KEY_UP]         = ImGuiKey.UpArrow,        [KEY_LEFT]         = ImGuiKey.LeftArrow,
     [KEY_DOWN]       = ImGuiKey.DownArrow,      [KEY_RIGHT]        = ImGuiKey.RightArrow,
 
-    [MOUSE_LEFT]   = ImGuiMouseButton.Left,
-    [MOUSE_RIGHT]  = ImGuiMouseButton.Right,
-    [MOUSE_MIDDLE] = ImGuiMouseButton.Middle,
-
     [KEY_XBUTTON_A]             = ImGuiKey.GamepadFaceDown,    [KEY_XBUTTON_B]              = ImGuiKey.GamepadFaceRight,
     [KEY_XBUTTON_X]             = ImGuiKey.GamepadFaceLeft,    [KEY_XBUTTON_Y]              = ImGuiKey.GamepadFaceUp,
     [KEY_XBUTTON_LEFT_SHOULDER] = ImGuiKey.GamepadL1,          [KEY_XBUTTON_RIGHT_SHOULDER] = ImGuiKey.GamepadR1,
@@ -177,18 +173,17 @@ do
     TextEntry.Paint = function() return true end
 
     local TextEntryTextPrev = ""
-    local TextEntryTextCur
 
     -- Submit new characters
     TextEntry.OnTextChanged = function(self)
         local io = ImGui.GetIO()
 
-        TextEntryTextCur = self:GetText()
-        if #TextEntryTextCur > #TextEntryTextPrev then
-            io:AddInputCharacter(utf8.codepoint(TextEntryTextCur, #TextEntryTextPrev + 1, #TextEntryTextCur))
+        local text_cur = self:GetText()
+        if #text_cur > #TextEntryTextPrev then
+            io:AddInputCharacter(utf8.codepoint(text_cur, #TextEntryTextPrev + 1, #text_cur))
         end
 
-        TextEntryTextPrev = TextEntryTextCur
+        TextEntryTextPrev = text_cur
     end
 
     -- FIXME: engine console (` or other key binds) related interference issue
@@ -277,10 +272,12 @@ end
 --- @param platform_io ImGuiPlatformIO
 local function ImGui_ImplGMOD_UpdateMouseData(io, platform_io)
     local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
+    local mouse_viewport_id = 0
     local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, hovered_panel)
     if vp then
-        io:AddMouseViewportEvent(vp.ID)
+        mouse_viewport_id = vp.ID
     end
+    io:AddMouseViewportEvent(mouse_viewport_id)
 end
 
 -- - Single-viewport mode: mouse position in GMod Derma window coordinates
@@ -296,8 +293,18 @@ function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
 
     if key_code then -- Mouse button or keyboard key
         if key_code >= MOUSE_FIRST and key_code <= MOUSE_LAST then
+            local mouse_button = -1
+            if key_code == MOUSE_LEFT   then mouse_button = 0 end
+            if key_code == MOUSE_RIGHT  then mouse_button = 1 end
+            if key_code == MOUSE_MIDDLE then mouse_button = 2 end
+            if key_code == MOUSE_4      then mouse_button = 3 end
+            if key_code == MOUSE_5      then mouse_button = 4 end
+            if mouse_button == -1 then
+                return
+            end
+            ImGui_ImplGMOD_UpdateKeyModifiers()
             io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
-            io:AddMouseButtonEvent(BUTTON_MAP[key_code], is_down)
+            io:AddMouseButtonEvent(mouse_button, is_down)
         elseif key_code >= KEY_FIRST and key_code <= KEY_LAST then
             ImGui_ImplGMOD_UpdateKeyModifiers()
             io:AddKeyEvent(BUTTON_MAP[key_code], is_down)
@@ -476,16 +483,6 @@ local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
     vd.VGuiWindow:SetName(title)
 end
 
-local function ImGui_ImplGMOD_RenderWindow(viewport)
-    local vd = viewport.PlatformUserData
-    -- TODO: validate
-end
-
-local function ImGui_ImplGMOD_SwapBuffers()
-    -- this make screen flashes...?
-    -- render.Spin()
-end
-
 local function ImGui_ImplGMOD_UpdateIme(vp)
     local bd = ImGui_ImplGMOD_GetBackendData()
     local data = bd.ImeData
@@ -551,8 +548,9 @@ local function ImGui_ImplGMOD_InitMultiViewportSupport(platform_has_own_dc)
     platform_io.Platform_GetWindowSize = ImGui_ImplGMOD_GetWindowSize
     platform_io.Platform_GetWindowFocus = ImGui_ImplGMOD_GetWindowFocus
 
-    platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
-    platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
+    -- Currently unused:
+    -- platform_io.Renderer_RenderWindow = ImGui_ImplGMOD_RenderWindow
+    -- platform_io.Renderer_SwapBuffers = ImGui_ImplGMOD_SwapBuffers
 
     local main_viewport = ImGui.GetMainViewport()
     local bd = ImGui_ImplGMOD_GetBackendData()
