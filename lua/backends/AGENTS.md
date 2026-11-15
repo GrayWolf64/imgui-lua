@@ -24,6 +24,8 @@ Use direct `draw_list.IdxBuffer.Data` and `draw_list.VtxBuffer.Data` in submissi
 
 ## Garry's Mod backend
 
+### Meshes
+
 Garry's Mod dynamic `mesh.Begin()` expands each index into one submitted vertex and allows at most 32,768 vertices. Keep triangle batches aligned:
 
 ```lua
@@ -40,6 +42,10 @@ Oversized failure occurs at `mesh.Begin()` before vertex emission and may leave 
 `IMesh:BuildFromTriangles()` walks Lua tables and performs per-field decoding; it is suitable for retained geometry, not per-frame bulk upload. Garry's Mod exposes no Lua indexed or packed dynamic upload API, mapped buffer, partial update, draw range, or base-vertex path. Current immediate `mesh.Begin()` submission is best general pure-Lua path for changing geometry; materially faster generic submission requires native API support.
 
 Do not add backend triangle-filtering heuristics. Measured pathological gains did not justify maintenance cost or workload dependence.
+
+### Automation
+
+Prefer [GTerm](https://github.com/Earu/GTerm) for console commands, Lua execution, and captured results instead of typing Lua through desktop automation.
 
 ## Validation
 
