@@ -152,6 +152,15 @@ end
 --- @return bool
 function ImIsTruncated(x) return _Trunc(x) == x end
 
+-- LUA: Numbers are doubles
+local DBL_INT_PRECISION_LIM = math.pow(2, 53)
+
+--- @param f double
+--- @return bool
+function ImIsFloatAboveGuaranteedIntegerPrecision(f)
+    return f <= -DBL_INT_PRECISION_LIM or f >= DBL_INT_PRECISION_LIM
+end
+
 --- @param x float
 --- @param y float
 --- @param z float
@@ -408,6 +417,7 @@ function IM_ASSERT_USER_ERROR(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then e
 function IM_ASSERT_USER_ERROR_RET(_EXPR, _MSG) if not (_EXPR) or (_EXPR) == 0 then error(_MSG, 2) end end
 
 function IMGUI_DEBUG_LOG_ACTIVEID(_str, ...) local g  = GImGui if bitAnd(g.DebugLogFlags, ImGuiDebugLogFlags.EventActiveId) ~= 0 then print(string.format(_str, ...)) end end
+function IMGUI_DEBUG_LOG_CLIPPER(_str, ...)  local g  = GImGui if bitAnd(g.DebugLogFlags, ImGuiDebugLogFlags.EventClipper) ~= 0 then print(string.format(_str, ...)) end end
 function IMGUI_DEBUG_LOG_POPUP(_str, ...)    local g  = GImGui if bitAnd(g.DebugLogFlags, ImGuiDebugLogFlags.EventPopup) ~= 0 then print(string.format(_str, ...)) end end
 function IMGUI_DEBUG_LOG_FONT(_str, ...)     local g2 = GImGui if g2 and bitAnd(g2.DebugLogFlags, ImGuiDebugLogFlags.EventFont) ~= 0 then print(string.format(_str, ...)) end end
 function IMGUI_DEBUG_LOG_VIEWPORT(_str, ...) local g  = GImGui if bitAnd(g.DebugLogFlags, ImGuiDebugLogFlags.EventViewport) ~= 0 then print(string.format(_str, ...)) end end
@@ -1601,6 +1611,117 @@ local function ImGuiMetricsConfig()
     }
 end
 
+---------------------------------------------------------------------------------------
+-- [SECTION] CLIPPER SUPPORT
+---------------------------------------------------------------------------------------
+
+--- @class (exact) ImGuiListClipperRange
+--- @field Min                 int  # 1-based item index, or truncated Y position before conversion
+--- @field Max                 int  # Exclusive item index, or truncated Y position before conversion
+--- @field PosToIndexConvert   bool
+--- @field PosToIndexOffsetMin ImS8
+--- @field PosToIndexOffsetMax ImS8
+
+--- @param min int
+--- @param max int
+--- @return ImGuiListClipperRange
+function ImGuiListClipperRange_FromIndices(min, max)
+    return {
+        Min = min,
+        Max = max,
+        PosToIndexConvert = false,
+        PosToIndexOffsetMin = 0,
+        PosToIndexOffsetMax = 0,
+    }
+end
+
+--- @param y1      float
+--- @param y2      float
+--- @param off_min int
+--- @param off_max int
+--- @return ImGuiListClipperRange
+function ImGuiListClipperRange_FromPositions(y1, y2, off_min, off_max)
+    return {
+        Min = ImTrunc(y1),
+        Max = ImTrunc(y2),
+        PosToIndexConvert = true,
+        PosToIndexOffsetMin = ImS8(off_min),
+        PosToIndexOffsetMax = ImS8(off_max),
+    }
+end
+
+--- @class ImGuiListClipperData
+--- @field ListClipper     ImGuiListClipper?
+--- @field LossynessOffset float
+--- @field StepNo          int
+--- @field ItemsFrozen     int
+--- @field Ranges          ImVector<ImGuiListClipperRange>
+local IMGUI_LIST_CLIPPER_DATA = {}
+IMGUI_LIST_CLIPPER_DATA.__index = IMGUI_LIST_CLIPPER_DATA
+
+--- @param clipper ImGuiListClipper
+function IMGUI_LIST_CLIPPER_DATA:Reset(clipper)
+    self.ListClipper = clipper
+    self.StepNo = 0
+    self.ItemsFrozen = 0
+    self.Ranges:resize(0)
+end
+
+--- @return ImGuiListClipperData
+function ImGuiListClipperData()
+    return setmetatable({
+        ListClipper     = nil,
+        LossynessOffset = 0.0,
+        StepNo          = 0,
+        ItemsFrozen     = 0,
+        Ranges          = ImVector(),
+    }, IMGUI_LIST_CLIPPER_DATA)
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] BOX-SELECT SUPPORT
+---------------------------------------------------------------------------------------
+
+--- @class ImGuiBoxSelectState
+--- @field ID                    ImGuiID
+--- @field IsActive              bool
+--- @field IsStarting            bool
+--- @field IsStartedFromVoid     bool
+--- @field IsStartedSetNavIdOnce bool
+--- @field RequestClear          bool
+--- @field KeyMods               ImGuiKeyChord
+--- @field StartPosRel           ImVec2
+--- @field EndPosRel             ImVec2
+--- @field ScrollAccum           ImVec2
+--- @field Window                ImGuiWindow?
+--- @field UnclipMode            bool
+--- @field UnclipRect            ImRect
+--- @field UnclipRects           [ImRect, ImRect]
+--- @field BoxSelectRectPrev     ImRect
+--- @field BoxSelectRectCurr     ImRect
+--- @return ImGuiBoxSelectState
+function ImGuiBoxSelectState()
+    return {
+        ID                    = 0,
+        IsActive              = false,
+        IsStarting            = false,
+        IsStartedFromVoid     = false,
+        IsStartedSetNavIdOnce = false,
+        RequestClear          = false,
+        KeyMods               = 0,
+        StartPosRel           = ImVec2(),
+        EndPosRel             = ImVec2(),
+        ScrollAccum           = ImVec2(),
+        Window                = nil,
+
+        UnclipMode        = false,
+        UnclipRect        = ImRect(),
+        UnclipRects       = { ImRect(), ImRect() },
+        BoxSelectRectPrev = ImRect(),
+        BoxSelectRectCurr = ImRect(),
+    }
+end
+
 --- @class ImGuiNavItemData
 --- @field Window             ImGuiWindow?
 --- @field ID                 ImGuiID
@@ -1673,6 +1794,12 @@ end
 --- @field IO                                 ImGuiIO
 --- @field PlatformIO                         ImGuiPlatformIO
 --- @field Viewports                          ImVector<ImGuiViewportP>
+--- @field ClipperTempDataStacked             int
+--- @field ClipperTempData                    ImVector<ImGuiListClipperData>
+--- @field CurrentTable                       ImGuiTable?
+--- @field BoxSelectState                     ImGuiBoxSelectState
+--- @field LogEnabled                         bool
+--- @field LogLinePosY                        float
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
 --- @field DebugFlashStyleColorIdx            ImGuiCol
 --- @field ColorEditCurrentID                 ImGuiID                        # Set temporarily while inside of the parent-most ColorEdit4/ColorPicker4 (because they call each others)
@@ -1968,7 +2095,17 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         DragDropAcceptIdPrev = 0, DragDropAcceptIdCurr = 0,
 
+        ClipperTempDataStacked = 0,
+        ClipperTempData = ImVector(ImGuiListClipperData),
+
+        CurrentTable = nil,
+
+        BoxSelectState = ImGuiBoxSelectState(),
+
         LocalizationTable = {},
+
+        LogEnabled = false,
+        LogLinePosY = FLT_MAX,
 
         DebugLogFlags = bitOr(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
         DebugFlashStyleColorIdx = nil,
@@ -2006,6 +2143,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
     return this
 end
+
+--- @class ImGuiTable
 
 --- @class ImGuiWindowSettings
 --- @field ID           int     # Window ID

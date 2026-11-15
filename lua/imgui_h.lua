@@ -562,6 +562,44 @@ function IMGUI_TEXT_BUFFER:appendfv(fmt, ...)
     self:append(text, #text + 1)
 end
 
+--- @enum ImGuiListClipperFlags
+ImGuiListClipperFlags =
+{
+    None                  = 0,
+    NoSetTableRowCounters = bitLShift(1, 0),
+}
+
+-- NOTE: Item indices are 1-based and DisplayEnd remains exclusive
+--- @class ImGuiListClipper
+--- @field DisplayStart     int
+--- @field DisplayEnd       int
+--- @field UserIndex        int
+--- @field ItemsCount       int
+--- @field ItemsHeight      float
+--- @field Flags            ImGuiListClipperFlags
+--- @field StartPosY        double
+--- @field StartSeekOffsetY double
+--- @field Ctx              ImGuiContext?
+--- @field TempData         ImGuiListClipperData?
+MT.ImGuiListClipper = {}
+MT.ImGuiListClipper.__index = MT.ImGuiListClipper
+
+--- @return ImGuiListClipper
+function ImGuiListClipper()
+    return setmetatable({
+        DisplayStart     = 0,
+        DisplayEnd       = 0,
+        UserIndex        = 0,
+        ItemsCount       = 0,
+        ItemsHeight      = 0.0,
+        Flags            = ImGuiListClipperFlags.None,
+        StartPosY        = 0.0,
+        StartSeekOffsetY = 0.0,
+        Ctx              = nil,
+        TempData         = nil,
+    }, MT.ImGuiListClipper)
+end
+
 ImGuiStorage =
 {
     --- @param storage table<ImGuiID, integer|boolean>

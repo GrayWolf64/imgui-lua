@@ -1937,6 +1937,111 @@ function ImGui.EndComboPreview()
     preview_data.WithinPreview = false
 end
 
+--- @param data string[]
+--- @param idx  int
+--- @return string?
+local function Items_ArrayGetter(data, idx)
+    local items = data
+    return items[idx]
+end
+
+--- @param data string
+--- @param idx  int
+--- @return string?
+local function Items_SingleStringGetter(data, idx)
+    local items_separated_by_zeros = data
+    local items_count = 1
+    local p = 1
+    while p <= #items_separated_by_zeros and string.byte(items_separated_by_zeros, p) ~= 0 do
+        if idx == items_count then
+            break
+        end
+        p = (string.find(items_separated_by_zeros, "\0", p, true) or (#items_separated_by_zeros + 1)) + 1
+        items_count = items_count + 1
+    end
+    if p <= #items_separated_by_zeros and string.byte(items_separated_by_zeros, p) ~= 0 then
+        local zero = string.find(items_separated_by_zeros, "\0", p, true) or (#items_separated_by_zeros + 1)
+        return string.sub(items_separated_by_zeros, p, zero - 1)
+    end
+    return nil
+end
+
+--- @overload fun(label: string, current_item: int, items_or_getter: string, user_data?: any, items_count?: int, popup_max_height_in_items?: int): int, bool
+--- @param label                      string
+--- @param current_item               int
+--- @param items_or_getter            string|string[]|fun(user_data: any, idx: int): string?
+--- @param user_data?                 any
+--- @param items_count                int # Required for array/getter input; computed for zero-separated strings
+--- @param popup_max_height_in_items? int # Defaults to -1
+--- @return int current_item
+--- @return bool value_changed
+function ImGui.Combo(label, current_item, items_or_getter, user_data, items_count, popup_max_height_in_items)
+    if popup_max_height_in_items == nil then popup_max_height_in_items = -1 end
+
+    local getter
+    if type(items_or_getter) == "function" then
+        getter = items_or_getter
+    elseif type(items_or_getter) == "table" then
+        user_data = items_or_getter
+        getter = Items_ArrayGetter
+    else
+        local items_separated_by_zeros = items_or_getter
+        items_count = 0
+        local p = 1
+        while p <= #items_separated_by_zeros and string.byte(items_separated_by_zeros, p) ~= 0 do
+            p = (string.find(items_separated_by_zeros, "\0", p, true) or (#items_separated_by_zeros + 1)) + 1
+            items_count = items_count + 1
+        end
+        user_data = items_separated_by_zeros
+        getter = Items_SingleStringGetter
+    end
+
+    local g = GImGui
+
+    local preview_value
+    if bit.band(bit.bor(g.NextItemData.ItemFlagsSet, g.CurrentItemFlags), ImGuiItemFlags.MixedValue) ~= 0 then
+        preview_value = ""
+    elseif current_item >= 1 and current_item <= items_count then
+        preview_value = getter(user_data, current_item)
+    end
+
+    if popup_max_height_in_items ~= -1 and bit.band(g.NextWindowData.HasFlags, ImGuiNextWindowDataFlags.HasSizeConstraint) == 0 then
+        ImGui.SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, CalcMaxPopupHeightFromItemCount(popup_max_height_in_items)))
+    end
+
+    if not ImGui.BeginCombo(label, preview_value, ImGuiComboFlags.None) then
+        return current_item, false
+    end
+
+    local value_changed = false
+    local clipper = ImGuiListClipper()
+    clipper:Begin(items_count)
+    clipper:IncludeItemByIndex(current_item)
+    while clipper:Step() do
+        for i = clipper.DisplayStart, clipper.DisplayEnd - 1 do
+            local item_text = getter(user_data, i)
+            if item_text == nil then item_text = "*Unknown item*" end
+
+            ImGui.PushID(i)
+            local item_selected = i == current_item
+            if ImGui.Selectable(item_text, item_selected) and current_item ~= i then
+                value_changed = true
+                current_item = i
+            end
+            if item_selected then
+                ImGui.SetItemDefaultFocus()
+            end
+            ImGui.PopID()
+        end
+    end
+
+    ImGui.EndCombo()
+    if value_changed then
+        ImGui.MarkItemEdited(g.LastItemData.ID)
+    end
+    return current_item, value_changed
+end
+
 ----------------------------------------------------------------
 -- [SECTION] DATA TYPE & DATA FORMATTING [Internal]
 ----------------------------------------------------------------

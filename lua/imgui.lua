@@ -7711,6 +7711,316 @@ function ImGui.ColorConvertHSVtoRGB(h, s, v)
     end
 end
 
+---------------------------------------------------------------------------------------
+-- [SECTION] ImGuiListClipper
+---------------------------------------------------------------------------------------
+
+local function GetSkipItemForListClipping()
+    local g = GImGui
+    if g.CurrentTable ~= nil then
+        return g.CurrentTable.HostSkipItems
+    end
+    return g.CurrentWindow.SkipItems
+end
+
+--- @param ranges  ImVector<ImGuiListClipperRange>
+--- @param offset? int
+local function ImGuiListClipper_SortAndFuseRanges(ranges, offset)
+    if offset == nil then offset = 0 end
+    if ranges.Size - offset <= 1 then return end
+
+    for sort_end = ranges.Size - offset - 1, 1, -1 do
+        for i = offset + 1, sort_end + offset do
+            if ranges.Data[i].Min > ranges.Data[i + 1].Min then
+                ranges.Data[i], ranges.Data[i + 1] = ranges.Data[i + 1], ranges.Data[i]
+            end
+        end
+    end
+
+    local i = offset + 2
+    while i <= ranges.Size do
+        IM_ASSERT(not ranges.Data[i].PosToIndexConvert and not ranges.Data[i - 1].PosToIndexConvert)
+        if ranges.Data[i - 1].Max < ranges.Data[i].Min then
+            goto __CONTINUE__
+        end
+        ranges.Data[i - 1].Min = ImMin(ranges.Data[i - 1].Min, ranges.Data[i].Min)
+        ranges.Data[i - 1].Max = ImMax(ranges.Data[i - 1].Max, ranges.Data[i].Max)
+        ranges:erase(i)
+        i = i - 1
+
+        :: __CONTINUE__ ::
+        i = i + 1
+    end
+end
+
+--- @param clipper     ImGuiListClipper
+--- @param pos_y       float
+--- @param line_height float
+local function ImGuiListClipper_SeekCursorAndSetupPrevLine(clipper, pos_y, line_height)
+    local g = GImGui
+    local window = g.CurrentWindow
+    local off_y = pos_y - window.DC.CursorPos.y
+    window.DC.CursorPos.y = pos_y
+    window.DC.CursorMaxPos.y = ImMax(window.DC.CursorMaxPos.y, pos_y - g.Style.ItemSpacing.y)
+    window.DC.CursorPosPrevLine.y = window.DC.CursorPos.y - line_height
+    window.DC.PrevLineSize.y = line_height - g.Style.ItemSpacing.y
+
+    local columns = window.DC.CurrentColumns
+    if columns ~= nil then
+        columns.LineMinY = window.DC.CursorPos.y
+    end
+
+    local table = g.CurrentTable
+    if table ~= nil then
+        if table.IsInsideRow then
+            ImGui.TableEndRow(table)
+        end
+        local row_increase = ImTrunc(off_y / line_height + 0.5)
+        if row_increase > 0 and bit.band(clipper.Flags, ImGuiListClipperFlags.NoSetTableRowCounters) == 0 then
+            table.CurrentRow = table.CurrentRow + row_increase
+            table.RowBgColorCounter = table.RowBgColorCounter + row_increase
+        end
+        table.RowPosY2 = window.DC.CursorPos.y
+    end
+end
+
+--- @param items_count   int
+--- @param items_height? float
+function MT.ImGuiListClipper:Begin(items_count, items_height)
+    if items_height == nil then items_height = -1.0 end
+
+    self.Ctx = ImGui.GetCurrentContext()
+
+    local g = self.Ctx
+    local window = g.CurrentWindow
+    IMGUI_DEBUG_LOG_CLIPPER("Clipper: Begin(%d,%.2f) in '%s'\n", items_count, items_height, window.Name)
+
+    local table = g.CurrentTable
+    if table ~= nil and table.IsInsideRow then
+        ImGui.TableEndRow(table)
+    end
+
+    self.StartPosY = window.DC.CursorPos.y
+    self.ItemsHeight = items_height
+    self.ItemsCount = items_count
+    self.DisplayStart = -1
+    self.DisplayEnd = 1
+
+    g.ClipperTempDataStacked = g.ClipperTempDataStacked + 1
+    if g.ClipperTempDataStacked > g.ClipperTempData.Size then
+        g.ClipperTempData:resize(g.ClipperTempDataStacked)
+    end
+    local data = g.ClipperTempData.Data[g.ClipperTempDataStacked]
+    data:Reset(self)
+    data.LossynessOffset = window.DC.CursorStartPosLossyness.y
+    self.TempData = data
+    self.StartSeekOffsetY = data.LossynessOffset
+end
+
+function MT.ImGuiListClipper:End()
+    local data = self.TempData
+    if data ~= nil then
+        local g = self.Ctx
+        IMGUI_DEBUG_LOG_CLIPPER("Clipper: End() in '%s'\n", g.CurrentWindow.Name)
+        if self.ItemsCount >= 0 and self.ItemsCount < INT_MAX and self.DisplayStart >= 1 then
+            self:SeekCursorForItem(self.ItemsCount + 1)
+        end
+
+        IM_ASSERT(data.ListClipper == self)
+        data.StepNo = data.Ranges.Size
+        g.ClipperTempDataStacked = g.ClipperTempDataStacked - 1
+        if g.ClipperTempDataStacked > 0 then
+            data = g.ClipperTempData.Data[g.ClipperTempDataStacked]
+            data.ListClipper.TempData = data
+        end
+        self.TempData = nil
+    end
+
+    local end_index = self.ItemsCount >= 0 and self.ItemsCount + 1 or self.ItemsCount
+    self.DisplayStart = end_index
+    self.DisplayEnd = end_index
+    self.ItemsCount = -1
+end
+
+--- @param item_index int
+function MT.ImGuiListClipper:IncludeItemByIndex(item_index)
+    self:IncludeItemsByIndex(item_index, item_index + 1)
+end
+
+--- @param item_begin int
+--- @param item_end   int
+function MT.ImGuiListClipper:IncludeItemsByIndex(item_begin, item_end)
+    local data = self.TempData
+    IM_ASSERT(self.DisplayStart < 0)
+    IM_ASSERT(item_begin <= item_end)
+    if item_begin < item_end then
+        data.Ranges:push_back(ImGuiListClipperRange_FromIndices(item_begin, item_end))
+    end
+end
+
+--- @param item_index int
+function MT.ImGuiListClipper:SeekCursorForItem(item_index)
+    local pos_y = self.StartPosY + self.StartSeekOffsetY + (item_index - 1) * self.ItemsHeight
+    ImGuiListClipper_SeekCursorAndSetupPrevLine(self, pos_y, self.ItemsHeight)
+end
+
+--- @param clipper ImGuiListClipper
+--- @return bool
+local function ImGuiListClipper_StepInternal(clipper)
+    local g = clipper.Ctx
+    local window = g.CurrentWindow
+    local data = clipper.TempData
+    IM_ASSERT(data ~= nil, "Called ImGuiListClipper.Step() too many times, or before ImGuiListClipper.Begin()?")
+
+    local table = g.CurrentTable
+    if table ~= nil and table.IsInsideRow then
+        ImGui.TableEndRow(table)
+    end
+
+    if clipper.ItemsCount == 0 or GetSkipItemForListClipping() then
+        return false
+    end
+
+    if data.StepNo == 0 and table ~= nil and not table.IsUnfrozenRows then
+        clipper.DisplayStart = data.ItemsFrozen + 1
+        clipper.DisplayEnd = ImMin(data.ItemsFrozen + 2, clipper.ItemsCount + 1)
+        if clipper.DisplayStart < clipper.DisplayEnd then
+            data.ItemsFrozen = data.ItemsFrozen + 1
+        end
+        return true
+    end
+
+    local calc_clipping = false
+    if data.StepNo == 0 then
+        clipper.StartPosY = window.DC.CursorPos.y
+        if clipper.ItemsHeight <= 0.0 then
+            data.Ranges:push_front(ImGuiListClipperRange_FromIndices(data.ItemsFrozen + 1, data.ItemsFrozen + 2))
+            clipper.DisplayStart = ImMax(data.Ranges.Data[1].Min, data.ItemsFrozen + 1)
+            clipper.DisplayEnd = ImMin(data.Ranges.Data[1].Max, clipper.ItemsCount + 1)
+            data.StepNo = 1
+            return true
+        end
+        calc_clipping = true
+    end
+
+    if clipper.ItemsHeight <= 0.0 then
+        IM_ASSERT(data.StepNo == 1)
+        local affected_by_floating_point_precision = ImIsFloatAboveGuaranteedIntegerPrecision(clipper.StartPosY) or ImIsFloatAboveGuaranteedIntegerPrecision(window.DC.CursorPos.y)
+        if affected_by_floating_point_precision then
+            clipper.ItemsHeight = window.DC.PrevLineSize.y + g.Style.ItemSpacing.y
+            window.DC.CursorPos.y = clipper.StartPosY + clipper.ItemsHeight
+        else
+            clipper.ItemsHeight = (window.DC.CursorPos.y - clipper.StartPosY) / (clipper.DisplayEnd - clipper.DisplayStart)
+        end
+        if clipper.ItemsHeight == 0.0 and clipper.ItemsCount == INT_MAX then
+            return false
+        end
+        if clipper.ItemsHeight <= 0.0 then
+            IM_ASSERT_USER_ERROR(clipper.ItemsHeight > 0.0, "ImGuiListClipper: Failed to calculate item height! First item hasn't been submitted by user code, or has not moved the cursor vertically!")
+            return false
+        end
+        if table ~= nil then
+            IM_ASSERT(table.RowPosY1 == clipper.StartPosY and table.RowPosY2 == window.DC.CursorPos.y)
+        end
+        calc_clipping = true
+    end
+
+    local already_submitted = clipper.DisplayEnd
+    if calc_clipping then
+        clipper.StartSeekOffsetY = data.LossynessOffset - data.ItemsFrozen * clipper.ItemsHeight
+
+        if g.LogEnabled then
+            data.Ranges:push_back(ImGuiListClipperRange_FromIndices(1, clipper.ItemsCount + 1))
+        else
+            local is_nav_request = g.NavMoveScoringItems and g.NavWindow ~= nil and g.NavWindow.RootWindowForNav == window.RootWindowForNav
+            local nav_off_min = is_nav_request and g.NavMoveClipDir == ImGuiDir.Up and -1 or 0
+            local nav_off_max = is_nav_request and g.NavMoveClipDir == ImGuiDir.Down and 1 or 0
+            if is_nav_request then
+                data.Ranges:push_back(ImGuiListClipperRange_FromPositions(g.NavScoringRect.Min.y, g.NavScoringRect.Max.y, nav_off_min, nav_off_max))
+                if not g.NavScoringNoClipRect:IsInverted() then
+                    data.Ranges:push_back(ImGuiListClipperRange_FromPositions(g.NavScoringNoClipRect.Min.y, g.NavScoringNoClipRect.Max.y, nav_off_min, nav_off_max))
+                end
+            end
+            if is_nav_request and bit.band(g.NavMoveFlags, ImGuiNavMoveFlags.IsTabbing) ~= 0 and g.NavTabbingDir == -1 then
+                data.Ranges:push_back(ImGuiListClipperRange_FromIndices(clipper.ItemsCount, clipper.ItemsCount + 1))
+            end
+
+            local nav_rect_abs = ImGui.WindowRectRelToAbs(window, window.NavRectRel[0])
+            if g.NavId ~= 0 and window.NavLastIds[0] == g.NavId then
+                data.Ranges:push_back(ImGuiListClipperRange_FromPositions(nav_rect_abs.Min.y, nav_rect_abs.Max.y, 0, 0))
+            end
+
+            local min_y = window.ClipRect.Min.y
+            local max_y = window.ClipRect.Max.y
+            local bs = g.BoxSelectState
+            if bs.IsActive and bs.Window == window then
+                local pad_y = g.Style.ItemSpacing.y
+                min_y = min_y - pad_y
+                max_y = max_y + pad_y
+                if bs.UnclipMode then
+                    data.Ranges:push_back(ImGuiListClipperRange_FromPositions(bs.UnclipRect.Min.y - pad_y, bs.UnclipRect.Max.y + pad_y, 0, 0))
+                end
+            end
+
+            data.Ranges:push_back(ImGuiListClipperRange_FromPositions(min_y, max_y, nav_off_min, nav_off_max))
+        end
+
+        for _, range in data.Ranges:iter() do
+            if range.PosToIndexConvert then
+                local m1 = ImTrunc((range.Min - window.DC.CursorPos.y - data.LossynessOffset) / clipper.ItemsHeight)
+                local m2 = ImTrunc((range.Max - window.DC.CursorPos.y - data.LossynessOffset) / clipper.ItemsHeight + 0.999999)
+                range.Min = ImClamp(already_submitted + m1 + range.PosToIndexOffsetMin, already_submitted, clipper.ItemsCount)
+                range.Max = ImClamp(already_submitted + m2 + range.PosToIndexOffsetMax, range.Min + 1, clipper.ItemsCount + 1)
+                range.PosToIndexConvert = false
+            end
+        end
+        ImGuiListClipper_SortAndFuseRanges(data.Ranges, data.StepNo)
+    end
+
+    while data.StepNo < data.Ranges.Size do
+        clipper.DisplayStart = ImMax(data.Ranges.Data[data.StepNo + 1].Min, already_submitted)
+        clipper.DisplayEnd = ImMin(data.Ranges.Data[data.StepNo + 1].Max, clipper.ItemsCount + 1)
+        data.StepNo = data.StepNo + 1
+        if clipper.DisplayStart >= clipper.DisplayEnd then
+            goto __CONTINUE__
+        end
+        if clipper.DisplayStart > already_submitted then
+            clipper:SeekCursorForItem(clipper.DisplayStart)
+        end
+        do return true end
+
+        :: __CONTINUE__ ::
+    end
+
+    if clipper.ItemsCount < INT_MAX then
+        clipper:SeekCursorForItem(clipper.ItemsCount + 1)
+    end
+    return false
+end
+
+--- @return bool
+function MT.ImGuiListClipper:Step()
+    local g = self.Ctx
+    local need_items_height = self.ItemsHeight <= 0.0
+    local ret = ImGuiListClipper_StepInternal(self)
+    if ret and self.DisplayStart >= self.DisplayEnd then
+        ret = false
+    end
+    if g.CurrentTable ~= nil and not g.CurrentTable.IsUnfrozenRows then
+        IMGUI_DEBUG_LOG_CLIPPER("Clipper: Step(): inside frozen table row.\n")
+    end
+    if need_items_height and self.ItemsHeight > 0.0 then
+        IMGUI_DEBUG_LOG_CLIPPER("Clipper: Step(): computed ItemsHeight: %.2f.\n", self.ItemsHeight)
+    end
+    if ret then
+        IMGUI_DEBUG_LOG_CLIPPER("Clipper: Step(): display %d to %d.\n", self.DisplayStart, self.DisplayEnd)
+    else
+        IMGUI_DEBUG_LOG_CLIPPER("Clipper: Step(): End.\n")
+        self:End()
+    end
+    return ret
+end
+
 --- @param clip_rect    ImRect
 --- @param pos          ImVec2
 --- @param items_height float

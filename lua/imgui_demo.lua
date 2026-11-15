@@ -27,6 +27,7 @@ local function ImGuiDemoWindowData()
     return {
         ShowAppImageViewer = false,
         ShowAppFullscreen = false,
+        ShowAppLongText = false,
 
         ShowMetrics = false,
         ShowStyleEditor = false,
@@ -157,6 +158,7 @@ local function DemoWindowMenuBar(demo_data)
             ImGui.SeparatorText("Concepts")
             _, demo_data.ShowAppImageViewer = ImGui.MenuItem("Image viewer", nil, demo_data.ShowAppImageViewer)
             _, demo_data.ShowAppFullscreen = ImGui.MenuItem("Fullscreen window", nil, demo_data.ShowAppFullscreen)
+            _, demo_data.ShowAppLongText = ImGui.MenuItem("Long text display", nil, demo_data.ShowAppLongText)
 
             ImGui.EndMenu()
         end
@@ -940,6 +942,67 @@ local function ShowExampleAppCustomRendering()
     -- TODO:
 end
 
+local ShowExampleAppLongText do
+
+local test_type = 1
+local log = ImGuiTextBuffer()
+local lines = 0
+
+function ShowExampleAppLongText(open)
+    ImGui.SetNextWindowSize(ImVec2(520, 600), ImGuiCond.FirstUseEver)
+    local ret
+    open, ret = ImGui.Begin("Example: Long text display", open)
+    if not ret then
+        ImGui.End()
+        return open
+    end
+
+    ImGui.Text("Printing unusually long amount of text.")
+    test_type = ImGui.Combo("Test type", test_type,
+        "Single call to TextUnformatted()\0" ..
+        "Multiple calls to Text(), clipped\0" ..
+        "Multiple calls to Text(), not clipped (slow)\0")
+    ImGui.Text("Buffer contents: %d lines, %d bytes", lines, log:size())
+    if ImGui.Button("Clear") then
+        log:clear()
+        lines = 0
+    end
+    ImGui.SameLine()
+    if ImGui.Button("Add 1000 lines") then
+        for i = 0, 999 do
+            log:appendf("%i The quick brown fox jumps over the lazy dog\n", lines + i)
+        end
+        lines = lines + 1000
+    end
+
+    ImGui.BeginChild("Log")
+    if test_type == 1 then
+        local text = log:c_str()
+        ImGui.TextUnformatted(text, log:end_())
+    elseif test_type == 2 then
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, ImVec2(0, 0))
+        local clipper = ImGuiListClipper()
+        clipper:Begin(lines)
+        while clipper:Step() do
+            for i = clipper.DisplayStart, clipper.DisplayEnd - 1 do
+                ImGui.Text("%i The quick brown fox jumps over the lazy dog", i - 1)
+            end
+        end
+        ImGui.PopStyleVar()
+    elseif test_type == 3 then
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, ImVec2(0, 0))
+        for i = 0, lines - 1 do
+            ImGui.Text("%i The quick brown fox jumps over the lazy dog", i)
+        end
+        ImGui.PopStyleVar()
+    end
+    ImGui.EndChild()
+    ImGui.End()
+    return open
+end
+
+end
+
 local ShowExampleAppFullscreen do
 
 local use_work_area = true
@@ -995,6 +1058,7 @@ local unsaved_document  = false
 function ImGui.ShowDemoWindow(open)
     if demo_data.ShowAppImageViewer then demo_data.ShowAppImageViewer = ShowExampleAppImageViewer(demo_data.ShowAppImageViewer) end
     if demo_data.ShowAppFullscreen then demo_data.ShowAppFullscreen = ShowExampleAppFullscreen(demo_data.ShowAppFullscreen) end
+    if demo_data.ShowAppLongText then demo_data.ShowAppLongText = ShowExampleAppLongText(demo_data.ShowAppLongText) end
 
     if demo_data.ShowMetrics then
         demo_data.ShowMetrics = ImGui.ShowMetricsWindow(demo_data.ShowMetrics)

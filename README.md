@@ -26,7 +26,7 @@ Loading [FreeType](https://github.com/freetype/freetype) fonts and `Docking` mig
 | Window | `DFrame` | Begin + End, BeginChild + EndChild(child windows) | - |
 | Menu | DMenuBar, DMenu, DMenuItem | `BeginMenuBar` + `EndMenuBar`, `BeginMenu` + `EndMenu`, MenuItem | - |
 | Tree | `DTree` | `TreeNode` + `TreePop` | `DTree` has limited APIs. And you'll need to touch `DTree`, `DTree_Node`, `DTree_Node_Button` internals if wanting to do something complex. Warning! Derma uses inheritance heavily since it's OO and retained |
-| Scroll | `DHorizontalScroller`, `DScrollPanel`(they internally uses `DHScrollBar` or `DVScrollBar`) | Configurable, automatic scroll bars. `ImGuiListClipper` currently **NYI** | - |
+| Scroll | `DHorizontalScroller`, `DScrollPanel`(they internally uses `DHScrollBar` or `DVScrollBar`) | Configurable, automatic scroll bars and `ImGuiListClipper` | - |
 | Image | `DImage` | `Image` | Requires user registered texture/RT |
 | Color | `DColorMixer`, DColorButton | ColorButton, ColorEdit3/4, `ColorPicker4`(selectable color cube / hue wheel + sv triangle) | `DColorMixer` only supports color cube(`DColorCube`), has limited options, and does not have popups |
 | Progress | DProgressBar | ProgressBar | - |
