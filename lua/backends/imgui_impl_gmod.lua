@@ -12,6 +12,10 @@ local VGUI_HONOR_DOCK_PADDING = true
 -- Remove when https://github.com/Facepunch/garrysmod-issues/issues/6918 is fixed or a better solution is found
 local TEXFILTER_RESET_WORKAROUND = true
 
+-- Requires a stencil-capable target and owns its stencil contents, false uses screen-space scissors.
+-- NOTE: requires _exclusive_ stencil ownership!
+local STENCIL_CLIPPING = false
+
 -- TODO: do we have cleaner ways of doing this?
 --- @param panel Panel
 local function VGUI_GetClientAreaOffset(panel)
@@ -695,8 +699,7 @@ end
 
 --- @param bd ImGui_ImplGMOD_Data
 local function ImGui_ImplGMOD_SetupRenderState(bd)
-    render.SetViewPort(0, 0, ScrW(), ScrH())
-
+    -- Preserve the caller's viewport and projection, including render-target offsets
     render.CullMode(MATERIAL_CULLMODE_NONE)
     render.OverrideBlend(true, BLEND_SRC_ALPHA, BLEND_ONE_MINUS_SRC_ALPHA, BLENDFUNC_ADD, BLEND_ONE, BLEND_ONE_MINUS_SRC_ALPHA, BLENDFUNC_ADD)
     render.FogMode(MATERIAL_FOG_NONE)
@@ -814,6 +817,57 @@ local function DrawIndexed(idx_data, vtx_data, pcmd)
     end
 end
 
+local ImGui_ImplGMOD_SetScissorRect do
+    local mat_stencil = Material("vgui/white")
+    local stencil_ref = 0
+
+    function ImGui_ImplGMOD_SetScissorRect(clip_rect, reset_reference)
+        if reset_reference then
+            stencil_ref = 0
+        end
+
+        if not STENCIL_CLIPPING then
+            -- Scissors use render-target pixels, unaffected by model/view transforms
+            if clip_rect then
+                render.SetScissorRect(clip_rect[1], clip_rect[2], clip_rect[3], clip_rect[4], true)
+            else
+                render.SetScissorRect(0, 0, 0, 0, false)
+            end
+            return
+        end
+
+        render.SetStencilEnable(clip_rect ~= nil)
+        if not clip_rect then
+            return
+        end
+
+        stencil_ref = stencil_ref % 255 + 1
+        render.SetStencilWriteMask(0xFF)
+        render.SetStencilTestMask(0xFF)
+        if stencil_ref == 1 then
+            render.ClearStencil()
+        end
+        render.SetStencilReferenceValue(stencil_ref)
+        render.SetStencilCompareFunction(STENCIL_NEVER)
+        render.SetStencilFailOperation(STENCIL_REPLACE)
+        render.SetStencilPassOperation(STENCIL_KEEP)
+        render.SetStencilZFailOperation(STENCIL_KEEP)
+
+        -- Stencil-fail writes the mask without touching color or depth
+        render.SetMaterial(mat_stencil)
+        mesh.Begin(MATERIAL_QUADS, 1)
+        meshPosition(clip_rect[1], clip_rect[2], 0) meshAdvVtx()
+        meshPosition(clip_rect[3], clip_rect[2], 0) meshAdvVtx()
+        meshPosition(clip_rect[3], clip_rect[4], 0) meshAdvVtx()
+        meshPosition(clip_rect[1], clip_rect[4], 0) meshAdvVtx()
+        mesh.End()
+        render.SetMaterial(g_EngineMaterial)
+
+        render.SetStencilCompareFunction(STENCIL_EQUAL)
+        render.SetStencilFailOperation(STENCIL_KEEP)
+    end
+end
+
 function ImGui_ImplGMOD_RenderDrawData(draw_data)
     local bd = ImGui_ImplGMOD_GetBackendData() --[[@as ImGui_ImplGMOD_Data]]
 
@@ -831,6 +885,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
 
     ImGui_ImplGMOD_BackupRenderState(bd)
     ImGui_ImplGMOD_SetupRenderState(bd)
+    ImGui_ImplGMOD_SetScissorRect(nil, true)
 
     local idx_data, vtx_data
     for _, draw_list in draw_data.CmdLists:iter() do
@@ -844,14 +899,15 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                     ImGui_ImplGMOD_SetupRenderState(bd)
                 else
                     pcmd.UserCallback(draw_list, pcmd)
+                    -- External draws may overwrite stencil contents or reuse our reference values
+                    ImGui_ImplGMOD_SetScissorRect(nil, true)
                 end
             elseif pcmd.ElemCount > 0 then
                 if pcmd.ClipRect.z <= pcmd.ClipRect.x or pcmd.ClipRect.w <= pcmd.ClipRect.y then
                     continue
                 end
 
-                -- GMod SetScissorRect expects screen-space coords
-                render.SetScissorRect(pcmd.ClipRect.x, pcmd.ClipRect.y, pcmd.ClipRect.z, pcmd.ClipRect.w, true)
+                ImGui_ImplGMOD_SetScissorRect(pcmd.ClipRect)
 
                 local tex_id = pcmd:GetTexID()
                 g_EngineMaterial:SetTexture("$basetexture", bd.Textures[tex_id])
@@ -866,7 +922,7 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
                 render.PopFilterMin()
                 render.PopFilterMag()
 
-                render.SetScissorRect(0, 0, 0, 0, false)
+                ImGui_ImplGMOD_SetScissorRect(nil)
             end
         end
     end
