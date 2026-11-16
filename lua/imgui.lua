@@ -2689,7 +2689,10 @@ function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
 
     local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Key, key)
     local key_data = ImGui.GetKeyData(g, key)
-    local latest_key_down = latest_event and latest_event.Key.Down or key_data.Down
+    local latest_key_down = key_data.Down -- LUA: No "Ternary Operator"
+    if latest_event then
+        latest_key_down = latest_event.Key.Down
+    end
     local latest_key_analog = latest_event and latest_event.Key.AnalogValue or key_data.AnalogValue
     if latest_key_down == down and latest_key_analog == analog_value then
         return
@@ -2763,7 +2766,10 @@ function MT.ImGuiIO:AddFocusEvent(focused)
     local g = self.Ctx
 
     local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Focus)
-    local latest_focused = latest_event and latest_event.AppFocused.Focused or (not g.IO.AppFocusLost)
+    local latest_focused = not g.IO.AppFocusLost -- LUA: No "Ternary Operator"
+    if latest_event then
+        latest_focused = latest_event.AppFocused.Focused
+    end
     if latest_focused == focused or (self.ConfigDebugIgnoreFocusLoss and not focused) then
         return
     end
@@ -2834,7 +2840,10 @@ function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
     end
 
     local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.MouseButton, mouse_button)
-    local latest_button_down = latest_event and latest_event.MouseButton.Down or self.MouseDown[mouse_button]
+    local latest_button_down = self.MouseDown[mouse_button] -- LUA: No "Ternary Operator"
+    if latest_event then
+        latest_button_down = latest_event.MouseButton.Down
+    end
     if latest_button_down == down then
         return
     end
@@ -2844,7 +2853,11 @@ function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
     -- - At this point we want from !down to down, so this is handling the initial press.
     if self.ConfigMacOSXBehaviors and mouse_button == 0 and down then
         local latest_super_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Key, ImGuiMod_Super)
-        if latest_super_event and latest_super_event.Key.Down or self.KeySuper then
+        local latest_super_down = self.KeySuper -- LUA: No "Ternary Operator"
+        if latest_super_event then
+            latest_super_down = latest_super_event.Key.Down
+        end
+        if latest_super_down then
             -- IMGUI_DEBUG_LOG_IO("[io] Super+Left Click aliased into Right Click\n")
             self.MouseCtrlLeftAsRightClick = true
             self:AddMouseButtonEvent(1, true) -- This is just quicker to write that passing through, as we need to filter duplicate again.

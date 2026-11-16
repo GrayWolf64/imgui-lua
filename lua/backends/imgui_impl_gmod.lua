@@ -30,13 +30,17 @@ local mesh   = mesh
 
 local GMOD_StartTextInput
 local GMOD_StopTextInput
+local GMOD_FocusTextInput
 local GMOD_SetTextInputArea
 local GMOD_TextInputActive
 
 local ImGui_ImplGMOD_GetBackendData
 local ImGui_ImplGMOD_UpdateTexture
 local ImGui_ImplGMOD_RenderDrawData
-local ImGui_ImplGMOD_ProcessEvent
+local ImGui_ImplGMOD_MouseButtonCallback
+local ImGui_ImplGMOD_KeyCallback
+local ImGui_ImplGMOD_CursorPosCallback
+local ImGui_ImplGMOD_ScrollCallback
 local ImGui_ImplGMOD_Shutdown
 local ImGui_ImplGMOD_InvalidateEngineObjects
 
@@ -102,13 +106,22 @@ for k = KEY_A,     KEY_Z     do BUTTON_MAP[k] = k - KEY_A + ImGuiKey.A end
 for k = KEY_PAD_0, KEY_PAD_9 do BUTTON_MAP[k] = k - KEY_PAD_0 + ImGuiKey.Keypad0 end
 for k = KEY_F1,    KEY_F12   do BUTTON_MAP[k] = k - KEY_F1 + ImGuiKey.F1 end
 
-local function ImGui_ImplGMOD_UpdateKeyModifiers()
-    local io = ImGui.GetIO()
-
+local function ImGui_ImplGMOD_UpdateKeyModifiers(io)
     io:AddKeyEvent(ImGuiMod_Ctrl, input.IsKeyDown(KEY_LCONTROL) or input.IsKeyDown(KEY_RCONTROL))
     io:AddKeyEvent(ImGuiMod_Shift, input.IsKeyDown(KEY_LSHIFT) or input.IsKeyDown(KEY_RSHIFT))
     io:AddKeyEvent(ImGuiMod_Alt, input.IsKeyDown(KEY_LALT) or input.IsKeyDown(KEY_RALT))
     io:AddKeyEvent(ImGuiMod_Super, input.IsKeyDown(KEY_LWIN) or input.IsKeyDown(KEY_RWIN))
+end
+
+-- e.g. console focus can swallow modifier releases
+local function ImGui_ImplGMOD_ProcessKeyEventsWorkarounds(io)
+    for key_code = KEY_LSHIFT, KEY_RWIN do -- GMod modifier key codes are contiguous
+        local key = BUTTON_MAP[key_code]
+        if not input.IsKeyDown(key_code) then
+            io:AddKeyEvent(key, false)
+        end
+    end
+    ImGui_ImplGMOD_UpdateKeyModifiers(io)
 end
 
 -- One backend instance only needs one engine material, make it `error` initially
@@ -159,7 +172,6 @@ local function VGUI_Hook(panel, func_name, hook_func)
 end
 
 do
-    local TextEntryIsActive = false
     local TextEntry = vgui.Create("TextEntry")
 
     TextEntry:SetMouseInputEnabled(false)
@@ -172,50 +184,58 @@ do
     -- which currently can only show when a game/engine text entry panel is activated and is typing?
     TextEntry.Paint = function() return true end
 
-    local TextEntryTextPrev = ""
-
     -- Submit new characters
     TextEntry.OnTextChanged = function(self)
-        local io = ImGui.GetIO()
+        local ctx = self._ImGuiCtx
+        if ctx == nil then return end
+        local io = ctx.IO
 
         local text_cur = self:GetText()
-        if #text_cur > #TextEntryTextPrev then
-            io:AddInputCharacter(utf8.codepoint(text_cur, #TextEntryTextPrev + 1, #text_cur))
+        if #text_cur > #self._ImGuiPrevText then
+            IM_ASSERT(text_cur:sub(1, #self._ImGuiPrevText) == self._ImGuiPrevText, "TextEntry growth must be append-only")
+            for _, c in utf8.codes(text_cur:sub(#self._ImGuiPrevText + 1)) do
+                io:AddInputCharacter(c)
+            end
         end
 
-        TextEntryTextPrev = text_cur
+        self._ImGuiPrevText = text_cur
     end
 
     -- FIXME: engine console (` or other key binds) related interference issue
     TextEntry.OnKeyCodeTyped = function(self, key_code)
-        ImGui_ImplGMOD_ProcessEvent(key_code, true)
+        if self._ImGuiCtx == nil then return true end
+        ImGui_ImplGMOD_KeyCallback(self._ImGuiCtx.IO, key_code, true)
 
         -- Keep the TextEntry cursor always on the back so we can get input content by diff easily
-        self:SetCaretPos(#TextEntryTextPrev)
+        self:SetCaretPos(#self._ImGuiPrevText)
         return true
     end
 
     TextEntry.OnKeyCodeReleased = function(self, key_code)
-        ImGui_ImplGMOD_ProcessEvent(key_code, false)
+        if self._ImGuiCtx == nil then return true end
+        ImGui_ImplGMOD_KeyCallback(self._ImGuiCtx.IO, key_code, false)
         return true
     end
 
-    function GMOD_StartTextInput(window)
+    function GMOD_StartTextInput(io)
+        TextEntry._ImGuiCtx = io.Ctx
+        TextEntry._ImGuiPrevText = ""
         -- Everytime TextInput is started, clear the string content of it
         TextEntry:SetText("")
 
         TextEntry:SetKeyboardInputEnabled(true)
         TextEntry:RequestFocus()
-        TextEntryIsActive = true
     end
 
-    function GMOD_StopTextInput(window)
-        TextEntry:SetKeyboardInputEnabled(false)
+    function GMOD_StopTextInput(io)
+        if TextEntry._ImGuiCtx ~= io.Ctx then return end
+        TextEntry._ImGuiCtx = nil
+        TextEntry._ImGuiPrevText = ""
         TextEntry:KillFocus()
         TextEntry:SetParent(vgui.GetWorldPanel())
+        TextEntry:SetKeyboardInputEnabled(false) -- NOTE: SetParent() re-enables keyboard input!
         TextEntry:SetPos(0, 0)
         TextEntry:SetSize(1, 1)
-        TextEntryIsActive = false
     end
 
     --- @param window Panel
@@ -229,8 +249,15 @@ do
         TextEntry:SetSize(w, h)
     end
 
-    function GMOD_TextInputActive(window)
-        return TextEntryIsActive
+    function GMOD_FocusTextInput(io)
+        -- A native control may have taken focus without deactivating our input
+        if TextEntry._ImGuiCtx == io.Ctx and not TextEntry:HasFocus() then
+            TextEntry:RequestFocus()
+        end
+    end
+
+    function GMOD_TextInputActive(io)
+        return TextEntry._ImGuiCtx ~= nil and TextEntry._ImGuiCtx == io.Ctx
     end
 end
 
@@ -252,18 +279,33 @@ local function ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, window)
     return nil
 end
 
+-- VGUI callbacks run outside ImGui dispatch and may find another context current
+local function ImGui_ImplGMOD_RunWithContext(ctx, callback, ...)
+    if ctx.IO.BackendPlatformUserData == nil then return end
+    local previous_ctx = ImGui.GetCurrentContext()
+    ImGui.SetCurrentContext(ctx)
+    callback(...)
+    ImGui.SetCurrentContext(previous_ctx)
+end
+
 --- @param panel             Panel
 --- @param is_main_viewport? bool
-local function ImGui_ImplGMOD_SetupPanelHooks(panel, is_main_viewport)
-    VGUI_Hook(panel, "OnCursorMoved",     function() local x, y = input.GetCursorPos(); ImGui_ImplGMOD_ProcessEvent(nil, nil, x, y); end)
-    VGUI_Hook(panel, "OnMousePressed",    function(self, key_code) self:MouseCapture(true); ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil); end)
-    VGUI_Hook(panel, "OnMouseReleased",   function(self, key_code) self:MouseCapture(false); ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil); end)
-    VGUI_Hook(panel, "OnMouseWheeled",    function(_, scroll_dt) ImGui_ImplGMOD_ProcessEvent(nil, nil, nil, nil, scroll_dt); end)
-    VGUI_Hook(panel, "OnKeyCodePressed",  function(_, key_code) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(key_code, true, nil, nil, nil); end)
-    VGUI_Hook(panel, "OnKeyCodeReleased", function(_, key_code) if GMOD_TextInputActive() then return end; ImGui_ImplGMOD_ProcessEvent(key_code, false, nil, nil, nil); end)
+local function ImGui_ImplGMOD_InstallCallbacks(panel, is_main_viewport)
+    local io = ImGui.GetIO()
+    VGUI_Hook(panel, "OnCursorMoved",     function() local x, y = input.GetCursorPos(); ImGui_ImplGMOD_CursorPosCallback(io, x, y); end)
+    VGUI_Hook(panel, "OnMousePressed",    function(self, key_code) self:MouseCapture(true); ImGui_ImplGMOD_MouseButtonCallback(io, key_code, true); end)
+    VGUI_Hook(panel, "OnMouseReleased",   function(self, key_code) self:MouseCapture(false); ImGui_ImplGMOD_MouseButtonCallback(io, key_code, false); end)
+    VGUI_Hook(panel, "OnMouseWheeled",    function(_, scroll_dt) ImGui_ImplGMOD_ScrollCallback(io, scroll_dt); end)
+    VGUI_Hook(panel, "OnKeyCodePressed",  function(_, key_code) if GMOD_TextInputActive(io) then return end; ImGui_ImplGMOD_KeyCallback(io, key_code, true); end)
+    VGUI_Hook(panel, "OnKeyCodeReleased", function(_, key_code) if GMOD_TextInputActive(io) then return end; ImGui_ImplGMOD_KeyCallback(io, key_code, false); end)
 
     if is_main_viewport then
-        VGUI_Hook(panel, "OnScreenSizeChanged", function() ImGui_ImplGMOD_GetBackendData().WantUpdateMonitors = true; ImGui_ImplGMOD_InvalidateEngineObjects(); end)
+        VGUI_Hook(panel, "OnScreenSizeChanged", function()
+            local bd = io.BackendPlatformUserData
+            if bd == nil then return end
+            bd.WantUpdateMonitors = true
+            ImGui_ImplGMOD_RunWithContext(io.Ctx, ImGui_ImplGMOD_InvalidateEngineObjects)
+        end)
         -- VGUI_Hook(panel, "OnFocusChanged", function(self, gained_focus) local io = ImGui.GetIO(); io:AddFocusEvent(gained_focus); end)
     end
 end
@@ -280,41 +322,48 @@ local function ImGui_ImplGMOD_UpdateMouseData(io, platform_io)
     io:AddMouseViewportEvent(mouse_viewport_id)
 end
 
+local MOUSE_BUTTON_MAP = {
+    [MOUSE_LEFT]   = 0,
+    [MOUSE_RIGHT]  = 1,
+    [MOUSE_MIDDLE] = 2,
+    [MOUSE_4]      = 3,
+    [MOUSE_5]      = 4,
+}
+
+--- @param io       ImGuiIO
+--- @param key_code MOUSE
+--- @param is_down  bool
+function ImGui_ImplGMOD_MouseButtonCallback(io, key_code, is_down)
+    local mouse_button = MOUSE_BUTTON_MAP[key_code]
+    if mouse_button == nil then return end
+    ImGui_ImplGMOD_UpdateKeyModifiers(io)
+    io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
+    io:AddMouseButtonEvent(mouse_button, is_down)
+end
+
+--- @param io       ImGuiIO
+--- @param key_code KEY
+--- @param is_down  bool
+function ImGui_ImplGMOD_KeyCallback(io, key_code, is_down)
+    if key_code < KEY_FIRST or key_code > KEY_LAST or BUTTON_MAP[key_code] == nil then return end
+    ImGui_ImplGMOD_UpdateKeyModifiers(io)
+    io:AddKeyEvent(BUTTON_MAP[key_code], is_down)
+end
+
 -- - Single-viewport mode: mouse position in GMod Derma window coordinates
 -- - Multi-viewport mode: mouse position in GMod screen absolute coordinates
---- @param key_code?     MOUSE|KEY
---- @param is_down?      bool
---- @param x?            number
---- @param y?            number
---- @param scroll_delta? number
-function ImGui_ImplGMOD_ProcessEvent(key_code, is_down, x, y, scroll_delta)
-    local bd = ImGui_ImplGMOD_GetBackendData()
-    local io = ImGui.GetIO()
+--- @param io ImGuiIO
+--- @param x  number
+--- @param y  number
+function ImGui_ImplGMOD_CursorPosCallback(io, x, y)
+    io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
+    io:AddMousePosEvent(x, y)
+end
 
-    if key_code then -- Mouse button or keyboard key
-        if key_code >= MOUSE_FIRST and key_code <= MOUSE_LAST then
-            local mouse_button = -1
-            if key_code == MOUSE_LEFT   then mouse_button = 0 end
-            if key_code == MOUSE_RIGHT  then mouse_button = 1 end
-            if key_code == MOUSE_MIDDLE then mouse_button = 2 end
-            if key_code == MOUSE_4      then mouse_button = 3 end
-            if key_code == MOUSE_5      then mouse_button = 4 end
-            if mouse_button == -1 then
-                return
-            end
-            ImGui_ImplGMOD_UpdateKeyModifiers()
-            io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
-            io:AddMouseButtonEvent(mouse_button, is_down)
-        elseif key_code >= KEY_FIRST and key_code <= KEY_LAST then
-            ImGui_ImplGMOD_UpdateKeyModifiers()
-            io:AddKeyEvent(BUTTON_MAP[key_code], is_down)
-        end
-    elseif x and y then -- cursor position update
-        io:AddMouseSourceEvent(ImGuiMouseSource.Mouse)
-        io:AddMousePosEvent(x, y)
-    elseif scroll_delta then
-        io:AddMouseWheelEvent(0.0, scroll_delta)
-    end
+--- @param io           ImGuiIO
+--- @param scroll_delta number
+function ImGui_ImplGMOD_ScrollCallback(io, scroll_delta)
+    io:AddMouseWheelEvent(0.0, scroll_delta)
 end
 
 --- @class ImGui_ImplGMOD_Texture
@@ -341,6 +390,7 @@ local g_TextureInUseMarkers = {} -- Keep the in-use status of textures
 --- @field Textures            table<ITexture> # For convenience
 --- @field TextureInUseMarkers table<bool>     # For convenience
 --- @field Window              Panel
+--- @field AppFocused          bool?           # GMod window focused
 --- @field CurrentSampler      TEXFILTER
 --- @field OldClippingEnabled  bool
 --- @field OldFogMode          MATERIAL_FOG
@@ -355,6 +405,7 @@ local function ImGui_ImplGMOD_Data()
         NumFramesInFlight = 2,
         Time = 0,
         Window = nil,
+        AppFocused = nil,
 
         CurrentSampler = TEXFILTER.LINEAR,
         OldClippingEnabled = false,
@@ -390,6 +441,7 @@ local function ImGui_ImplGMOD_GetDermaWindowFromViewport(viewport)
 end
 
 local function ImGui_ImplGMOD_CreateWindow(viewport)
+    local ctx = ImGui.GetCurrentContext()
     local vd = ImGui_ImplGMOD_ViewportData()
     viewport.PlatformUserData = vd
 
@@ -404,11 +456,10 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     vd.VGuiWindow:SetDrawOnTop(bit.band(viewport.Flags, ImGuiViewportFlags.TopMost) ~= 0)
     vd.VGuiWindowOwned = true
 
-    ImGui_ImplGMOD_SetupPanelHooks(vd.VGuiWindow)
+    ImGui_ImplGMOD_InstallCallbacks(vd.VGuiWindow)
 
-    -- TODO: other means?
     vd.VGuiWindow.Paint = function()
-        return ImGui_ImplGMOD_RenderDrawData(viewport.DrawData)
+        ImGui_ImplGMOD_RunWithContext(ctx, ImGui_ImplGMOD_RenderDrawData, viewport.DrawData)
     end
 
     viewport.PlatformRequestResize = false
@@ -420,6 +471,12 @@ end
 local function ImGui_ImplGMOD_DestroyWindow(viewport)
     local vd = viewport.PlatformUserData
     if vd then
+        local bd = ImGui_ImplGMOD_GetBackendData()
+        if bd ~= nil and bd.ImeWindow ~= nil and bd.ImeWindow == vd.VGuiWindow then
+            GMOD_StopTextInput(ImGui.GetIO()) -- Detach the shared TextEntry before removing its parent
+            bd.ImeWindow = nil
+            bd.ImeDirty = true
+        end
         if IsValid(vd.VGuiWindow) and vd.VGuiWindowOwned then
             vd.VGuiWindow:Remove()
         end
@@ -483,14 +540,15 @@ local function ImGui_ImplGMOD_SetWindowTitle(viewport, title)
     vd.VGuiWindow:SetName(title)
 end
 
-local function ImGui_ImplGMOD_UpdateIme(vp)
-    local bd = ImGui_ImplGMOD_GetBackendData()
+local function ImGui_ImplGMOD_UpdateIme(ctx, vp)
+    local io = ctx.IO
+    local bd = io.BackendPlatformUserData
     local data = bd.ImeData
     local window = ImGui_ImplGMOD_GetDermaWindowFromViewport(vp)
 
     -- Stop previous input
     if (not (data.WantVisible or data.WantTextInput) or bd.ImeWindow ~= window) and bd.ImeWindow ~= nil then
-        GMOD_StopTextInput(bd.ImeWindow)
+        GMOD_StopTextInput(io)
         bd.ImeWindow = nil
     end
     if (not bd.ImeDirty and bd.ImeWindow == window) or window == nil then
@@ -501,24 +559,28 @@ local function ImGui_ImplGMOD_UpdateIme(vp)
     bd.ImeDirty = false
     if data.WantVisible then
         local viewport_pos = ImVec2()
-        local viewport = ImGui_ImplGMOD_FindViewportByPlatformHandle(ImGui.GetPlatformIO(), window)
+        local viewport = ImGui_ImplGMOD_FindViewportByPlatformHandle(ctx.PlatformIO, window)
         if viewport then
             ImVec2_Copy(viewport_pos, viewport.Pos)
         end
         GMOD_SetTextInputArea(window, data.InputPos.x - viewport_pos.x, data.InputPos.y - viewport_pos.y, 1, data.InputLineHeight)
-        bd.ImeWindow = window
     end
-    if not GMOD_TextInputActive(window) and (data.WantVisible or data.WantTextInput) then
-        GMOD_StartTextInput(window)
+    if data.WantVisible or data.WantTextInput then
+        bd.ImeWindow = window
+        if not GMOD_TextInputActive(io) then
+            GMOD_StartTextInput(io)
+        end
     end
 end
 
+--- @param ctx  ImGuiContext
+--- @param vp   ImGuiViewport
 --- @param data ImGuiPlatformImeData
 local function ImGui_ImplGMOD_PlatformSetImeData(ctx, vp, data)
-    local bd = ImGui_ImplGMOD_GetBackendData()
+    local bd = ctx.IO.BackendPlatformUserData
     bd.ImeData = data
     bd.ImeDirty = true
-    ImGui_ImplGMOD_UpdateIme(vp)
+    ImGui_ImplGMOD_UpdateIme(ctx, vp)
 end
 
 --- @param ctx  ImGuiContext
@@ -657,6 +719,7 @@ function ImGui_ImplGMOD_Shutdown()
     local io = ImGui.GetIO()
     local platform_io = ImGui.GetPlatformIO()
 
+    GMOD_StopTextInput(io)
     ImGui_ImplGMOD_ShutdownMultiViewportSupport()
     ImGui_ImplGMOD_InvalidateEngineObjects()
 
@@ -670,6 +733,22 @@ local function ImGui_ImplGMOD_NewFrame()
     local io = ImGui.GetIO()
     local platform_io = ImGui.GetPlatformIO()
     local bd = ImGui_ImplGMOD_GetBackendData()
+
+    ImGui_ImplGMOD_ProcessKeyEventsWorkarounds(io)
+
+    local focused = system.HasFocus()
+    if bd.AppFocused ~= focused then
+        io:AddFocusEvent(focused)
+        bd.AppFocused = focused
+    end
+
+    -- Restore TextEntry focus only when keyboard focus returns to an owning viewport's host panel
+    if GMOD_TextInputActive(io) then
+        local focused_panel = vgui.GetKeyboardFocus()
+        if IsValid(focused_panel) and ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, focused_panel) ~= nil then
+            GMOD_FocusTextInput(io)
+        end
+    end
 
     local x, y = bd.Window:GetSize()
     local left, top, right, bottom = VGUI_GetClientAreaOffset(bd.Window)
@@ -1087,7 +1166,7 @@ function ImGui_ImplGMOD_UpdateTexture(tex)
 end
 
 return {
-    SetupPanelHooks = ImGui_ImplGMOD_SetupPanelHooks,
+    InstallCallbacks = ImGui_ImplGMOD_InstallCallbacks,
 
     GetBackendData = ImGui_ImplGMOD_GetBackendData,
     Init           = ImGui_ImplGMOD_Init,

@@ -48,8 +48,6 @@ else
             draw.RoundedBoxEx(4, left, top, w - (left + right), h - (top + bottom), Color(clear_color.x * 255, clear_color.y * 255, clear_color.z * 255, clear_color.w * 255), false, false, true, true)
         end
 
-        ImGui_ImplGMOD.SetupPanelHooks(window, true)
-
         ImGui.CreateContext()
 
         local io = ImGui.GetIO()
@@ -61,6 +59,7 @@ else
         style.FontScaleDpi = main_scale
 
         ImGui_ImplGMOD.Init(window)
+        ImGui_ImplGMOD.InstallCallbacks(window, true)
 
         local show_demo_window = true
         local show_another_window = false
