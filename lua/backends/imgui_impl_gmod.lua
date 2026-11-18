@@ -7,14 +7,13 @@
 --  [X] Renderer: Large meshes using VtxOffset (ImGuiBackendFlags.RendererHasVtxOffset)
 --  [X] Renderer: Multi-viewport rendering via VGUI Paint callbacks
 --  [X] Platform: Mouse and keyboard input
---  [X] Platform: Mouse cursor shape and visibility
+--  [X] Platform: Mouse cursor shape, visibility and positioning
 --  [X] Platform: Clipboard copying
 --  [X] Platform: IME support via a native TextEntry
 --  [X] Platform: Multi-viewport support using VGUI panels, not OS windows
 -- Missing features or issues:
 --  [ ] Platform: Clipboard pasting (no Lua clipboard-read API)
 --  [ ] Platform: Full gamepad support (digital key mappings only)
---  [ ] Platform: Setting the mouse position
 --  [ ] Renderer: Texture filtering relies on an engine workaround
 
 -- FIXME: `input.GetCursorPos()` has issues in MacOS:
@@ -330,6 +329,13 @@ end
 --- @param io          ImGuiIO
 --- @param platform_io ImGuiPlatformIO
 local function ImGui_ImplGMOD_UpdateMouseData(io, platform_io)
+    if io.WantSetMousePos and system.HasFocus() then
+        local focused_panel = vgui.GetKeyboardFocus()
+        if IsValid(focused_panel) and (focused_panel._ImGuiCtx == io.Ctx or ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, focused_panel) ~= nil) then
+            input.SetCursorPos(io.MousePos.x, io.MousePos.y) -- uses the same game-window coordinates as our mouse input
+        end
+    end
+
     local hovered_panel = vgui.GetHoveredPanel() -- This lags behind panel Paint(), but should be fine in this use case
     local mouse_viewport_id = 0
     local vp = ImGui_ImplGMOD_FindViewportByPlatformHandle(platform_io, hovered_panel)
@@ -676,6 +682,8 @@ local function ImGui_ImplGMOD_Init(window, platform_has_own_dc)
     bd.Time = 0.0
     io.BackendPlatformUserData = bd
 
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasMouseCursors)
+    io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasSetMousePos)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.PlatformHasViewports)
     io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasMouseHoveredViewport)
     -- io.BackendFlags = bit.bor(io.BackendFlags, ImGuiBackendFlags.HasParentViewport)
