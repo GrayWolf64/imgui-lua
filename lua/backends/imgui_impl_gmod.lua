@@ -1,4 +1,21 @@
---- All the things strongly related to GMod go here
+-- imgui sincerely: Renderer + Platform Backend for Garry's Mod
+-- Uses client-side VGUI panels for windowing, input and paint dispatch, and render/mesh for drawing
+-- Deliberately follows official C++ backends (SDL, GLFW, Win32) where GMod permits and is suitable
+--
+-- Implemented features:
+--  [X] Renderer: Texture updates for the dynamic font atlas (ImGuiBackendFlags.RendererHasTextures)
+--  [X] Renderer: Large meshes using VtxOffset (ImGuiBackendFlags.RendererHasVtxOffset)
+--  [X] Renderer: Multi-viewport rendering via VGUI Paint callbacks
+--  [X] Platform: Mouse and keyboard input
+--  [X] Platform: Mouse cursor shape and visibility
+--  [X] Platform: Clipboard copying
+--  [X] Platform: IME support via a native TextEntry
+--  [X] Platform: Multi-viewport support using VGUI panels, not OS windows
+-- Missing features or issues:
+--  [ ] Platform: Clipboard pasting (no Lua clipboard-read API)
+--  [ ] Platform: Full gamepad support (digital key mappings only)
+--  [ ] Platform: Setting the mouse position
+--  [ ] Renderer: Texture filtering relies on an engine workaround
 
 -- FIXME: `input.GetCursorPos()` has issues in MacOS:
 -- https://github.com/Facepunch/garrysmod-issues/issues/4964
