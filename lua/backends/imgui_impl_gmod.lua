@@ -1072,7 +1072,7 @@ end
 
 -- Currently there's no way to destroy a `ITexture` unless you disconnect
 --- @param tex ImTextureData
-function ImGui_ImplGMOD_DestroyTexture(tex)
+local function ImGui_ImplGMOD_DestroyTexture(tex)
     local backend_tex = tex.BackendUserData
 
     if (backend_tex) then

@@ -1993,7 +1993,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
 
         Viewports = ImVector(),
 
-        FallbackMonitor = nil,
+        FallbackMonitor = ImGuiPlatformMonitor(),
 
         GcCompactAll = false,
 

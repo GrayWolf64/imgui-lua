@@ -11141,7 +11141,7 @@ function ImGui.UpdateViewportsNewFrame()
         g.PlatformMonitorsFullWorkRect:Add(monitor.WorkPos)
         g.PlatformMonitorsFullWorkRect:Add(monitor.WorkPos + monitor.WorkSize)
     else
-        g.FallbackMonitor = g.PlatformIO.Monitors.Data[1]
+        ImGuiPlatformMonitor_Copy(g.FallbackMonitor, g.PlatformIO.Monitors.Data[1])
     end
 
     for i = 1, g.PlatformIO.Monitors.Size do
@@ -11743,7 +11743,7 @@ function ImGui.FindPlatformMonitorForRect(rect)
     local monitor_count = g.PlatformIO.Monitors.Size
 
     if monitor_count <= 1 then
-        return monitor_count
+        return (monitor_count == 0) and -1 or 1
     end
 
     -- Use a minimum threshold of 1.0f so a zero-sized rect won't false positive, and will still find the correct monitor given its position.

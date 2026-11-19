@@ -10,7 +10,7 @@
 | Fonts(otf) | Not planned                      |
 | Viewports  | Completed, syncing with `docking`|
 | Docking    | Maybe soon                       |
-| Backends   | Currently only have GMod backend |
+| Backends   | `Null`, `GMod`                   |
 
 Upstream fork: https://github.com/GrayWolf64/imgui/
 

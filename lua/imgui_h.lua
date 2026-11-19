@@ -1512,6 +1512,17 @@ function ImGuiPlatformMonitor()
     }
 end
 
+--- @param dst ImGuiPlatformMonitor
+--- @param src ImGuiPlatformMonitor
+function ImGuiPlatformMonitor_Copy(dst, src)
+    ImVec2_Copy(dst.MainPos, src.MainPos)
+    ImVec2_Copy(dst.MainSize, src.MainSize)
+    ImVec2_Copy(dst.WorkPos, src.WorkPos)
+    ImVec2_Copy(dst.WorkSize, src.WorkSize)
+    dst.DpiScale = src.DpiScale
+    dst.PlatformHandle = src.PlatformHandle
+end
+
 --- @enum ImGuiWindowFlags
 ImGuiWindowFlags = {
     None                      = 0,
