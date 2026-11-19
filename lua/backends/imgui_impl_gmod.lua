@@ -248,6 +248,7 @@ do
         if TextEntry._ImGuiCtx ~= io.Ctx then return end
         TextEntry._ImGuiCtx = nil
         TextEntry._ImGuiPrevText = ""
+        TextEntry:SetKeyboardInputEnabled(false) -- Disable before reparenting so the host releases its focused child
         TextEntry:KillFocus()
         TextEntry:SetParent(vgui.GetWorldPanel())
         TextEntry:SetKeyboardInputEnabled(false) -- NOTE: SetParent() re-enables keyboard input!
