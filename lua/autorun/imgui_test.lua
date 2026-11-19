@@ -59,7 +59,7 @@ else
         style.FontScaleDpi = main_scale
 
         ImGui_ImplGMOD.Init(window)
-        ImGui_ImplGMOD.InstallCallbacks(window, true)
+        ImGui_ImplGMOD.InstallCallbacks(window)
 
         local show_demo_window = true
         local show_another_window = false

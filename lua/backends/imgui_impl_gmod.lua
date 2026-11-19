@@ -178,12 +178,13 @@ end
 --- @param panel     Panel
 --- @param func_name string
 --- @param hook_func function
-local function VGUI_Hook(panel, func_name, hook_func)
+--- @param io        ImGuiIO
+local function VGUI_Hook(panel, func_name, hook_func, io)
     local old_func = panel[func_name]
     if old_func then
-        panel[func_name] = function(self, a1, a2, a3, a4) local ret = old_func(self, a1, a2, a3, a4); hook_func(self, a1, a2, a3, a4); return ret; end
+        panel[func_name] = function(self, a1, a2, a3, a4) local ret = old_func(self, a1, a2, a3, a4); hook_func(io, self, a1, a2, a3, a4); return ret; end
     else
-        panel[func_name] = function(self, a1, a2, a3, a4) hook_func(self, a1, a2, a3, a4); end
+        panel[func_name] = function(self, a1, a2, a3, a4) hook_func(io, self, a1, a2, a3, a4); end
     end
 end
 
@@ -304,26 +305,49 @@ local function ImGui_ImplGMOD_RunWithContext(ctx, callback, ...)
     ImGui.SetCurrentContext(previous_ctx)
 end
 
---- @param panel             Panel
---- @param is_main_viewport? bool
-local function ImGui_ImplGMOD_InstallCallbacks(panel, is_main_viewport)
-    local io = ImGui.GetIO()
-    VGUI_Hook(panel, "OnCursorMoved",     function() local x, y = input.GetCursorPos(); ImGui_ImplGMOD_CursorPosCallback(io, x, y); end)
-    VGUI_Hook(panel, "OnMousePressed",    function(self, key_code) self:MouseCapture(true); ImGui_ImplGMOD_MouseButtonCallback(io, key_code, true); end)
-    VGUI_Hook(panel, "OnMouseReleased",   function(self, key_code) self:MouseCapture(false); ImGui_ImplGMOD_MouseButtonCallback(io, key_code, false); end)
-    VGUI_Hook(panel, "OnMouseWheeled",    function(_, scroll_dt) ImGui_ImplGMOD_ScrollCallback(io, scroll_dt); end)
-    VGUI_Hook(panel, "OnKeyCodePressed",  function(_, key_code) if GMOD_TextInputActive(io) then return end; ImGui_ImplGMOD_KeyCallback(io, key_code, true); end)
-    VGUI_Hook(panel, "OnKeyCodeReleased", function(_, key_code) if GMOD_TextInputActive(io) then return end; ImGui_ImplGMOD_KeyCallback(io, key_code, false); end)
+local g_VGuiCallbacks = {
+    OnCursorMoved     = function(io) local x, y = input.GetCursorPos(); ImGui_ImplGMOD_CursorPosCallback(io, x, y); end,
+    OnMousePressed    = function(io, panel, key_code) panel:MouseCapture(true); ImGui_ImplGMOD_MouseButtonCallback(io, key_code, true); end,
+    OnMouseReleased   = function(io, panel, key_code) panel:MouseCapture(false); ImGui_ImplGMOD_MouseButtonCallback(io, key_code, false); end,
+    OnMouseWheeled    = function(io, _, scroll_dt) ImGui_ImplGMOD_ScrollCallback(io, scroll_dt); end,
+    OnKeyCodePressed  = function(io, _, key_code) if GMOD_TextInputActive(io) then return end; ImGui_ImplGMOD_KeyCallback(io, key_code, true); end,
+    OnKeyCodeReleased = function(io, _, key_code) if GMOD_TextInputActive(io) then return end; ImGui_ImplGMOD_KeyCallback(io, key_code, false); end,
+    OnScreenSizeChanged = function(io)
+        local bd = io.BackendPlatformUserData
+        if bd == nil then return end
+        bd.WantUpdateMonitors = true
+        ImGui_ImplGMOD_RunWithContext(io.Ctx, ImGui_ImplGMOD_InvalidateEngineObjects)
+    end,
+}
 
-    if is_main_viewport then
-        VGUI_Hook(panel, "OnScreenSizeChanged", function()
-            local bd = io.BackendPlatformUserData
-            if bd == nil then return end
-            bd.WantUpdateMonitors = true
-            ImGui_ImplGMOD_RunWithContext(io.Ctx, ImGui_ImplGMOD_InvalidateEngineObjects)
-        end)
-        -- VGUI_Hook(panel, "OnFocusChanged", function(self, gained_focus) local io = ImGui.GetIO(); io:AddFocusEvent(gained_focus); end)
+--- @param panel Panel
+local function ImGui_ImplGMOD_InstallCallbacks(panel)
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    IM_ASSERT(bd ~= nil, "Backend must be initialized before installing callbacks")
+    IM_ASSERT(not bd.InstalledCallbacks, "Callbacks already installed")
+    IM_ASSERT(IsValid(panel) and bd.Window == panel, "Expected the main viewport panel")
+    local io = ImGui.GetIO()
+    bd.PrevUserCallbacks = {}
+    for name, callback in pairs(g_VGuiCallbacks) do
+        bd.PrevUserCallbacks[name] = panel[name]
+        VGUI_Hook(panel, name, callback, io)
     end
+    bd.InstalledCallbacks = true
+end
+
+-- NOTE: Do not replace installed callbacks before corresponding restoration!
+--- @param panel Panel
+local function ImGui_ImplGMOD_RestoreCallbacks(panel)
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    IM_ASSERT(bd ~= nil and bd.InstalledCallbacks, "Callbacks not installed")
+    IM_ASSERT(bd.Window == panel, "Expected the main viewport panel")
+    if IsValid(panel) then
+        for name in pairs(g_VGuiCallbacks) do
+            panel[name] = bd.PrevUserCallbacks[name]
+        end
+    end
+    bd.InstalledCallbacks = false
+    bd.PrevUserCallbacks = nil
 end
 
 --- @param io          ImGuiIO
@@ -414,6 +438,8 @@ local g_TextureInUseMarkers = {} -- Keep the in-use status of textures
 --- @field TextureInUseMarkers table<bool>     # For convenience
 --- @field Window              Panel
 --- @field AppFocused          bool?           # GMod window focused
+--- @field InstalledCallbacks  bool
+--- @field PrevUserCallbacks   table<string, function?>?
 --- @field CurrentSampler      TEXFILTER
 --- @field OldClippingEnabled  bool
 --- @field OldFogMode          MATERIAL_FOG
@@ -429,6 +455,7 @@ local function ImGui_ImplGMOD_Data()
         Time = 0,
         Window = nil,
         AppFocused = nil,
+        InstalledCallbacks = false,
 
         CurrentSampler = TEXFILTER.LINEAR,
         OldClippingEnabled = false,
@@ -479,7 +506,12 @@ local function ImGui_ImplGMOD_CreateWindow(viewport)
     vd.VGuiWindow:SetDrawOnTop(bit.band(viewport.Flags, ImGuiViewportFlags.TopMost) ~= 0)
     vd.VGuiWindowOwned = true
 
-    ImGui_ImplGMOD_InstallCallbacks(vd.VGuiWindow)
+    local io = ctx.IO
+    for name, callback in pairs(g_VGuiCallbacks) do
+        if name ~= "OnScreenSizeChanged" then
+            VGUI_Hook(vd.VGuiWindow, name, callback, io)
+        end
+    end
 
     vd.VGuiWindow.Paint = function()
         ImGui_ImplGMOD_RunWithContext(ctx, ImGui_ImplGMOD_RenderDrawData, viewport.DrawData)
@@ -746,6 +778,9 @@ function ImGui_ImplGMOD_Shutdown()
 
     GMOD_StopTextInput(io)
     ImGui_ImplGMOD_ShutdownMultiViewportSupport()
+    if bd.InstalledCallbacks then
+        ImGui_ImplGMOD_RestoreCallbacks(bd.Window)
+    end
     ImGui_ImplGMOD_InvalidateEngineObjects()
 
     io.BackendPlatformName = nil
@@ -1192,6 +1227,7 @@ end
 
 return {
     InstallCallbacks = ImGui_ImplGMOD_InstallCallbacks,
+    RestoreCallbacks = ImGui_ImplGMOD_RestoreCallbacks,
 
     GetBackendData = ImGui_ImplGMOD_GetBackendData,
     Init           = ImGui_ImplGMOD_Init,
