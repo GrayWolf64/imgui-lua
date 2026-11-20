@@ -2220,13 +2220,22 @@ function MT.ImGuiWindow:GetID(id)
     end
 end
 
---- @param str     string
---- @param str_end int?
---- @param seed    ImGuiID
+--- @param str_or_n        string|int
+--- @param str_end_or_seed int? # Exclusive string end, or seed for an integer ID
+--- @param seed?           ImGuiID
 --- @return ImGuiID
-function ImGui.GetIDWithSeed(str, str_end, seed)
-    -- TODO:
-    return 0
+function ImGui.GetIDWithSeed(str_or_n, str_end_or_seed, seed)
+    local id
+    if type(str_or_n) == "string" then
+        local str_end = str_end_or_seed
+        id = ImHashStr(str_or_n, str_end and (str_end - 1) or nil, seed)
+    else
+        local n = str_or_n
+        seed = str_end_or_seed
+        id = ImHashData(n, -1, seed)
+    end
+    -- TODO: DebugHookIdInfo()
+    return id
 end
 
 -- This is only used in rare/specific situations to manufacture an ID out of nowhere
@@ -10684,6 +10693,18 @@ function ImGui.NavMoveRequestTryWrapping(window, wrap_flags)
     if g.NavWindow == window and g.NavMoveScoringItems and g.NavLayer == window.DC.NavLayerCurrent then
         g.NavMoveFlags = bit.bor(bit.band(g.NavMoveFlags, bit.bnot(ImGuiNavMoveFlags.WrapMask_)), wrap_flags)
     end
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] LOGGING
+---------------------------------------------------------------------------------------
+
+--- @param prefix string?
+--- @param suffix string?
+function ImGui.LogSetNextTextDecoration(prefix, suffix)
+    local g = GImGui
+    g.LogNextPrefix = prefix
+    g.LogNextSuffix = suffix
 end
 
 ---------------------------------------------------------------------------------------

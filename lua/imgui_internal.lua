@@ -2033,6 +2033,8 @@ end
 --- @field BoxSelectState                     ImGuiBoxSelectState
 --- @field DragDropPayload                    ImGuiPayload
 --- @field LogEnabled                         bool
+--- @field LogNextPrefix                      string?
+--- @field LogNextSuffix                      string?
 --- @field LogLinePosY                        float
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
 --- @field DebugFlashStyleColorIdx            ImGuiCol
@@ -2344,6 +2346,8 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         LocalizationTable = {},
 
         LogEnabled = false,
+        LogNextPrefix = nil,
+        LogNextSuffix = nil,
         LogLinePosY = FLT_MAX,
 
         DebugLogFlags = bitOr(ImGuiDebugLogFlags.EventError, ImGuiDebugLogFlags.OutputToTTY),
@@ -2653,6 +2657,7 @@ end
 --- @field Ctx                                ImGuiContext
 --- @field Name                               string
 --- @field ID                                 ImGuiID
+--- @field TabId                              ImGuiID
 --- @field Flags                              ImGuiWindowFlags
 --- @field FlagsPreviousFrame                 ImGuiWindowFlags
 --- @field ChildFlags                         ImGuiChildFlags
@@ -2860,6 +2865,7 @@ function ImGuiWindow(ctx, name)
     this.ID = ImHashStr(name)
     this.IDStack:push_back(this.ID)
     this.MoveId = this:GetID("#MOVE")
+    this.TabId = this:GetID("#TAB")
 
     return this
 end

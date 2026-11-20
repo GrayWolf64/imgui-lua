@@ -8257,15 +8257,34 @@ end
 --- @param docked_window ImGuiWindow?
 --- @return ImGuiID
 function ImGui.TabBarCalcTabID(tab_bar, label, docked_window)
-    -- TODO:
-    return 0
+    if docked_window ~= nil then
+        IM_ASSERT(bit.band(tab_bar.Flags, ImGuiTabBarFlags.DockNode) ~= 0)
+        local id = docked_window.TabId
+        ImGui.KeepAliveID(id)
+        return id
+    else
+        local window = GImGui.CurrentWindow
+        return window:GetID(label)
+    end
+end
+
+--- @return float
+local function TabBarCalcMaxTabWidth()
+    local g = GImGui
+    return g.FontSize * 20.0
 end
 
 --- @param tab_bar ImGuiTabBar
 --- @param tab_id  ImGuiID
 --- @return ImGuiTabItem?
 function ImGui.TabBarFindTabByID(tab_bar, tab_id)
-    -- TODO:
+    if tab_id ~= 0 then
+        for n = 1, tab_bar.Tabs.Size do
+            if tab_bar.Tabs.Data[n].ID == tab_id then
+                return tab_bar.Tabs.Data[n]
+            end
+        end
+    end
     return nil
 end
 
@@ -8280,20 +8299,44 @@ end
 --- @param tab     ImGuiTabItem
 --- @return ImVec2
 function ImGui.TabBarGetTabPos(tab_bar, tab)
-    -- TODO:
-    return ImVec2()
+    if bit.band(tab.Flags, ImGuiTabItemFlags.SectionMask_) == 0 then
+        return tab_bar.BarRect.Min + ImVec2(ImTrunc(tab.Offset - tab_bar.ScrollingAnim), 0.0)
+    else
+        return tab_bar.BarRect.Min + ImVec2(tab.Offset, 0.0)
+    end
 end
 
 --- @param tab_bar ImGuiTabBar
 --- @param tab     ImGuiTabItem
 function ImGui.TabBarCloseTab(tab_bar, tab)
-    -- TODO:
+    if bit.band(tab.Flags, ImGuiTabItemFlags.Button) ~= 0 then
+        return
+    end
+
+    if bit.band(tab.Flags, bit.bor(ImGuiTabItemFlags.UnsavedDocument, ImGuiTabItemFlags.NoAssumedClosure)) == 0 then
+        tab.WantClose = true
+        if tab_bar.VisibleTabContentsId == tab.ID then
+            tab.LastFrameVisible = -1
+            tab_bar.SelectedTabId = 0
+            tab_bar.NextSelectedTabId = 0
+        end
+    else
+        if tab_bar.VisibleTabContentsId ~= tab.ID then
+            ImGui.TabBarQueueFocus(tab_bar, tab)
+        end
+    end
 end
 
 --- @param tab_bar ImGuiTabBar
---- @param tab     ImGuiTabItem
+--- @param tab     ImGuiTabItem|string
 function ImGui.TabBarQueueFocus(tab_bar, tab)
-    -- TODO:
+    if type(tab) == "string" then
+        IM_ASSERT(bit.band(tab_bar.Flags, ImGuiTabBarFlags.DockNode) == 0)
+        local tab_id = ImGui.TabBarCalcTabID(tab_bar, tab, nil)
+        tab_bar.NextSelectedTabId = tab_id
+    else
+        tab_bar.NextSelectedTabId = tab.ID
+    end
 end
 
 --- @param tab_bar   ImGuiTabBar
@@ -8597,12 +8640,30 @@ function ImGui.TabItemEx(tab_bar, label, open, flags, docked_window)
     return open, tab_contents_visible
 end
 
---- @param label                              string
---- @param has_close_button_or_unsaved_marker bool
+--- @param label_or_window                     string|ImGuiWindow
+--- @param has_close_button_or_unsaved_marker? bool
 --- @return ImVec2
-function ImGui.TabItemCalcSize(label, has_close_button_or_unsaved_marker)
-    -- TODO:
-    return ImVec2()
+function ImGui.TabItemCalcSize(label_or_window, has_close_button_or_unsaved_marker)
+    local label
+    if type(label_or_window) == "table" then
+        --- @cast label_or_window ImGuiWindow
+        local window = label_or_window
+        label = window.Name
+        has_close_button_or_unsaved_marker = window.HasCloseButton or bit.band(window.Flags, ImGuiWindowFlags.UnsavedDocument) ~= 0
+    else
+        --- @cast label_or_window string
+        label = label_or_window
+    end
+
+    local g = GImGui
+    local label_size = ImGui.CalcTextSize(label, nil, true)
+    local size = ImVec2(label_size.x + g.Style.FramePadding.x, label_size.y + g.Style.FramePadding.y * 2.0)
+    if has_close_button_or_unsaved_marker then
+        size.x = size.x + g.Style.FramePadding.x + (g.Style.ItemInnerSpacing.x + g.FontSize)
+    else
+        size.x = size.x + g.Style.FramePadding.x + 1.0
+    end
+    return ImVec2(ImMin(size.x, TabBarCalcMaxTabWidth()), size.y)
 end
 
 --- @param draw_list ImDrawList
@@ -8610,7 +8671,20 @@ end
 --- @param flags     ImGuiTabItemFlags
 --- @param col       ImU32
 function ImGui.TabItemBackground(draw_list, bb, flags, col)
-    -- TODO:
+    local g = GImGui
+    local width = bb:GetWidth()
+    IM_ASSERT(width > 0.0)
+    local rounding = ImMax(0.0, ImMin(bit.band(flags, ImGuiTabItemFlags.Button) ~= 0 and g.Style.FrameRounding or g.Style.TabRounding, width * 0.5 - 1.0))
+    local y1 = bb.Min.y + 1.0
+    local y2 = bb.Max.y - g.Style.TabBarBorderSize
+    draw_list:AddRectFilled(ImVec2(bb.Min.x, y1), ImVec2(bb.Max.x, y2), col, rounding, ImDrawFlags.RoundTop)
+    if g.Style.TabBorderSize > 0.0 then
+        draw_list:PathLineTo(ImVec2(bb.Min.x, y2))
+        draw_list:PathArcToFast(ImVec2(bb.Min.x + rounding, y1 + rounding), rounding, 6, 9)
+        draw_list:PathArcToFast(ImVec2(bb.Max.x - rounding, y1 + rounding), rounding, 9, 12)
+        draw_list:PathLineTo(ImVec2(bb.Max.x, y2))
+        draw_list:PathStroke(ImGui.GetColorU32(ImGuiCol.Border), g.Style.TabBorderSize, ImDrawFlags.StrokeCenterBiased)
+    end
 end
 
 --- @param draw_list           ImDrawList
@@ -8624,6 +8698,62 @@ end
 --- @return bool just_closed
 --- @return bool text_clipped
 function ImGui.TabItemLabelAndCloseButton(draw_list, bb, flags, frame_padding, label, tab_id, close_button_id, is_contents_visible)
-    -- TODO:
-    return false, false
+    local g = GImGui
+    local label_end = ImGui.FindRenderedTextEnd(label)
+    local label_size = ImGui.CalcTextSize(label, label_end, false)
+    local just_closed, text_clipped = false, false
+
+    if bb:GetWidth() <= 1.0 then
+        return just_closed, text_clipped
+    end
+
+    local text_ellipsis_clip_bb = ImRect(bb.Min.x + frame_padding.x, bb.Min.y + frame_padding.y, bb.Max.x - frame_padding.x, bb.Max.y)
+    text_clipped = text_ellipsis_clip_bb.Min.x + label_size.x > text_ellipsis_clip_bb.Max.x
+
+    local button_sz = g.FontSize
+    local button_pos = ImVec2(ImMax(bb.Min.x, bb.Max.x - frame_padding.x - button_sz), bb.Min.y + frame_padding.y)
+    local close_button_pressed = false
+    local close_button_visible = false
+    local is_hovered = g.HoveredId == tab_id or g.HoveredId == close_button_id or g.ActiveId == tab_id or g.ActiveId == close_button_id
+
+    if close_button_id ~= 0 then
+        if is_contents_visible then
+            close_button_visible = g.Style.TabCloseButtonMinWidthSelected < 0.0 or (is_hovered and bb:GetWidth() >= ImMax(button_sz, g.Style.TabCloseButtonMinWidthSelected))
+        else
+            close_button_visible = g.Style.TabCloseButtonMinWidthUnselected < 0.0 or (is_hovered and bb:GetWidth() >= ImMax(button_sz, g.Style.TabCloseButtonMinWidthUnselected))
+        end
+    end
+
+    local unsaved_marker_visible = bit.band(flags, ImGuiTabItemFlags.UnsavedDocument) ~= 0 and button_pos.x + button_sz <= bb.Max.x and (not close_button_visible or not is_hovered)
+    if unsaved_marker_visible then
+        local bullet_pos = button_pos + ImVec2(button_sz, button_sz) * 0.5
+        ImGui.RenderBullet(draw_list, bullet_pos, ImGui.GetColorU32(ImGuiCol.UnsavedMarker))
+    elseif close_button_visible then
+        local last_item_backup = ImGuiLastItemData()
+        ImGuiLastItemData_Copy(last_item_backup, g.LastItemData)
+        if ImGui.CloseButton(close_button_id, button_pos) then
+            close_button_pressed = true
+        end
+        ImGuiLastItemData_Copy(g.LastItemData, last_item_backup)
+
+        if is_hovered and bit.band(flags, ImGuiTabItemFlags.NoCloseWithMiddleMouseButton) == 0 and ImGui.IsMouseClicked(2) then
+            close_button_pressed = true
+        end
+    end
+
+    local ellipsis_max_x = text_ellipsis_clip_bb.Max.x
+    if close_button_visible or unsaved_marker_visible then
+        local visible_without_hover = unsaved_marker_visible or (is_contents_visible and g.Style.TabCloseButtonMinWidthSelected or g.Style.TabCloseButtonMinWidthUnselected) < 0.0
+        if visible_without_hover then
+            text_ellipsis_clip_bb.Max.x = text_ellipsis_clip_bb.Max.x - button_sz * 0.90
+            ellipsis_max_x = ellipsis_max_x - button_sz * 0.90
+        else
+            text_ellipsis_clip_bb.Max.x = text_ellipsis_clip_bb.Max.x - button_sz * 1.00
+        end
+    end
+    ImGui.LogSetNextTextDecoration("/", "\\")
+    ImGui.RenderTextEllipsis(draw_list, text_ellipsis_clip_bb.Min, text_ellipsis_clip_bb.Max, ellipsis_max_x, label, label_end, label_size)
+
+    just_closed = close_button_pressed
+    return just_closed, text_clipped
 end
