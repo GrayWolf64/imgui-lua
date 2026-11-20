@@ -2220,6 +2220,15 @@ function MT.ImGuiWindow:GetID(id)
     end
 end
 
+--- @param str     string
+--- @param str_end int?
+--- @param seed    ImGuiID
+--- @return ImGuiID
+function ImGui.GetIDWithSeed(str, str_end, seed)
+    -- TODO:
+    return 0
+end
+
 -- This is only used in rare/specific situations to manufacture an ID out of nowhere
 --- @param p_abs ImVec2
 --- @return ImGuiID
@@ -5308,7 +5317,7 @@ function ImGui.EndChild()
 end
 
 --- @param window ImGuiWindow
-local function StartMouseMovingWindow(window)
+function ImGui.StartMouseMovingWindow(window)
     local g = GImGui
     ImGui.FocusWindow(window)
     ImGui.SetActiveID(window.MoveId, window)
@@ -5321,6 +5330,10 @@ local function StartMouseMovingWindow(window)
 
     local can_move_window = true
     if bit.band(window.Flags, ImGuiWindowFlags.NoMove) ~= 0 or bit.band(window.RootWindowDockTree.Flags, ImGuiWindowFlags.NoMove) ~= 0 then
+        can_move_window = false
+    end
+    local node = window.DockNodeAsHost
+    if node and node.VisibleWindow and bit.band(node.VisibleWindow.Flags, ImGuiWindowFlags.NoMove) ~= 0 then
         can_move_window = false
     end
     if can_move_window then
@@ -5435,7 +5448,7 @@ function ImGui.UpdateMouseMovingWindowEndFrame()
         local is_queued_focus_request = g.NavMoveSubmitted and (bit.band(g.NavMoveFlags, ImGuiNavMoveFlags.FocusApi) ~= 0)
 
         if hovered_window ~= nil and not is_closed_popup and not is_queued_focus_request then
-            StartMouseMovingWindow(hovered_window)
+            ImGui.StartMouseMovingWindow(hovered_window)
 
             -- Cancel moving if clicked outside of title bar
             if bit.band(hovered_window.BgClickFlags, ImGuiWindowBgClickFlags.Move) == 0 then  -- set by io.ConfigWindowsMoveFromTitleBarOnly
@@ -10671,6 +10684,16 @@ function ImGui.NavMoveRequestTryWrapping(window, wrap_flags)
     if g.NavWindow == window and g.NavMoveScoringItems and g.NavLayer == window.DC.NavLayerCurrent then
         g.NavMoveFlags = bit.bor(bit.band(g.NavMoveFlags, bit.bnot(ImGuiNavMoveFlags.WrapMask_)), wrap_flags)
     end
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] DOCKING
+---------------------------------------------------------------------------------------
+
+--- @param ctx    ImGuiContext
+--- @param window ImGuiWindow
+function ImGui.DockContextQueueUndockWindow(ctx, window)
+    -- TODO:
 end
 
 ---------------------------------------------------------------------------------------

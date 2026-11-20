@@ -8148,3 +8148,482 @@ function ImGui.MenuItem(label, shortcut, selected, enabled)
 
     return false, selected
 end
+
+----------------------------------------------------------------
+-- [SECTION] TAB RELATED
+----------------------------------------------------------------
+
+local function TabItemComparerByBeginOrder(a, b)
+    return a.BeginOrder < b.BeginOrder
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @return ImGuiTabBar
+local function GetTabBarRefFromTabBar(tab_bar)
+    return tab_bar
+end
+
+--- @param str_id string
+--- @param flags? ImGuiTabBarFlags
+--- @return bool
+function ImGui.BeginTabBar(str_id, flags)
+    flags = flags or 0
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.SkipItems then
+        return false
+    end
+
+    local id = window:GetID(str_id)
+    local tab_bar = ImPool.GetOrAddByKey(g.TabBars, id, ImGuiTabBar)
+    local tab_bar_bb = ImRect(window.DC.CursorPos.x, window.DC.CursorPos.y, window.WorkRect.Max.x, window.DC.CursorPos.y + g.FontSize + g.Style.FramePadding.y * 2)
+    tab_bar.ID = id
+    tab_bar.SeparatorMinX = tab_bar_bb.Min.x - ImTrunc(window.WindowPadding.x * 0.5)
+    tab_bar.SeparatorMaxX = tab_bar_bb.Max.x + ImTrunc(window.WindowPadding.x * 0.5)
+    flags = bit.bor(flags, ImGuiTabBarFlags.IsFocused)
+    return ImGui.BeginTabBarEx(tab_bar, tab_bar_bb, flags)
+end
+
+--- @param tab_bar    ImGuiTabBar
+--- @param tab_bar_bb ImRect
+--- @param flags      ImGuiTabBarFlags
+--- @return bool
+function ImGui.BeginTabBarEx(tab_bar, tab_bar_bb, flags)
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.SkipItems then
+        return false
+    end
+
+    IM_ASSERT(tab_bar.ID ~= 0)
+    if bit.band(flags, ImGuiTabBarFlags.DockNode) == 0 then
+        ImGui.PushOverrideID(tab_bar.ID)
+    end
+
+    g.CurrentTabBarStack:push_back(GetTabBarRefFromTabBar(tab_bar))
+    g.CurrentTabBar = tab_bar
+    tab_bar.Window = window
+
+    ImVec2_Copy(tab_bar.BackupCursorPos, window.DC.CursorPos)
+    if tab_bar.CurrFrameVisible == g.FrameCount then
+        window.DC.CursorPos.x = tab_bar.BarRect.Min.x
+        window.DC.CursorPos.y = tab_bar.BarRect.Max.y + tab_bar.ItemSpacingY
+        tab_bar.BeginCount = tab_bar.BeginCount + 1
+        return true
+    end
+
+    if bit.band(flags, ImGuiTabBarFlags.Reorderable) ~= bit.band(tab_bar.Flags, ImGuiTabBarFlags.Reorderable) or (tab_bar.TabsAddedNew and bit.band(flags, ImGuiTabBarFlags.Reorderable) == 0) then
+        if bit.band(flags, ImGuiTabBarFlags.DockNode) == 0 then
+            ImStd.ImQsort(tab_bar.Tabs.Data, tab_bar.Tabs.Size, TabItemComparerByBeginOrder)
+        end
+    end
+    tab_bar.TabsAddedNew = false
+
+    if bit.band(flags, ImGuiTabBarFlags.FittingPolicyMask_) == 0 then
+        flags = bit.bor(flags, ImGuiTabBarFlags.FittingPolicyDefault_)
+    end
+
+    tab_bar.Flags = flags
+    ImRect_Copy(tab_bar.BarRect, tab_bar_bb)
+    tab_bar.WantLayout = true
+    tab_bar.PrevFrameVisible = tab_bar.CurrFrameVisible
+    tab_bar.CurrFrameVisible = g.FrameCount
+    tab_bar.PrevTabsContentsHeight = tab_bar.CurrTabsContentsHeight
+    tab_bar.CurrTabsContentsHeight = 0.0
+    tab_bar.ItemSpacingY = g.Style.ItemSpacing.y
+    ImVec2_Copy(tab_bar.FramePadding, g.Style.FramePadding)
+    tab_bar.TabsActiveCount = 0
+    tab_bar.LastTabItemIdx = -1
+    tab_bar.BeginCount = 1
+
+    window.DC.CursorPos.x = tab_bar.BarRect.Min.x
+    window.DC.CursorPos.y = tab_bar.BarRect.Max.y + tab_bar.ItemSpacingY
+
+    local col = ImGui.GetColorU32(bit.band(flags, ImGuiTabBarFlags.IsFocused) ~= 0 and ImGuiCol.TabSelected or ImGuiCol.TabDimmedSelected)
+    if g.Style.TabBarBorderSize > 0.0 then
+        local y = tab_bar.BarRect.Max.y
+        window.DrawList:AddRectFilled(ImVec2(tab_bar.SeparatorMinX, y - g.Style.TabBarBorderSize), ImVec2(tab_bar.SeparatorMaxX, y), col)
+    end
+    return true
+end
+
+--- @param tab_bar ImGuiTabBar
+function ImGui.TabBarLayout(tab_bar)
+    -- TODO:
+end
+
+--- @param tab_bar       ImGuiTabBar
+--- @param label         string
+--- @param docked_window ImGuiWindow?
+--- @return ImGuiID
+function ImGui.TabBarCalcTabID(tab_bar, label, docked_window)
+    -- TODO:
+    return 0
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @param tab_id  ImGuiID
+--- @return ImGuiTabItem?
+function ImGui.TabBarFindTabByID(tab_bar, tab_id)
+    -- TODO:
+    return nil
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @param tab     ImGuiTabItem
+--- @return int # 1-based index
+function ImGui.TabBarGetTabOrder(tab_bar, tab)
+    return tab_bar.Tabs:index_from_ptr(tab) + 1
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @param tab     ImGuiTabItem
+--- @return ImVec2
+function ImGui.TabBarGetTabPos(tab_bar, tab)
+    -- TODO:
+    return ImVec2()
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @param tab     ImGuiTabItem
+function ImGui.TabBarCloseTab(tab_bar, tab)
+    -- TODO:
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @param tab     ImGuiTabItem
+function ImGui.TabBarQueueFocus(tab_bar, tab)
+    -- TODO:
+end
+
+--- @param tab_bar   ImGuiTabBar
+--- @param tab       ImGuiTabItem
+--- @param mouse_pos ImVec2
+function ImGui.TabBarQueueReorderFromMousePos(tab_bar, tab, mouse_pos)
+    -- TODO:
+end
+
+--- @param label  string
+--- @param open?  bool
+--- @param flags? ImGuiTabItemFlags
+--- @return bool? is_open          # The updated `open` passed in
+--- @return bool  contents_visible # Call EndTabItem() only when true
+function ImGui.BeginTabItem(label, open, flags)
+    if flags == nil then flags = 0 end
+
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.SkipItems then
+        return open, false
+    end
+
+    local tab_bar = g.CurrentTabBar
+    IM_ASSERT_USER_ERROR_RET(tab_bar ~= nil, "Needs to be called between BeginTabBar() and EndTabBar()!")
+    IM_ASSERT(bit.band(flags, ImGuiTabItemFlags.Button) == 0)
+
+    local ret
+    open, ret = ImGui.TabItemEx(tab_bar, label, open, flags, nil)
+    if ret and bit.band(flags, ImGuiTabItemFlags.NoPushId) == 0 then
+        local tab = tab_bar.Tabs.Data[tab_bar.LastTabItemIdx]
+        ImGui.PushOverrideID(tab.ID)
+    end
+    return open, ret
+end
+
+--- @param tab_bar       ImGuiTabBar
+--- @param label         string
+--- @param open          bool?
+--- @param flags         ImGuiTabItemFlags
+--- @param docked_window ImGuiWindow?
+--- @return bool? is_open
+--- @return bool  contents_visible
+function ImGui.TabItemEx(tab_bar, label, open, flags, docked_window)
+    local g = GImGui
+    if tab_bar.WantLayout then
+        local backup_next_item_data = ImGuiNextItemData()
+        ImGuiNextItemData_Copy(backup_next_item_data, g.NextItemData)
+        ImGui.TabBarLayout(tab_bar)
+        ImGuiNextItemData_Copy(g.NextItemData, backup_next_item_data)
+    end
+    local window = g.CurrentWindow
+    if window.SkipItems then
+        return open, false
+    end
+
+    local style = g.Style
+    local id = ImGui.TabBarCalcTabID(tab_bar, label, docked_window)
+
+    if open == false then
+        ImGui.ItemAdd(ImRect(), id, nil, ImGuiItemFlags.NoNav)
+        return open, false
+    end
+
+    IM_ASSERT(open == nil or bit.band(flags, ImGuiTabItemFlags.Button) == 0)
+    IM_ASSERT(bit.band(flags, bit.bor(ImGuiTabItemFlags.Leading, ImGuiTabItemFlags.Trailing)) ~= bit.bor(ImGuiTabItemFlags.Leading, ImGuiTabItemFlags.Trailing))
+
+    -- LUA: Keep the caller's open value when the internal close-button pointer is disabled
+    local has_close_button = open ~= nil
+    if bit.band(flags, ImGuiTabItemFlags.NoCloseButton) ~= 0 then
+        has_close_button = false
+    elseif not has_close_button then
+        flags = bit.bor(flags, ImGuiTabItemFlags.NoCloseButton)
+    end
+
+    local tab = ImGui.TabBarFindTabByID(tab_bar, id)
+    local tab_is_new = false
+    if tab == nil then
+        tab_bar.Tabs:push_back(ImGuiTabItem())
+        tab = tab_bar.Tabs:back()
+        tab.ID = id
+        tab_bar.TabsAddedNew = true
+        tab_is_new = true
+    end
+    tab_bar.LastTabItemIdx = tab_bar.Tabs:index_from_ptr(tab) + 1
+
+    local size = ImGui.TabItemCalcSize(label, has_close_button or bit.band(flags, ImGuiTabItemFlags.UnsavedDocument) ~= 0)
+    tab.RequestedWidth = -1.0
+    if bit.band(g.NextItemData.HasFlags, ImGuiNextItemDataFlags.HasWidth) ~= 0 then
+        size.x = g.NextItemData.Width
+        tab.RequestedWidth = g.NextItemData.Width
+    end
+    if tab_is_new then
+        tab.Width = ImMax(1.0, size.x)
+    end
+    tab.ContentWidth = size.x
+    tab.BeginOrder = tab_bar.TabsActiveCount
+    tab_bar.TabsActiveCount = tab_bar.TabsActiveCount + 1
+
+    local tab_bar_appearing = tab_bar.PrevFrameVisible + 1 < g.FrameCount
+    local tab_bar_focused = bit.band(tab_bar.Flags, ImGuiTabBarFlags.IsFocused) ~= 0
+    local tab_appearing = tab.LastFrameVisible + 1 < g.FrameCount
+    local tab_just_unsaved = bit.band(flags, ImGuiTabItemFlags.UnsavedDocument) ~= 0 and bit.band(tab.Flags, ImGuiTabItemFlags.UnsavedDocument) == 0
+    local is_tab_button = bit.band(flags, ImGuiTabItemFlags.Button) ~= 0
+    tab.LastFrameVisible = g.FrameCount
+    tab.Flags = flags
+    tab.Window = docked_window
+
+    if docked_window ~= nil then
+        IM_ASSERT(bit.band(tab_bar.Flags, ImGuiTabBarFlags.DockNode) ~= 0)
+        tab.NameOffset = -1
+    else
+        tab.NameOffset = tab_bar.TabsNames:size() + 1
+        local label_len = (string.find(label, "\0", 1, true) or (#label + 1)) - 1
+        tab_bar.TabsNames:append(string.sub(label, 1, label_len) .. "\0", label_len + 2)
+    end
+
+    if not is_tab_button then
+        if tab_appearing and bit.band(tab_bar.Flags, ImGuiTabBarFlags.AutoSelectNewTabs) ~= 0 and tab_bar.NextSelectedTabId == 0 then
+            if not tab_bar_appearing or tab_bar.SelectedTabId == 0 then
+                ImGui.TabBarQueueFocus(tab_bar, tab)
+            end
+        end
+        if bit.band(flags, ImGuiTabItemFlags.SetSelected) ~= 0 and tab_bar.SelectedTabId ~= id then
+            ImGui.TabBarQueueFocus(tab_bar, tab)
+        end
+    end
+
+    if tab_bar.VisibleTabContentsId == 0 and tab_bar.SelectedTabId == 0 and tab_bar_appearing and docked_window == nil then
+        if tab_bar.Tabs.Size == 1 and bit.band(tab_bar.Flags, ImGuiTabBarFlags.AutoSelectNewTabs) == 0 then
+            tab_bar.VisibleTabContentsId = id
+        end
+    end
+
+    local tab_contents_visible = tab_bar.VisibleTabContentsId == id
+    if tab_contents_visible then
+        tab_bar.VisibleTabWasSubmitted = true
+    end
+    tab_bar.LastTabItemContentsAppearing = tab_contents_visible and not tab.ContentsIsVisible
+    tab.ContentsIsVisible = tab_contents_visible
+
+    if tab_appearing and (not tab_bar_appearing or tab_is_new) then
+        ImGui.ItemAdd(ImRect(), id, nil, ImGuiItemFlags.NoNav)
+        if is_tab_button then
+            return open, false
+        end
+        return open, tab_contents_visible
+    end
+
+    if tab_bar.SelectedTabId == id then
+        tab.LastFrameSelected = g.FrameCount
+    end
+
+    local backup_main_cursor_pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y)
+    local is_central_section = bit.band(tab.Flags, ImGuiTabItemFlags.SectionMask_) == 0
+    size.x = tab.Width
+    ImVec2_Copy(window.DC.CursorPos, ImGui.TabBarGetTabPos(tab_bar, tab))
+    local pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y)
+    local bb = ImRect(pos, pos + size)
+
+    local want_clip_rect = is_central_section and (bb.Min.x < tab_bar.ScrollingRectMinX or bb.Max.x > tab_bar.ScrollingRectMaxX)
+    if want_clip_rect then
+        ImGui.PushClipRect(ImVec2(ImClamp(bb.Min.x, tab_bar.ScrollingRectMinX, tab_bar.ScrollingRectMaxX), bb.Min.y - 1), ImVec2(tab_bar.ScrollingRectMaxX, bb.Max.y), true)
+    end
+
+    local backup_cursor_max_pos = ImVec2(window.DC.CursorMaxPos.x, window.DC.CursorMaxPos.y)
+    ImGui.ItemSize(bb:GetSize(), style.FramePadding.y)
+    ImVec2_Copy(window.DC.CursorMaxPos, backup_cursor_max_pos)
+
+    if not ImGui.ItemAdd(bb, id) then
+        if want_clip_rect then
+            ImGui.PopClipRect()
+        end
+        ImVec2_Copy(window.DC.CursorPos, backup_main_cursor_pos)
+        return open, tab_contents_visible
+    end
+
+    local button_flags = bit.bor(is_tab_button and ImGuiButtonFlags.PressedOnClickRelease or ImGuiButtonFlags.PressedOnClick, ImGuiButtonFlags.AllowOverlap)
+    if g.DragDropActive and not g.DragDropPayload:IsDataType(IMGUI_PAYLOAD_TYPE_WINDOW) then
+        button_flags = bit.bor(button_flags, ImGuiButtonFlags.PressedOnDragDropHold)
+    end
+    local hovered, held, pressed
+    if bit.band(flags, ImGuiTabItemFlags.Invisible) ~= 0 then
+        hovered, held, pressed = false, false, false
+    else
+        pressed, hovered, held = ImGui.ButtonBehavior(bb, id, button_flags)
+    end
+    if pressed and not is_tab_button then
+        ImGui.TabBarQueueFocus(tab_bar, tab)
+    end
+
+    if held and docked_window and g.ActiveId == id and g.ActiveIdIsJustActivated then
+        g.ActiveIdWindow = docked_window
+    end
+
+    local node = docked_window and docked_window.DockNode or nil
+    local single_floating_window_node = node and node:IsFloatingNode() and node.Windows.Size == 1
+    if held and single_floating_window_node and ImGui.IsMouseDragging(0, 0.0) then
+        ImGui.StartMouseMovingWindow(docked_window)
+    elseif held and not tab_appearing and ImGui.IsMouseDragging(0) then
+        local drag_dir = 0
+        local drag_distance_from_edge_x = 0.0
+        if not g.DragDropActive and (bit.band(tab_bar.Flags, ImGuiTabBarFlags.Reorderable) ~= 0 or docked_window ~= nil) then
+            if g.IO.MouseDelta.x < 0.0 and g.IO.MousePos.x < bb.Min.x then
+                drag_dir = -1
+                drag_distance_from_edge_x = bb.Min.x - g.IO.MousePos.x
+                ImGui.TabBarQueueReorderFromMousePos(tab_bar, tab, g.IO.MousePos)
+            elseif g.IO.MouseDelta.x > 0.0 and g.IO.MousePos.x > bb.Max.x then
+                drag_dir = 1
+                drag_distance_from_edge_x = g.IO.MousePos.x - bb.Max.x
+                ImGui.TabBarQueueReorderFromMousePos(tab_bar, tab, g.IO.MousePos)
+            end
+        end
+
+        local can_undock = docked_window ~= nil and bit.band(docked_window.Flags, ImGuiWindowFlags.NoMove) == 0 and bit.band(node.MergedFlags, ImGuiDockNodeFlags.NoUndocking) == 0
+        if can_undock then
+            local undocking_tab = g.DragDropActive and g.DragDropPayload.SourceId == id
+            if not undocking_tab then
+                local threshold_base = g.FontSize
+                local threshold_x = threshold_base * 2.2
+                local threshold_y = threshold_base * 1.5 + ImClamp((ImAbs(g.IO.MouseDragMaxDistanceAbs[0].x) - threshold_base * 2.0) * 0.20, 0.0, threshold_base * 4.0)
+                local distance_from_edge_y = ImMax(bb.Min.y - g.IO.MousePos.y, g.IO.MousePos.y - bb.Max.y)
+                if distance_from_edge_y >= threshold_y then
+                    undocking_tab = true
+                end
+                if drag_distance_from_edge_x > threshold_x then
+                    if (drag_dir < 0 and ImGui.TabBarGetTabOrder(tab_bar, tab) == 1) or (drag_dir > 0 and ImGui.TabBarGetTabOrder(tab_bar, tab) == tab_bar.Tabs.Size) then
+                        undocking_tab = true
+                    end
+                end
+            end
+
+            if undocking_tab then
+                ImGui.DockContextQueueUndockWindow(g, docked_window)
+                g.MovingWindow = docked_window
+                ImGui.SetActiveID(g.MovingWindow.MoveId, g.MovingWindow)
+                g.ActiveIdClickOffset.x = g.ActiveIdClickOffset.x - (g.MovingWindow.Pos.x - bb.Min.x)
+                g.ActiveIdClickOffset.y = g.ActiveIdClickOffset.y - (g.MovingWindow.Pos.y - bb.Min.y)
+                g.ActiveIdNoClearOnFocusLoss = true
+                ImGui.SetActiveIdUsingAllKeyboardKeys()
+            end
+        end
+    end
+
+    local is_visible = bit.band(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.Visible) ~= 0 and bit.band(flags, ImGuiTabItemFlags.Invisible) == 0
+    if is_visible then
+        local display_draw_list = window.DrawList
+        local tab_col = ImGui.GetColorU32((held or hovered) and ImGuiCol.TabHovered or tab_contents_visible and (tab_bar_focused and ImGuiCol.TabSelected or ImGuiCol.TabDimmedSelected) or (tab_bar_focused and ImGuiCol.Tab or ImGuiCol.TabDimmed))
+        ImGui.TabItemBackground(display_draw_list, bb, flags, tab_col)
+        if tab_contents_visible and bit.band(tab_bar.Flags, ImGuiTabBarFlags.DrawSelectedOverline) ~= 0 and style.TabBarOverlineSize > 0.0 then
+            local tl = bb:GetTL() + ImVec2(0, style.TabBarOverlineSize * 0.5)
+            local tr = bb:GetTR() + ImVec2(0, style.TabBarOverlineSize * 0.5)
+            local overline_col = ImGui.GetColorU32(tab_bar_focused and ImGuiCol.TabSelectedOverline or ImGuiCol.TabDimmedSelectedOverline)
+            if style.TabRounding > 0.0 then
+                local rounding = style.TabRounding
+                display_draw_list:PathArcToFast(tl + ImVec2(rounding, rounding), rounding, 7, 9)
+                display_draw_list:PathArcToFast(tr + ImVec2(-rounding, rounding), rounding, 9, 11)
+                display_draw_list:PathStroke(overline_col, style.TabBarOverlineSize)
+            else
+                display_draw_list:AddLine(tl, tr, overline_col, style.TabBarOverlineSize)
+            end
+        end
+        ImGui.RenderNavCursor(bb, id)
+
+        local hovered_unblocked = ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup)
+        if tab_bar.SelectedTabId ~= tab.ID and hovered_unblocked and (ImGui.IsMouseClicked(1) or ImGui.IsMouseReleased(1)) and not is_tab_button then
+            ImGui.TabBarQueueFocus(tab_bar, tab)
+        end
+
+        if bit.band(tab_bar.Flags, ImGuiTabBarFlags.NoCloseWithMiddleMouseButton) ~= 0 then
+            flags = bit.bor(flags, ImGuiTabItemFlags.NoCloseWithMiddleMouseButton)
+        end
+
+        local close_button_id = has_close_button and ImGui.GetIDWithSeed("#CLOSE", nil, docked_window and docked_window.ID or id) or 0
+        local just_closed, text_clipped = ImGui.TabItemLabelAndCloseButton(display_draw_list, bb, tab_just_unsaved and bit.band(flags, bit.bnot(ImGuiTabItemFlags.UnsavedDocument)) or flags, tab_bar.FramePadding, label, id, close_button_id, tab_contents_visible)
+        if just_closed and has_close_button then
+            open = false
+            ImGui.TabBarCloseTab(tab_bar, tab)
+        end
+
+        if docked_window and (hovered or g.HoveredId == close_button_id) then
+            g.LastItemData.StatusFlags = bit.bor(g.LastItemData.StatusFlags, ImGuiItemStatusFlags.HoveredWindow)
+        end
+
+        if text_clipped and g.HoveredId == id and not held then
+            if bit.band(tab_bar.Flags, ImGuiTabBarFlags.NoTooltip) == 0 and bit.band(tab.Flags, ImGuiTabItemFlags.NoTooltip) == 0 then
+                ImGui.SetItemTooltip("%s", string.sub(label, 1, ImGui.FindRenderedTextEnd(label) - 1))
+            end
+        end
+    end
+
+    if want_clip_rect then
+        ImGui.PopClipRect()
+    end
+    ImVec2_Copy(window.DC.CursorPos, backup_main_cursor_pos)
+
+    IM_ASSERT(not is_tab_button or not (tab_bar.SelectedTabId == tab.ID and is_tab_button))
+    if is_tab_button then
+        return open, pressed
+    end
+    return open, tab_contents_visible
+end
+
+--- @param label                              string
+--- @param has_close_button_or_unsaved_marker bool
+--- @return ImVec2
+function ImGui.TabItemCalcSize(label, has_close_button_or_unsaved_marker)
+    -- TODO:
+    return ImVec2()
+end
+
+--- @param draw_list ImDrawList
+--- @param bb        ImRect
+--- @param flags     ImGuiTabItemFlags
+--- @param col       ImU32
+function ImGui.TabItemBackground(draw_list, bb, flags, col)
+    -- TODO:
+end
+
+--- @param draw_list           ImDrawList
+--- @param bb                  ImRect
+--- @param flags               ImGuiTabItemFlags
+--- @param frame_padding       ImVec2
+--- @param label               string
+--- @param tab_id              ImGuiID
+--- @param close_button_id     ImGuiID
+--- @param is_contents_visible bool
+--- @return bool just_closed
+--- @return bool text_clipped
+function ImGui.TabItemLabelAndCloseButton(draw_list, bb, flags, frame_padding, label, tab_id, close_button_id, is_contents_visible)
+    -- TODO:
+    return false, false
+end

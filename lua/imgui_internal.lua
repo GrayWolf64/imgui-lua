@@ -15,6 +15,8 @@ local bitLShift = bit.lshift; local bitRShift = bit.rshift
 
 local t_sort = table.sort
 
+IMGUI_PAYLOAD_TYPE_WINDOW = "_IMWINDOW"
+
 --- @alias ImGuiTableColumnIdx ImS16
 
 -- TODO: Implement actual ImString type
@@ -124,7 +126,18 @@ end
 --- @param base     table
 --- @param count    int
 --- @param cmp_func fun(lhs, rhs): bool
-ImStd.ImQsort = function(base, count, cmp_func) if count > 0 then t_sort(base, cmp_func) end end
+ImStd.ImQsort = function(base, count, cmp_func)
+    if count <= 1 then return end
+    if count == #base then
+        t_sort(base, cmp_func)
+        return
+    end
+
+    local sorted = {}
+    for i = 1, count do sorted[i] = base[i] end
+    t_sort(sorted, cmp_func)
+    for i = 1, count do base[i] = sorted[i] end
+end
 
 --- @overload fun(v: number, mn: number, mx: number): number
 --- @overload fun(v: ImVec2, mn: ImVec2, mx: ImVec2): ImVec2
@@ -952,7 +965,7 @@ end
 --- @field PreloadedAllGlyphsRanges  bool
 --- @field LoadedFontDefaultAsVector ImS8
 --- @field BakedPool                 ImVector<ImFontBaked>
---- @field BakedMap                  table<ImGuiID, any>
+--- @field BakedMap                  ImGuiStorage<ImFontBaked>
 --- @field BakedDiscardedCount       int
 --- @field PackIdMouseCursors        ImFontAtlasRectId
 --- @field PackIdLinesTexData        ImFontAtlasRectId
@@ -1160,6 +1173,23 @@ function ImGuiNextItemData()
         StorageId         = 0,
         ColorMarker       = 0
     }, IMGUI_NEXT_ITEM_DATA)
+end
+
+--- @param dest ImGuiNextItemData
+--- @param src  ImGuiNextItemData
+function ImGuiNextItemData_Copy(dest, src)
+    dest.HasFlags = src.HasFlags
+    dest.ItemFlagsSet = src.ItemFlagsSet
+    dest.FocusScopeId = src.FocusScopeId
+    dest.SelectionUserData = src.SelectionUserData
+    dest.Width = src.Width
+    dest.Shortcut = src.Shortcut
+    dest.ShortcutFlags = src.ShortcutFlags
+    dest.OpenVal = src.OpenVal
+    dest.OpenCond = src.OpenCond
+    dest.RefVal = src.RefVal
+    dest.StorageId = src.StorageId
+    dest.ColorMarker = src.ColorMarker
 end
 
 --- @class ImGuiNextWindowData
@@ -1555,6 +1585,40 @@ local function ImGuiKeyRoutingTable()
     return this
 end
 
+--- @alias ImPool<T> table<ImGuiID, T>
+
+ImPool =
+{
+    --- @generic T
+    --- @param pool ImPool<T>
+    --- @param key  ImGuiID
+    --- @return T?
+    GetByKey = function(pool, key)
+        return pool[key]
+    end,
+
+    --- @generic T
+    --- @param pool        ImPool<T>
+    --- @param key         ImGuiID
+    --- @param constructor fun(): T
+    --- @return T
+    GetOrAddByKey = function(pool, key, constructor)
+        local value = pool[key]
+        if value == nil then
+            value = constructor()
+            pool[key] = value
+        end
+        return value
+    end,
+
+    --- @generic T
+    --- @param pool ImPool<T>
+    --- @param key  ImGuiID
+    Remove = function(pool, key)
+        pool[key] = nil
+    end
+}
+
 --- @class ImGuiTextIndex
 --- @field Offsets   ImVector<int>
 --- @field EndOffset int
@@ -1762,12 +1826,170 @@ local function ImGuiNavItemData()
     return this
 end
 
+--- @alias ImGuiPtrOrIndex table
+
+---------------------------------------------------------------------------------------
+-- [SECTION] DOCKING SUPPORT
+---------------------------------------------------------------------------------------
+
+ImGuiDockNodeFlags.DockSpace                = bitLShift(1, 10)
+ImGuiDockNodeFlags.CentralNode               = bitLShift(1, 11)
+ImGuiDockNodeFlags.NoTabBar                  = bitLShift(1, 12)
+ImGuiDockNodeFlags.HiddenTabBar              = bitLShift(1, 13)
+ImGuiDockNodeFlags.NoWindowMenuButton        = bitLShift(1, 14)
+ImGuiDockNodeFlags.NoCloseButton             = bitLShift(1, 15)
+ImGuiDockNodeFlags.NoResizeX                 = bitLShift(1, 16)
+ImGuiDockNodeFlags.NoResizeY                 = bitLShift(1, 17)
+ImGuiDockNodeFlags.DockedWindowsInFocusRoute = bitLShift(1, 18)
+ImGuiDockNodeFlags.NoDockingSplitOther       = bitLShift(1, 19)
+ImGuiDockNodeFlags.NoDockingOverMe           = bitLShift(1, 20)
+ImGuiDockNodeFlags.NoDockingOverOther        = bitLShift(1, 21)
+ImGuiDockNodeFlags.NoDockingOverEmpty        = bitLShift(1, 22)
+ImGuiDockNodeFlags.NoDocking                 = bitOr(ImGuiDockNodeFlags.NoDockingOverMe, ImGuiDockNodeFlags.NoDockingOverOther, ImGuiDockNodeFlags.NoDockingOverEmpty, ImGuiDockNodeFlags.NoDockingSplit, ImGuiDockNodeFlags.NoDockingSplitOther)
+ImGuiDockNodeFlags.SharedFlagsInheritMask_   = bitNot(0)
+ImGuiDockNodeFlags.NoResizeFlagsMask_        = bitOr(ImGuiDockNodeFlags.NoResize, ImGuiDockNodeFlags.NoResizeX, ImGuiDockNodeFlags.NoResizeY)
+ImGuiDockNodeFlags.LocalFlagsTransferMask_   = bitOr(ImGuiDockNodeFlags.NoDockingSplit, ImGuiDockNodeFlags.NoResizeFlagsMask_, ImGuiDockNodeFlags.AutoHideTabBar, ImGuiDockNodeFlags.CentralNode, ImGuiDockNodeFlags.NoTabBar, ImGuiDockNodeFlags.HiddenTabBar, ImGuiDockNodeFlags.NoWindowMenuButton, ImGuiDockNodeFlags.NoCloseButton)
+ImGuiDockNodeFlags.SavedFlagsMask_           = bitOr(ImGuiDockNodeFlags.NoResizeFlagsMask_, ImGuiDockNodeFlags.DockSpace, ImGuiDockNodeFlags.CentralNode, ImGuiDockNodeFlags.NoTabBar, ImGuiDockNodeFlags.HiddenTabBar, ImGuiDockNodeFlags.NoWindowMenuButton, ImGuiDockNodeFlags.NoCloseButton)
+
+--- @enum ImGuiDataAuthority
+ImGuiDataAuthority = {
+    Auto     = 0,
+    DockNode = 1,
+    Window   = 2,
+}
+
+--- @enum ImGuiDockNodeState
+ImGuiDockNodeState = {
+    Unknown                                  = 0,
+    HostWindowHiddenBecauseSingleWindow       = 1,
+    HostWindowHiddenBecauseWindowsAreResizing = 2,
+    HostWindowVisible                        = 3,
+}
+
+--- @class ImGuiDockNode
+--- @field ID                     ImGuiID
+--- @field SharedFlags            ImGuiDockNodeFlags
+--- @field LocalFlags             ImGuiDockNodeFlags
+--- @field LocalFlagsInWindows    ImGuiDockNodeFlags
+--- @field MergedFlags            ImGuiDockNodeFlags
+--- @field State                  ImGuiDockNodeState
+--- @field ParentNode             ImGuiDockNode?
+--- @field ChildNodes             [ImGuiDockNode?, ImGuiDockNode?]
+--- @field Windows                ImVector<ImGuiWindow>
+--- @field TabBar                 ImGuiTabBar?
+--- @field Pos                    ImVec2
+--- @field Size                   ImVec2
+--- @field SizeRef                ImVec2
+--- @field SplitAxis              ImGuiAxis
+--- @field LastBgColor            ImU32
+--- @field WindowClass            ImGuiWindowClass
+--- @field HostWindow             ImGuiWindow?
+--- @field VisibleWindow          ImGuiWindow?
+--- @field CentralNode            ImGuiDockNode?
+--- @field OnlyNodeWithWindows    ImGuiDockNode?
+--- @field CountNodeWithWindows   int
+--- @field LastFrameAlive         int
+--- @field LastFrameActive        int
+--- @field LastFrameFocused       int
+--- @field LastFocusedNodeId      ImGuiID
+--- @field SelectedTabId          ImGuiID
+--- @field WantCloseTabId         ImGuiID
+--- @field RefViewportId          ImGuiID
+--- @field AuthorityForPos        ImU8
+--- @field AuthorityForSize       ImU8
+--- @field AuthorityForViewport   ImU8
+--- @field IsVisible              bool
+--- @field IsFocused              bool
+--- @field IsBgDrawnThisFrame      bool
+--- @field HasCloseButton         bool
+--- @field HasWindowMenuButton    bool
+--- @field HasCentralNodeChild    bool
+--- @field WantCloseAll           bool
+--- @field WantLockSizeOnce       bool
+--- @field WantMouseMove          bool
+--- @field WantHiddenTabBarUpdate bool
+--- @field WantHiddenTabBarToggle bool
+local IMGUI_DOCK_NODE = {}
+IMGUI_DOCK_NODE.__index = IMGUI_DOCK_NODE
+
+function IMGUI_DOCK_NODE:IsRootNode()     return self.ParentNode == nil end
+function IMGUI_DOCK_NODE:IsDockSpace()    return bitAnd(self.MergedFlags, ImGuiDockNodeFlags.DockSpace) ~= 0 end
+function IMGUI_DOCK_NODE:IsFloatingNode() return self.ParentNode == nil and bitAnd(self.MergedFlags, ImGuiDockNodeFlags.DockSpace) == 0 end
+function IMGUI_DOCK_NODE:IsCentralNode()  return bitAnd(self.MergedFlags, ImGuiDockNodeFlags.CentralNode) ~= 0 end
+function IMGUI_DOCK_NODE:IsHiddenTabBar() return bitAnd(self.MergedFlags, ImGuiDockNodeFlags.HiddenTabBar) ~= 0 end
+function IMGUI_DOCK_NODE:IsNoTabBar()     return bitAnd(self.MergedFlags, ImGuiDockNodeFlags.NoTabBar) ~= 0 end
+function IMGUI_DOCK_NODE:IsSplitNode()    return self.ChildNodes[1] ~= nil end
+function IMGUI_DOCK_NODE:IsLeafNode()     return self.ChildNodes[1] == nil end
+function IMGUI_DOCK_NODE:IsEmpty()        return self.ChildNodes[1] == nil and self.Windows.Size == 0 end
+function IMGUI_DOCK_NODE:Rect()           return ImRect(self.Pos.x, self.Pos.y, self.Pos.x + self.Size.x, self.Pos.y + self.Size.y) end
+
+--- @param flags ImGuiDockNodeFlags
+function IMGUI_DOCK_NODE:SetLocalFlags(flags)
+    self.LocalFlags = flags
+    self:UpdateMergedFlags()
+end
+
+function IMGUI_DOCK_NODE:UpdateMergedFlags()
+    self.MergedFlags = bitOr(self.SharedFlags, self.LocalFlags, self.LocalFlagsInWindows)
+end
+
+-- LUA: ChildNodes uses indices 1/2; garbage collection replaces destructor cleanup
+--- @param id ImGuiID
+--- @return ImGuiDockNode
+function ImGuiDockNode(id)
+    return setmetatable({
+        ID                     = id,
+        SharedFlags            = ImGuiDockNodeFlags.None,
+        LocalFlags             = ImGuiDockNodeFlags.None,
+        LocalFlagsInWindows    = ImGuiDockNodeFlags.None,
+        MergedFlags            = ImGuiDockNodeFlags.None,
+        State                  = ImGuiDockNodeState.Unknown,
+        ParentNode             = nil,
+        ChildNodes             = {},
+        Windows                = ImVector(),
+        TabBar                 = nil,
+        Pos                    = ImVec2(),
+        Size                   = ImVec2(),
+        SizeRef                = ImVec2(),
+        SplitAxis              = ImGuiAxis.None,
+        LastBgColor            = IM_COL32_WHITE,
+        WindowClass            = ImGuiWindowClass(),
+        HostWindow             = nil,
+        VisibleWindow          = nil,
+        CentralNode            = nil,
+        OnlyNodeWithWindows    = nil,
+        CountNodeWithWindows   = 0,
+        LastFrameAlive         = -1,
+        LastFrameActive        = -1,
+        LastFrameFocused       = -1,
+        LastFocusedNodeId      = 0,
+        SelectedTabId          = 0,
+        WantCloseTabId         = 0,
+        RefViewportId          = 0,
+        AuthorityForPos        = ImGuiDataAuthority.DockNode,
+        AuthorityForSize       = ImGuiDataAuthority.DockNode,
+        AuthorityForViewport   = ImGuiDataAuthority.Auto,
+        IsVisible              = true,
+        IsFocused              = false,
+        IsBgDrawnThisFrame      = false,
+        HasCloseButton         = false,
+        HasWindowMenuButton    = false,
+        HasCentralNodeChild    = false,
+        WantCloseAll           = false,
+        WantLockSizeOnce       = false,
+        WantMouseMove          = false,
+        WantHiddenTabBarUpdate = false,
+        WantHiddenTabBarToggle = false,
+    }, IMGUI_DOCK_NODE)
+end
+
 --- @class ImGuiContext
 --- @field Initialized                        bool
 --- @field WithinFrameScope                   bool
 --- @field WithinFrameScopeWithImplicitWindow bool
 --- @field FrameCount                         int
 --- @field FrameCountEnded                    int
+--- @field WindowsById                        ImGuiStorage<ImGuiWindow>
 --- @field CurrentWindow                      ImGuiWindow
 --- @field HoveredWindow                      ImGuiWindow
 --- @field Style                              ImGuiStyle
@@ -1804,8 +2026,12 @@ end
 --- @field Viewports                          ImVector<ImGuiViewportP>
 --- @field ClipperTempDataStacked             int
 --- @field ClipperTempData                    ImVector<ImGuiListClipperData>
+--- @field TabBars                            ImPool<ImGuiTabBar>
+--- @field CurrentTabBar                      ImGuiTabBar?
+--- @field CurrentTabBarStack                 ImVector<ImGuiPtrOrIndex>
 --- @field CurrentTable                       ImGuiTable?
 --- @field BoxSelectState                     ImGuiBoxSelectState
+--- @field DragDropPayload                    ImGuiPayload
 --- @field LogEnabled                         bool
 --- @field LogLinePosY                        float
 --- @field DebugLogFlags                      ImGuiDebugLogFlags
@@ -2100,11 +2326,16 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         DragDropWithinSource = false,
         DragDropWithinTarget = false,
         DragDropSourceFlags = 0,
+        DragDropPayload = ImGuiPayload(),
 
         DragDropAcceptIdPrev = 0, DragDropAcceptIdCurr = 0,
 
         ClipperTempDataStacked = 0,
         ClipperTempData = ImVector(ImGuiListClipperData),
+
+        TabBars = {},
+        CurrentTabBar = nil,
+        CurrentTabBarStack = ImVector(),
 
         CurrentTable = nil,
 
@@ -2150,6 +2381,142 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
     ImVec2_Copy(this.PlatformImeDataPrev.InputPos, ImVec2(-1.0, -1.0))
 
     return this
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] TAB BAR / ITEM SUPPORT
+---------------------------------------------------------------------------------------
+
+ImGuiTabBarFlags.DockNode     = bitLShift(1, 20)
+ImGuiTabBarFlags.IsFocused    = bitLShift(1, 21)
+ImGuiTabBarFlags.SaveSettings = bitLShift(1, 22)
+
+ImGuiTabItemFlags.SectionMask_  = bitOr(ImGuiTabItemFlags.Leading, ImGuiTabItemFlags.Trailing)
+ImGuiTabItemFlags.NoCloseButton = bitLShift(1, 20)
+ImGuiTabItemFlags.Button        = bitLShift(1, 21)
+ImGuiTabItemFlags.Invisible     = bitLShift(1, 22)
+ImGuiTabItemFlags.Unsorted      = bitLShift(1, 23)
+
+--- @class ImGuiTabItem
+--- @field ID                ImGuiID
+--- @field Flags             ImGuiTabItemFlags
+--- @field Window            ImGuiWindow?
+--- @field LastFrameVisible  int
+--- @field LastFrameSelected int
+--- @field Offset            float
+--- @field Width             float
+--- @field ContentWidth      float
+--- @field RequestedWidth    float
+--- @field NameOffset        ImS32
+--- @field BeginOrder        ImS16
+--- @field IndexDuringLayout ImS16
+--- @field WantClose         bool
+--- @field ContentsIsVisible bool
+
+--- @return ImGuiTabItem
+--- @nodiscard
+function ImGuiTabItem()
+    return {
+        ID                = 0,
+        Flags             = 0,
+        Window            = nil,
+        LastFrameVisible  = -1,
+        LastFrameSelected = -1,
+        Offset            = 0.0,
+        Width             = 0.0,
+        ContentWidth      = 0.0,
+        RequestedWidth    = -1.0,
+        NameOffset        = -1,
+        BeginOrder        = -1,
+        IndexDuringLayout = -1,
+        WantClose         = false,
+        ContentsIsVisible = false,
+    }
+end
+
+--- @class ImGuiTabBar
+--- @field Window                          ImGuiWindow?
+--- @field Tabs                            ImVector<ImGuiTabItem>
+--- @field Flags                           ImGuiTabBarFlags
+--- @field ID                              ImGuiID
+--- @field SelectedTabId                   ImGuiID
+--- @field NextSelectedTabId               ImGuiID
+--- @field NextScrollToTabId               ImGuiID
+--- @field VisibleTabContentsId            ImGuiID
+--- @field CurrFrameVisible                int
+--- @field PrevFrameVisible                int
+--- @field BarRect                         ImRect
+--- @field BarRectPrevWidth                float
+--- @field CurrTabsContentsHeight          float
+--- @field PrevTabsContentsHeight          float
+--- @field WidthAllTabs                    float
+--- @field WidthAllTabsIdeal               float
+--- @field ScrollingAnim                   float
+--- @field ScrollingTarget                 float
+--- @field ScrollingTargetDistToVisibility float
+--- @field ScrollingSpeed                  float
+--- @field ScrollingRectMinX               float
+--- @field ScrollingRectMaxX               float
+--- @field SeparatorMinX                   float
+--- @field SeparatorMaxX                   float
+--- @field ReorderRequestTabId             ImGuiID
+--- @field ReorderRequestOffset            ImS16
+--- @field BeginCount                      ImS8
+--- @field WantLayout                      bool
+--- @field VisibleTabWasSubmitted          bool
+--- @field LastTabItemContentsAppearing    bool
+--- @field TabsAddedNew                    bool
+--- @field ScrollButtonEnabled             bool
+--- @field TabsActiveCount                 ImS16
+--- @field LastTabItemIdx                  ImS16
+--- @field ItemSpacingY                    float
+--- @field FramePadding                    ImVec2
+--- @field BackupCursorPos                 ImVec2
+--- @field TabsNames                       ImGuiTextBuffer
+
+--- @return ImGuiTabBar
+--- @nodiscard
+function ImGuiTabBar()
+    return {
+        Window                          = nil,
+        Tabs                            = ImVector(ImGuiTabItem),
+        Flags                           = 0,
+        ID                              = 0,
+        SelectedTabId                   = 0,
+        NextSelectedTabId               = 0,
+        NextScrollToTabId               = 0,
+        VisibleTabContentsId            = 0,
+        CurrFrameVisible                = -1,
+        PrevFrameVisible                = -1,
+        BarRect                         = ImRect(),
+        BarRectPrevWidth                = 0.0,
+        CurrTabsContentsHeight          = 0.0,
+        PrevTabsContentsHeight          = 0.0,
+        WidthAllTabs                    = 0.0,
+        WidthAllTabsIdeal               = 0.0,
+        ScrollingAnim                   = 0.0,
+        ScrollingTarget                 = 0.0,
+        ScrollingTargetDistToVisibility = 0.0,
+        ScrollingSpeed                  = 0.0,
+        ScrollingRectMinX               = 0.0,
+        ScrollingRectMaxX               = 0.0,
+        SeparatorMinX                   = 0.0,
+        SeparatorMaxX                   = 0.0,
+        ReorderRequestTabId             = 0,
+        ReorderRequestOffset            = 0,
+        BeginCount                      = 0,
+        WantLayout                      = false,
+        VisibleTabWasSubmitted          = false,
+        LastTabItemContentsAppearing    = false,
+        TabsAddedNew                    = false,
+        ScrollButtonEnabled             = false,
+        TabsActiveCount                 = 0,
+        LastTabItemIdx                  = -1,
+        ItemSpacingY                    = 0.0,
+        FramePadding                    = ImVec2(),
+        BackupCursorPos                 = ImVec2(),
+        TabsNames                       = ImGuiTextBuffer(),
+    }
 end
 
 --- @class ImGuiTable
@@ -2233,6 +2600,7 @@ end
 --- @field TreeDepth                     int
 --- @field TreeHasStackDataDepthMask     ImU32
 --- @field TreeRecordsClippedNodesY2Mask ImU32
+--- @field StateStorage                  ImGuiStorage<int>?
 --- @field ChildWindows                  ImVector<ImGuiWindow>
 --- @field LayoutType                    ImGuiLayoutType
 --- @field ChildItemStatusFlags          ImGuiItemStatusFlags
@@ -2317,7 +2685,9 @@ end
 --- @field RootWindow                         ImGuiWindow
 --- @field RootWindowPopupTree                ImGuiWindow
 --- @field RootWindowDockTree                 ImGuiWindow
---- @field StateStorage                       table<ImGuiID, integer>
+--- @field DockNode                           ImGuiDockNode?
+--- @field DockNodeAsHost                     ImGuiDockNode?
+--- @field StateStorage                       ImGuiStorage<int>
 --- @field MemoryDrawListIdxCapacity          int
 --- @field MemoryDrawListVtxCapacity          int
 --- @field MemoryCompacted                    bool

@@ -495,6 +495,48 @@ function IM_VECTOR:index_from_ptr(p)
     IM_ASSERT(false, "index_from_ptr failed!")
 end
 
+--- @class ImGuiPayload
+--- @field Data           any
+--- @field DataSize       int
+--- @field SourceId       ImGuiID
+--- @field SourceParentId ImGuiID
+--- @field DataFrameCount int
+--- @field DataType       string
+--- @field Preview        bool
+--- @field Delivery       bool
+local IMGUI_PAYLOAD = {}
+IMGUI_PAYLOAD.__index = IMGUI_PAYLOAD
+
+function IMGUI_PAYLOAD:Clear()
+    self.SourceId = 0
+    self.SourceParentId = 0
+    self.Data = nil
+    self.DataSize = 0
+    self.DataType = "" -- LUA: Store the fixed-size C string as a Lua string
+    self.DataFrameCount = -1
+    self.Preview = false
+    self.Delivery = false
+end
+
+--- @param data_type string
+--- @return bool
+function IMGUI_PAYLOAD:IsDataType(data_type)
+    return self.DataFrameCount ~= -1 and data_type == self.DataType
+end
+
+--- @return bool
+function IMGUI_PAYLOAD:IsPreview() return self.Preview end
+
+--- @return bool
+function IMGUI_PAYLOAD:IsDelivery() return self.Delivery end
+
+--- @return ImGuiPayload
+function ImGuiPayload()
+    local this = setmetatable({}, IMGUI_PAYLOAD)
+    this:Clear()
+    return this
+end
+
 --- @class ImGuiTextBuffer
 --- @field Buf ImVector<char>
 local IMGUI_TEXT_BUFFER = {}
@@ -600,9 +642,11 @@ function ImGuiListClipper()
     }, MT.ImGuiListClipper)
 end
 
+--- @alias ImGuiStorage<T> table<ImGuiID, T>
+
 ImGuiStorage =
 {
-    --- @param storage table<ImGuiID, integer|boolean>
+    --- @param storage ImGuiStorage<integer|boolean>
     --- @param key ImGuiID
     --- @param default_val? integer
     --- @return integer
@@ -616,7 +660,7 @@ ImGuiStorage =
         return value
     end,
 
-    --- @param storage table<ImGuiID, integer|boolean>
+    --- @param storage ImGuiStorage<integer|boolean>
     --- @param key ImGuiID
     --- @param value integer
     SetInt = function(storage, key, value)
@@ -973,7 +1017,7 @@ end
 --- @field FallbackChar             ImWchar
 --- @field Used8kPagesMap           ImU8[]                 # 1-based table
 --- @field EllipsisAutoBake         bool
---- @field RemapPairs               table<ImGuiID, integer> # LUA: Plain table storage
+--- @field RemapPairs               ImGuiStorage<int>
 --- @field Scale                    float
 MT.ImFont = {}
 MT.ImFont.__index = MT.ImFont
@@ -1957,6 +2001,18 @@ ImGuiBackendFlags = {
     HasParentViewport       = bitLShift(1, 13)
 }
 
+--- @enum ImGuiDockNodeFlags
+ImGuiDockNodeFlags = {
+    None                     = 0,
+    KeepAliveOnly            = bitLShift(1, 0),
+    NoDockingOverCentralNode = bitLShift(1, 2),
+    PassthruCentralNode      = bitLShift(1, 3),
+    NoDockingSplit           = bitLShift(1, 4),
+    NoResize                 = bitLShift(1, 5),
+    AutoHideTabBar           = bitLShift(1, 6),
+    NoUndocking              = bitLShift(1, 7),
+}
+
 --- @enum ImGuiDragDropFlags
 ImGuiDragDropFlags = {
     None                     = 0,
@@ -2023,6 +2079,38 @@ ImGuiComboFlags = {
 }
 
 ImGuiComboFlags.HeightMask_ = bitOr(ImGuiComboFlags.HeightSmall, ImGuiComboFlags.HeightRegular, ImGuiComboFlags.HeightLarge, ImGuiComboFlags.HeightLargest)
+
+--- @enum ImGuiTabBarFlags
+ImGuiTabBarFlags = {
+    None                         = 0,
+    Reorderable                  = bitLShift(1, 0),
+    AutoSelectNewTabs            = bitLShift(1, 1),
+    TabListPopupButton           = bitLShift(1, 2),
+    NoCloseWithMiddleMouseButton = bitLShift(1, 3),
+    NoTabListScrollingButtons    = bitLShift(1, 4),
+    NoTooltip                    = bitLShift(1, 5),
+    DrawSelectedOverline         = bitLShift(1, 6),
+    FittingPolicyMixed           = bitLShift(1, 7),
+    FittingPolicyShrink          = bitLShift(1, 8),
+    FittingPolicyScroll          = bitLShift(1, 9),
+}
+
+ImGuiTabBarFlags.FittingPolicyMask_ = bitOr(ImGuiTabBarFlags.FittingPolicyMixed, ImGuiTabBarFlags.FittingPolicyShrink, ImGuiTabBarFlags.FittingPolicyScroll)
+ImGuiTabBarFlags.FittingPolicyDefault_ = ImGuiTabBarFlags.FittingPolicyMixed
+
+--- @enum ImGuiTabItemFlags
+ImGuiTabItemFlags = {
+    None                         = 0,
+    UnsavedDocument              = bitLShift(1, 0),
+    SetSelected                  = bitLShift(1, 1),
+    NoCloseWithMiddleMouseButton = bitLShift(1, 2),
+    NoPushId                     = bitLShift(1, 3),
+    NoTooltip                    = bitLShift(1, 4),
+    NoReorder                    = bitLShift(1, 5),
+    Leading                      = bitLShift(1, 6),
+    Trailing                     = bitLShift(1, 7),
+    NoAssumedClosure             = bitLShift(1, 8),
+}
 
 --- @enum ImGuiSelectableFlags
 ImGuiSelectableFlags = {
