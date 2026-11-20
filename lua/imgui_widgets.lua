@@ -1150,9 +1150,9 @@ function ImGui.Checkbox(label, v)
         if mixed_value then
             -- Undocumented tristate/mixed/indeterminate checkbox (#2644)
             -- This may seem awkwardly designed because the aim is to make ImGuiItemFlags.MixedValue supported by all widgets (not just checkbox)
-            local pad_val = ImMax(1.0, IM_TRUNC(square_sz / 3.6))
-            local pad = ImVec2(pad_val, pad_val)
-            window.DrawList:AddRectFilled(check_bb.Min + pad, check_bb.Max - pad, check_col, style.FrameRounding)
+            local pad = ImMax(1.0, IM_TRUNC(square_sz / 3.6))
+            local rounding = 0.0
+            window.DrawList:AddRectFilled(check_bb.Min + ImVec2(pad, pad), check_bb.Max - ImVec2(pad, pad), check_col, rounding)
         elseif v then
             local pad = ImMax(1.0, IM_TRUNC(square_sz / 6.0))
             ImGui.RenderCheckMark(window.DrawList, check_bb.Min + ImVec2(pad, pad), check_col, square_sz - pad * 2.0)
@@ -2927,12 +2927,13 @@ function ImGui.DragBehaviorT(TYPE, SIGNEDTYPE, data_type, v, v_speed, v_min, v_m
     if v ~= v_cur and is_bounded then
         if is_wrapped then
             -- Wrap values
-            if v_cur < v_min then
-                v_cur = (TYPE)(v_cur + (TYPE)((TYPE)(v_max - v_min) + (is_floating_point and 0 or 1)))
+            local range = v_max - v_min + (is_floating_point and 0 or 1)
+            local offset = ImMod((TYPE)(v_cur - v_min), range)
+            if offset < 0 then
+                offset = offset + range
             end
-            if v_cur > v_max then
-                v_cur = (TYPE)(v_cur - (TYPE)((TYPE)(v_max - v_min) - (is_floating_point and 0 or 1)))
-            end
+            v_cur = (TYPE)(v_min + offset)
+            IM_ASSERT_PARANOID(v_cur >= v_min and v_cur <= v_max)
         else
             -- Clamp values + handle overflow/wrap-around for integer types
             if v_cur < v_min or (v_cur > v and adjust_delta < 0.0 and not is_floating_point) then
@@ -6032,7 +6033,8 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
     g.NextItemData:ClearFlags()
 
     local backup_alpha = style.Alpha
-    if g.DisabledStackSize > 0 then
+    local is_disabled = bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0 and g.DisabledStackSize > 0
+    if is_disabled then
         g.Style.Alpha = g.DisabledAlphaBackup -- Cancel out effect of BeginDisabled() for color swatches
     end
 
@@ -6436,7 +6438,7 @@ function ImGui.ColorPicker4(label, col, flags, ref_col)
 
     ImGui.PopID()
 
-    if g.DisabledStackSize > 0 then
+    if is_disabled then
         g.Style.Alpha = backup_alpha
     end
 
@@ -6485,7 +6487,8 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
     local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
 
     local backup_alpha = g.Style.Alpha
-    if g.DisabledStackSize > 0 then
+    local is_disabled = bit.band(g.CurrentItemFlags, ImGuiItemFlags.Disabled) ~= 0 and g.DisabledStackSize > 0
+    if is_disabled then
         g.Style.Alpha = g.DisabledAlphaBackup -- Cancel out effect of BeginDisabled() for color swatches
     end
     if is_mixed then
@@ -6511,7 +6514,7 @@ function ImGui.ColorButton(desc_id, col, flags, size_arg)
             window.DrawList:AddRectFilled(bb.Min, bb.Max, ImGui.GetColorU32(col_source), rounding)
         end
     end
-    if g.DisabledStackSize > 0 then
+    if is_disabled then
         g.Style.Alpha = backup_alpha
     end
     ImGui.RenderNavCursor(bb, id)

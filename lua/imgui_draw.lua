@@ -123,8 +123,8 @@ function ImGui.StyleColorsDark(dst)
     colors[ImGuiCol.Text]                      = ImVec4(1.00, 1.00, 1.00, 1.00)
     colors[ImGuiCol.TextDisabled]              = ImVec4(0.58, 0.58, 0.58, 1.00)
     colors[ImGuiCol.WindowBg]                  = ImVec4(0.15, 0.15, 0.15, 1.00)
-    colors[ImGuiCol.ChildBg]                   = ImVec4(0.00, 0.00, 0.00, 0.00)
-    colors[ImGuiCol.PopupBg]                   = ImVec4(0.08, 0.08, 0.08, 0.94)
+    colors[ImGuiCol.ChildBg]                   = ImVec4(0.17, 0.17, 0.17, 0.00)
+    colors[ImGuiCol.PopupBg]                   = ImVec4(0.14, 0.14, 0.14, 0.94)
     colors[ImGuiCol.Border]                    = ImVec4(0.43, 0.43, 0.50, 0.50)
     colors[ImGuiCol.BorderShadow]              = ImVec4(0.00, 0.00, 0.00, 0.00)
     colors[ImGuiCol.FrameBg]                   = ImVec4(0.10, 0.10, 0.10, 1.00)
@@ -3109,29 +3109,41 @@ function MT.ImFontAtlas:AddFont(font_cfg_in)
 
     if (is_first_font) then
         ImFontAtlasBuildNotifySetFont(self, nil, font)
+        self.Builder.LoadedFontDefaultAsVector = -1
     end
 
     return font
 end
 
---- @param ctx ImGuiContext
---- @return float
-local function GetExpectedContextFontSize(ctx)
+--- @param atlas ImFontAtlas
+--- @return bool
+function ImFontAtlasHeuristicShouldUseDefaultVectorFont(atlas)
+    local ctx = atlas.OwnerContext
+    if ctx == nil then
+        return true
+    end
     local fb_scale = (ctx.IO.DisplayFramebufferScale.x ~= 0.0) and ctx.IO.DisplayFramebufferScale.x or 1.0
     if ctx.IO.DisplayFramebufferScale.x == 1.0 and ctx.IO.DisplaySize.x <= 0.0 and ctx.IO.ConfigMacOSXBehaviors then
         fb_scale = 2.0
     end
     local scale = ctx.Style.FontScaleMain * ctx.Style.FontScaleDpi * fb_scale
-    return ((ctx.Style.FontSizeBase > 0.0) and ctx.Style.FontSizeBase or 13.0) * scale
+    local expected_font_size = ((ctx.Style.FontSizeBase > 0.0) and ctx.Style.FontSizeBase or 13.0) * scale
+    return expected_font_size >= 15.0
 end
 
 --- @param font_cfg ImFontConfig
 function MT.ImFontAtlas:AddFontDefault(font_cfg)
-    if self.OwnerContext == nil or GetExpectedContextFontSize(self.OwnerContext) >= 15.0 then
-        return self:AddFontDefaultVector(font_cfg)
+    local use_vector_font = ImFontAtlasHeuristicShouldUseDefaultVectorFont(self)
+    local font
+    if use_vector_font then
+        font = self:AddFontDefaultVector(font_cfg)
     else
-        return self:AddFontDefaultBitmap(font_cfg)
+        font = self:AddFontDefaultBitmap(font_cfg)
     end
+    if self.Fonts.Size == 1 then
+        self.Builder.LoadedFontDefaultAsVector = use_vector_font and 1 or 0
+    end
+    return font
 end
 
 function MT.ImFontAtlas:AddFontFromMemoryTTF(font_data, font_data_size, size_pixels, font_cfg_template, glyph_ranges)
@@ -6563,9 +6575,9 @@ function ImGui.RenderArrowEx(draw_list, pos, col, cos_a, sin_a, scale, arrow_siz
     }
 
     if is_fill and cos_a * sin_a >= -FLT_EPSILON and cos_a * sin_a <= FLT_EPSILON then
-        p[1] = ImRoundSigned64(p[1])
-        p[2] = ImRoundSigned64(p[2])
-        p[3] = ImRoundSigned64(p[3])
+        p[1] = ImRoundSigned(p[1])
+        p[2] = ImRoundSigned(p[2])
+        p[3] = ImRoundSigned(p[3])
     end
 
     if is_fill then

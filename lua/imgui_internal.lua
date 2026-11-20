@@ -56,17 +56,23 @@ ImAbs  = math.abs
 ImFabs = math.abs
 ImFmod = function(a, b) if b < 0 then b = -b end; if a < 0 then return -(-a % b) else return a % b end; end
 
+ImMod = ImFmod
+
 ImRoundPositive64 = function(val) return math.floor(val + 0.5) end
 
-local function _RoundSigned64(val) return val >= 0.0 and math.floor(val + 0.5) or math.ceil(val - 0.5) end
+local function _RoundSigned(val) return val >= 0.0 and math.floor(val + 0.5) or math.ceil(val - 0.5) end
 
 --- @overload fun(val: float): float
 --- @overload fun(val: ImVec2): ImVec2
-function ImRoundSigned64(val)
-    if     type(val) == "number" then return _RoundSigned64(val)
-    elseif type(val) == "table"  then return ImVec2(_RoundSigned64(val[1]), _RoundSigned64(val[2]))
+function ImRoundSigned(val)
+    if     type(val) == "number" then return _RoundSigned(val)
+    elseif type(val) == "table"  then return ImVec2(_RoundSigned(val[1]), _RoundSigned(val[2]))
     end
 end
+
+--- @param val float
+--- @return float
+function ImRoundSigned64(val) return _RoundSigned(val) end
 
 ImCeil  = math.ceil
 ImSin   = math.sin
@@ -929,29 +935,30 @@ function ImDrawListSharedData()
 end
 
 --- @class ImFontAtlasBuilder
---- @field PackContext              stbrp_context
---- @field PackNodes                ImVector<stbrp_node>
---- @field Rects                    ImVector<ImTextureRect>
---- @field RectsIndex               ImVector<ImFontAtlasRectEntry>
---- @field TempBuffer               ImVector<char>
---- @field RectsIndexFreeListStart  int
---- @field RectsPackedCount         int
---- @field RectsPackedSurface       int
---- @field RectsDiscardedCount      int
---- @field RectsDiscardedSurface    int
---- @field FrameCount               int
---- @field MaxRectSize              ImVec2
---- @field MaxRectBounds            ImVec2
---- @field LockDisableResize        bool
---- @field PreloadedAllGlyphsRanges bool
---- @field BakedPool                ImVector<ImFontBaked>
---- @field BakedMap                 table<ImGuiID, any>
---- @field BakedDiscardedCount      int
---- @field PackIdMouseCursors       ImFontAtlasRectId
---- @field PackIdLinesTexData       ImFontAtlasRectId
---- @field PackIdCornersTexData     ImFontAtlasRectId
---- @field TexUvLines               ImVec4[]                       # 0-based table
---- @field TexUvCorners             ImVec4[]                       # 1-based table
+--- @field PackContext               stbrp_context
+--- @field PackNodes                 ImVector<stbrp_node>
+--- @field Rects                     ImVector<ImTextureRect>
+--- @field RectsIndex                ImVector<ImFontAtlasRectEntry>
+--- @field TempBuffer                ImVector<char>
+--- @field RectsIndexFreeListStart   int
+--- @field RectsPackedCount          int
+--- @field RectsPackedSurface        int
+--- @field RectsDiscardedCount       int
+--- @field RectsDiscardedSurface     int
+--- @field FrameCount                int
+--- @field MaxRectSize               ImVec2
+--- @field MaxRectBounds             ImVec2
+--- @field LockDisableResize         bool
+--- @field PreloadedAllGlyphsRanges  bool
+--- @field LoadedFontDefaultAsVector ImS8
+--- @field BakedPool                 ImVector<ImFontBaked>
+--- @field BakedMap                  table<ImGuiID, any>
+--- @field BakedDiscardedCount       int
+--- @field PackIdMouseCursors        ImFontAtlasRectId
+--- @field PackIdLinesTexData        ImFontAtlasRectId
+--- @field PackIdCornersTexData      ImFontAtlasRectId
+--- @field TexUvLines                ImVec4[]                       # 0-based table
+--- @field TexUvCorners              ImVec4[]                       # 1-based table
 MT.ImFontAtlasBuilder = {}
 MT.ImFontAtlasBuilder.__index = MT.ImFontAtlasBuilder
 
@@ -975,6 +982,7 @@ function ImFontAtlasBuilder()
     this.MaxRectBounds            = ImVec2()
     this.LockDisableResize        = false
     this.PreloadedAllGlyphsRanges = false
+    this.LoadedFontDefaultAsVector = -1
 
     this.BakedPool           = ImVector() -- ImStableVector<ImFontBaked,32>
     this.BakedMap            = {}

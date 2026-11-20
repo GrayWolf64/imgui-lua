@@ -1030,7 +1030,7 @@ local GLocalizationEntriesEnUS = {
     ImGuiLocEntry(ImGuiLocKey.VersionStr,                    "ImGui Sincerely WIP"),
     ImGuiLocEntry(ImGuiLocKey.TableSizeOne,                  "Size column to fit###SizeOne"),
     ImGuiLocEntry(ImGuiLocKey.TableSizeAllFit,               "Size all columns to fit###SizeAll"),
-    ImGuiLocEntry(ImGuiLocKey.TableSizeAllDefault,           "Size all columns to default###SizeAll"),
+    ImGuiLocEntry(ImGuiLocKey.TableSizeAllDefault,           "Size all columns to auto###SizeAll"),
     ImGuiLocEntry(ImGuiLocKey.TableReset,                    "Reset"),
     ImGuiLocEntry(ImGuiLocKey.TableResetOrder,               "Reset order###ResetOrder"),
     ImGuiLocEntry(ImGuiLocKey.TableResetVisibility,          "Reset visibility###ResetVisibility"),
@@ -2645,7 +2645,7 @@ end
 --- @param type ImGuiInputEventType
 --- @param arg? int
 --- @return ImGuiInputEvent?
-function MT.ImGuiIO:FindLatestInputEvent(ctx, type, arg)
+function ImGui.FindLatestInputEvent(ctx, type, arg)
     if arg == nil then arg = -1 end
 
     local g = ctx
@@ -2687,7 +2687,7 @@ function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
         end
     end
 
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Key, key)
+    local latest_event = ImGui.FindLatestInputEvent(g, ImGuiInputEventType.Key, key)
     local key_data = ImGui.GetKeyData(g, key)
     local latest_key_down = key_data.Down -- LUA: No "Ternary Operator"
     if latest_event then
@@ -2741,7 +2741,7 @@ function MT.ImGuiIO:AddMouseViewportEvent(viewport_id)
     end
 
     -- Filter duplicate
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.MouseViewport)
+    local latest_event = ImGui.FindLatestInputEvent(g, ImGuiInputEventType.MouseViewport)
     local latest_viewport_id
     if latest_event then
         latest_viewport_id = latest_event.MouseViewport.HoveredViewportID
@@ -2765,7 +2765,7 @@ function MT.ImGuiIO:AddFocusEvent(focused)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
 
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Focus)
+    local latest_event = ImGui.FindLatestInputEvent(g, ImGuiInputEventType.Focus)
     local latest_focused = not g.IO.AppFocusLost -- LUA: No "Ternary Operator"
     if latest_event then
         latest_focused = latest_event.AppFocused.Focused
@@ -2802,7 +2802,7 @@ function MT.ImGuiIO:AddMousePosEvent(x, y)
         y_val = ImFloor(y)
     end
 
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.MousePos)
+    local latest_event = ImGui.FindLatestInputEvent(g, ImGuiInputEventType.MousePos)
     local latest_pos = latest_event and ImVec2(latest_event.MousePos.PosX, latest_event.MousePos.PosY) or self.MousePos
     if latest_pos.x == x_val and latest_pos.y == y_val then
         return
@@ -2839,7 +2839,7 @@ function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
         end
     end
 
-    local latest_event = self:FindLatestInputEvent(g, ImGuiInputEventType.MouseButton, mouse_button)
+    local latest_event = ImGui.FindLatestInputEvent(g, ImGuiInputEventType.MouseButton, mouse_button)
     local latest_button_down = self.MouseDown[mouse_button] -- LUA: No "Ternary Operator"
     if latest_event then
         latest_button_down = latest_event.MouseButton.Down
@@ -2852,7 +2852,7 @@ function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
     -- - Note that this is actual physical Ctrl which is ImGuiMod_Super for us.
     -- - At this point we want from !down to down, so this is handling the initial press.
     if self.ConfigMacOSXBehaviors and mouse_button == 0 and down then
-        local latest_super_event = self:FindLatestInputEvent(g, ImGuiInputEventType.Key, ImGuiMod_Super)
+        local latest_super_event = ImGui.FindLatestInputEvent(g, ImGuiInputEventType.Key, ImGuiMod_Super)
         local latest_super_down = self.KeySuper -- LUA: No "Ternary Operator"
         if latest_super_event then
             latest_super_down = latest_super_event.Key.Down
@@ -4270,11 +4270,13 @@ function ImGui.RenderText(pos, text, text_begin, text_end, hide_text_after_hash)
         text_display_end = text_end
     end
 
-    if text ~= "" and text_display_end > 1 then
-        window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0)
-        if g.LogEnabled then
-            -- ImGui.LogRenderedText(&pos, text, text_display_end);
-        end
+    if text_begin == text_display_end then
+        return
+    end
+
+    window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0)
+    if g.LogEnabled then
+        -- ImGui.LogRenderedText(&pos, text, text_display_end);
     end
 end
 
@@ -4290,9 +4292,11 @@ function ImGui.RenderTextWrapped(pos, text, text_end, wrap_width)
         text_end = #text + 1
     end
 
-    if text ~= "" then
-        window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, 1, text_end, wrap_width)
+    if text_end == 1 then
+        return
     end
+
+    window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, 1, text_end, wrap_width)
 end
 
 --- @param draw_list           ImDrawList
@@ -4300,17 +4304,20 @@ end
 --- @param pos_max             ImVec2
 --- @param text                string
 --- @param text_begin          int
---- @param text_display_end    int
+--- @param text_end            int
 --- @param text_size_if_known? ImVec2
 --- @param align?              ImVec2
 --- @param clip_rect?          ImRect
-function ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin, text_display_end, text_size_if_known, align, clip_rect)
+function ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin, text_end, text_size_if_known, align, clip_rect)
+    if text_begin == text_end then
+        return
+    end
     if not align then align = ImVec2(0, 0) end
 
     local pos = ImVec2()
     ImVec2_Copy(pos, pos_min)
 
-    local text_size = text_size_if_known or ImGui.CalcTextSize(text, text_display_end, false, 0.0)
+    local text_size = text_size_if_known or ImGui.CalcTextSize(text, text_end, false, 0.0)
 
     local clip_min = clip_rect and clip_rect.Min or pos_min
     local clip_max = clip_rect and clip_rect.Max or pos_max
@@ -4319,15 +4326,19 @@ function ImGui.RenderTextClippedEx(draw_list, pos_min, pos_max, text, text_begin
         need_clipping = need_clipping or ((pos.x < clip_min.x) or (pos.y < clip_min.y))
     end
 
-    if (align.x > 0.0) then pos.x = ImMax(pos.x, pos.x + (pos_max.x - pos.x - text_size.x) * align.x) end
-    if (align.y > 0.0) then pos.y = ImMax(pos.y, pos.y + (pos_max.y - pos.y - text_size.y) * align.y) end
+    if (align.x > 0.0) then
+        pos.x = ImMax(pos.x, pos.x + (pos_max.x - pos.x - text_size.x) * align.x)
+    end
+    if (align.y > 0.0) then
+        pos.y = ImMax(pos.y, pos.y + (pos_max.y - pos.y - text_size.y) * align.y)
+    end
 
     local g = GImGui
     if (need_clipping) then
         local fine_clip_rect = ImVec4(clip_min.x, clip_min.y, clip_max.x, clip_max.y)
-        draw_list:AddText(nil, 0.0, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0, fine_clip_rect)
+        draw_list:AddText(nil, 0.0, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_end, 0.0, fine_clip_rect)
     else
-        draw_list:AddText(nil, 0.0, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0, nil)
+        draw_list:AddText(nil, 0.0, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_end, 0.0, nil)
     end
 end
 
@@ -5864,9 +5875,12 @@ function ImGui.Begin(name, open, flags)
             end
         end
 
-        local window_pos_with_pivot = (window.SetWindowPosVal.x ~= FLT_MAX and window.HiddenFramesCannotSkipItems == 0)
-        if window_pos_with_pivot then
+        if window.SetWindowPosVal.x ~= FLT_MAX then
+            local backup_pos_val = ImVec2(window.SetWindowPosVal.x, window.SetWindowPosVal.y)
             ImGui.SetWindowPos(window, window.SetWindowPosVal - window.Size * window.SetWindowPosPivot, 0) -- Position given a pivot (e.g. for centering)
+            if window.HiddenFramesCannotSkipItems ~= 0 then
+                ImVec2_Copy(window.SetWindowPosVal, backup_pos_val)
+            end
         elseif (bit.band(flags, ImGuiWindowFlags.ChildMenu) ~= 0) then
             ImVec2_Copy(window.Pos, ImGui.FindBestWindowPosForPopup(window))
         elseif (bit.band(flags, ImGuiWindowFlags.Popup) ~= 0) and not window_pos_set_by_api and window_just_appearing_after_hidden_for_resize then
@@ -7181,11 +7195,23 @@ local function FlattenDrawDataIntoSingleLayer(builder)
     end
 end
 
+function ImGui.ErrorCheckNewFrameSanityChecks()
+    local g = GImGui
+    -- TODO:
+    if g.FrameCount == 2 and g.IO.Fonts.Builder.LoadedFontDefaultAsVector ~= -1 then
+        ImGui.SetCurrentViewport(nil, ImGui.GetMainViewport())
+        local old_heuristic_result_for_using_vector_font = g.IO.Fonts.Builder.LoadedFontDefaultAsVector == 1
+        local new_heuristic_result_for_using_vector_font = ImFontAtlasHeuristicShouldUseDefaultVectorFont(g.IO.Fonts)
+        IM_ASSERT_USER_ERROR(old_heuristic_result_for_using_vector_font == new_heuristic_result_for_using_vector_font, "AddFontDefault() font selection heuristic parameters changed between load/init time and now. Verify which parameters have changed or load a default font explicitly!")
+    end
+end
+
 function ImGui.NewFrame()
     IM_ASSERT(GImGui ~= nil, "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?")
     local g = GImGui
 
     g.ConfigFlagsLastFrame = g.ConfigFlagsCurrFrame
+    ImGui.ErrorCheckNewFrameSanityChecks()
     g.ConfigFlagsCurrFrame = g.IO.ConfigFlags
 
     g.Time = g.Time + g.IO.DeltaTime
@@ -10736,14 +10762,13 @@ function ImGui.SetCurrentViewport(current_window, viewport)
     IM_ASSERT(g.CurrentDpiScale > 0.0 and g.CurrentDpiScale < 99.0)  -- Typical correct values would be between 1.0f and 4.0f
     -- IMGUI_DEBUG_LOG_VIEWPORT("[viewport] SetCurrentViewport changed '%s' 0x%08X", current_window and current_window.Name or "NULL", viewport and viewport.ID or 0)
 
-    if g.IO.ConfigDpiScaleFonts then
+    if g.IO.ConfigDpiScaleFonts and viewport then
         g.Style.FontScaleDpi = g.CurrentDpiScale
     end
 
     -- Notify platform layer of viewport changes
-    -- FIXME-DPI: This is only currently used for experimenting with handling of multiple DPI
-    if g.CurrentViewport and g.PlatformIO.Platform_OnChangedViewport then
-        g.PlatformIO.Platform_OnChangedViewport(g.CurrentViewport)
+    if viewport and g.PlatformIO.Platform_OnChangedViewport then
+        g.PlatformIO.Platform_OnChangedViewport(viewport)
     end
 end
 
@@ -11247,6 +11272,8 @@ function ImGui.AddUpdateViewport(window, id, pos, size, flags)
         local window_can_use_inputs = (bit.band(window.Flags, bit.bor(ImGuiWindowFlags.NoMouseInputs, ImGuiWindowFlags.NoNavInputs)) == 0)
         if g.MovingWindow and g.MovingWindow.RootWindowDockTree == window then
             flags = bit.bor(flags, ImGuiViewportFlags.NoInputs, ImGuiViewportFlags.NoFocusOnAppearing)
+        elseif bit.band(window.Flags, ImGuiWindowFlags.Modal) ~= 0 then
+            flags = bit.band(flags, bit.bnot(ImGuiViewportFlags.NoFocusOnAppearing))
         end
         if not window_can_use_inputs then
             flags = bit.bor(flags, ImGuiViewportFlags.NoInputs)
@@ -11399,7 +11426,7 @@ function ImGui.WindowSelectViewport(window)
             IM_ASSERT(window.DockNode.HostWindow.Viewport == window.ParentWindow.Viewport)
         end
         window.Viewport = window.ParentWindow.Viewport
-    elseif window.DockNode and window.DockNode.HostWindow then
+    elseif window.DockNode and window.DockNode.HostWindow and window.DockNode.HostWindow.Viewport then
         -- This covers the "always inherit viewport from parent window" case for when a window reattach to a node that was just created mid-frame
         window.Viewport = window.DockNode.HostWindow.Viewport
     elseif bit.band(flags, ImGuiWindowFlags.Tooltip) ~= 0 then
