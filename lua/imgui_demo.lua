@@ -667,6 +667,167 @@ end
 
 end
 
+local DemoWindowWidgetsTabs
+do
+
+local function EditTabBarFittingPolicyFlags(flags)
+    if bit.band(flags, ImGuiTabBarFlags.FittingPolicyMask_) == 0 then
+        flags = bit.bor(flags, ImGuiTabBarFlags.FittingPolicyDefault_)
+    end
+    local changed
+    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyMixed", flags, ImGuiTabBarFlags.FittingPolicyMixed)
+    if changed then
+        flags = bit.band(flags, bit.bnot(bit.bxor(ImGuiTabBarFlags.FittingPolicyMask_, ImGuiTabBarFlags.FittingPolicyMixed)))
+    end
+    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyShrink", flags, ImGuiTabBarFlags.FittingPolicyShrink)
+    if changed then
+        flags = bit.band(flags, bit.bnot(bit.bxor(ImGuiTabBarFlags.FittingPolicyMask_, ImGuiTabBarFlags.FittingPolicyShrink)))
+    end
+    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyScroll", flags, ImGuiTabBarFlags.FittingPolicyScroll)
+    if changed then
+        flags = bit.band(flags, bit.bnot(bit.bxor(ImGuiTabBarFlags.FittingPolicyMask_, ImGuiTabBarFlags.FittingPolicyScroll)))
+    end
+    return flags
+end
+
+local tab_bar_flags_advanced = ImGuiTabBarFlags.Reorderable
+local names = { "Artichoke", "Beetroot", "Celery", "Daikon" }
+local opened = { true, true, true, true }
+local active_tabs = ImVector()
+local next_tab_id = 0
+local show_leading_button = true
+local show_trailing_button = true
+local show_leading_trailing_tabs = false
+local tab_bar_flags_buttons = bit.bor(ImGuiTabBarFlags.AutoSelectNewTabs, ImGuiTabBarFlags.Reorderable, ImGuiTabBarFlags.FittingPolicyMixed)
+
+function DemoWindowWidgetsTabs()
+    if ImGui.TreeNode("Tabs") then
+        if ImGui.TreeNode("Basic") then
+            local tab_bar_flags = ImGuiTabBarFlags.None
+            if ImGui.BeginTabBar("MyTabBar", tab_bar_flags) then
+                local contents_visible
+                _, contents_visible = ImGui.BeginTabItem("Avocado")
+                if contents_visible then
+                    ImGui.Text("This is the Avocado tab!\nblah blah blah blah blah")
+                    ImGui.EndTabItem()
+                end
+                _, contents_visible = ImGui.BeginTabItem("Broccoli")
+                if contents_visible then
+                    ImGui.Text("This is the Broccoli tab!\nblah blah blah blah blah")
+                    ImGui.EndTabItem()
+                end
+                _, contents_visible = ImGui.BeginTabItem("Cucumber")
+                if contents_visible then
+                    ImGui.Text("This is the Cucumber tab!\nblah blah blah blah blah")
+                    ImGui.EndTabItem()
+                end
+                ImGui.EndTabBar()
+            end
+            ImGui.Separator()
+            ImGui.TreePop()
+        end
+
+        if ImGui.TreeNode("Advanced & Close Button") then
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_Reorderable", tab_bar_flags_advanced, ImGuiTabBarFlags.Reorderable)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_AutoSelectNewTabs", tab_bar_flags_advanced, ImGuiTabBarFlags.AutoSelectNewTabs)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_TabListPopupButton", tab_bar_flags_advanced, ImGuiTabBarFlags.TabListPopupButton)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_NoCloseWithMiddleMouseButton", tab_bar_flags_advanced, ImGuiTabBarFlags.NoCloseWithMiddleMouseButton)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_DrawSelectedOverline", tab_bar_flags_advanced, ImGuiTabBarFlags.DrawSelectedOverline)
+            tab_bar_flags_advanced = EditTabBarFittingPolicyFlags(tab_bar_flags_advanced)
+
+            ImGui.AlignTextToFramePadding()
+            ImGui.Text("Opened:")
+            for n = 1, #opened do
+                ImGui.SameLine()
+                _, opened[n] = ImGui.Checkbox(names[n], opened[n])
+            end
+
+            if ImGui.BeginTabBar("MyTabBar", tab_bar_flags_advanced) then
+                for n = 1, #opened do
+                    if opened[n] then
+                        local contents_visible
+                        opened[n], contents_visible = ImGui.BeginTabItem(names[n], opened[n], ImGuiTabItemFlags.None)
+                        if contents_visible then
+                            ImGui.Text("This is the %s tab!", names[n])
+                            if bit.band(n - 1, 1) ~= 0 then
+                                ImGui.Text("I am an odd tab.")
+                            end
+                            ImGui.EndTabItem()
+                        end
+                    end
+                end
+                ImGui.EndTabBar()
+            end
+            ImGui.Separator()
+            ImGui.TreePop()
+        end
+
+        if ImGui.TreeNode("TabItemButton & Leading/Trailing flags") then
+            if next_tab_id == 0 then
+                for i = 0, 2 do
+                    active_tabs:push_back(next_tab_id)
+                    next_tab_id = next_tab_id + 1
+                end
+            end
+
+            _, show_leading_button = ImGui.Checkbox("Show Leading TabItemButton()", show_leading_button)
+            _, show_trailing_button = ImGui.Checkbox("Show Trailing TabItemButton()", show_trailing_button)
+            _, show_leading_trailing_tabs = ImGui.Checkbox("Show Leading+Trailing TabItem()", show_leading_trailing_tabs)
+            tab_bar_flags_buttons = EditTabBarFittingPolicyFlags(tab_bar_flags_buttons)
+
+            if ImGui.BeginTabBar("MyTabBar", tab_bar_flags_buttons) then
+                if show_leading_button then
+                    if ImGui.TabItemButton("?", bit.bor(ImGuiTabItemFlags.Leading, ImGuiTabItemFlags.NoTooltip)) then
+                        ImGui.OpenPopup("MyHelpMenu")
+                    end
+                end
+                if ImGui.BeginPopup("MyHelpMenu") then
+                    ImGui.Selectable("Hello!")
+                    ImGui.EndPopup()
+                end
+
+                if show_leading_trailing_tabs then
+                    local contents_visible
+                    _, contents_visible = ImGui.BeginTabItem("Leading", nil, ImGuiTabItemFlags.Leading)
+                    if contents_visible then ImGui.EndTabItem() end
+                    _, contents_visible = ImGui.BeginTabItem("Trailing", nil, ImGuiTabItemFlags.Trailing)
+                    if contents_visible then ImGui.EndTabItem() end
+                end
+
+                if show_trailing_button then
+                    if ImGui.TabItemButton("+", bit.bor(ImGuiTabItemFlags.Trailing, ImGuiTabItemFlags.NoTooltip)) then
+                        active_tabs:push_back(next_tab_id)
+                        next_tab_id = next_tab_id + 1
+                    end
+                end
+
+                local n = 1
+                while n <= active_tabs.Size do
+                    local open = true
+                    local name = string.format("%04d", active_tabs.Data[n])
+                    local contents_visible
+                    open, contents_visible = ImGui.BeginTabItem(name, open, ImGuiTabItemFlags.None)
+                    if contents_visible then
+                        ImGui.Text("This is the %s tab!", name)
+                        ImGui.EndTabItem()
+                    end
+                    if not open then
+                        active_tabs:erase(n)
+                    else
+                        n = n + 1
+                    end
+                end
+                ImGui.EndTabBar()
+            end
+            ImGui.Separator()
+            ImGui.TreePop()
+        end
+        ImGui.TreePop()
+    end
+end
+
+end
+
 local DemoWindowWidgetsVerticalSliders do
 
 local int_value = 0
@@ -768,6 +929,7 @@ local function DemoWindowWidgets()
     DemoWindowWidgetsMixedValues()
     DemoWindowWidgetsPlotting()
     DemoWindowWidgetsProgressBars()
+    DemoWindowWidgetsTabs()
     DemoWindowWidgetsVerticalSliders()
 end
 
