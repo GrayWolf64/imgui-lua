@@ -1189,18 +1189,18 @@ end
 --- @param dest ImGuiNextItemData
 --- @param src  ImGuiNextItemData
 function ImGuiNextItemData_Copy(dest, src)
-    dest.HasFlags = src.HasFlags
-    dest.ItemFlagsSet = src.ItemFlagsSet
-    dest.FocusScopeId = src.FocusScopeId
+    dest.HasFlags          = src.HasFlags
+    dest.ItemFlagsSet      = src.ItemFlagsSet
+    dest.FocusScopeId      = src.FocusScopeId
     dest.SelectionUserData = src.SelectionUserData
-    dest.Width = src.Width
-    dest.Shortcut = src.Shortcut
-    dest.ShortcutFlags = src.ShortcutFlags
-    dest.OpenVal = src.OpenVal
-    dest.OpenCond = src.OpenCond
-    dest.RefVal = src.RefVal
-    dest.StorageId = src.StorageId
-    dest.ColorMarker = src.ColorMarker
+    dest.Width             = src.Width
+    dest.Shortcut          = src.Shortcut
+    dest.ShortcutFlags     = src.ShortcutFlags
+    dest.OpenVal           = src.OpenVal
+    dest.OpenCond          = src.OpenCond
+    dest.RefVal            = src.RefVal
+    dest.StorageId         = src.StorageId
+    dest.ColorMarker       = src.ColorMarker
 end
 
 --- @class ImGuiNextWindowData
@@ -1853,7 +1853,7 @@ end
 -- [SECTION] DOCKING SUPPORT
 ---------------------------------------------------------------------------------------
 
-ImGuiDockNodeFlags.DockSpace                = bitLShift(1, 10)
+ImGuiDockNodeFlags.DockSpace                 = bitLShift(1, 10)
 ImGuiDockNodeFlags.CentralNode               = bitLShift(1, 11)
 ImGuiDockNodeFlags.NoTabBar                  = bitLShift(1, 12)
 ImGuiDockNodeFlags.HiddenTabBar              = bitLShift(1, 13)
@@ -1881,10 +1881,10 @@ ImGuiDataAuthority = {
 
 --- @enum ImGuiDockNodeState
 ImGuiDockNodeState = {
-    Unknown                                  = 0,
+    Unknown                                   = 0,
     HostWindowHiddenBecauseSingleWindow       = 1,
     HostWindowHiddenBecauseWindowsAreResizing = 2,
-    HostWindowVisible                        = 3,
+    HostWindowVisible                         = 3,
 }
 
 --- @class ImGuiDockNode
@@ -1921,7 +1921,7 @@ ImGuiDockNodeState = {
 --- @field AuthorityForViewport   ImU8
 --- @field IsVisible              bool
 --- @field IsFocused              bool
---- @field IsBgDrawnThisFrame      bool
+--- @field IsBgDrawnThisFrame     bool
 --- @field HasCloseButton         bool
 --- @field HasWindowMenuButton    bool
 --- @field HasCentralNodeChild    bool
@@ -1954,7 +1954,6 @@ function IMGUI_DOCK_NODE:UpdateMergedFlags()
     self.MergedFlags = bitOr(self.SharedFlags, self.LocalFlags, self.LocalFlagsInWindows)
 end
 
--- LUA: ChildNodes uses indices 1/2; garbage collection replaces destructor cleanup
 --- @param id ImGuiID
 --- @return ImGuiDockNode
 function ImGuiDockNode(id)
@@ -1966,7 +1965,7 @@ function ImGuiDockNode(id)
         MergedFlags            = ImGuiDockNodeFlags.None,
         State                  = ImGuiDockNodeState.Unknown,
         ParentNode             = nil,
-        ChildNodes             = {},
+        ChildNodes             = { nil, nil },
         Windows                = ImVector(),
         TabBar                 = nil,
         Pos                    = ImVec2(),
@@ -1975,6 +1974,7 @@ function ImGuiDockNode(id)
         SplitAxis              = ImGuiAxis.None,
         LastBgColor            = IM_COL32_WHITE,
         WindowClass            = ImGuiWindowClass(),
+
         HostWindow             = nil,
         VisibleWindow          = nil,
         CentralNode            = nil,
@@ -1992,7 +1992,7 @@ function ImGuiDockNode(id)
         AuthorityForViewport   = ImGuiDataAuthority.Auto,
         IsVisible              = true,
         IsFocused              = false,
-        IsBgDrawnThisFrame      = false,
+        IsBgDrawnThisFrame     = false,
         HasCloseButton         = false,
         HasWindowMenuButton    = false,
         HasCentralNodeChild    = false,

@@ -2098,7 +2098,7 @@ ImGuiTabBarFlags = {
     FittingPolicyScroll          = bitLShift(1, 9),
 }
 
-ImGuiTabBarFlags.FittingPolicyMask_ = bitOr(ImGuiTabBarFlags.FittingPolicyMixed, ImGuiTabBarFlags.FittingPolicyShrink, ImGuiTabBarFlags.FittingPolicyScroll)
+ImGuiTabBarFlags.FittingPolicyMask_    = bitOr(ImGuiTabBarFlags.FittingPolicyMixed, ImGuiTabBarFlags.FittingPolicyShrink, ImGuiTabBarFlags.FittingPolicyScroll)
 ImGuiTabBarFlags.FittingPolicyDefault_ = ImGuiTabBarFlags.FittingPolicyMixed
 
 --- @enum ImGuiTabItemFlags

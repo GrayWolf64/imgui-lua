@@ -675,15 +675,15 @@ local function EditTabBarFittingPolicyFlags(flags)
         flags = bit.bor(flags, ImGuiTabBarFlags.FittingPolicyDefault_)
     end
     local changed
-    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyMixed", flags, ImGuiTabBarFlags.FittingPolicyMixed)
+    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags.FittingPolicyMixed", flags, ImGuiTabBarFlags.FittingPolicyMixed)
     if changed then
         flags = bit.band(flags, bit.bnot(bit.bxor(ImGuiTabBarFlags.FittingPolicyMask_, ImGuiTabBarFlags.FittingPolicyMixed)))
     end
-    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyShrink", flags, ImGuiTabBarFlags.FittingPolicyShrink)
+    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags.FittingPolicyShrink", flags, ImGuiTabBarFlags.FittingPolicyShrink)
     if changed then
         flags = bit.band(flags, bit.bnot(bit.bxor(ImGuiTabBarFlags.FittingPolicyMask_, ImGuiTabBarFlags.FittingPolicyShrink)))
     end
-    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyScroll", flags, ImGuiTabBarFlags.FittingPolicyScroll)
+    changed, flags = ImGui.CheckboxFlags("ImGuiTabBarFlags.FittingPolicyScroll", flags, ImGuiTabBarFlags.FittingPolicyScroll)
     if changed then
         flags = bit.band(flags, bit.bnot(bit.bxor(ImGuiTabBarFlags.FittingPolicyMask_, ImGuiTabBarFlags.FittingPolicyScroll)))
     end
@@ -728,11 +728,11 @@ function DemoWindowWidgetsTabs()
         end
 
         if ImGui.TreeNode("Advanced & Close Button") then
-            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_Reorderable", tab_bar_flags_advanced, ImGuiTabBarFlags.Reorderable)
-            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_AutoSelectNewTabs", tab_bar_flags_advanced, ImGuiTabBarFlags.AutoSelectNewTabs)
-            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_TabListPopupButton", tab_bar_flags_advanced, ImGuiTabBarFlags.TabListPopupButton)
-            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_NoCloseWithMiddleMouseButton", tab_bar_flags_advanced, ImGuiTabBarFlags.NoCloseWithMiddleMouseButton)
-            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags_DrawSelectedOverline", tab_bar_flags_advanced, ImGuiTabBarFlags.DrawSelectedOverline)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags.Reorderable", tab_bar_flags_advanced, ImGuiTabBarFlags.Reorderable)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags.AutoSelectNewTabs", tab_bar_flags_advanced, ImGuiTabBarFlags.AutoSelectNewTabs)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags.TabListPopupButton", tab_bar_flags_advanced, ImGuiTabBarFlags.TabListPopupButton)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags.NoCloseWithMiddleMouseButton", tab_bar_flags_advanced, ImGuiTabBarFlags.NoCloseWithMiddleMouseButton)
+            _, tab_bar_flags_advanced = ImGui.CheckboxFlags("ImGuiTabBarFlags.DrawSelectedOverline", tab_bar_flags_advanced, ImGuiTabBarFlags.DrawSelectedOverline)
             tab_bar_flags_advanced = EditTabBarFittingPolicyFlags(tab_bar_flags_advanced)
 
             ImGui.AlignTextToFramePadding()
