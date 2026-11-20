@@ -4998,8 +4998,8 @@ function ImGui.SetWindowSize(window, size, cond)
         window.AutoFitFramesY = (size.y <= 0.0) and 2 or 0
     end
 
-    -- local old_size = ImVec2()
-    -- ImVec2_Copy(old_size, window.SizeFull)
+    local old_size = ImVec2()
+    ImVec2_Copy(old_size, window.SizeFull)
 
     if size.x <= 0.0 then
         window.AutoFitOnlyGrows = false
@@ -5011,9 +5011,9 @@ function ImGui.SetWindowSize(window, size, cond)
     else
         window.SizeFull.y = IM_TRUNC(size.y)
     end
-    -- if old_size.x ~= window.SizeFull.x or old_size.y ~= window.SizeFull.y then
-    --     TODO: MarkIniSettingsDirty(window)
-    -- end
+    if old_size.x ~= window.SizeFull.x or old_size.y ~= window.SizeFull.y then
+        ImGui.MarkIniSettingsDirty(window)
+    end
 end
 
 --- @return bool
@@ -5871,7 +5871,7 @@ function ImGui.Begin(name, open, flags)
             end
 
             if old_size.x ~= window.SizeFull.x or old_size.y ~= window.SizeFull.y then
-                -- ImGui.MarkIniSettingsDirty(window)
+                ImGui.MarkIniSettingsDirty(window)
             end
         end
 
@@ -6919,7 +6919,7 @@ function ImGui.UpdateMouseWheel()
         if window == window.RootWindow then
             local offset = window.Size * (1.0 - scale) * (g.IO.MousePos - window.Pos) / window.Size
             ImGui.SetWindowPos(window, window.Pos + offset, 0)
-            -- MarkIniSettingsDirty(window)
+            ImGui.MarkIniSettingsDirty(window)
         end
         return
     end
@@ -7157,7 +7157,7 @@ local function AddWindowToSortBuffer(out_sorted_windows, window)
     out_sorted_windows:push_back(window)
     if window.Active then
         local count = window.DC.ChildWindows.Size
-        ImStd.ImQsort(window.DC.ChildWindows.Data, count, ChildWindowComparer)
+        ImStd.ImQsort(window.DC.ChildWindows.Data, 1, count, ChildWindowComparer)
         for i = 1, count do
             local child = window.DC.ChildWindows[i]
             if child.Active then
@@ -10708,6 +10708,19 @@ function ImGui.LogSetNextTextDecoration(prefix, suffix)
 end
 
 ---------------------------------------------------------------------------------------
+-- [SECTION] SETTINGS
+---------------------------------------------------------------------------------------
+
+--- @param window? ImGuiWindow
+function ImGui.MarkIniSettingsDirty(window)
+    local g = GImGui
+    if window ~= nil and bit.band(window.Flags, ImGuiWindowFlags.NoSavedSettings) ~= 0 then return end
+    if g.SettingsDirtyTimer <= 0.0 then
+        g.SettingsDirtyTimer = g.IO.IniSavingRate
+    end
+end
+
+---------------------------------------------------------------------------------------
 -- [SECTION] DOCKING
 ---------------------------------------------------------------------------------------
 
@@ -11553,7 +11566,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
     -- Synchronize viewport -> window in case the platform window has been moved or resized from the OS/WM
     if window.Viewport.PlatformRequestMove then
         ImVec2_Copy(window.Pos, window.Viewport.Pos)
-        -- ImGui.MarkIniSettingsDirty(window)
+        ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Pos.x ~= window.Pos.x or window.Viewport.Pos.y ~= window.Pos.y then
         viewport_rect_changed = true
         ImVec2_Copy(window.Viewport.Pos, window.Pos)
@@ -11562,7 +11575,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
     if window.Viewport.PlatformRequestResize then
         ImVec2_Copy(window.Size, window.Viewport.Size)
         ImVec2_Copy(window.SizeFull, window.Viewport.Size)
-        -- ImGui.MarkIniSettingsDirty(window)
+        ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Size.x ~= window.Size.x or window.Viewport.Size.y ~= window.Size.y then
         viewport_rect_changed = true
         ImVec2_Copy(window.Viewport.Size, window.Size)

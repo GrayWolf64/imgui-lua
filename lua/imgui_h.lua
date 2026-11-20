@@ -82,17 +82,18 @@ function ImStr2Buf(str, buf_size)
 end
 
 --- Converts a NUL-terminated char[] buffer to a Lua string
---- @param buf char[]
+--- @param buf     char[]
+--- @param offset? int # 1-based start of the NUL-terminated span
 --- @return string
-function ImBuf2Str(buf)
-    local len = 0
+function ImBuf2Str(buf, offset)
+    offset = offset or 1
+    local len = offset - 1
     while buf[len + 1] ~= nil and buf[len + 1] ~= 0 do
         len = len + 1
     end
 
     local CHUNK_SIZE = 1000
     local chunks = {}
-    local offset = 1
     while offset <= len do
         local chunk_end = ImMin(offset + CHUNK_SIZE - 1, len)
         chunks[#chunks + 1] = string.char(unpack(buf, offset, chunk_end))
@@ -1265,6 +1266,7 @@ ImGuiConfigFlags = {
 }
 
 --- @class ImGuiIO
+--- @field IniSavingRate float
 MT.ImGuiIO = {}
 MT.ImGuiIO.__index = MT.ImGuiIO
 
@@ -1285,6 +1287,7 @@ function ImGuiIO()
         DisplaySize = ImVec2(-1.0, -1.0),
 
         DeltaTime = 1.0 / 60.0,
+        IniSavingRate = 5.0,
 
         DisplayFramebufferScale = ImVec2(1.0, 1.0),
 

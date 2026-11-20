@@ -1660,6 +1660,66 @@ function ImGui.SeparatorText(label)
     ImGui.SeparatorTextEx(0, label, ImGui.FindRenderedTextEnd(label), 0.0)
 end
 
+local function ShrinkWidthItemComparer(a, b)
+    local d = ImTrunc(b.Width - a.Width)
+    if d ~= 0 then return d < 0 end
+    return b.Index - a.Index < 0
+end
+
+--- @param items        ImGuiShrinkWidthItem[]
+--- @param count        int
+--- @param width_excess float
+--- @param width_min    float
+--- @param items_start? int # 1-based pointer offset
+function ImGui.ShrinkWidths(items, count, width_excess, width_min, items_start)
+    items_start = items_start or 1
+    if count == 1 then
+        if items[items_start].Width >= 0.0 then
+            items[items_start].Width = ImMax(items[items_start].Width - width_excess, width_min)
+        end
+        return
+    end
+    ImStd.ImQsort(items, items_start, count, ShrinkWidthItemComparer)
+    local count_same_width = 1
+    while width_excess > 0.001 and count_same_width < count do
+        while count_same_width < count and items[items_start].Width <= items[items_start + count_same_width].Width do
+            count_same_width = count_same_width + 1
+        end
+        local max_width_to_remove_per_item
+        if count_same_width < count and items[items_start + count_same_width].Width >= 0.0 then
+            max_width_to_remove_per_item = items[items_start].Width - items[items_start + count_same_width].Width
+        else
+            max_width_to_remove_per_item = items[items_start].Width - 1.0
+        end
+        max_width_to_remove_per_item = ImMin(items[items_start].Width - width_min, max_width_to_remove_per_item)
+        if max_width_to_remove_per_item <= 0.0 then break end
+        local base_width_to_remove_per_item = ImMin(width_excess / count_same_width, max_width_to_remove_per_item)
+        for item_n = 0, count_same_width - 1 do
+            local item = items[items_start + item_n]
+            local width_to_remove_for_this_item = ImMin(base_width_to_remove_per_item, item.Width - width_min)
+            item.Width = item.Width - width_to_remove_for_this_item
+            width_excess = width_excess - width_to_remove_for_this_item
+        end
+    end
+
+    width_excess = 0.0
+    for n = 0, count - 1 do
+        local item = items[items_start + n]
+        local width_rounded = ImTrunc(item.Width)
+        width_excess = width_excess + (item.Width - width_rounded)
+        item.Width = width_rounded
+    end
+    while width_excess > 0.0 do
+        for n = 0, count - 1 do
+            if width_excess <= 0.0 then break end
+            local item = items[items_start + n]
+            local width_to_add = ImMin(item.InitialWidth - item.Width, 1.0)
+            item.Width = item.Width + width_to_add
+            width_excess = width_excess - width_to_add
+        end
+    end
+end
+
 ----------------------------------------------------------------
 -- [SECTION] COMBO BOX
 ----------------------------------------------------------------
@@ -8153,6 +8213,30 @@ end
 -- [SECTION] TAB RELATED
 ----------------------------------------------------------------
 
+--- @class ImGuiTabBarSection
+--- @field TabCount                 int
+--- @field Width                    float
+--- @field WidthAfterShrinkMinWidth float
+--- @field Spacing                  float
+
+--- @return ImGuiTabBarSection
+local function ImGuiTabBarSection()
+    return { TabCount = 0, Width = 0.0, WidthAfterShrinkMinWidth = 0.0, Spacing = 0.0 }
+end
+
+local function TabItemGetSectionIdx(tab)
+    return bit.band(tab.Flags, ImGuiTabItemFlags.Leading) ~= 0 and 1 or (bit.band(tab.Flags, ImGuiTabItemFlags.Trailing) ~= 0 and 3 or 2)
+end
+
+local function TabItemComparerBySection(a, b)
+    local a_section = TabItemGetSectionIdx(a)
+    local b_section = TabItemGetSectionIdx(b)
+    if a_section ~= b_section then
+        return a_section < b_section
+    end
+    return a.IndexDuringLayout < b.IndexDuringLayout
+end
+
 local function TabItemComparerByBeginOrder(a, b)
     return a.BeginOrder < b.BeginOrder
 end
@@ -8214,7 +8298,7 @@ function ImGui.BeginTabBarEx(tab_bar, tab_bar_bb, flags)
 
     if bit.band(flags, ImGuiTabBarFlags.Reorderable) ~= bit.band(tab_bar.Flags, ImGuiTabBarFlags.Reorderable) or (tab_bar.TabsAddedNew and bit.band(flags, ImGuiTabBarFlags.Reorderable) == 0) then
         if bit.band(flags, ImGuiTabBarFlags.DockNode) == 0 then
-            ImStd.ImQsort(tab_bar.Tabs.Data, tab_bar.Tabs.Size, TabItemComparerByBeginOrder)
+            ImStd.ImQsort(tab_bar.Tabs.Data, 1, tab_bar.Tabs.Size, TabItemComparerByBeginOrder)
         end
     end
     tab_bar.TabsAddedNew = false
@@ -8247,9 +8331,274 @@ function ImGui.BeginTabBarEx(tab_bar, tab_bar_bb, flags)
     return true
 end
 
+function ImGui.EndTabBar()
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.SkipItems then return end
+
+    local tab_bar = g.CurrentTabBar
+    IM_ASSERT_USER_ERROR_RET(tab_bar ~= nil, "Mismatched BeginTabBar()/EndTabBar()!")
+    if tab_bar.WantLayout then
+        ImGui.TabBarLayout(tab_bar)
+    end
+
+    local tab_bar_appearing = tab_bar.PrevFrameVisible + 1 < g.FrameCount
+    if tab_bar.VisibleTabWasSubmitted or tab_bar.VisibleTabContentsId == 0 or tab_bar_appearing then
+        tab_bar.CurrTabsContentsHeight = ImMax(window.DC.CursorPos.y - tab_bar.BarRect.Max.y, tab_bar.CurrTabsContentsHeight)
+        window.DC.CursorPos.y = tab_bar.BarRect.Max.y + tab_bar.CurrTabsContentsHeight
+    else
+        window.DC.CursorPos.y = tab_bar.BarRect.Max.y + tab_bar.PrevTabsContentsHeight
+    end
+    if tab_bar.BeginCount > 1 then
+        ImVec2_Copy(window.DC.CursorPos, tab_bar.BackupCursorPos)
+    end
+
+    tab_bar.LastTabItemIdx = -1
+    if bit.band(tab_bar.Flags, ImGuiTabBarFlags.DockNode) == 0 then
+        ImGui.PopID()
+    end
+
+    g.CurrentTabBarStack:pop_back()
+    if g.CurrentTabBarStack:empty() then
+        g.CurrentTabBar = nil
+    else
+        g.CurrentTabBar = g.CurrentTabBarStack:back()
+    end
+end
+
+local function TabBarCalcScrollableWidth(tab_bar, sections)
+    return tab_bar.BarRect:GetWidth() - sections[1].Width - sections[3].Width - sections[2].Spacing
+end
+
 --- @param tab_bar ImGuiTabBar
 function ImGui.TabBarLayout(tab_bar)
-    -- TODO:
+    local g = GImGui
+    tab_bar.WantLayout = false
+
+    local scroll_to_selected_tab = tab_bar.BarRectPrevWidth > tab_bar.BarRect:GetWidth()
+    tab_bar.BarRectPrevWidth = tab_bar.BarRect:GetWidth()
+
+    local tab_dst_n = 1
+    local need_sort_by_section = false
+    local sections = { ImGuiTabBarSection(), ImGuiTabBarSection(), ImGuiTabBarSection() }
+    for tab_src_n = 1, tab_bar.Tabs.Size do
+        local tab = tab_bar.Tabs.Data[tab_src_n]
+        if tab.LastFrameVisible < tab_bar.PrevFrameVisible or tab.WantClose then
+            if tab_bar.VisibleTabContentsId == tab.ID then tab_bar.VisibleTabContentsId = 0 end
+            if tab_bar.SelectedTabId == tab.ID then tab_bar.SelectedTabId = 0 end
+            if tab_bar.NextSelectedTabId == tab.ID then tab_bar.NextSelectedTabId = 0 end
+        else
+            if tab_dst_n ~= tab_src_n then
+                tab_bar.Tabs.Data[tab_dst_n] = tab_bar.Tabs.Data[tab_src_n]
+            end
+            tab = tab_bar.Tabs.Data[tab_dst_n]
+            tab.IndexDuringLayout = tab_dst_n
+
+            local curr_tab_section_n = TabItemGetSectionIdx(tab)
+            if tab_dst_n > 1 then
+                local prev_tab = tab_bar.Tabs.Data[tab_dst_n - 1]
+                local prev_tab_section_n = TabItemGetSectionIdx(prev_tab)
+                if curr_tab_section_n == 1 and prev_tab_section_n ~= 1 then
+                    need_sort_by_section = true
+                end
+                if prev_tab_section_n == 3 and curr_tab_section_n ~= 3 then
+                    need_sort_by_section = true
+                end
+            end
+            sections[curr_tab_section_n].TabCount = sections[curr_tab_section_n].TabCount + 1
+            tab_dst_n = tab_dst_n + 1
+        end
+    end
+    if tab_bar.Tabs.Size ~= tab_dst_n - 1 then
+        tab_bar.Tabs:resize(tab_dst_n - 1)
+    end
+    if need_sort_by_section then
+        ImStd.ImQsort(tab_bar.Tabs.Data, 1, tab_bar.Tabs.Size, TabItemComparerBySection)
+    end
+
+    local tab_spacing = g.Style.ItemInnerSpacing.x
+    sections[1].Spacing = sections[1].TabCount > 0 and (sections[2].TabCount + sections[3].TabCount) > 0 and tab_spacing or 0.0
+    sections[2].Spacing = sections[2].TabCount > 0 and sections[3].TabCount > 0 and tab_spacing or 0.0
+
+    local scroll_to_tab_id = 0
+    if tab_bar.NextScrollToTabId ~= 0 then
+        scroll_to_tab_id = tab_bar.NextScrollToTabId
+        tab_bar.NextScrollToTabId = 0
+    end
+    if tab_bar.NextSelectedTabId ~= 0 then
+        tab_bar.SelectedTabId = tab_bar.NextSelectedTabId
+        tab_bar.NextSelectedTabId = 0
+        scroll_to_tab_id = tab_bar.SelectedTabId
+    end
+
+    if tab_bar.ReorderRequestTabId ~= 0 then
+        if ImGui.TabBarProcessReorder(tab_bar) then
+            if tab_bar.ReorderRequestTabId == tab_bar.SelectedTabId then
+                scroll_to_tab_id = tab_bar.ReorderRequestTabId
+            end
+        end
+        tab_bar.ReorderRequestTabId = 0
+    end
+
+    local tab_list_popup_button = bit.band(tab_bar.Flags, ImGuiTabBarFlags.TabListPopupButton) ~= 0
+    if tab_list_popup_button then
+        local tab_to_select = ImGui.TabBarTabListPopupButton(tab_bar)
+        if tab_to_select then
+            scroll_to_tab_id = tab_to_select.ID
+            tab_bar.SelectedTabId = tab_to_select.ID
+        end
+    end
+
+    local shrink_buffer_indexes = { 1, sections[1].TabCount + sections[3].TabCount + 1, sections[1].TabCount + 1 }
+    g.ShrinkWidthBuffer:resize(tab_bar.Tabs.Size)
+    local shrink_min_width = bit.band(tab_bar.Flags, ImGuiTabBarFlags.FittingPolicyMixed) ~= 0 and g.Style.TabMinWidthShrink or 1.0
+
+    local most_recently_selected_tab = nil
+    local curr_section_n = -1
+    local found_selected_tab_id = false
+    for tab_n = 1, tab_bar.Tabs.Size do
+        local tab = tab_bar.Tabs.Data[tab_n]
+        IM_ASSERT(tab.LastFrameVisible >= tab_bar.PrevFrameVisible)
+        if (most_recently_selected_tab == nil or most_recently_selected_tab.LastFrameSelected < tab.LastFrameSelected) and bit.band(tab.Flags, ImGuiTabItemFlags.Button) == 0 then
+            most_recently_selected_tab = tab
+        end
+        if tab.ID == tab_bar.SelectedTabId then found_selected_tab_id = true end
+        if scroll_to_tab_id == 0 and g.NavJustMovedToId == tab.ID then scroll_to_tab_id = tab.ID end
+
+        local tab_name = ImGui.TabBarGetTabName(tab_bar, tab)
+        local has_close_button_or_unsaved_marker = bit.band(tab.Flags, ImGuiTabItemFlags.NoCloseButton) == 0 or bit.band(tab.Flags, ImGuiTabItemFlags.UnsavedDocument) ~= 0
+        tab.ContentWidth = tab.RequestedWidth >= 0.0 and tab.RequestedWidth or ImGui.TabItemCalcSize(tab_name, has_close_button_or_unsaved_marker).x
+        if bit.band(tab.Flags, ImGuiTabItemFlags.Button) == 0 then
+            tab.ContentWidth = ImMax(tab.ContentWidth, g.Style.TabMinWidthBase)
+        end
+        local section_n = TabItemGetSectionIdx(tab)
+        local section = sections[section_n]
+        section.Width = section.Width + (tab.ContentWidth + (section_n == curr_section_n and tab_spacing or 0.0))
+        section.WidthAfterShrinkMinWidth = section.WidthAfterShrinkMinWidth + (ImMin(tab.ContentWidth, shrink_min_width) + (section_n == curr_section_n and tab_spacing or 0.0))
+        curr_section_n = section_n
+
+        local shrink_width_item = g.ShrinkWidthBuffer.Data[shrink_buffer_indexes[section_n]]
+        shrink_buffer_indexes[section_n] = shrink_buffer_indexes[section_n] + 1
+        shrink_width_item.Index = tab_n
+        shrink_width_item.Width = tab.ContentWidth
+        shrink_width_item.InitialWidth = tab.ContentWidth
+        tab.Width = ImMax(tab.ContentWidth, 1.0)
+    end
+
+    local width_all_tabs_after_min_width_shrink = 0.0
+    tab_bar.WidthAllTabsIdeal = 0.0
+    for section_n = 1, 3 do
+        tab_bar.WidthAllTabsIdeal = tab_bar.WidthAllTabsIdeal + (sections[section_n].Width + sections[section_n].Spacing)
+        width_all_tabs_after_min_width_shrink = width_all_tabs_after_min_width_shrink + (sections[section_n].WidthAfterShrinkMinWidth + sections[section_n].Spacing)
+    end
+
+    local can_scroll = bit.band(tab_bar.Flags, bit.bor(ImGuiTabBarFlags.FittingPolicyScroll, ImGuiTabBarFlags.FittingPolicyMixed)) ~= 0
+    local width_all_tabs_to_use_for_scroll = bit.band(tab_bar.Flags, ImGuiTabBarFlags.FittingPolicyScroll) ~= 0 and tab_bar.WidthAllTabs or width_all_tabs_after_min_width_shrink
+    tab_bar.ScrollButtonEnabled = width_all_tabs_to_use_for_scroll > tab_bar.BarRect:GetWidth() and tab_bar.Tabs.Size > 1 and bit.band(tab_bar.Flags, ImGuiTabBarFlags.NoTabListScrollingButtons) == 0 and can_scroll
+    if tab_bar.ScrollButtonEnabled then
+        local scroll_and_select_tab = ImGui.TabBarScrollingButtons(tab_bar)
+        if scroll_and_select_tab then
+            if bit.band(scroll_and_select_tab.Flags, ImGuiTabItemFlags.Button) == 0 then
+                tab_bar.SelectedTabId = scroll_and_select_tab.ID
+            end
+            scroll_to_tab_id = scroll_and_select_tab.ID
+        end
+    end
+    if scroll_to_tab_id == 0 and scroll_to_selected_tab then scroll_to_tab_id = tab_bar.SelectedTabId end
+
+    local section_0_w = sections[1].Width + sections[1].Spacing
+    local section_1_w = sections[2].Width + sections[2].Spacing
+    local section_2_w = sections[3].Width + sections[3].Spacing
+    local central_section_is_visible = (section_0_w + section_2_w) < tab_bar.BarRect:GetWidth()
+    local width_excess
+    if central_section_is_visible then
+        width_excess = ImMax(section_1_w - (tab_bar.BarRect:GetWidth() - section_0_w - section_2_w), 0.0)
+    else
+        width_excess = (section_0_w + section_2_w) - tab_bar.BarRect:GetWidth()
+    end
+
+    local can_shrink = bit.band(tab_bar.Flags, bit.bor(ImGuiTabBarFlags.FittingPolicyShrink, ImGuiTabBarFlags.FittingPolicyMixed)) ~= 0
+    if width_excess >= 1.0 and (can_shrink or not central_section_is_visible) then
+        local shrink_data_count = central_section_is_visible and sections[2].TabCount or (sections[1].TabCount + sections[3].TabCount)
+        local shrink_data_offset = central_section_is_visible and (sections[1].TabCount + sections[3].TabCount) or 0
+        ImGui.ShrinkWidths(g.ShrinkWidthBuffer.Data, shrink_data_count, width_excess, shrink_min_width, shrink_data_offset + 1)
+        for tab_n = shrink_data_offset + 1, shrink_data_offset + shrink_data_count do
+            local tab = tab_bar.Tabs.Data[g.ShrinkWidthBuffer.Data[tab_n].Index]
+            local shrinked_width = ImTrunc(g.ShrinkWidthBuffer.Data[tab_n].Width)
+            if shrinked_width >= 0.0 then
+                shrinked_width = ImMax(1.0, shrinked_width)
+                local section_n = TabItemGetSectionIdx(tab)
+                sections[section_n].Width = sections[section_n].Width - (tab.Width - shrinked_width)
+                tab.Width = shrinked_width
+            end
+        end
+    end
+
+    local section_tab_index = 1
+    local tab_offset = 0.0
+    tab_bar.WidthAllTabs = 0.0
+    for section_n = 1, 3 do
+        local section = sections[section_n]
+        if section_n == 3 then
+            tab_offset = ImMin(ImMax(0.0, tab_bar.BarRect:GetWidth() - section.Width), tab_offset)
+        end
+        for tab_n = 0, section.TabCount - 1 do
+            local tab = tab_bar.Tabs.Data[section_tab_index + tab_n]
+            tab.Offset = tab_offset
+            tab.NameOffset = -1
+            tab_offset = tab_offset + (tab.Width + (tab_n < section.TabCount - 1 and g.Style.ItemInnerSpacing.x or 0.0))
+        end
+        tab_bar.WidthAllTabs = tab_bar.WidthAllTabs + ImMax(section.Width + section.Spacing, 0.0)
+        tab_offset = tab_offset + section.Spacing
+        section_tab_index = section_tab_index + section.TabCount
+    end
+    tab_bar.TabsNames.Buf:resize(0)
+
+    local tab_bar_appearing = tab_bar.PrevFrameVisible + 1 < g.FrameCount
+    if not found_selected_tab_id and not tab_bar_appearing then tab_bar.SelectedTabId = 0 end
+    if tab_bar.SelectedTabId == 0 and tab_bar.NextSelectedTabId == 0 and most_recently_selected_tab ~= nil then
+        scroll_to_tab_id = most_recently_selected_tab.ID
+        tab_bar.SelectedTabId = most_recently_selected_tab.ID
+    end
+
+    tab_bar.VisibleTabContentsId = tab_bar.SelectedTabId
+    tab_bar.VisibleTabWasSubmitted = false
+    tab_bar.LastTabItemContentsAppearing = false
+    if g.NavWindowingTarget ~= nil and g.NavWindowingTarget.DockNode and g.NavWindowingTarget.DockNode.TabBar == tab_bar then
+        tab_bar.VisibleTabContentsId = g.NavWindowingTarget.TabId
+        scroll_to_tab_id = g.NavWindowingTarget.TabId
+    end
+
+    if scroll_to_tab_id ~= 0 then
+        ImGui.TabBarScrollToTab(tab_bar, scroll_to_tab_id, sections)
+    elseif tab_bar.ScrollButtonEnabled and ImGui.IsMouseHoveringRect(tab_bar.BarRect.Min, tab_bar.BarRect.Max, true) and ImGui.IsWindowContentHoverable(g.CurrentWindow, 0) then
+        local wheel = g.IO.MouseWheelRequestAxisSwap and g.IO.MouseWheel or g.IO.MouseWheelH
+        local wheel_key = g.IO.MouseWheelRequestAxisSwap and ImGuiKey.MouseWheelY or ImGuiKey.MouseWheelX
+        if ImGui.TestKeyOwner(wheel_key, tab_bar.ID) and wheel ~= 0.0 then
+            local scroll_step = wheel * TabBarCalcScrollableWidth(tab_bar, sections) / 3.0
+            tab_bar.ScrollingTargetDistToVisibility = 0.0
+            tab_bar.ScrollingTarget = ImGui.TabBarScrollClamp(tab_bar, tab_bar.ScrollingTarget - scroll_step)
+        end
+        ImGui.SetKeyOwner(wheel_key, tab_bar.ID)
+    end
+
+    tab_bar.ScrollingAnim = ImGui.TabBarScrollClamp(tab_bar, tab_bar.ScrollingAnim)
+    tab_bar.ScrollingTarget = ImGui.TabBarScrollClamp(tab_bar, tab_bar.ScrollingTarget)
+    if tab_bar.ScrollingAnim ~= tab_bar.ScrollingTarget then
+        tab_bar.ScrollingSpeed = ImMax(tab_bar.ScrollingSpeed, 70.0 * g.FontSize)
+        tab_bar.ScrollingSpeed = ImMax(tab_bar.ScrollingSpeed, ImAbs(tab_bar.ScrollingTarget - tab_bar.ScrollingAnim) / 0.3)
+        local teleport = tab_bar.PrevFrameVisible + 1 < g.FrameCount or tab_bar.ScrollingTargetDistToVisibility > 10.0 * g.FontSize
+        tab_bar.ScrollingAnim = teleport and tab_bar.ScrollingTarget or ImLinearSweep(tab_bar.ScrollingAnim, tab_bar.ScrollingTarget, g.IO.DeltaTime * tab_bar.ScrollingSpeed)
+    else
+        tab_bar.ScrollingSpeed = 0.0
+    end
+    tab_bar.ScrollingRectMinX = tab_bar.BarRect.Min.x + sections[1].Width + sections[1].Spacing
+    tab_bar.ScrollingRectMaxX = tab_bar.BarRect.Max.x - sections[3].Width - sections[2].Spacing
+
+    local window = g.CurrentWindow
+    ImVec2_Copy(window.DC.CursorPos, tab_bar.BarRect.Min)
+    ImGui.ItemSize(ImVec2(tab_bar.WidthAllTabs, tab_bar.BarRect:GetHeight()), tab_bar.FramePadding.y)
+    window.DC.IdealMaxPos.x = ImMax(window.DC.IdealMaxPos.x, tab_bar.BarRect.Min.x + tab_bar.WidthAllTabsIdeal)
 end
 
 --- @param tab_bar       ImGuiTabBar
@@ -8297,6 +8646,16 @@ end
 
 --- @param tab_bar ImGuiTabBar
 --- @param tab     ImGuiTabItem
+--- @return string
+function ImGui.TabBarGetTabName(tab_bar, tab)
+    if tab.Window then return tab.Window.Name end
+    if tab.NameOffset == -1 then return "N/A" end
+    IM_ASSERT(tab.NameOffset >= 1 and tab.NameOffset <= tab_bar.TabsNames.Buf.Size)
+    return ImBuf2Str(tab_bar.TabsNames.Buf.Data, tab.NameOffset)
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @param tab     ImGuiTabItem
 --- @return ImVec2
 function ImGui.TabBarGetTabPos(tab_bar, tab)
     if bit.band(tab.Flags, ImGuiTabItemFlags.SectionMask_) == 0 then
@@ -8304,6 +8663,18 @@ function ImGui.TabBarGetTabPos(tab_bar, tab)
     else
         return tab_bar.BarRect.Min + ImVec2(tab.Offset, 0.0)
     end
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @param tab_id  ImGuiID
+function ImGui.TabBarRemoveTab(tab_bar, tab_id)
+    local tab = ImGui.TabBarFindTabByID(tab_bar, tab_id)
+    if tab then
+        tab_bar.Tabs:erase(ImGui.TabBarGetTabOrder(tab_bar, tab))
+    end
+    if tab_bar.VisibleTabContentsId == tab_id then tab_bar.VisibleTabContentsId = 0 end
+    if tab_bar.SelectedTabId == tab_id then tab_bar.SelectedTabId = 0 end
+    if tab_bar.NextSelectedTabId == tab_id then tab_bar.NextSelectedTabId = 0 end
 end
 
 --- @param tab_bar ImGuiTabBar
@@ -8327,6 +8698,44 @@ function ImGui.TabBarCloseTab(tab_bar, tab)
     end
 end
 
+--- @param tab_bar   ImGuiTabBar
+--- @param scrolling float
+--- @return float
+function ImGui.TabBarScrollClamp(tab_bar, scrolling)
+    scrolling = ImMin(scrolling, tab_bar.WidthAllTabs - tab_bar.BarRect:GetWidth())
+    return ImMax(scrolling, 0.0)
+end
+
+--- @param tab_bar  ImGuiTabBar
+--- @param tab_id   ImGuiID
+--- @param sections ImGuiTabBarSection[]
+function ImGui.TabBarScrollToTab(tab_bar, tab_id, sections)
+    local tab = ImGui.TabBarFindTabByID(tab_bar, tab_id)
+    if tab == nil then return end
+
+    if bit.band(tab.Flags, ImGuiTabItemFlags.Leading) ~= 0 then
+        tab = tab_bar.Tabs.Data[sections[1].TabCount + 1]
+    elseif bit.band(tab.Flags, ImGuiTabItemFlags.Trailing) ~= 0 then
+        tab = tab_bar.Tabs.Data[sections[1].TabCount + sections[2].TabCount + 1]
+    end
+    if bit.band(tab.Flags, ImGuiTabItemFlags.SectionMask_) ~= 0 then return end
+
+    local g = GImGui
+    local margin = ImClamp(tab_bar.ScrollingRectMaxX - tab_bar.ScrollingRectMinX - tab.Width, g.Style.ItemInnerSpacing.x, g.FontSize * 1.0)
+    local order = ImGui.TabBarGetTabOrder(tab_bar, tab)
+    local scrollable_width = TabBarCalcScrollableWidth(tab_bar, sections)
+    local tab_x1 = tab.Offset - sections[1].Width + (order > sections[1].TabCount and -margin or 0.0)
+    local tab_x2 = tab.Offset - sections[1].Width + tab.Width + (order < tab_bar.Tabs.Size - sections[3].TabCount and margin or 1.0)
+    tab_bar.ScrollingTargetDistToVisibility = 0.0
+    if tab_bar.ScrollingTarget > tab_x1 or tab_x2 - tab_x1 >= scrollable_width then
+        tab_bar.ScrollingTargetDistToVisibility = ImMax(tab_bar.ScrollingAnim - tab_x2, 0.0)
+        tab_bar.ScrollingTarget = tab_x1
+    elseif tab_bar.ScrollingTarget < tab_x2 - scrollable_width then
+        tab_bar.ScrollingTargetDistToVisibility = ImMax((tab_x1 - scrollable_width) - tab_bar.ScrollingAnim, 0.0)
+        tab_bar.ScrollingTarget = tab_x2 - scrollable_width
+    end
+end
+
 --- @param tab_bar ImGuiTabBar
 --- @param tab     ImGuiTabItem|string
 function ImGui.TabBarQueueFocus(tab_bar, tab)
@@ -8339,11 +8748,150 @@ function ImGui.TabBarQueueFocus(tab_bar, tab)
     end
 end
 
+--- @param tab_bar ImGuiTabBar
+--- @param tab     ImGuiTabItem
+--- @param offset  int
+function ImGui.TabBarQueueReorder(tab_bar, tab, offset)
+    IM_ASSERT(offset ~= 0)
+    IM_ASSERT(tab_bar.ReorderRequestTabId == 0)
+    tab_bar.ReorderRequestTabId = tab.ID
+    tab_bar.ReorderRequestOffset = offset
+end
+
 --- @param tab_bar   ImGuiTabBar
---- @param tab       ImGuiTabItem
+--- @param src_tab   ImGuiTabItem
 --- @param mouse_pos ImVec2
-function ImGui.TabBarQueueReorderFromMousePos(tab_bar, tab, mouse_pos)
-    -- TODO:
+function ImGui.TabBarQueueReorderFromMousePos(tab_bar, src_tab, mouse_pos)
+    local g = GImGui
+    IM_ASSERT(tab_bar.ReorderRequestTabId == 0)
+    if bit.band(tab_bar.Flags, ImGuiTabBarFlags.Reorderable) == 0 then return end
+
+    local tab_spacing = g.Style.ItemInnerSpacing.x
+    local is_central_section = bit.band(src_tab.Flags, ImGuiTabItemFlags.SectionMask_) == 0
+    local bar_offset = tab_bar.BarRect.Min.x - (is_central_section and tab_bar.ScrollingTarget or 0)
+    local dir = (bar_offset + src_tab.Offset) > mouse_pos.x and -1 or 1
+    local src_idx = tab_bar.Tabs:index_from_ptr(src_tab) + 1
+    local dst_idx = src_idx
+    local i = src_idx
+    while i >= 1 and i <= tab_bar.Tabs.Size do
+        local dst_tab = tab_bar.Tabs.Data[i]
+        if bit.band(dst_tab.Flags, ImGuiTabItemFlags.NoReorder) ~= 0 then break end
+        if bit.band(dst_tab.Flags, ImGuiTabItemFlags.SectionMask_) ~= bit.band(src_tab.Flags, ImGuiTabItemFlags.SectionMask_) then break end
+        dst_idx = i
+        local x1 = bar_offset + dst_tab.Offset - tab_spacing
+        local x2 = bar_offset + dst_tab.Offset + dst_tab.Width + tab_spacing
+        if (dir < 0 and mouse_pos.x > x1) or (dir > 0 and mouse_pos.x < x2) then break end
+        i = i + dir
+    end
+    if dst_idx ~= src_idx then
+        ImGui.TabBarQueueReorder(tab_bar, src_tab, dst_idx - src_idx)
+    end
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @return bool
+function ImGui.TabBarProcessReorder(tab_bar)
+    local tab1 = ImGui.TabBarFindTabByID(tab_bar, tab_bar.ReorderRequestTabId)
+    if tab1 == nil or bit.band(tab1.Flags, ImGuiTabItemFlags.NoReorder) ~= 0 then return false end
+    local tab1_order = ImGui.TabBarGetTabOrder(tab_bar, tab1)
+    local tab2_order = tab1_order + tab_bar.ReorderRequestOffset
+    if tab2_order < 1 or tab2_order > tab_bar.Tabs.Size then return false end
+    local tab2 = tab_bar.Tabs.Data[tab2_order]
+    if bit.band(tab2.Flags, ImGuiTabItemFlags.NoReorder) ~= 0 then return false end
+    if bit.band(tab1.Flags, ImGuiTabItemFlags.SectionMask_) ~= bit.band(tab2.Flags, ImGuiTabItemFlags.SectionMask_) then return false end
+
+    local item_tmp = tab1
+    local src_tab = tab_bar.ReorderRequestOffset > 0 and tab1_order + 1 or tab2_order
+    local dst_tab = tab_bar.ReorderRequestOffset > 0 and tab1_order or tab2_order + 1
+    local move_count = tab_bar.ReorderRequestOffset > 0 and tab_bar.ReorderRequestOffset or -tab_bar.ReorderRequestOffset
+    ImStd.memmove(tab_bar.Tabs.Data, dst_tab, tab_bar.Tabs.Data, src_tab, move_count)
+    tab_bar.Tabs.Data[tab2_order] = item_tmp
+    if bit.band(tab_bar.Flags, ImGuiTabBarFlags.SaveSettings) ~= 0 then ImGui.MarkIniSettingsDirty() end
+    return true
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @return ImGuiTabItem?
+function ImGui.TabBarScrollingButtons(tab_bar)
+    local g = GImGui
+    local window = g.CurrentWindow
+    local arrow_button_size = ImVec2(g.FontSize - 2.0, g.FontSize + g.Style.FramePadding.y * 2.0)
+    local scrolling_buttons_width = arrow_button_size.x * 2.0
+    local backup_cursor_pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y)
+    local select_dir = 0
+    local arrow_col = ImVec4()
+    ImVec4_Copy(arrow_col, g.Style.Colors[ImGuiCol.Text])
+    arrow_col.w = arrow_col.w * 0.5
+
+    ImGui.PushStyleColor(ImGuiCol.Text, arrow_col)
+    ImGui.PushStyleColor(ImGuiCol.Button, ImVec4(0, 0, 0, 0))
+    ImGui.PushItemFlag(bit.bor(ImGuiItemFlags.ButtonRepeat, ImGuiItemFlags.NoNav), true)
+    local backup_repeat_delay = g.IO.KeyRepeatDelay
+    local backup_repeat_rate = g.IO.KeyRepeatRate
+    g.IO.KeyRepeatDelay = 0.250
+    g.IO.KeyRepeatRate = 0.200
+    local x = ImMax(tab_bar.BarRect.Min.x, tab_bar.BarRect.Max.x - scrolling_buttons_width)
+    window.DC.CursorPos.x, window.DC.CursorPos.y = x, tab_bar.BarRect.Min.y
+    if ImGui.ArrowButtonEx("##<", ImGuiDir.Left, arrow_button_size, ImGuiButtonFlags.PressedOnClick) then select_dir = -1 end
+    window.DC.CursorPos.x, window.DC.CursorPos.y = x + arrow_button_size.x, tab_bar.BarRect.Min.y
+    if ImGui.ArrowButtonEx("##>", ImGuiDir.Right, arrow_button_size, ImGuiButtonFlags.PressedOnClick) then select_dir = 1 end
+    ImGui.PopItemFlag()
+    ImGui.PopStyleColor(2)
+    g.IO.KeyRepeatRate = backup_repeat_rate
+    g.IO.KeyRepeatDelay = backup_repeat_delay
+
+    local tab_to_scroll_to = nil
+    if select_dir ~= 0 then
+        local tab_item = ImGui.TabBarFindTabByID(tab_bar, tab_bar.SelectedTabId)
+        if tab_item then
+            local selected_order = ImGui.TabBarGetTabOrder(tab_bar, tab_item)
+            local target_order = selected_order + select_dir
+            while tab_to_scroll_to == nil do
+                tab_to_scroll_to = tab_bar.Tabs.Data[(target_order >= 1 and target_order <= tab_bar.Tabs.Size) and target_order or selected_order]
+                if bit.band(tab_to_scroll_to.Flags, ImGuiTabItemFlags.Button) ~= 0 then
+                    target_order = target_order + select_dir
+                    selected_order = selected_order + select_dir
+                    if target_order >= 1 and target_order <= tab_bar.Tabs.Size then tab_to_scroll_to = nil end
+                end
+            end
+        end
+    end
+    ImVec2_Copy(window.DC.CursorPos, backup_cursor_pos)
+    tab_bar.BarRect.Max.x = tab_bar.BarRect.Max.x - (scrolling_buttons_width + 1.0)
+    return tab_to_scroll_to
+end
+
+--- @param tab_bar ImGuiTabBar
+--- @return ImGuiTabItem?
+function ImGui.TabBarTabListPopupButton(tab_bar)
+    local g = GImGui
+    local window = g.CurrentWindow
+    local tab_list_popup_button_width = g.FontSize + g.Style.FramePadding.y
+    local backup_cursor_pos = ImVec2(window.DC.CursorPos.x, window.DC.CursorPos.y)
+    window.DC.CursorPos.x = tab_bar.BarRect.Min.x - g.Style.FramePadding.y
+    window.DC.CursorPos.y = tab_bar.BarRect.Min.y
+    tab_bar.BarRect.Min.x = tab_bar.BarRect.Min.x + tab_list_popup_button_width
+    local arrow_col = ImVec4()
+    ImVec4_Copy(arrow_col, g.Style.Colors[ImGuiCol.Text])
+    arrow_col.w = arrow_col.w * 0.5
+    ImGui.PushStyleColor(ImGuiCol.Text, arrow_col)
+    ImGui.PushStyleColor(ImGuiCol.Button, ImVec4(0, 0, 0, 0))
+    local open = ImGui.BeginCombo("##v", nil, bit.bor(ImGuiComboFlags.NoPreview, ImGuiComboFlags.HeightLargest))
+    ImGui.PopStyleColor(2)
+
+    local tab_to_select = nil
+    if open then
+        for tab_n = 1, tab_bar.Tabs.Size do
+            local tab = tab_bar.Tabs.Data[tab_n]
+            if bit.band(tab.Flags, ImGuiTabItemFlags.Button) == 0 then
+                local tab_name = ImGui.TabBarGetTabName(tab_bar, tab)
+                if ImGui.Selectable(tab_name, tab_bar.SelectedTabId == tab.ID) then tab_to_select = tab end
+            end
+        end
+        ImGui.EndCombo()
+    end
+    ImVec2_Copy(window.DC.CursorPos, backup_cursor_pos)
+    return tab_to_select
 end
 
 --- @param label  string
@@ -8371,6 +8919,55 @@ function ImGui.BeginTabItem(label, open, flags)
         ImGui.PushOverrideID(tab.ID)
     end
     return open, ret
+end
+
+function ImGui.EndTabItem()
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.SkipItems then return end
+
+    local tab_bar = g.CurrentTabBar
+    IM_ASSERT_USER_ERROR_RET(tab_bar ~= nil, "Needs to be called between BeginTabBar() and EndTabBar()!")
+    IM_ASSERT(tab_bar.LastTabItemIdx >= 1)
+    local tab = tab_bar.Tabs.Data[tab_bar.LastTabItemIdx]
+    if bit.band(tab.Flags, ImGuiTabItemFlags.NoPushId) == 0 then
+        ImGui.PopID()
+    end
+end
+
+--- @return bool
+function ImGui.TabItemIsContentsAppearing()
+    local g = GImGui
+    return g.CurrentTabBar.LastTabItemContentsAppearing
+end
+
+--- @param label  string
+--- @param flags? ImGuiTabItemFlags
+--- @return bool pressed
+function ImGui.TabItemButton(label, flags)
+    flags = flags or 0
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.SkipItems then return false end
+
+    local tab_bar = g.CurrentTabBar
+    IM_ASSERT_USER_ERROR_RET(tab_bar ~= nil, "Needs to be called between BeginTabBar() and EndTabBar()!")
+    local _, pressed = ImGui.TabItemEx(tab_bar, label, nil, bit.bor(flags, ImGuiTabItemFlags.Button, ImGuiTabItemFlags.NoReorder), nil)
+    return pressed
+end
+
+--- @param str_id string
+--- @param flags  ImGuiTabItemFlags
+--- @param width  float
+function ImGui.TabItemSpacing(str_id, flags, width)
+    local g = GImGui
+    local window = g.CurrentWindow
+    if window.SkipItems then return end
+
+    local tab_bar = g.CurrentTabBar
+    IM_ASSERT_USER_ERROR_RET(tab_bar ~= nil, "Needs to be called between BeginTabBar() and EndTabBar()!")
+    ImGui.SetNextItemWidth(width)
+    ImGui.TabItemEx(tab_bar, str_id, nil, bit.bor(flags, ImGuiTabItemFlags.Button, ImGuiTabItemFlags.NoReorder, ImGuiTabItemFlags.Invisible), nil)
 end
 
 --- @param tab_bar       ImGuiTabBar
@@ -8638,6 +9235,28 @@ function ImGui.TabItemEx(tab_bar, label, open, flags, docked_window)
         return open, pressed
     end
     return open, tab_contents_visible
+end
+
+--- @param label string
+function ImGui.SetTabItemClosed(label)
+    local g = GImGui
+    local is_within_manual_tab_bar = g.CurrentTabBar ~= nil and bit.band(g.CurrentTabBar.Flags, ImGuiTabBarFlags.DockNode) == 0
+    if is_within_manual_tab_bar then
+        local tab_bar = g.CurrentTabBar
+        local tab_id = ImGui.TabBarCalcTabID(tab_bar, label, nil)
+        local tab = ImGui.TabBarFindTabByID(tab_bar, tab_id)
+        if tab then tab.WantClose = true end
+    else
+        local window = ImGui.FindWindowByName(label)
+        if window and window.DockIsActive then
+            local node = window.DockNode
+            if node then
+                local tab_id = ImGui.TabBarCalcTabID(node.TabBar, label, window)
+                ImGui.TabBarRemoveTab(node.TabBar, tab_id)
+                window.DockTabWantClose = true
+            end
+        end
+    end
 end
 
 --- @param label_or_window                     string|ImGuiWindow

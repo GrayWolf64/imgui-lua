@@ -124,19 +124,20 @@ function ImMax(lhs, rhs)
 end
 
 --- @param base     table
+--- @param begin    int # 1-based start of the span
 --- @param count    int
 --- @param cmp_func fun(lhs, rhs): bool
-ImStd.ImQsort = function(base, count, cmp_func)
+ImStd.ImQsort = function(base, begin, count, cmp_func)
     if count <= 1 then return end
-    if count == #base then
+    if begin == 1 and count == #base then
         t_sort(base, cmp_func)
         return
     end
 
     local sorted = {}
-    for i = 1, count do sorted[i] = base[i] end
+    for i = 1, count do sorted[i] = base[begin + i - 1] end
     t_sort(sorted, cmp_func)
-    for i = 1, count do base[i] = sorted[i] end
+    for i = 1, count do base[begin + i - 1] = sorted[i] end
 end
 
 --- @overload fun(v: number, mn: number, mx: number): number
@@ -155,6 +156,16 @@ function ImLerp(a, b, t)
     elseif type(a) == "table"  and type(b) == "table"  and type(t) == "number" then return ImVec2(a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
     elseif type(a) == "table"  and type(b) == "table"  and type(t) == "table"  then return ImVec2(a[1] + (b[1] - a[1]) * t[1], a[2] + (b[2] - a[2]) * t[2])
     end
+end
+
+--- @param current float
+--- @param target  float
+--- @param speed   float
+--- @return float
+function ImLinearSweep(current, target, speed)
+    if current < target then return ImMin(current + speed, target) end
+    if current > target then return ImMax(current - speed, target) end
+    return current
 end
 
 local function _Trunc(val) if val >= 0 then return mathFloor(val) else return mathCeil(val) end end
@@ -1826,6 +1837,16 @@ local function ImGuiNavItemData()
     return this
 end
 
+--- @class ImGuiShrinkWidthItem
+--- @field Index        int
+--- @field Width        float
+--- @field InitialWidth float
+
+--- @return ImGuiShrinkWidthItem
+function ImGuiShrinkWidthItem()
+    return { Index = 0, Width = 0.0, InitialWidth = 0.0 }
+end
+
 --- @alias ImGuiPtrOrIndex table
 
 ---------------------------------------------------------------------------------------
@@ -2029,6 +2050,8 @@ end
 --- @field TabBars                            ImPool<ImGuiTabBar>
 --- @field CurrentTabBar                      ImGuiTabBar?
 --- @field CurrentTabBarStack                 ImVector<ImGuiPtrOrIndex>
+--- @field ShrinkWidthBuffer                  ImVector<ImGuiShrinkWidthItem>
+--- @field SettingsDirtyTimer                 float
 --- @field CurrentTable                       ImGuiTable?
 --- @field BoxSelectState                     ImGuiBoxSelectState
 --- @field DragDropPayload                    ImGuiPayload
@@ -2321,6 +2344,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         UserTextures = ImVector(),
 
         -- Settings
+        SettingsDirtyTimer = 0.0,
         SettingsWindows = ImVector(),
 
         -- Drag and Drop
@@ -2338,6 +2362,7 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         TabBars = {},
         CurrentTabBar = nil,
         CurrentTabBarStack = ImVector(),
+        ShrinkWidthBuffer = ImVector(ImGuiShrinkWidthItem),
 
         CurrentTable = nil,
 
@@ -2690,6 +2715,8 @@ end
 --- @field RootWindow                         ImGuiWindow
 --- @field RootWindowPopupTree                ImGuiWindow
 --- @field RootWindowDockTree                 ImGuiWindow
+--- @field DockIsActive                       bool
+--- @field DockTabWantClose                   bool
 --- @field DockNode                           ImGuiDockNode?
 --- @field DockNodeAsHost                     ImGuiDockNode?
 --- @field StateStorage                       ImGuiStorage<int>
@@ -2854,7 +2881,10 @@ function ImGuiWindow(ctx, name)
         NavLastIds = {[0] = 0, [1] = 0}, -- FIXME: 1-based instead
         NavRectRel = {[0] = ImRect(), [1] = ImRect()},
         NavPreferredScoringPosRel = {[0] = ImVec2(), [1] = ImVec2()},
-        NavRootFocusScopeId = 0
+        NavRootFocusScopeId = 0,
+
+        DockIsActive = false,
+        DockTabWantClose = false
     }
 
     this.DrawList = this.DrawListInst
