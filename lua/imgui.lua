@@ -1099,22 +1099,24 @@ function ImGui.DestroyContext(ctx)
 end
 
 --- @param window ImGuiWindow
---- @return any
+--- @return ImGuiWindowSettings? settings
+--- @return int?                 index    # 1-based index
 function ImGui.FindWindowSettingsByWindow(window)
     local g = GImGui
     if window.SettingsOffset ~= -1 then
-        return g.SettingsWindows[window.SettingsOffset + 1]
+        return g.SettingsWindows[window.SettingsOffset + 1], window.SettingsOffset + 1
     end
     return ImGui.FindWindowSettingsByID(window.ID)
 end
 
 --- @param id ImGuiID
---- @return any
+--- @return ImGuiWindowSettings? settings
+--- @return int?                 index    # 1-based index
 function ImGui.FindWindowSettingsByID(id)
     local g = GImGui
-    for _, settings in g.SettingsWindows:iter() do
+    for i, settings in g.SettingsWindows:iter() do
         if settings.ID == id and not settings.WantDelete then
-            return settings
+            return settings, i
         end
     end
     return nil
@@ -1220,9 +1222,10 @@ local function CreateNewWindow(name, flags)
 
     local settings = nil
     if bit.band(window.Flags, ImGuiWindowFlags.NoSavedSettings) == 0 then
-        settings = ImGui.FindWindowSettingsByWindow(window)
+        local settings_index
+        settings, settings_index = ImGui.FindWindowSettingsByWindow(window)
         if settings ~= nil then
-            window.SettingsOffset = g.SettingsWindows:index_from_ptr(settings)
+            window.SettingsOffset = settings_index - 1
         end
     end
 
@@ -11913,9 +11916,9 @@ local function RenderViewportsThumbnails()
 
     local p = window.DC.CursorPos
     local off = p - bb_full.Min * SCALE
-    for _, monitor in g.PlatformIO.Monitors:iter() do
+    for i, monitor in g.PlatformIO.Monitors:iter() do
         local monitor_draw_bb = ImRect(off + monitor.MainPos * SCALE, off + (monitor.MainPos + monitor.MainSize) * SCALE)
-        window.DrawList:AddRect(monitor_draw_bb.Min, monitor_draw_bb.Max, (g.DebugMetricsConfig.HighlightMonitorIdx == g.PlatformIO.Monitors:index_from_ptr(monitor)) and IM_COL32(255, 255, 0, 255) or ImGui.GetColorU32(ImGuiCol.Border), 4.0)
+        window.DrawList:AddRect(monitor_draw_bb.Min, monitor_draw_bb.Max, (g.DebugMetricsConfig.HighlightMonitorIdx == i - 1) and IM_COL32(255, 255, 0, 255) or ImGui.GetColorU32(ImGuiCol.Border), 4.0)
         window.DrawList:AddRectFilled(monitor_draw_bb.Min, monitor_draw_bb.Max, ImGui.GetColorU32(ImGuiCol.Border, 0.10), 4.0)
     end
 

@@ -493,14 +493,6 @@ function IM_VECTOR:copy()
     return v
 end
 
--- Not keeping value-key records inside `ImVector`, instead just find it
---- @return int # 0-based index
-function IM_VECTOR:index_from_ptr(p)
-    local data = self.Data; for i = 1, self.Size do if p == data[i] then return i - 1 end end
-    --- @diagnostic disable-next-line
-    IM_ASSERT(false, "index_from_ptr failed!")
-end
-
 --- @class ImGuiTextBuffer
 --- @field Buf ImVector<char>
 local IMGUI_TEXT_BUFFER = {}
