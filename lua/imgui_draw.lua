@@ -1002,7 +1002,7 @@ function ImFontAtlasPackDiscardRect(atlas, id)
     IM_ASSERT(index_entry.IsUsed and index_entry.TargetIndex >= 0)
     index_entry.IsUsed = false
     index_entry.TargetIndex = builder.RectsIndexFreeListStart
-    index_entry.Generation = index_entry.Generation + 1
+    index_entry.Generation = bit.band(index_entry.Generation + 1, 0x3FF) -- LUA: 10-bit overflow
     if (index_entry.Generation == 0) then
         index_entry.Generation = index_entry.Generation + 1
     end
