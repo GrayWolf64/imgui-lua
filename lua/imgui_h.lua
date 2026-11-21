@@ -371,6 +371,12 @@ function IM_VEC4:__tostring() return string.format("ImVec4(%g, %g, %g, %g)", sel
 --- @param src  ImVec4
 function ImVec4_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2]; dest[3] = src[3]; dest[4] = src[4] end
 
+--- Similar to `ImVec2_TCopy`
+--- @param t ImVec4[]
+--- @param k int
+--- @param v ImVec4
+local function ImVec4_TCopy(t, k, v) local dest = t[k]; dest[1] = v[1]; dest[2] = v[2]; dest[3] = v[3]; dest[4] = v[4]; end
+
 --- NOTE: This struct is expensive to create
 --- @class ImSmallStack_<T>
 --- @field LocalData T[]
@@ -782,7 +788,7 @@ function ImDrawList(data)
         _Path          = ImVector(ImVec2, ImVec2_TCopy),
         _CmdHeader     = ImDrawCmdHeader(),
         _Splitter      = ImDrawListSplitter(),
-        _ClipRectStack = ImVector(),
+        _ClipRectStack = ImVector(ImVec4, ImVec4_TCopy),
         _TextureStack  = ImVector(ImTextureRef, ImTextureRef_TCopy),
         _CallbacksDataBuf = nil,
         _DrawFlagsStack = ImSmallStack_(3),
