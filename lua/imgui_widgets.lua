@@ -4377,14 +4377,14 @@ function ImGui.PushPasswordFont()
     local g = GImGui
     local backup = g.InputTextPasswordFontBackupBaked
     IM_ASSERT(backup.IndexAdvanceX.Size == 0 and backup.IndexLookup.Size == 0)
-    local glyph = g.FontBaked:FindGlyph(42) -- '*'
+    local glyph, glyph_idx = g.FontBaked:FindGlyph(42) -- '*'
     g.InputTextPasswordFontBackupFlags = g.Font.Flags
     backup.FallbackGlyphIndex = g.FontBaked.FallbackGlyphIndex
     backup.FallbackAdvanceX = g.FontBaked.FallbackAdvanceX
     backup.IndexLookup:swap(g.FontBaked.IndexLookup)
     backup.IndexAdvanceX:swap(g.FontBaked.IndexAdvanceX)
     g.Font.Flags = bit.bor(g.Font.Flags, ImFontFlags.NoLoadGlyphs)
-    g.FontBaked.FallbackGlyphIndex = g.FontBaked.Glyphs:index_from_ptr(glyph) + 1
+    g.FontBaked.FallbackGlyphIndex = glyph_idx
     g.FontBaked.FallbackAdvanceX = glyph.AdvanceX
 end
 

@@ -854,10 +854,11 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
 
     ImFontAtlasPackInit(atlas)
     local old_rects = ImVector()
-    local old_index = builder.RectsIndex:copy()
+    local old_index = ImVector()
+    ImVector_Copy(old_index, builder.RectsIndex)
     old_rects:swap(builder.Rects)
 
-    for _, index_entry in builder.RectsIndex:iter() do
+    for index_n, index_entry in builder.RectsIndex:iter() do
         if index_entry.IsUsed == false then
             goto __CONTINUE__
         end
@@ -867,7 +868,7 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
             goto __CONTINUE__
         end
 
-        local new_r_id = ImFontAtlasPackAddRect(atlas, old_r.w, old_r.h, index_entry)
+        local new_r_id = ImFontAtlasPackAddRect(atlas, old_r.w, old_r.h, index_n)
         if new_r_id == ImFontAtlasRectId_Invalid then
             IMGUI_DEBUG_LOG_FONT("[font] Texture #%03d: resize failed. Will grow.", new_tex.UniqueID)
 
@@ -880,7 +881,7 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
             return
         end
 
-        IM_ASSERT(ImFontAtlasRectId_GetIndex(new_r_id) == builder.RectsIndex:index_from_ptr(index_entry))
+        IM_ASSERT(ImFontAtlasRectId_GetIndex(new_r_id) == index_n - 1)
 
         local new_r = ImFontAtlasPackGetRect(atlas, new_r_id)
         ImFontAtlasTextureBlockCopy(old_tex, old_r.x, old_r.y, new_tex, new_r.x, new_r.y, new_r.w, new_r.h)
@@ -976,13 +977,13 @@ local function ImFontAtlasPackAllocRectEntry(atlas, rect_idx)
     return ImFontAtlasRectId_Make(index_idx, index_entry.Generation)
 end
 
---- @param atlas       ImFontAtlas
---- @param index_entry ImFontAtlasRectEntry
-local function ImFontAtlasPackReuseRectEntry(atlas, index_entry)
+--- @param atlas   ImFontAtlas
+--- @param index_n int # 1-based entry index
+local function ImFontAtlasPackReuseRectEntry(atlas, index_n)
+    local index_entry = atlas.Builder.RectsIndex.Data[index_n]
     IM_ASSERT(index_entry.IsUsed)
     index_entry.TargetIndex = atlas.Builder.Rects.Size - 1
-    local index_idx = atlas.Builder.RectsIndex:index_from_ptr(index_entry)
-    return ImFontAtlasRectId_Make(index_idx, index_entry.Generation)
+    return ImFontAtlasRectId_Make(index_n - 1, index_entry.Generation)
 end
 
 --- @param atlas ImFontAtlas
@@ -1001,7 +1002,7 @@ function ImFontAtlasPackDiscardRect(atlas, id)
     IM_ASSERT(index_entry.IsUsed and index_entry.TargetIndex >= 0)
     index_entry.IsUsed = false
     index_entry.TargetIndex = builder.RectsIndexFreeListStart
-    index_entry.Generation = index_entry.Generation + 1
+    index_entry.Generation = bit.band(index_entry.Generation + 1, 0x3FF) -- LUA: 10-bit overflow
     if (index_entry.Generation == 0) then
         index_entry.Generation = index_entry.Generation + 1
     end
@@ -1013,7 +1014,8 @@ function ImFontAtlasPackDiscardRect(atlas, id)
     rect.w = 0 rect.h = 0
 end
 
-function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry)
+--- @param overwrite_entry_idx? int # 1-based entry index
+function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry_idx)
     IM_ASSERT(w > 0 and w <= 0xFFFF)
     IM_ASSERT(h > 0 and h <= 0xFFFF)
 
@@ -1049,8 +1051,8 @@ function ImFontAtlasPackAddRect(atlas, w, h, overwrite_entry)
     builder.RectsPackedSurface = builder.RectsPackedSurface + (w + pack_padding) * (h + pack_padding)
 
     builder.Rects:push_back(r)
-    if (overwrite_entry ~= nil) then
-        return ImFontAtlasPackReuseRectEntry(atlas, overwrite_entry)
+    if (overwrite_entry_idx ~= nil) then
+        return ImFontAtlasPackReuseRectEntry(atlas, overwrite_entry_idx)
     else
         return ImFontAtlasPackAllocRectEntry(atlas, builder.Rects.Size - 1)
     end
@@ -1602,7 +1604,7 @@ function ImFontAtlasBuildSetupFontBakedFallback(baked)
         glyph.AdvanceX = space_glyph and space_glyph.AdvanceX or IM_ROUND(baked.Size * 0.40)
         fallback_glyph = ImFontAtlasBakedAddFontGlyph(font.OwnerAtlas, baked, nil, glyph)
     end
-    baked.FallbackGlyphIndex = baked.Glyphs:index_from_ptr(fallback_glyph) + 1
+    baked.FallbackGlyphIndex = baked.IndexLookup.Data[fallback_glyph.Codepoint + 1]
     baked.FallbackAdvanceX = fallback_glyph.AdvanceX
 end
 
@@ -2313,20 +2315,24 @@ function MT.ImFontBaked:ClearOutputData()
 end
 
 --- @param c ImWchar
---- @return ImFontGlyph?
+--- @return ImFontGlyph? glyph
+--- @return int          glyph_idx # 1-based index, or -1 when no fallback exists
 function MT.ImFontBaked:FindGlyph(c)
     if c < self.IndexLookup.Size then
         local i = self.IndexLookup.Data[c + 1]
         if i == IM_FONTGLYPH_INDEX_NOT_FOUND then
-            return self.Glyphs.Data[self.FallbackGlyphIndex]
+            return self.Glyphs.Data[self.FallbackGlyphIndex], self.FallbackGlyphIndex
         end
         if i ~= IM_FONTGLYPH_INDEX_UNUSED then
-            return self.Glyphs.Data[i]
+            return self.Glyphs.Data[i], i
         end
     end
 
     local glyph = ImFontBaked_BuildLoadGlyph(self, c, nil)
-    return (glyph) and glyph or self.Glyphs.Data[self.FallbackGlyphIndex]
+    if glyph then
+        return glyph, self.IndexLookup.Data[c + 1]
+    end
+    return self.Glyphs.Data[self.FallbackGlyphIndex], self.FallbackGlyphIndex
 end
 
 --- @param c ImWchar

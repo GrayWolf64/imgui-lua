@@ -4,9 +4,6 @@
         "undefined-field",
         "inject-field",
         "lowercase-global",
-
-        // FIXME: remove those below when it's fixed
-        // https://github.com/LuaLS/lua-language-server/issues/1456
         "cast-local-type",
         "param-type-mismatch",
         "assign-type-mismatch",
@@ -23,11 +20,11 @@
     "workspace.library": [
         "${addons}/garrysmod/module/library"
     ],
-    // FIXME: maybe remove these when it's fixed
-    // https://github.com/LuaLS/lua-language-server/issues/3474
     "diagnostics.ignoredFiles": "Disable",
     "workspace.ignoreDir": [
         "/lua/backends/"
     ],
+    "workspace.maxPreload": 1024,
+    "workspace.preloadFileSize": 2048,
     "runtime.version": "LuaJIT"
 }
