@@ -592,8 +592,9 @@ function ImGui.ButtonEx(label, size_arg, flags)
     ImGui.RenderNavCursor(bb, id)
     ImGui.RenderFrame(bb.Min, bb.Max, col, true, style.FrameRounding)
 
-    -- if (g.LogEnabled)
-    --     LogSetNextTextDecoration("[", "]");
+    if g.LogEnabled then
+        ImGui.LogSetNextTextDecoration("[", "]")
+    end
     ImGui.RenderTextClipped(bb.Min + style.FramePadding, bb.Max - style.FramePadding, label, label_end, label_size, style.ButtonTextAlign, bb)
 
     -- Automatically close popups
@@ -3725,9 +3726,9 @@ function ImGui.SliderScalar(label, data_type, data, min, max, format, flags)
         window.DrawList:AddRectFilled(grab_bb.Min, grab_bb.Max, ImGui.GetColorU32((g.ActiveId == id) and ImGuiCol.SliderGrabActive or ImGuiCol.SliderGrab), style.GrabRounding)
     end
 
-    -- if g.LogEnabled then
-    --     ImGui.LogSetNextTextDecoration("{", "}")
-    -- end
+    if g.LogEnabled then
+        ImGui.LogSetNextTextDecoration("{", "}")
+    end
     local is_mixed = bit.band(g.LastItemData.ItemFlags, ImGuiItemFlags.MixedValue) ~= 0
     local value_text = ImGui.DataTypeFormatString(nil, 0, data_type, data, (is_mixed and g.MixedValueLabel ~= nil) and g.MixedValueLabel or format)
     if is_mixed then
@@ -7116,9 +7117,9 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
             if bit.band(flags, ImGuiTreeNodeFlags.ClipLabelForTrailingButton) ~= 0 then
                 frame_bb.Max.x = frame_bb.Max.x - (g.FontSize + style.FramePadding.x)
             end
-            -- if g.LogEnabled then
-            --     ImGui.LogSetNextTextDecoration("###", "###")
-            -- end
+            if g.LogEnabled then
+                ImGui.LogSetNextTextDecoration("###", "###")
+            end
         else
             if hovered or selected then
                 local bg_col = ImGui.GetColorU32((held and hovered) and ImGuiCol.HeaderActive or (hovered and ImGuiCol.HeaderHovered or ImGuiCol.Header))
@@ -7133,9 +7134,9 @@ function ImGui.TreeNodeBehavior(id, flags, label, label_end)
             elseif not is_leaf then
                 ImGui.RenderArrow(window.DrawList, ImVec2(text_pos.x + g.FontSize * 0.15 - text_offset_x + padding.x, text_pos.y + g.FontSize * 0.15), text_col, is_open and ((bit.band(flags, ImGuiTreeNodeFlags.UpsideDownArrow) ~= 0) and ImGuiDir.Up or ImGuiDir.Down) or ImGuiDir.Right, 0.70)
             end
-            -- if g.LogEnabled then
-            --     ImGui.LogSetNextTextDecoration(">", nil)
-            -- end
+            if g.LogEnabled then
+                ImGui.LogSetNextTextDecoration(">", nil)
+            end
         end
 
         if draw_tree_lines then
@@ -7929,7 +7930,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         ImGui.PushStyleVarX(ImGuiStyleVar.ItemSpacing, style.ItemSpacing.x * 2.0)
         local text_pos = ImVec2(window.DC.CursorPos.x + offsets.OffsetLabel, pos.y + window.DC.CurrLineTextBaseOffset)
         pressed = ImGui.Selectable("", menu_is_open, selectable_flags, label_size)
-        -- TODO: ImGui.LogSetNextTextDecoration("[", "]")
+        ImGui.LogSetNextTextDecoration("[", "]")
         ImGui.RenderText(text_pos, label, 1, label_end, false)
         ImGui.PopStyleVar()
         window.DC.CursorPos.x = window.DC.CursorPos.x + IM_TRUNC(style.ItemSpacing.x * (-1.0 + 0.5))
@@ -7942,7 +7943,7 @@ function ImGui.BeginMenuEx(label, icon, enabled)
         local extra_w = ImMax(0.0, ImGui.GetContentRegionAvail().x - min_w)
         local text_pos = ImVec2(window.DC.CursorPos.x, pos.y + window.DC.CurrLineTextBaseOffset)
         pressed = ImGui.Selectable("", menu_is_open, bit.bor(selectable_flags, ImGuiSelectableFlags.SpanAvailWidth), ImVec2(min_w, label_size.y))
-        -- ImGui.LogSetNextTextDecoration("", ">")
+        ImGui.LogSetNextTextDecoration("", ">")
         ImGui.RenderText(ImVec2(text_pos.x + offsets.OffsetLabel, text_pos.y), label, 1, label_end, false)
         if icon_w > 0.0 then
             --- @cast icon string
@@ -8165,7 +8166,7 @@ function ImGui.MenuItemEx(label, icon, shortcut, selected, enabled)
             end
             if shortcut_w > 0.0 then
                 ImGui.PushStyleColor(ImGuiCol.Text, style.Colors[ImGuiCol.TextDisabled])
-                -- ImGui.LogSetNextTextDecoration("(", ")")
+                ImGui.LogSetNextTextDecoration("(", ")")
                 --- @cast shortcut string
                 ImGui.RenderText(text_pos + ImVec2(offsets.OffsetShortcut + stretch_w, 0.0), shortcut, nil, nil, false)
                 ImGui.PopStyleColor()
