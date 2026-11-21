@@ -8625,23 +8625,18 @@ end
 
 --- @param tab_bar ImGuiTabBar
 --- @param tab_id  ImGuiID
---- @return ImGuiTabItem?
+--- @return ImGuiTabItem? tab
+--- @return int?          tab_idx # 1-based index
 function ImGui.TabBarFindTabByID(tab_bar, tab_id)
     if tab_id ~= 0 then
+        local tabs = tab_bar.Tabs.Data
         for n = 1, tab_bar.Tabs.Size do
-            if tab_bar.Tabs.Data[n].ID == tab_id then
-                return tab_bar.Tabs.Data[n]
+            if tabs[n].ID == tab_id then
+                return tabs[n], n
             end
         end
     end
     return nil
-end
-
---- @param tab_bar ImGuiTabBar
---- @param tab     ImGuiTabItem
---- @return int # 1-based index
-function ImGui.TabBarGetTabOrder(tab_bar, tab)
-    return tab_bar.Tabs:index_from_ptr(tab) + 1
 end
 
 --- @param tab_bar ImGuiTabBar
@@ -8668,9 +8663,9 @@ end
 --- @param tab_bar ImGuiTabBar
 --- @param tab_id  ImGuiID
 function ImGui.TabBarRemoveTab(tab_bar, tab_id)
-    local tab = ImGui.TabBarFindTabByID(tab_bar, tab_id)
+    local tab, tab_idx = ImGui.TabBarFindTabByID(tab_bar, tab_id)
     if tab then
-        tab_bar.Tabs:erase(ImGui.TabBarGetTabOrder(tab_bar, tab))
+        tab_bar.Tabs:erase(tab_idx)
     end
     if tab_bar.VisibleTabContentsId == tab_id then tab_bar.VisibleTabContentsId = 0 end
     if tab_bar.SelectedTabId == tab_id then tab_bar.SelectedTabId = 0 end
@@ -8710,19 +8705,20 @@ end
 --- @param tab_id   ImGuiID
 --- @param sections ImGuiTabBarSection[]
 function ImGui.TabBarScrollToTab(tab_bar, tab_id, sections)
-    local tab = ImGui.TabBarFindTabByID(tab_bar, tab_id)
+    local tab, order = ImGui.TabBarFindTabByID(tab_bar, tab_id)
     if tab == nil then return end
 
     if bit.band(tab.Flags, ImGuiTabItemFlags.Leading) ~= 0 then
-        tab = tab_bar.Tabs.Data[sections[1].TabCount + 1]
+        order = sections[1].TabCount + 1
+        tab = tab_bar.Tabs.Data[order]
     elseif bit.band(tab.Flags, ImGuiTabItemFlags.Trailing) ~= 0 then
-        tab = tab_bar.Tabs.Data[sections[1].TabCount + sections[2].TabCount + 1]
+        order = sections[1].TabCount + sections[2].TabCount + 1
+        tab = tab_bar.Tabs.Data[order]
     end
     if bit.band(tab.Flags, ImGuiTabItemFlags.SectionMask_) ~= 0 then return end
 
     local g = GImGui
     local margin = ImClamp(tab_bar.ScrollingRectMaxX - tab_bar.ScrollingRectMinX - tab.Width, g.Style.ItemInnerSpacing.x, g.FontSize * 1.0)
-    local order = ImGui.TabBarGetTabOrder(tab_bar, tab)
     local scrollable_width = TabBarCalcScrollableWidth(tab_bar, sections)
     local tab_x1 = tab.Offset - sections[1].Width + (order > sections[1].TabCount and -margin or 0.0)
     local tab_x2 = tab.Offset - sections[1].Width + tab.Width + (order < tab_bar.Tabs.Size - sections[3].TabCount and margin or 1.0)
@@ -8759,18 +8755,18 @@ function ImGui.TabBarQueueReorder(tab_bar, tab, offset)
 end
 
 --- @param tab_bar   ImGuiTabBar
---- @param src_tab   ImGuiTabItem
+--- @param src_idx   int         # 1-based index
 --- @param mouse_pos ImVec2
-function ImGui.TabBarQueueReorderFromMousePos(tab_bar, src_tab, mouse_pos)
+function ImGui.TabBarQueueReorderFromMousePos(tab_bar, src_idx, mouse_pos)
     local g = GImGui
     IM_ASSERT(tab_bar.ReorderRequestTabId == 0)
     if bit.band(tab_bar.Flags, ImGuiTabBarFlags.Reorderable) == 0 then return end
 
+    local src_tab = tab_bar.Tabs.Data[src_idx]
     local tab_spacing = g.Style.ItemInnerSpacing.x
     local is_central_section = bit.band(src_tab.Flags, ImGuiTabItemFlags.SectionMask_) == 0
     local bar_offset = tab_bar.BarRect.Min.x - (is_central_section and tab_bar.ScrollingTarget or 0)
     local dir = (bar_offset + src_tab.Offset) > mouse_pos.x and -1 or 1
-    local src_idx = tab_bar.Tabs:index_from_ptr(src_tab) + 1
     local dst_idx = src_idx
     local i = src_idx
     while i >= 1 and i <= tab_bar.Tabs.Size do
@@ -8791,9 +8787,8 @@ end
 --- @param tab_bar ImGuiTabBar
 --- @return bool
 function ImGui.TabBarProcessReorder(tab_bar)
-    local tab1 = ImGui.TabBarFindTabByID(tab_bar, tab_bar.ReorderRequestTabId)
+    local tab1, tab1_order = ImGui.TabBarFindTabByID(tab_bar, tab_bar.ReorderRequestTabId)
     if tab1 == nil or bit.band(tab1.Flags, ImGuiTabItemFlags.NoReorder) ~= 0 then return false end
-    local tab1_order = ImGui.TabBarGetTabOrder(tab_bar, tab1)
     local tab2_order = tab1_order + tab_bar.ReorderRequestOffset
     if tab2_order < 1 or tab2_order > tab_bar.Tabs.Size then return false end
     local tab2 = tab_bar.Tabs.Data[tab2_order]
@@ -8842,9 +8837,8 @@ function ImGui.TabBarScrollingButtons(tab_bar)
 
     local tab_to_scroll_to = nil
     if select_dir ~= 0 then
-        local tab_item = ImGui.TabBarFindTabByID(tab_bar, tab_bar.SelectedTabId)
+        local tab_item, selected_order = ImGui.TabBarFindTabByID(tab_bar, tab_bar.SelectedTabId)
         if tab_item then
-            local selected_order = ImGui.TabBarGetTabOrder(tab_bar, tab_item)
             local target_order = selected_order + select_dir
             while tab_to_scroll_to == nil do
                 tab_to_scroll_to = tab_bar.Tabs.Data[(target_order >= 1 and target_order <= tab_bar.Tabs.Size) and target_order or selected_order]
@@ -9009,16 +9003,17 @@ function ImGui.TabItemEx(tab_bar, label, open, flags, docked_window)
         flags = bit.bor(flags, ImGuiTabItemFlags.NoCloseButton)
     end
 
-    local tab = ImGui.TabBarFindTabByID(tab_bar, id)
+    local tab, tab_idx = ImGui.TabBarFindTabByID(tab_bar, id)
     local tab_is_new = false
     if tab == nil then
         tab_bar.Tabs:push_back(ImGuiTabItem())
         tab = tab_bar.Tabs:back()
+        tab_idx = tab_bar.Tabs.Size
         tab.ID = id
         tab_bar.TabsAddedNew = true
         tab_is_new = true
     end
-    tab_bar.LastTabItemIdx = tab_bar.Tabs:index_from_ptr(tab) + 1
+    tab_bar.LastTabItemIdx = tab_idx
 
     local size = ImGui.TabItemCalcSize(label, has_close_button or bit.band(flags, ImGuiTabItemFlags.UnsavedDocument) ~= 0)
     tab.RequestedWidth = -1.0
@@ -9140,11 +9135,11 @@ function ImGui.TabItemEx(tab_bar, label, open, flags, docked_window)
             if g.IO.MouseDelta.x < 0.0 and g.IO.MousePos.x < bb.Min.x then
                 drag_dir = -1
                 drag_distance_from_edge_x = bb.Min.x - g.IO.MousePos.x
-                ImGui.TabBarQueueReorderFromMousePos(tab_bar, tab, g.IO.MousePos)
+                ImGui.TabBarQueueReorderFromMousePos(tab_bar, tab_idx, g.IO.MousePos)
             elseif g.IO.MouseDelta.x > 0.0 and g.IO.MousePos.x > bb.Max.x then
                 drag_dir = 1
                 drag_distance_from_edge_x = g.IO.MousePos.x - bb.Max.x
-                ImGui.TabBarQueueReorderFromMousePos(tab_bar, tab, g.IO.MousePos)
+                ImGui.TabBarQueueReorderFromMousePos(tab_bar, tab_idx, g.IO.MousePos)
             end
         end
 
@@ -9160,7 +9155,7 @@ function ImGui.TabItemEx(tab_bar, label, open, flags, docked_window)
                     undocking_tab = true
                 end
                 if drag_distance_from_edge_x > threshold_x then
-                    if (drag_dir < 0 and ImGui.TabBarGetTabOrder(tab_bar, tab) == 1) or (drag_dir > 0 and ImGui.TabBarGetTabOrder(tab_bar, tab) == tab_bar.Tabs.Size) then
+                    if (drag_dir < 0 and tab_idx == 1) or (drag_dir > 0 and tab_idx == tab_bar.Tabs.Size) then
                         undocking_tab = true
                     end
                 end
