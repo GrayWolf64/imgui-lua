@@ -8242,12 +8242,6 @@ local function TabItemComparerByBeginOrder(a, b)
     return a.BeginOrder < b.BeginOrder
 end
 
---- @param tab_bar ImGuiTabBar
---- @return ImGuiTabBar
-local function GetTabBarRefFromTabBar(tab_bar)
-    return tab_bar
-end
-
 --- @param str_id string
 --- @param flags? ImGuiTabBarFlags
 --- @return bool
@@ -8285,7 +8279,7 @@ function ImGui.BeginTabBarEx(tab_bar, tab_bar_bb, flags)
         ImGui.PushOverrideID(tab_bar.ID)
     end
 
-    g.CurrentTabBarStack:push_back(GetTabBarRefFromTabBar(tab_bar))
+    g.CurrentTabBarStack:push_back(tab_bar) -- LUA: No ref conversion needed
     g.CurrentTabBar = tab_bar
     tab_bar.Window = window
 
