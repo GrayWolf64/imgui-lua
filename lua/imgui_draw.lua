@@ -11,12 +11,19 @@ end
 
 -- LUA: Single reusable temporary for immediate value-copy operations only.
 -- Do _NOT_ do anything like this: `foo(_ImVec2(a, b), _ImVec2(c, d))`
-local _ImVec2 do
+local _ImVec2, _ImVec4 do
 local _v = ImVec2()
+local _vx = ImVec4()
 --- @param x number
 --- @param y number
 --- @return ImVec2
 function _ImVec2(x, y) _v[1] = x; _v[2] = y; return _v end
+--- @param x number
+--- @param y number
+--- @param z number
+--- @param w number
+--- @return ImVec4
+function _ImVec4(x, y, z, w) _vx[1] = x; _vx[2] = y; _vx[3] = z; _vx[4] = w; return _vx end
 end
 
 FONT_ATLAS_DEFAULT_TEX_DATA_W = 122
@@ -6024,8 +6031,11 @@ function MT.ImDrawList:_CalcCircleAutoSegmentCount(radius)
     end
 end
 
+--- @param cr_min                            ImVec2
+--- @param cr_max                            ImVec2
+--- @param intersect_with_current_clip_rect? bool
 function MT.ImDrawList:PushClipRect(cr_min, cr_max, intersect_with_current_clip_rect)
-    local cr = ImVec4(cr_min.x, cr_min.y, cr_max.x, cr_max.y)
+    local cr = _ImVec4(cr_min.x, cr_min.y, cr_max.x, cr_max.y)
 
     if intersect_with_current_clip_rect then
         local current = self._CmdHeader.ClipRect
