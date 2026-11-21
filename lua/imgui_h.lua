@@ -484,13 +484,14 @@ function IM_VECTOR:contains(v) for i = 1, self.Size do if self.Data[i] == v then
 -- NOTE: This currently does not use type-aware copy!
 function IM_VECTOR:insert(pos, value) IM_ASSERT(pos >= 1 and pos <= self.Size + 1); if self.Size == self.Capacity then self:reserve(_grow_capacity(self, self.Size + 1)) end; for i = self.Size, pos, -1 do self.Data[i + 1] = self.Data[i] end self.Data[pos] = value self.Size = self.Size + 1 return value end
 
--- NOTE: This currently does not copy type related info!
---- @nodiscard
-function IM_VECTOR:copy()
-    local v = ImVector(); v:resize(self.Size)
-    local dest = v.Data; local src = self.Data
-    for i = 1, v.Size do dest[i] = src[i] end
-    return v
+--- @param dest ImVector
+--- @param src  ImVector
+function ImVector_Copy(dest, src)
+    dest:clear()
+    dest._Constructor = src._Constructor
+    dest._CopyFunc = src._CopyFunc
+    dest:resize(src.Size)
+    for i = 1, src.Size do dest._CopyFunc(dest.Data, i, src.Data[i]) end
 end
 
 --- @class ImGuiTextBuffer

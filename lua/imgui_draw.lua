@@ -854,7 +854,8 @@ local function ImFontAtlasTextureRepack(atlas, w, h)
 
     ImFontAtlasPackInit(atlas)
     local old_rects = ImVector()
-    local old_index = builder.RectsIndex:copy()
+    local old_index = ImVector()
+    ImVector_Copy(old_index, builder.RectsIndex)
     old_rects:swap(builder.Rects)
 
     for index_n, index_entry in builder.RectsIndex:iter() do

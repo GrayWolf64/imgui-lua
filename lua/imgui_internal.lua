@@ -934,6 +934,8 @@ function ImDrawListSharedData()
     return this
 end
 
+local ImFontAtlasRectEntry_TCopy
+
 --- @class ImFontAtlasBuilder
 --- @field PackContext               stbrp_context
 --- @field PackNodes                 ImVector<stbrp_node>
@@ -970,7 +972,7 @@ function ImFontAtlasBuilder()
     this.PackContext              = nil -- struct stbrp_context_opaque { char data[80]; };
     this.PackNodes                = ImVector()
     this.Rects                    = ImVector()
-    this.RectsIndex               = ImVector()
+    this.RectsIndex               = ImVector(ImFontAtlasRectEntry, ImFontAtlasRectEntry_TCopy)
     this.TempBuffer               = ImVector()
     this.RectsIndexFreeListStart  = -1
     this.RectsPackedCount         = 0
@@ -2665,6 +2667,16 @@ function ImFontAtlasRectEntry()
         Generation  = 0,
         IsUsed      = false
     }
+end
+
+--- @param t ImFontAtlasRectEntry[]
+--- @param k int
+--- @param v ImFontAtlasRectEntry
+function ImFontAtlasRectEntry_TCopy(t, k, v)
+    local dest = t[k]
+    dest.TargetIndex = v.TargetIndex
+    dest.Generation = v.Generation
+    dest.IsUsed = v.IsUsed
 end
 
 local ImFontAtlasRectId_IndexMask_       = 0x0007FFFF
