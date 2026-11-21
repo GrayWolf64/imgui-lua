@@ -2223,6 +2223,24 @@ function MT.ImGuiWindow:GetID(id)
     end
 end
 
+--- @param str_or_n        string|int
+--- @param str_end_or_seed int? # Exclusive string end, or seed for an integer ID
+--- @param seed?           ImGuiID
+--- @return ImGuiID
+function ImGui.GetIDWithSeed(str_or_n, str_end_or_seed, seed)
+    local id
+    if type(str_or_n) == "string" then
+        local str_end = str_end_or_seed
+        id = ImHashStr(str_or_n, str_end and (str_end - 1) or nil, seed)
+    else
+        local n = str_or_n
+        seed = str_end_or_seed
+        id = ImHashData(n, -1, seed)
+    end
+    -- TODO: DebugHookIdInfo()
+    return id
+end
+
 -- This is only used in rare/specific situations to manufacture an ID out of nowhere
 --- @param p_abs ImVec2
 --- @return ImGuiID
@@ -4279,7 +4297,7 @@ function ImGui.RenderText(pos, text, text_begin, text_end, hide_text_after_hash)
 
     window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0)
     if g.LogEnabled then
-        -- ImGui.LogRenderedText(&pos, text, text_display_end);
+        ImGui.LogRenderedText(pos, text, text_begin, text_display_end)
     end
 end
 
@@ -4365,8 +4383,9 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_
     local g = GImGui
     local window = g.CurrentWindow
     ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, 1, text_display_end, text_size_if_known, align, clip_rect)
-    -- if (g.LogEnabled)
-    --     ImGui.LogRenderedText(&pos_min, text, text_display_end);
+    if g.LogEnabled then
+        ImGui.LogRenderedText(pos_min, text, 1, text_display_end)
+    end
 end
 
 --- @param bb        ImRect
@@ -4526,7 +4545,7 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
     end
 
     if g.LogEnabled then
-        ImGui.LogRenderedText(pos_min, text, text_end_full)
+        ImGui.LogRenderedText(pos_min, text, 1, text_end_full)
     end
 end
 
@@ -4983,8 +5002,8 @@ function ImGui.SetWindowSize(window, size, cond)
         window.AutoFitFramesY = (size.y <= 0.0) and 2 or 0
     end
 
-    -- local old_size = ImVec2()
-    -- ImVec2_Copy(old_size, window.SizeFull)
+    local old_size = ImVec2()
+    ImVec2_Copy(old_size, window.SizeFull)
 
     if size.x <= 0.0 then
         window.AutoFitOnlyGrows = false
@@ -4996,9 +5015,9 @@ function ImGui.SetWindowSize(window, size, cond)
     else
         window.SizeFull.y = IM_TRUNC(size.y)
     end
-    -- if old_size.x ~= window.SizeFull.x or old_size.y ~= window.SizeFull.y then
-    --     TODO: MarkIniSettingsDirty(window)
-    -- end
+    if old_size.x ~= window.SizeFull.x or old_size.y ~= window.SizeFull.y then
+        ImGui.MarkIniSettingsDirty(window)
+    end
 end
 
 --- @return bool
@@ -5311,7 +5330,7 @@ function ImGui.EndChild()
 end
 
 --- @param window ImGuiWindow
-local function StartMouseMovingWindow(window)
+function ImGui.StartMouseMovingWindow(window)
     local g = GImGui
     ImGui.FocusWindow(window)
     ImGui.SetActiveID(window.MoveId, window)
@@ -5324,6 +5343,10 @@ local function StartMouseMovingWindow(window)
 
     local can_move_window = true
     if bit.band(window.Flags, ImGuiWindowFlags.NoMove) ~= 0 or bit.band(window.RootWindowDockTree.Flags, ImGuiWindowFlags.NoMove) ~= 0 then
+        can_move_window = false
+    end
+    local node = window.DockNodeAsHost
+    if node and node.VisibleWindow and bit.band(node.VisibleWindow.Flags, ImGuiWindowFlags.NoMove) ~= 0 then
         can_move_window = false
     end
     if can_move_window then
@@ -5438,7 +5461,7 @@ function ImGui.UpdateMouseMovingWindowEndFrame()
         local is_queued_focus_request = g.NavMoveSubmitted and (bit.band(g.NavMoveFlags, ImGuiNavMoveFlags.FocusApi) ~= 0)
 
         if hovered_window ~= nil and not is_closed_popup and not is_queued_focus_request then
-            StartMouseMovingWindow(hovered_window)
+            ImGui.StartMouseMovingWindow(hovered_window)
 
             -- Cancel moving if clicked outside of title bar
             if bit.band(hovered_window.BgClickFlags, ImGuiWindowBgClickFlags.Move) == 0 then  -- set by io.ConfigWindowsMoveFromTitleBarOnly
@@ -5852,7 +5875,7 @@ function ImGui.Begin(name, open, flags)
             end
 
             if old_size.x ~= window.SizeFull.x or old_size.y ~= window.SizeFull.y then
-                -- ImGui.MarkIniSettingsDirty(window)
+                ImGui.MarkIniSettingsDirty(window)
             end
         end
 
@@ -6900,7 +6923,7 @@ function ImGui.UpdateMouseWheel()
         if window == window.RootWindow then
             local offset = window.Size * (1.0 - scale) * (g.IO.MousePos - window.Pos) / window.Size
             ImGui.SetWindowPos(window, window.Pos + offset, 0)
-            -- MarkIniSettingsDirty(window)
+            ImGui.MarkIniSettingsDirty(window)
         end
         return
     end
@@ -7138,7 +7161,7 @@ local function AddWindowToSortBuffer(out_sorted_windows, window)
     out_sorted_windows:push_back(window)
     if window.Active then
         local count = window.DC.ChildWindows.Size
-        ImStd.ImQsort(window.DC.ChildWindows.Data, count, ChildWindowComparer)
+        ImStd.ImQsort(window.DC.ChildWindows.Data, 1, count, ChildWindowComparer)
         for i = 1, count do
             local child = window.DC.ChildWindows[i]
             if child.Active then
@@ -10677,6 +10700,125 @@ function ImGui.NavMoveRequestTryWrapping(window, wrap_flags)
 end
 
 ---------------------------------------------------------------------------------------
+-- [SECTION] LOGGING
+---------------------------------------------------------------------------------------
+
+--- @param fmt string
+--- @param ... any
+function ImGui.LogText(fmt, ...)
+    ImGui.LogTextV(fmt, ...)
+end
+
+--- @param fmt string
+--- @param ... any
+function ImGui.LogTextV(fmt, ...)
+    local g = GImGui
+    if not g.LogEnabled then
+        return
+    end
+    if g.LogFile then
+        g.LogBuffer.Buf:resize(0)
+        g.LogBuffer:appendfv(fmt, ...)
+        IM_FILE_WRITE(g.LogFile, g.LogBuffer:c_str())
+    else
+        g.LogBuffer:appendfv(fmt, ...)
+    end
+end
+
+--- @param ref_pos    ImVec2?
+--- @param text       string
+--- @param text_begin int?    # 1-based index
+--- @param text_end   int?    # Exclusive upper bound
+function ImGui.LogRenderedText(ref_pos, text, text_begin, text_end)
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    local prefix = g.LogNextPrefix
+    local suffix = g.LogNextSuffix
+    g.LogNextPrefix = nil
+    g.LogNextSuffix = nil
+
+    text_begin = text_begin or 1
+    if not text_end then
+        text_end = ImGui.FindRenderedTextEnd(string.sub(text, text_begin)) + text_begin - 1
+    end
+
+    local log_new_line = ref_pos and (ref_pos.y > g.LogLinePosY + ImMax(g.Style.FramePadding.y, g.Style.ItemSpacing.y) + 1)
+    if ref_pos then
+        g.LogLinePosY = ref_pos.y
+    end
+    if log_new_line then
+        ImGui.LogText("\n")
+        g.LogLineFirstItem = true
+    end
+
+    if prefix then
+        ImGui.LogRenderedText(ref_pos, prefix, 1, #prefix + 1)
+    end
+
+    if g.LogDepthRef > window.DC.TreeDepth then
+        g.LogDepthRef = window.DC.TreeDepth
+    end
+    local tree_depth = window.DC.TreeDepth - g.LogDepthRef
+
+    local text_remaining = text_begin
+    while true do
+        local line_start = text_remaining
+        local line_end = string.find(text, "\n", line_start, true) or text_end
+        line_end = ImMin(line_end, text_end)
+        local is_last_line = line_end == text_end
+        if line_start ~= line_end or not is_last_line then
+            local indentation = g.LogLineFirstItem and tree_depth * 4 or 1
+            ImGui.LogText("%s%s", string.rep(" ", indentation), string.sub(text, line_start, line_end - 1))
+            g.LogLineFirstItem = false
+            if string.byte(text, line_end) == 10 then
+                ImGui.LogText("\n")
+                g.LogLineFirstItem = true
+            end
+        end
+        if is_last_line then
+            break
+        end
+        text_remaining = line_end + 1
+    end
+
+    if suffix then
+        ImGui.LogRenderedText(ref_pos, suffix, 1, #suffix + 1)
+    end
+end
+
+--- @param prefix string?
+--- @param suffix string?
+function ImGui.LogSetNextTextDecoration(prefix, suffix)
+    local g = GImGui
+    g.LogNextPrefix = prefix
+    g.LogNextSuffix = suffix
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] SETTINGS
+---------------------------------------------------------------------------------------
+
+--- @param window? ImGuiWindow
+function ImGui.MarkIniSettingsDirty(window)
+    local g = GImGui
+    if window ~= nil and bit.band(window.Flags, ImGuiWindowFlags.NoSavedSettings) ~= 0 then return end
+    if g.SettingsDirtyTimer <= 0.0 then
+        g.SettingsDirtyTimer = g.IO.IniSavingRate
+    end
+end
+
+---------------------------------------------------------------------------------------
+-- [SECTION] DOCKING
+---------------------------------------------------------------------------------------
+
+--- @param ctx    ImGuiContext
+--- @param window ImGuiWindow
+function ImGui.DockContextQueueUndockWindow(ctx, window)
+    -- TODO:
+end
+
+---------------------------------------------------------------------------------------
 -- [SECTION] DRAG AND DROP
 ---------------------------------------------------------------------------------------
 
@@ -11512,7 +11654,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
     -- Synchronize viewport -> window in case the platform window has been moved or resized from the OS/WM
     if window.Viewport.PlatformRequestMove then
         ImVec2_Copy(window.Pos, window.Viewport.Pos)
-        -- ImGui.MarkIniSettingsDirty(window)
+        ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Pos.x ~= window.Pos.x or window.Viewport.Pos.y ~= window.Pos.y then
         viewport_rect_changed = true
         ImVec2_Copy(window.Viewport.Pos, window.Pos)
@@ -11521,7 +11663,7 @@ function ImGui.WindowSyncOwnedViewport(window, parent_window_in_stack)
     if window.Viewport.PlatformRequestResize then
         ImVec2_Copy(window.Size, window.Viewport.Size)
         ImVec2_Copy(window.SizeFull, window.Viewport.Size)
-        -- ImGui.MarkIniSettingsDirty(window)
+        ImGui.MarkIniSettingsDirty(window)
     elseif window.Viewport.Size.x ~= window.Size.x or window.Viewport.Size.y ~= window.Size.y then
         viewport_rect_changed = true
         ImVec2_Copy(window.Viewport.Size, window.Size)
