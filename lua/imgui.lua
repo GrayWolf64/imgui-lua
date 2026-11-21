@@ -4297,7 +4297,7 @@ function ImGui.RenderText(pos, text, text_begin, text_end, hide_text_after_hash)
 
     window.DrawList:AddText(g.Font, g.FontSize, pos, ImGui.GetColorU32(ImGuiCol.Text), text, text_begin, text_display_end, 0.0)
     if g.LogEnabled then
-        -- ImGui.LogRenderedText(&pos, text, text_display_end);
+        ImGui.LogRenderedText(pos, text, text_begin, text_display_end)
     end
 end
 
@@ -4383,8 +4383,9 @@ function ImGui.RenderTextClipped(pos_min, pos_max, text, text_end, text_size_if_
     local g = GImGui
     local window = g.CurrentWindow
     ImGui.RenderTextClippedEx(window.DrawList, pos_min, pos_max, text, 1, text_display_end, text_size_if_known, align, clip_rect)
-    -- if (g.LogEnabled)
-    --     ImGui.LogRenderedText(&pos_min, text, text_display_end);
+    if g.LogEnabled then
+        ImGui.LogRenderedText(pos_min, text, 1, text_display_end)
+    end
 end
 
 --- @param bb        ImRect
@@ -4544,7 +4545,7 @@ function ImGui.RenderTextEllipsis(draw_list, pos_min, pos_max, ellipsis_max_x, t
     end
 
     if g.LogEnabled then
-        ImGui.LogRenderedText(pos_min, text, text_end_full)
+        ImGui.LogRenderedText(pos_min, text, 1, text_end_full)
     end
 end
 
@@ -10701,6 +10702,90 @@ end
 ---------------------------------------------------------------------------------------
 -- [SECTION] LOGGING
 ---------------------------------------------------------------------------------------
+
+--- @param fmt string
+--- @param ... any
+function ImGui.LogText(fmt, ...)
+    ImGui.LogTextV(fmt, ...)
+end
+
+--- @param fmt string
+--- @param ... any
+function ImGui.LogTextV(fmt, ...)
+    local g = GImGui
+    if not g.LogEnabled then
+        return
+    end
+    if g.LogFile then
+        g.LogBuffer.Buf:resize(0)
+        g.LogBuffer:appendfv(fmt, ...)
+        IM_FILE_WRITE(g.LogFile, g.LogBuffer:c_str())
+    else
+        g.LogBuffer:appendfv(fmt, ...)
+    end
+end
+
+--- @param ref_pos    ImVec2?
+--- @param text       string
+--- @param text_begin int?    # 1-based index
+--- @param text_end   int?    # Exclusive upper bound
+function ImGui.LogRenderedText(ref_pos, text, text_begin, text_end)
+    local g = GImGui
+    local window = g.CurrentWindow
+
+    local prefix = g.LogNextPrefix
+    local suffix = g.LogNextSuffix
+    g.LogNextPrefix = nil
+    g.LogNextSuffix = nil
+
+    text_begin = text_begin or 1
+    if not text_end then
+        text_end = ImGui.FindRenderedTextEnd(string.sub(text, text_begin)) + text_begin - 1
+    end
+
+    local log_new_line = ref_pos and (ref_pos.y > g.LogLinePosY + ImMax(g.Style.FramePadding.y, g.Style.ItemSpacing.y) + 1)
+    if ref_pos then
+        g.LogLinePosY = ref_pos.y
+    end
+    if log_new_line then
+        ImGui.LogText("\n")
+        g.LogLineFirstItem = true
+    end
+
+    if prefix then
+        ImGui.LogRenderedText(ref_pos, prefix, 1, #prefix + 1)
+    end
+
+    if g.LogDepthRef > window.DC.TreeDepth then
+        g.LogDepthRef = window.DC.TreeDepth
+    end
+    local tree_depth = window.DC.TreeDepth - g.LogDepthRef
+
+    local text_remaining = text_begin
+    while true do
+        local line_start = text_remaining
+        local line_end = string.find(text, "\n", line_start, true) or text_end
+        line_end = ImMin(line_end, text_end)
+        local is_last_line = line_end == text_end
+        if line_start ~= line_end or not is_last_line then
+            local indentation = g.LogLineFirstItem and tree_depth * 4 or 1
+            ImGui.LogText("%s%s", string.rep(" ", indentation), string.sub(text, line_start, line_end - 1))
+            g.LogLineFirstItem = false
+            if string.byte(text, line_end) == 10 then
+                ImGui.LogText("\n")
+                g.LogLineFirstItem = true
+            end
+        end
+        if is_last_line then
+            break
+        end
+        text_remaining = line_end + 1
+    end
+
+    if suffix then
+        ImGui.LogRenderedText(ref_pos, suffix, 1, #suffix + 1)
+    end
+end
 
 --- @param prefix string?
 --- @param suffix string?

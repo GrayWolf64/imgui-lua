@@ -2058,6 +2058,12 @@ end
 --- @field BoxSelectState                     ImGuiBoxSelectState
 --- @field DragDropPayload                    ImGuiPayload
 --- @field LogEnabled                         bool
+--- @field LogLineFirstItem                   bool
+--- @field LogFile                            any # File object
+--- @field LogBuffer                          ImGuiTextBuffer
+--- @field LogDepthRef                        int
+--- @field LogDepthToExpand                   int
+--- @field LogDepthToExpandDefault            int
 --- @field LogNextPrefix                      string?
 --- @field LogNextSuffix                      string?
 --- @field LogLinePosY                        float
@@ -2373,6 +2379,12 @@ function ImGuiContext(shared_font_atlas) -- TODO: tidy up / complete this struct
         LocalizationTable = {},
 
         LogEnabled = false,
+        LogLineFirstItem = false,
+        LogFile = nil,
+        LogBuffer = ImGuiTextBuffer(),
+        LogDepthRef = 0,
+        LogDepthToExpand = 2,
+        LogDepthToExpandDefault = 2,
         LogNextPrefix = nil,
         LogNextSuffix = nil,
         LogLinePosY = FLT_MAX,

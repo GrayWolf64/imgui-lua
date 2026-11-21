@@ -1162,7 +1162,7 @@ function ImGui.Checkbox(label, v)
 
     local label_pos = ImVec2(check_bb.Max.x + style.ItemInnerSpacing.x, check_bb.Min.y + style.FramePadding.y)
     if g.LogEnabled then
-        -- ImGui.LogRenderedText(label_pos, mixed_value and "[~]" or (v and "[x]" or "[ ]"))
+        ImGui.LogRenderedText(label_pos, mixed_value and "[~]" or (v and "[x]" or "[ ]"))
     end
 
     if is_visible and label_size.x > 0.0 then
@@ -1258,7 +1258,7 @@ function ImGui.RadioButtonEx(label, active)
     end
     local label_pos = ImVec2(check_bb.Max.x + style.ItemInnerSpacing.x, check_bb.Min.y + style.FramePadding.y)
     if g.LogEnabled then
-        -- ImGui.LogRenderedText(label_pos, active and "(x)" or "( )")
+        ImGui.LogRenderedText(label_pos, active and "(x)" or "( )")
     end
     if label_size.x > 0.0 then
         ImGui.RenderText(label_pos, label, 1, label_end, false)
