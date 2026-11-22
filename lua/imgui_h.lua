@@ -200,19 +200,6 @@ ImGuiMouseCursor =
     COUNT      = 11
 }
 
---- @class ImTextureRect
---- @field x unsigned_short
---- @field y unsigned_short
---- @field w unsigned_short
---- @field h unsigned_short
-
---- @param x? unsigned_short
---- @param y? unsigned_short
---- @param w? unsigned_short
---- @param h? unsigned_short
---- @return ImTextureRect
-function ImTextureRect(x, y, w, h) return { x = x, y = y, w = w, h = h } end
-
 -- This structure supports indexing on string keys `x`, `y` and number keys 1, 2.
 -- But note that the former is likely to be more expensive.
 --- @class ImVec2
@@ -368,6 +355,47 @@ function ImVec4_Copy(dest, src) dest[1] = src[1]; dest[2] = src[2]; dest[3] = sr
 --- @param k int
 --- @param v ImVec4
 local function ImVec4_TCopy(t, k, v) local dest = t[k]; dest[1] = v[1]; dest[2] = v[2]; dest[3] = v[3]; dest[4] = v[4]; end
+
+--- @class ImTextureRect
+--- @field x   unsigned_short
+--- @field y   unsigned_short
+--- @field w   unsigned_short
+--- @field h   unsigned_short
+--- @field [1] unsigned_short # x
+--- @field [2] unsigned_short # y
+--- @field [3] unsigned_short # w
+--- @field [4] unsigned_short # h
+local IM_TEXTURE_RECT = {}
+
+--- @param t ImTextureRect
+--- @param k string|integer
+IM_TEXTURE_RECT.__index = function(t, k)
+    if     k == "x" then return rawget(t, 1)
+    elseif k == "y" then return rawget(t, 2)
+    elseif k == "w" then return rawget(t, 3)
+    elseif k == "h" then return rawget(t, 4)
+    end
+end
+
+--- @param t ImTextureRect
+--- @param k string|integer
+--- @param v unsigned_short
+IM_TEXTURE_RECT.__newindex = function(t, k, v)
+    if     k == "x" then rawset(t, 1, v)
+    elseif k == "y" then rawset(t, 2, v)
+    elseif k == "w" then rawset(t, 3, v)
+    elseif k == "h" then rawset(t, 4, v)
+    else IM_ASSERT(false)
+    end
+end
+
+--- @param x? unsigned_short
+--- @param y? unsigned_short
+--- @param w? unsigned_short
+--- @param h? unsigned_short
+--- @return ImTextureRect
+--- @nodiscard
+function ImTextureRect(x, y, w, h) return setmetatable({x or 0, y or 0, w or 0, h or 0}, IM_TEXTURE_RECT) end
 
 --- NOTE: This struct is expensive to create
 --- @class ImSmallStack_<T>

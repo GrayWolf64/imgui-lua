@@ -3074,16 +3074,34 @@ end
 --- @field TargetIndex int          # 0-based! When IsUsed = true, TargetIndex = this rect's index in Rects; IsUsed = false, TargetIndex = the next unused RectsIndex entry's index
 --- @field Generation  unsigned_int # How many times this entry is reused
 --- @field IsUsed      bool
+--- @field [1]         int          # TargetIndex
+--- @field [2]         unsigned_int # Generation
+--- @field [3]         bool         # IsUsed
+local IM_FONT_ATLAS_RECT_ENTRY = {}
+
+--- @param t ImFontAtlasRectEntry
+--- @param k string|integer
+IM_FONT_ATLAS_RECT_ENTRY.__index = function(t, k)
+    if     k == "TargetIndex" then return rawget(t, 1)
+    elseif k == "Generation"  then return rawget(t, 2)
+    elseif k == "IsUsed"      then return rawget(t, 3)
+    end
+end
+
+--- @param t ImFontAtlasRectEntry
+--- @param k string|integer
+--- @param v int|bool
+IM_FONT_ATLAS_RECT_ENTRY.__newindex = function(t, k, v)
+    if     k == "TargetIndex" then rawset(t, 1, v)
+    elseif k == "Generation"  then rawset(t, 2, v)
+    elseif k == "IsUsed"      then rawset(t, 3, v)
+    else IM_ASSERT(false)
+    end
+end
 
 --- @return ImFontAtlasRectEntry
 --- @nodiscard
-function ImFontAtlasRectEntry()
-    return {
-        TargetIndex = 0,
-        Generation  = 0,
-        IsUsed      = false
-    }
-end
+function ImFontAtlasRectEntry() return setmetatable({0, 0, false}, IM_FONT_ATLAS_RECT_ENTRY) end
 
 --- @param t ImFontAtlasRectEntry[]
 --- @param k int
