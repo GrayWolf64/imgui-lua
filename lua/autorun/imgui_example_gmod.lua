@@ -24,7 +24,8 @@ else
 
     local main_scale = 2.0
     local window
-    concommand.Add("imgui_test", function()
+    concommand.Add("imgui_test", function() end) -- reserved for temporary testing
+    concommand.Add("imgui_example", function()
         if IsValid(window) then
             return
         end

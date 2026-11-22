@@ -30,7 +30,7 @@ Please refer to official Dear ImGui docs or src code comments for documentation!
 
 1. Clone this project into your GMod `addons` folder
 2. Create a singleplayer or multiplayer game
-3. Run `imgui_test` command in engine console
+3. Run `imgui_example` command in engine console
 4. You can also write your own test scripts and run them!
 
 ### My Development Platform

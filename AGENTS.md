@@ -48,4 +48,4 @@ Instructions in this file apply repository-wide. Read nested `AGENTS.md` files b
 - Garry's Mod intentionally disables `jit.attach`, `jit.util`, `jit.dump`, and related introspection APIs. Do not binary-patch or bypass those controls.
 - Flamegraphs identify CPU costs; constructor counters and GC deltas identify allocation costs. Use both.
 - Optimize measured hotspots, not syntax volume. Re-run equivalent workloads and separate inclusive attribution from exclusive work.
-- Remove temporary stress tests from `lua/autorun/imgui_test.lua` when profiling ends.
+- Remove temporary stress tests from `lua/autorun/imgui_example_gmod.lua` when profiling ends.
