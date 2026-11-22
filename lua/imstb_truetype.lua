@@ -304,9 +304,11 @@ end
 --- @field x number
 --- @field y number
 
+--- @param x? number
+--- @param y? number
 --- @return stbtt__point
 --- @nodiscard
-local function stbtt__point() return { x = nil, y = nil } end
+local function stbtt__point(x, y) return { x = x, y = y } end
 
 ----------------------------------------------
 ----------------------------------------------
@@ -2082,9 +2084,8 @@ end
 --- @param x       float
 --- @param y       float
 local function stbtt__add_point(points, n, x, y)
-    if points == nil then return end -- during first pass, it's unallocated
-    points[n + 1].x = x
-    points[n + 1].y = y
+    if points == nil then return end
+    points[n + 1] = stbtt__point(x, y)
 end
 
 -- tessellate until threshold p is happy...
@@ -2206,52 +2207,46 @@ local function stbtt_FlattenCurves(vertices, num_verts, objspace_flatness)
 
     local contour_lengths = {} -- size = n
 
-    -- make two passes through the points so we don't need to realloc
-    for pass = 0, 1 do
-        local x, y = 0, 0
-        if pass == 1 then
-            points = {}
-            for i = 1, num_points do points[i] = stbtt__point() end
-        end
-        num_points = 0
-        n = -1
-        for i = 1, num_verts do
-            if vertices[i].type == STBTT_VTX.MOVE then
-                -- start the next contour
-                if n >= 0 then
-                    contour_lengths[n + 1] = num_points - start
-                end
-                n = n + 1
-                start = num_points
-
-                x = vertices[i].x
-                y = vertices[i].y
-                stbtt__add_point(points, num_points, x, y)
-                num_points = num_points + 1
-            elseif vertices[i].type == STBTT_VTX.LINE then
-                x = vertices[i].x
-                y = vertices[i].y
-                stbtt__add_point(points, num_points, x, y)
-                num_points = num_points + 1
-            elseif vertices[i].type == STBTT_VTX.CURVE then
-                num_points = stbtt__tesselate_curve(points, num_points, x, y,
-                                    vertices[i].cx, vertices[i].cy,
-                                    vertices[i].x, vertices[i].y,
-                                    objspace_flatness_squared, 0)
-                x = vertices[i].x
-                y = vertices[i].y
-            elseif vertices[i].type == STBTT_VTX.CUBIC then
-                num_points = stbtt__tesselate_cubic(points, num_points, x, y,
-                                    vertices[i].cx, vertices[i].cy,
-                                    vertices[i].cx1, vertices[i].cy1,
-                                    vertices[i].x, vertices[i].y,
-                                    objspace_flatness_squared, 0)
-                x = vertices[i].x
-                y = vertices[i].y
+    -- LUA: No need to count number of points to allocate, so no 2-pass
+    points = {}
+    local x, y = 0, 0
+    n = -1
+    for i = 1, num_verts do
+        if vertices[i].type == STBTT_VTX.MOVE then
+            -- start the next contour
+            if n >= 0 then
+                contour_lengths[n + 1] = num_points - start
             end
+            n = n + 1
+            start = num_points
+
+            x = vertices[i].x
+            y = vertices[i].y
+            stbtt__add_point(points, num_points, x, y)
+            num_points = num_points + 1
+        elseif vertices[i].type == STBTT_VTX.LINE then
+            x = vertices[i].x
+            y = vertices[i].y
+            stbtt__add_point(points, num_points, x, y)
+            num_points = num_points + 1
+        elseif vertices[i].type == STBTT_VTX.CURVE then
+            num_points = stbtt__tesselate_curve(points, num_points, x, y,
+                                vertices[i].cx, vertices[i].cy,
+                                vertices[i].x, vertices[i].y,
+                                objspace_flatness_squared, 0)
+            x = vertices[i].x
+            y = vertices[i].y
+        elseif vertices[i].type == STBTT_VTX.CUBIC then
+            num_points = stbtt__tesselate_cubic(points, num_points, x, y,
+                                vertices[i].cx, vertices[i].cy,
+                                vertices[i].cx1, vertices[i].cy1,
+                                vertices[i].x, vertices[i].y,
+                                objspace_flatness_squared, 0)
+            x = vertices[i].x
+            y = vertices[i].y
         end
-        contour_lengths[n + 1] = num_points - start
     end
+    contour_lengths[n + 1] = num_points - start
 
     return points, num_contours, contour_lengths
 end
