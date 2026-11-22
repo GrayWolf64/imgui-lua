@@ -140,8 +140,19 @@ local function ImGui_ImplGMOD_ProcessKeyEventsWorkarounds(io)
     ImGui_ImplGMOD_UpdateKeyModifiers(io)
 end
 
+local function GMOD_ResourcePrefix(id) return string.format("imgui_implgmod_%d", id) end
+local function GMOD_MaterialName(id) return string.format("%s_material", GMOD_ResourcePrefix(id)) end
+local function GMOD_TextureName(id, k) return string.format("%s_rt_%d", GMOD_ResourcePrefix(id), k) end
+
+-- Reserve an engine-wide "namespace" so independently loaded backend copies cannot share resources
+local g_InstanceId = 1 do
+    while not Material("!" .. GMOD_MaterialName(g_InstanceId)):IsError() do
+        g_InstanceId = g_InstanceId + 1
+    end
+end
+
 -- One backend instance only needs one engine material, make it `error` initially
-local g_EngineMaterial = CreateMaterial(string.format("imgui_implgmod_mat@%d", SysTime()), "UnlitGeneric", {
+local g_EngineMaterial = CreateMaterial(GMOD_MaterialName(g_InstanceId), "UnlitGeneric", {
     ["$basetexture"] = "error",
     ["$translucent"] = 1,
     ["$vertexcolor"] = 1,
@@ -1107,7 +1118,7 @@ local function CreateEngineResource(bd, backend_tex, tex)
 
     local i = #bd.Textures + 1
     --- @diagnostic disable-next-line
-    rt = GetRenderTargetEx(string.format("imgui_implgmod_rt#%d", i), backend_tex.Width, backend_tex.Height, RT_SIZE_LITERAL, MATERIAL_RT_DEPTH_NONE, 0, 0, IMAGE_FORMAT_RGBA8888)
+    rt = GetRenderTargetEx(GMOD_TextureName(g_InstanceId, i), backend_tex.Width, backend_tex.Height, RT_SIZE_LITERAL, MATERIAL_RT_DEPTH_NONE, 0, 0, IMAGE_FORMAT_RGBA8888)
     bd.Textures[i] = rt
     bd.TextureInUseMarkers[i] = true
     backend_tex.Handle = i
