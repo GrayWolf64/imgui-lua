@@ -243,10 +243,8 @@ end
 --- Forward Declarations
 local CalcNextScrollFromScrollTargetAndClamp
 
-local MT = ImGui.GetMetatables()
-
 --- @param scale_factor float
-function MT.ImGuiStyle:ScaleAllSizes(scale_factor)
+function IMGUI_STYLE:ScaleAllSizes(scale_factor)
     self._MainScale = self._MainScale * scale_factor
 
     self.WindowPadding    = ImTrunc(self.WindowPadding * scale_factor)
@@ -2213,7 +2211,7 @@ end
 
 --- @param id string|int
 --- @return ImGuiID
-function MT.ImGuiWindow:GetID(id)
+function IMGUI_WINDOW:GetID(id)
     local seed = self.IDStack:back()
 
     if type(id) == "string" then
@@ -2244,7 +2242,7 @@ end
 -- This is only used in rare/specific situations to manufacture an ID out of nowhere
 --- @param p_abs ImVec2
 --- @return ImGuiID
-function MT.ImGuiWindow:GetIDFromPos(p_abs)
+function IMGUI_WINDOW:GetIDFromPos(p_abs)
     local seed = self.IDStack:back()
     local p_rel = ImGui.WindowPosAbsToRel(self, p_abs)
     return ImHashData(p_rel, 2, seed)
@@ -2569,7 +2567,7 @@ function ImGui.SetLastItemDataForChildWindowItem(window, rect)
 end
 
 --- @param c unsigned_int
-function MT.ImGuiIO:AddInputCharacter(c)
+function IMGUI_IO:AddInputCharacter(c)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
     if c == 0 or not self.AppAcceptingEvents then
@@ -2588,7 +2586,7 @@ function MT.ImGuiIO:AddInputCharacter(c)
 end
 
 --- @param c ImWchar16
-function MT.ImGuiIO:AddInputCharacterUTF16(c)
+function IMGUI_IO:AddInputCharacterUTF16(c)
     if (c == 0 and self.InputQueueSurrogate == 0) or not self.AppAcceptingEvents then
         return
     end
@@ -2616,13 +2614,13 @@ function MT.ImGuiIO:AddInputCharacterUTF16(c)
     self:AddInputCharacter(cp)
 end
 
-function MT.ImGuiIO:ClearEventsQueue()
+function IMGUI_IO:ClearEventsQueue()
     IM_ASSERT(self.Ctx ~= nil)
     local g = GImGui
     g.InputEventsQueue:clear()
 end
 
-function MT.ImGuiIO:ClearInputKeys()
+function IMGUI_IO:ClearInputKeys()
     local g = self.Ctx
     for key = ImGuiKey.NamedKey_BEGIN, ImGuiKey.NamedKey_END - 1 do
         if not ImGui.IsMouseKey(key) then
@@ -2640,7 +2638,7 @@ function MT.ImGuiIO:ClearInputKeys()
     self.InputQueueCharacters:resize(0)
 end
 
-function MT.ImGuiIO:ClearInputMouse()
+function IMGUI_IO:ClearInputMouse()
     for key = ImGuiKey_Mouse_BEGIN, ImGuiKey_Mouse_END - 1 do
         local key_data = self.KeysData[key - ImGuiKey.NamedKey_BEGIN]
         if key_data then
@@ -2687,7 +2685,7 @@ end
 --- @param key          ImGuiKey
 --- @param down         bool
 --- @param analog_value float
-function MT.ImGuiIO:AddKeyAnalogEvent(key, down, analog_value)
+function IMGUI_IO:AddKeyAnalogEvent(key, down, analog_value)
     IM_ASSERT(self.Ctx ~= nil)
     if key == ImGuiKey.None or not self.AppAcceptingEvents then
         return
@@ -2733,7 +2731,7 @@ end
 
 --- @param key  ImGuiKey
 --- @param down bool
-function MT.ImGuiIO:AddKeyEvent(key, down)
+function IMGUI_IO:AddKeyEvent(key, down)
     if not self.AppAcceptingEvents then
         return
     end
@@ -2741,19 +2739,19 @@ function MT.ImGuiIO:AddKeyEvent(key, down)
 end
 
 --- @param accepting_events bool
-function MT.ImGuiIO:SetAppAcceptingEvents(accepting_events)
+function IMGUI_IO:SetAppAcceptingEvents(accepting_events)
     self.AppAcceptingEvents = accepting_events
 end
 
 --- @param source ImGuiMouseSource
-function MT.ImGuiIO:AddMouseSourceEvent(source)
+function IMGUI_IO:AddMouseSourceEvent(source)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
     g.InputEventsNextMouseSource = source
 end
 
 --- @param viewport_id ImGuiID
-function MT.ImGuiIO:AddMouseViewportEvent(viewport_id)
+function IMGUI_IO:AddMouseViewportEvent(viewport_id)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
     -- IM_ASSERT(g.IO.BackendFlags & ImGuiBackendFlags.HasMouseHoveredViewport);
@@ -2782,7 +2780,7 @@ function MT.ImGuiIO:AddMouseViewportEvent(viewport_id)
 end
 
 --- @param focused bool
-function MT.ImGuiIO:AddFocusEvent(focused)
+function IMGUI_IO:AddFocusEvent(focused)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
 
@@ -2806,7 +2804,7 @@ end
 
 --- @param x float
 --- @param y float
-function MT.ImGuiIO:AddMousePosEvent(x, y)
+function IMGUI_IO:AddMousePosEvent(x, y)
     IM_ASSERT(self.Ctx ~= nil)
     if not self.AppAcceptingEvents then
         return
@@ -2843,7 +2841,7 @@ end
 
 --- @param mouse_button ImGuiMouseButton
 --- @param down         bool
-function MT.ImGuiIO:AddMouseButtonEvent(mouse_button, down)
+function IMGUI_IO:AddMouseButtonEvent(mouse_button, down)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
     IM_ASSERT(mouse_button >= 0 and mouse_button < ImGuiMouseButton.COUNT)
@@ -2900,7 +2898,7 @@ end
 
 --- @param wheel_x float
 --- @param wheel_y float
-function MT.ImGuiIO:AddMouseWheelEvent(wheel_x, wheel_y)
+function IMGUI_IO:AddMouseWheelEvent(wheel_x, wheel_y)
     IM_ASSERT(self.Ctx ~= nil)
     local g = self.Ctx
     if not self.AppAcceptingEvents or (wheel_x == 0 and wheel_y == 0) then
@@ -7620,7 +7618,7 @@ function ImGui.CalcTextSizeEx(text, text_begin, text_end, hide_text_after_double
     if text == "" or (text_end and text_end <= text_begin) then
         return ImVec2(0.0, font_size)
     end
-    local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, text_begin, text_display_end, nil)
+    local text_size = font:CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, text_begin, text_display_end)
 
     text_size.x = ImCeilFast(text_size.x)
 
@@ -7866,7 +7864,7 @@ end
 
 --- @param items_count   int
 --- @param items_height? float
-function MT.ImGuiListClipper:Begin(items_count, items_height)
+function IMGUI_LIST_CLIPPER:Begin(items_count, items_height)
     if items_height == nil then items_height = -1.0 end
 
     self.Ctx = ImGui.GetCurrentContext()
@@ -7897,7 +7895,7 @@ function MT.ImGuiListClipper:Begin(items_count, items_height)
     self.StartSeekOffsetY = data.LossynessOffset
 end
 
-function MT.ImGuiListClipper:End()
+function IMGUI_LIST_CLIPPER:End()
     local data = self.TempData
     if data ~= nil then
         local g = self.Ctx
@@ -7923,13 +7921,13 @@ function MT.ImGuiListClipper:End()
 end
 
 --- @param item_index int
-function MT.ImGuiListClipper:IncludeItemByIndex(item_index)
+function IMGUI_LIST_CLIPPER:IncludeItemByIndex(item_index)
     self:IncludeItemsByIndex(item_index, item_index + 1)
 end
 
 --- @param item_begin int
 --- @param item_end   int
-function MT.ImGuiListClipper:IncludeItemsByIndex(item_begin, item_end)
+function IMGUI_LIST_CLIPPER:IncludeItemsByIndex(item_begin, item_end)
     local data = self.TempData
     IM_ASSERT(self.DisplayStart < 0)
     IM_ASSERT(item_begin <= item_end)
@@ -7939,7 +7937,7 @@ function MT.ImGuiListClipper:IncludeItemsByIndex(item_begin, item_end)
 end
 
 --- @param item_index int
-function MT.ImGuiListClipper:SeekCursorForItem(item_index)
+function IMGUI_LIST_CLIPPER:SeekCursorForItem(item_index)
     local pos_y = self.StartPosY + self.StartSeekOffsetY + (item_index - 1) * self.ItemsHeight
     ImGuiListClipper_SeekCursorAndSetupPrevLine(self, pos_y, self.ItemsHeight)
 end
@@ -8079,7 +8077,7 @@ local function ImGuiListClipper_StepInternal(clipper)
 end
 
 --- @return bool
-function MT.ImGuiListClipper:Step()
+function IMGUI_LIST_CLIPPER:Step()
     local g = self.Ctx
     local need_items_height = self.ItemsHeight <= 0.0
     local ret = ImGuiListClipper_StepInternal(self)
@@ -10859,12 +10857,12 @@ end
 -- [SECTION] VIEWPORTS, PLATFORM WINDOWS
 ---------------------------------------------------------------------------------------
 
-function MT.ImGuiViewport:GetDebugName()
+function IMGUI_VIEWPORT:GetDebugName()
     local viewport = self
     return viewport.Window and viewport.Window.Name or "n/a"
 end
 
-function MT.ImGuiPlatformIO:ClearPlatformHandlers()
+function IMGUI_PLATFORM_IO:ClearPlatformHandlers()
     self.Platform_GetClipboardTextFn = nil; self.Platform_SetClipboardTextFn = nil
     self.Platform_ClipboardUserData  = nil
     self.Platform_OpenInShellFn = nil; self.Platform_OpenInShellUserData = nil
@@ -10878,7 +10876,7 @@ function MT.ImGuiPlatformIO:ClearPlatformHandlers()
     self.Platform_OnChangedViewport = nil; self.Platform_GetWindowWorkAreaInsets = nil; self.Platform_CreateVkSurface = nil
 end
 
-function MT.ImGuiPlatformIO:ClearRendererHandlers()
+function IMGUI_PLATFORM_IO:ClearRendererHandlers()
     self.Renderer_TextureMaxWidth = 0; self.Renderer_TextureMaxHeight = 0
     self.Renderer_RenderState     = nil
     self.Renderer_CreateWindow    = nil; self.Renderer_DestroyWindow  = nil

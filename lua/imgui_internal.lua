@@ -35,8 +35,6 @@ end
 
 local setmetatable = setmetatable
 
-local MT = ImGui.GetMetatables()
-
 IM_TABSIZE = 4
 
 FLT_MIN = 1.1754943508223e-38
@@ -857,26 +855,26 @@ function ImBitArray(BITCOUNT, OFFSET)
     return this
 end
 
-function MT.ImDrawList:PathClear() self._Path:clear() end
+function IM_DRAW_LIST:PathClear() self._Path:clear() end
 
 --- @param pos ImVec2
-function MT.ImDrawList:PathLineTo(pos) self._Path:push_back(pos) end
+function IM_DRAW_LIST:PathLineTo(pos) self._Path:push_back(pos) end
 
-function MT.ImDrawList:PathLineToMergeDuplicate(pos)
+function IM_DRAW_LIST:PathLineToMergeDuplicate(pos)
     local path_size = self._Path.Size
     if path_size == 0 or self._Path.Data[path_size].x ~= pos.x or self._Path.Data[path_size].y ~= pos.y then
         self._Path:push_back(pos)
     end
 end
 
-function MT.ImDrawList:PathFillConvex(col, flags)
+function IM_DRAW_LIST:PathFillConvex(col, flags)
     if flags == nil then flags = 0 end
 
     self:AddConvexPolyFilled(self._Path.Data, self._Path.Size, col, flags)
     self._Path.Size = 0
 end
 
-function MT.ImDrawList:PathFillConcave(col)
+function IM_DRAW_LIST:PathFillConcave(col)
     self:AddConcavePolyFilled(self._Path.Data, self._Path.Size, col)
     self._Path.Size = 0
 end
@@ -884,7 +882,7 @@ end
 --- @param col        ImU32
 --- @param thickness? float
 --- @param flags?     ImDrawFlags
-function MT.ImDrawList:PathStroke(col, thickness, flags)
+function IM_DRAW_LIST:PathStroke(col, thickness, flags)
     if not thickness then thickness = 1.0 end
     if not flags     then flags     = 0   end
 
@@ -918,8 +916,8 @@ end
 --- @field ArcFastVtx                 table<ImVec2>           # 1-based table
 --- @field ArcFastRadiusCutoff        float
 --- @field CircleSegmentCounts        table<int>              # 1-based table
-MT.ImDrawListSharedData = {}
-MT.ImDrawListSharedData.__index = MT.ImDrawListSharedData
+IM_DRAW_LIST_SHARED_DATA = {}
+IM_DRAW_LIST_SHARED_DATA.__index = IM_DRAW_LIST_SHARED_DATA
 
 --- @return ImDrawListSharedData
 --- @nodiscard
@@ -948,7 +946,7 @@ function ImDrawListSharedData()
         CircleSegmentCounts = {},
 
         Context = nil
-    }, MT.ImDrawListSharedData)
+    }, IM_DRAW_LIST_SHARED_DATA)
 
     for i = 1, IM_DRAWLIST_ARCFAST_TABLE_SIZE do
         local a = ((i - 1) * 2 * IM_PI) / IM_DRAWLIST_ARCFAST_TABLE_SIZE
@@ -985,13 +983,13 @@ local ImFontAtlasRectEntry_TCopy
 --- @field PackIdCornersTexData      ImFontAtlasRectId
 --- @field TexUvLines                ImVec4[]                       # 0-based table
 --- @field TexUvCorners              ImVec4[]                       # 1-based table
-MT.ImFontAtlasBuilder = {}
-MT.ImFontAtlasBuilder.__index = MT.ImFontAtlasBuilder
+local IM_FONT_ATLAS_BUILDER = {}
+IM_FONT_ATLAS_BUILDER.__index = IM_FONT_ATLAS_BUILDER
 
 --- @return ImFontAtlasBuilder
 function ImFontAtlasBuilder()
     --- @type ImFontAtlasBuilder
-    local this = setmetatable({}, MT.ImFontAtlasBuilder)
+    local this = setmetatable({}, IM_FONT_ATLAS_BUILDER)
 
     this.PackContext              = nil -- struct stbrp_context_opaque { char data[80]; };
     this.PackNodes                = ImVector()
@@ -1303,8 +1301,8 @@ ImGuiSeparatorFlags =
 }
 
 --- @class ImGuiStyle
-MT.ImGuiStyle = {}
-MT.ImGuiStyle.__index = MT.ImGuiStyle
+IMGUI_STYLE = {}
+IMGUI_STYLE.__index = IMGUI_STYLE
 
 --- @return ImGuiStyle
 --- @nodiscard
@@ -1420,7 +1418,7 @@ function ImGuiStyle()
 
     ImGui.StyleColorsDark(this)
 
-    setmetatable(this, MT.ImGuiStyle)
+    setmetatable(this, IMGUI_STYLE)
 
     return this
 end
@@ -1493,8 +1491,8 @@ end
 --- @field EditedBefore         bool                # edited since activated
 --- @field EditedThisFrame      bool                # edited this frame
 --- @field ValidatedThisFrame   bool
-MT.ImGuiInputTextState = {}
-MT.ImGuiInputTextState.__index = MT.ImGuiInputTextState
+IMGUI_INPUT_TEXT_STATE = {}
+IMGUI_INPUT_TEXT_STATE.__index = IMGUI_INPUT_TEXT_STATE
 
 local function ImGuiInputTextState()
     local this = {
@@ -1523,7 +1521,7 @@ local function ImGuiInputTextState()
         ValidatedThisFrame = false,
     }
 
-    return setmetatable(this, MT.ImGuiInputTextState)
+    return setmetatable(this, IMGUI_INPUT_TEXT_STATE)
 end
 
 --- @class ImGuiInputTextDeactivatedState
@@ -2602,8 +2600,8 @@ end
 --- @field OffsetShortcut ImU16
 --- @field OffsetMark     ImU16
 --- @field Widths         ImU16[] # Width of: Icon, Label, Shortcut, Mark (accumulators for current frame)
-MT.ImGuiMenuColumns = {}
-MT.ImGuiMenuColumns.__index = MT.ImGuiMenuColumns
+IMGUI_MENU_COLUMNS = {}
+IMGUI_MENU_COLUMNS.__index = IMGUI_MENU_COLUMNS
 
 --- @return ImGuiMenuColumns
 local function ImGuiMenuColumns()
@@ -2616,7 +2614,7 @@ local function ImGuiMenuColumns()
         OffsetShortcut = 0,
         OffsetMark     = 0,
         Widths         = {0, 0, 0, 0}
-    }, MT.ImGuiMenuColumns)
+    }, IMGUI_MENU_COLUMNS)
 end
 
 --- @class ImGuiWindowTempData
@@ -2737,24 +2735,24 @@ end
 --- @field MemoryDrawListIdxCapacity          int
 --- @field MemoryDrawListVtxCapacity          int
 --- @field MemoryCompacted                    bool
-MT.ImGuiWindow = {}
-MT.ImGuiWindow.__index = MT.ImGuiWindow
+IMGUI_WINDOW = {}
+IMGUI_WINDOW.__index = IMGUI_WINDOW
 
 --- @return ImRect
 --- @nodiscard
-function MT.ImGuiWindow:Rect()
+function IMGUI_WINDOW:Rect()
     return ImRect(self.Pos.x, self.Pos.y, self.Pos.x + self.Size.x, self.Pos.y + self.Size.y)
 end
 
 --- @return ImRect
 --- @nodiscard
-function MT.ImGuiWindow:TitleBarRect()
+function IMGUI_WINDOW:TitleBarRect()
     return ImRect(self.Pos, ImVec2(self.Pos.x + self.SizeFull.x, self.Pos.y + self.TitleBarHeight))
 end
 
 --- @return ImRect
 --- @nodiscard
-function MT.ImGuiWindow:MenuBarRect()
+function IMGUI_WINDOW:MenuBarRect()
     local y1 = self.Pos.y + self.TitleBarHeight
     return ImRect(self.Pos.x, y1, self.Pos.x + self.SizeFull.x, y1 + self.MenuBarHeight)
 end
@@ -2904,7 +2902,7 @@ function ImGuiWindow(ctx, name)
     this.DrawList = this.DrawListInst
     this.DrawList._OwnerName = name
 
-    setmetatable(this, MT.ImGuiWindow)
+    setmetatable(this, IMGUI_WINDOW)
 
     this.ID = ImHashStr(name)
     this.IDStack:push_back(this.ID)
@@ -2955,7 +2953,7 @@ end
 local IMGUI_VIEWPORT_P = {}
 IMGUI_VIEWPORT_P.__index = IMGUI_VIEWPORT_P
 
-setmetatable(IMGUI_VIEWPORT_P, {__index = MT.ImGuiViewport})
+setmetatable(IMGUI_VIEWPORT_P, {__index = IMGUI_VIEWPORT})
 
 function IMGUI_VIEWPORT_P:ClearRequestFlags()
     self.PlatformRequestClose  = false
@@ -3047,14 +3045,14 @@ end
 --- @field FontBakedDestroy?                 fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any)
 --- @field FontBakedLoadGlyph                fun(atlas: ImFontAtlas, src: ImFontConfig, baked: ImFontBaked, loader_data_for_baked_src?: any, glyph_index: int, out_glyph?: ImFontGlyph, advance_x?: float): bool, float?
 --- @field FontBakedSrcLoaderDataSize        unsigned_int
-MT.ImFontLoader = {}
-MT.ImFontLoader.__index = MT.ImFontLoader
+local IM_FONT_LOADER = {}
+IM_FONT_LOADER.__index = IM_FONT_LOADER
 
 --- @return ImFontLoader
 --- @nodiscard
 function ImFontLoader()
     --- @type ImFontLoader
-    local this = setmetatable({}, MT.ImFontLoader)
+    local this = setmetatable({}, IM_FONT_LOADER)
 
     this.Name                              = nil
     this.LoaderInit                        = nil

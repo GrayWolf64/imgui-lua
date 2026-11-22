@@ -4318,12 +4318,10 @@ function ImStb.stb_textedit_replace(str, state, text, text_len)
     IM_ASSERT(false) -- Failed to insert character, normally shouldn't happen because of how we currently use stb_textedit_replace()
 end
 
-local MT = ImGui.GetMetatables()
-
 do
 
 --- @param key int
-function MT.ImGuiInputTextState:OnKeyPressed(key)
+function IMGUI_INPUT_TEXT_STATE:OnKeyPressed(key)
     stbte.key(self, self.Stb, key)
     self.CursorFollow = true
     self:CursorAnimReset()
@@ -4338,7 +4336,7 @@ end
 local utf8 = {0, 0, 0, 0, 0}
 
 --- @param c unsigned_int
-function MT.ImGuiInputTextState:OnCharPressed(c)
+function IMGUI_INPUT_TEXT_STATE:OnCharPressed(c)
     for i = 1, 5 do utf8[i] = 0 end
 
     -- Convert the key to a UTF8 byte sequence.
@@ -4350,22 +4348,22 @@ function MT.ImGuiInputTextState:OnCharPressed(c)
 end
 
 -- After a user-input the cursor stays on for a while without blinking
-function MT.ImGuiInputTextState:CursorAnimReset() self.CursorAnim = -0.30 end
+function IMGUI_INPUT_TEXT_STATE:CursorAnimReset() self.CursorAnim = -0.30 end
 
-function MT.ImGuiInputTextState:CursorClamp()
+function IMGUI_INPUT_TEXT_STATE:CursorClamp()
     self.Stb.cursor = ImMin(self.Stb.cursor, self.TextLen + 1)
     self.Stb.select_start = ImMin(self.Stb.select_start, self.TextLen + 1)
     self.Stb.select_end = ImMin(self.Stb.select_end, self.TextLen + 1)
 end
 
-function MT.ImGuiInputTextState:HasSelection() return self.Stb.select_start ~= self.Stb.select_end end
+function IMGUI_INPUT_TEXT_STATE:HasSelection() return self.Stb.select_start ~= self.Stb.select_end end
 
-function MT.ImGuiInputTextState:ClearSelection()
+function IMGUI_INPUT_TEXT_STATE:ClearSelection()
     self.Stb.select_start = self.Stb.cursor
     self.Stb.select_end = self.Stb.cursor
 end
 
-function MT.ImGuiInputTextState:SelectAll()
+function IMGUI_INPUT_TEXT_STATE:SelectAll()
     self.Stb.select_start = 1
     self.Stb.cursor = self.TextLen + 1
     self.Stb.select_end = self.TextLen + 1
@@ -7728,7 +7726,7 @@ end
 
 --- @param spacing            float
 --- @param window_reappearing bool
-function MT.ImGuiMenuColumns:Update(spacing, window_reappearing)
+function IMGUI_MENU_COLUMNS:Update(spacing, window_reappearing)
     if window_reappearing then
         for i = 1, #self.Widths do self.Widths[i] = 0 end
     end
@@ -7740,7 +7738,7 @@ function MT.ImGuiMenuColumns:Update(spacing, window_reappearing)
 end
 
 --- @param update_offsets bool
-function MT.ImGuiMenuColumns:CalcNextTotalWidth(update_offsets)
+function IMGUI_MENU_COLUMNS:CalcNextTotalWidth(update_offsets)
     local offset = 0
     local want_spacing = false
     for i = 1, #self.Widths do
@@ -7763,7 +7761,7 @@ end
 --- @param w_label    float
 --- @param w_shortcut float
 --- @param w_mark     float
-function MT.ImGuiMenuColumns:DeclColumns(w_icon, w_label, w_shortcut, w_mark)
+function IMGUI_MENU_COLUMNS:DeclColumns(w_icon, w_label, w_shortcut, w_mark)
     self.Widths[1] = ImMax(self.Widths[1], (ImU16)(w_icon))
     self.Widths[2] = ImMax(self.Widths[2], (ImU16)(w_label))
     self.Widths[3] = ImMax(self.Widths[3], (ImU16)(w_shortcut))

@@ -110,15 +110,6 @@ IM_FREE = ImGui.MemFree
 --- @param field string|int
 IM_DELETE = function(owner, field) if owner[field] ~= nil then owner[field] = nil; ImGui.MemFree(owner, field); end end
 
----------------------------------------------------------------------------------------
--- [SECTION] METATABLE MANAGEMENT
----------------------------------------------------------------------------------------
-
---- File-scope metatable storage
-local MT = {}
-
-function ImGui.GetMetatables() return MT end
-
 --- @param _EXPR any
 --- @param _MSG  string?
 function IM_ASSERT(_EXPR, _MSG) assert((_EXPR), _MSG) end
@@ -623,8 +614,8 @@ ImGuiListClipperFlags =
 --- @field StartSeekOffsetY double
 --- @field Ctx              ImGuiContext?
 --- @field TempData         ImGuiListClipperData?
-MT.ImGuiListClipper = {}
-MT.ImGuiListClipper.__index = MT.ImGuiListClipper
+IMGUI_LIST_CLIPPER = {}
+IMGUI_LIST_CLIPPER.__index = IMGUI_LIST_CLIPPER
 
 --- @return ImGuiListClipper
 function ImGuiListClipper()
@@ -639,7 +630,7 @@ function ImGuiListClipper()
         StartSeekOffsetY = 0.0,
         Ctx              = nil,
         TempData         = nil,
-    }, MT.ImGuiListClipper)
+    }, IMGUI_LIST_CLIPPER)
 end
 
 --- @alias ImGuiStorage<T> table<ImGuiID, T>
@@ -748,16 +739,16 @@ function ImDrawChannel() return { _CmdBuffer = ImVector(), _IdxBuffer = ImVector
 --- @field _Current  int
 --- @field _Count    int
 --- @field _Channels ImVector<ImDrawChannel>
-MT.ImDrawListSplitter = {}
-MT.ImDrawListSplitter.__index = MT.ImDrawListSplitter
+IM_DRAW_LIST_SPLITTER = {}
+IM_DRAW_LIST_SPLITTER.__index = IM_DRAW_LIST_SPLITTER
 
-function MT.ImDrawListSplitter:Clear()
+function IM_DRAW_LIST_SPLITTER:Clear()
     self._Current = 0; self._Count = 1
 end
 
 --- @return ImDrawListSplitter
 --- @nodiscard
-function ImDrawListSplitter() return setmetatable({ _Current = 0, _Count = 0, _Channels = ImVector() }, MT.ImDrawListSplitter) end
+function ImDrawListSplitter() return setmetatable({ _Current = 0, _Count = 0, _Channels = ImVector() }, IM_DRAW_LIST_SPLITTER) end
 
 --- @class ImDrawList
 --- @field CmdBuffer             ImVector<ImDrawCmd>
@@ -779,13 +770,13 @@ function ImDrawListSplitter() return setmetatable({ _Current = 0, _Count = 0, _C
 --- @field _InvFringeScale       float
 --- @field _FringeScaleIsInteger bool
 --- @field _OwnerName            string
-MT.ImDrawList = {}
-MT.ImDrawList.__index = MT.ImDrawList
+IM_DRAW_LIST = {}
+IM_DRAW_LIST.__index = IM_DRAW_LIST
 
 --- @param pos ImVec2
 --- @param uv  ImVec2
 --- @param col ImU32
-function MT.ImDrawList:PrimWriteVtx(pos, uv, col)
+function IM_DRAW_LIST:PrimWriteVtx(pos, uv, col)
     local vtx = self.VtxBuffer.Data[self._VtxWritePtr]
     ImVec2_Copy(vtx[1], pos)
     ImVec2_Copy(vtx[2], uv)
@@ -795,7 +786,7 @@ function MT.ImDrawList:PrimWriteVtx(pos, uv, col)
 end
 
 --- @param idx ImDrawIdx
-function MT.ImDrawList:PrimWriteIdx(idx)
+function IM_DRAW_LIST:PrimWriteIdx(idx)
     self.IdxBuffer.Data[self._IdxWritePtr] = idx
     self._IdxWritePtr = self._IdxWritePtr + 1
 end
@@ -803,7 +794,7 @@ end
 --- @param pos ImVec2
 --- @param uv  ImVec2
 --- @param col ImU32
-function MT.ImDrawList:PrimVtx(pos, uv, col)
+function IM_DRAW_LIST:PrimVtx(pos, uv, col)
     self:PrimWriteIdx(self._VtxCurrentIdx)
     self:PrimWriteVtx(pos, uv, col)
 end
@@ -835,7 +826,7 @@ function ImDrawList(data)
         _InvFringeScale       = 0,
         _FringeScaleIsInteger = false,
         _OwnerName            = nil
-    }, MT.ImDrawList)
+    }, IM_DRAW_LIST)
 
     this:_SetDrawListSharedData(data)
 
@@ -853,13 +844,13 @@ end
 --- @field FramebufferScale ImVec2
 --- @field OwnerViewport    ImGuiViewport
 --- @field Textures         ImVector<ImTextureData>
-MT.ImDrawData = {}
-MT.ImDrawData.__index = MT.ImDrawData
+IM_DRAW_DATA = {}
+IM_DRAW_DATA.__index = IM_DRAW_DATA
 
 --- @return ImDrawData
 function ImDrawData()
     --- @type ImDrawData
-    local this = setmetatable({}, MT.ImDrawData)
+    local this = setmetatable({}, IM_DRAW_DATA)
 
     this.CmdLists = ImVector()
     this:Clear()
@@ -885,14 +876,14 @@ end
 --- @field RefCount             unsigned_short
 --- @field UseColors            bool
 --- @field WantDestroyNextFrame bool
-MT.ImTextureData = {}
-MT.ImTextureData.__index = MT.ImTextureData
+IM_TEXTURE_DATA = {}
+IM_TEXTURE_DATA.__index = IM_TEXTURE_DATA
 
 --- @return ImTextureData
 --- @nodiscard
 function ImTextureData()
     --- @type ImTextureData
-    local this = setmetatable({}, MT.ImTextureData)
+    local this = setmetatable({}, IM_TEXTURE_DATA)
 
     this.UniqueID             = 0
     this.Status               = ImTextureStatus.Destroyed
@@ -916,18 +907,18 @@ end
 
 --- @param x int
 --- @param y int
-function MT.ImTextureData:GetPixelsAt(x, y)
+function IM_TEXTURE_DATA:GetPixelsAt(x, y)
     return self.Pixels, (x + y * self.Width) * self.BytesPerPixel + 1
 end
 
-function MT.ImTextureData:GetPitch() return self.Width * self.BytesPerPixel end
-function MT.ImTextureData:GetTexID() return self.TexID end
+function IM_TEXTURE_DATA:GetPitch() return self.Width * self.BytesPerPixel end
+function IM_TEXTURE_DATA:GetTexID() return self.TexID end
 
 --- @param tex_id ImTextureID
-function MT.ImTextureData:SetTexID(tex_id) self.TexID = tex_id end
+function IM_TEXTURE_DATA:SetTexID(tex_id) self.TexID = tex_id end
 
 --- @param status ImTextureStatus
-function MT.ImTextureData:SetStatus(status) self.Status = status if (status == ImTextureStatus.Destroyed and not self.WantDestroyNextFrame and self.Pixels ~= nil) then self.Status = ImTextureStatus.WantCreate end end
+function IM_TEXTURE_DATA:SetStatus(status) self.Status = status if (status == ImTextureStatus.Destroyed and not self.WantDestroyNextFrame and self.Pixels ~= nil) then self.Status = ImTextureStatus.WantCreate end end
 
 --- @class ImTextureRef
 --- @field _TexData? ImTextureData
@@ -973,14 +964,14 @@ end
 --- @field BakedId              ImGuiID
 --- @field OwnerFont            ImFont
 --- @field FontLoaderDatas      any
-MT.ImFontBaked = {}
-MT.ImFontBaked.__index = MT.ImFontBaked
+IM_FONT_BAKED = {}
+IM_FONT_BAKED.__index = IM_FONT_BAKED
 
 --- @return ImFontBaked
 --- @nodiscard
 function ImFontBaked()
     --- @type ImFontBaked
-    local this = setmetatable({}, MT.ImFontBaked)
+    local this = setmetatable({}, IM_FONT_BAKED)
 
     this.IndexAdvanceX     = ImVector()
     this.FallbackAdvanceX  = 0
@@ -1019,17 +1010,17 @@ end
 --- @field EllipsisAutoBake         bool
 --- @field RemapPairs               ImGuiStorage<int>
 --- @field Scale                    float
-MT.ImFont = {}
-MT.ImFont.__index = MT.ImFont
+IM_FONT = {}
+IM_FONT.__index = IM_FONT
 
-function MT.ImFont:IsLoaded() return self.OwnerAtlas ~= nil end
-function MT.ImFont:GetDebugName() if self.Sources.Size > 0 then return self.Sources[1].Name else return "<unknown>" end end
+function IM_FONT:IsLoaded() return self.OwnerAtlas ~= nil end
+function IM_FONT:GetDebugName() if self.Sources.Size > 0 then return self.Sources[1].Name else return "<unknown>" end end
 
 --- @return ImFont
 --- @nodiscard
 function ImFont()
     --- @type ImFont
-    local this = setmetatable({}, MT.ImFont)
+    local this = setmetatable({}, IM_FONT)
 
     this.LastBaked                = nil
     this.OwnerAtlas               = nil
@@ -1142,14 +1133,14 @@ end
 --- @field FontLoaderFlags     unsigned_int
 --- @field RefCount            int
 --- @field OwnerContext        ImGuiContext
-MT.ImFontAtlas = {}
-MT.ImFontAtlas.__index = MT.ImFontAtlas
+IM_FONT_ATLAS = {}
+IM_FONT_ATLAS.__index = IM_FONT_ATLAS
 
 --- @return ImFontAtlas
 --- @nodiscard
 function ImFontAtlas()
     --- @type ImFontAtlas
-    local this = setmetatable({}, MT.ImFontAtlas)
+    local this = setmetatable({}, IM_FONT_ATLAS)
 
     this.Flags               = 0
     this.TexDesiredFormat    = ImTextureFormat.RGBA32
@@ -1266,8 +1257,8 @@ ImGuiConfigFlags = {
 
 --- @class ImGuiIO
 --- @field IniSavingRate float
-MT.ImGuiIO = {}
-MT.ImGuiIO.__index = MT.ImGuiIO
+IMGUI_IO = {}
+IMGUI_IO.__index = IMGUI_IO
 
 --- @return ImGuiIO
 function ImGuiIO()
@@ -1383,7 +1374,7 @@ function ImGuiIO()
         this.KeysData[i] = ImGuiKeyData()
     end
 
-    return setmetatable(this, MT.ImGuiIO)
+    return setmetatable(this, IMGUI_IO)
 end
 
 --- @class ImGuiPlatformImeData
@@ -1469,14 +1460,14 @@ ImGuiViewportFlags = {
 --- @field PlatformRequestMove   bool
 --- @field PlatformRequestResize bool
 --- @field PlatformRequestClose  bool
-MT.ImGuiViewport = {}
-MT.ImGuiViewport.__index = MT.ImGuiViewport
+IMGUI_VIEWPORT = {}
+IMGUI_VIEWPORT.__index = IMGUI_VIEWPORT
 
-function MT.ImGuiViewport:GetCenter()
+function IMGUI_VIEWPORT:GetCenter()
     return ImVec2(self.Pos.x + self.Size.x * 0.5, self.Pos.y + self.Size.y * 0.5)
 end
 
-function MT.ImGuiViewport:GetWorkCenter()
+function IMGUI_VIEWPORT:GetWorkCenter()
     return ImVec2(self.WorkPos.x + self.WorkSize.x * 0.5, self.WorkPos.y + self.WorkSize.y * 0.5)
 end
 
@@ -1496,7 +1487,7 @@ function ImGuiViewport()
         PlatformHandle = nil,
         PlatformHandleRaw = nil,
         PlatformWindowCreated = false
-    }, MT.ImGuiViewport)
+    }, IMGUI_VIEWPORT)
 end
 
 --- @class ImGuiPlatformIO
@@ -1506,8 +1497,8 @@ end
 --- @field Monitors                    ImVector<ImGuiPlatformMonitor>
 --- @field Textures                    ImVector<ImTextureData>
 --- @field Viewports                   ImVector<ImGuiViewport>
-MT.ImGuiPlatformIO = {}
-MT.ImGuiPlatformIO.__index = MT.ImGuiPlatformIO
+IMGUI_PLATFORM_IO = {}
+IMGUI_PLATFORM_IO.__index = IMGUI_PLATFORM_IO
 
 --- @return ImGuiPlatformIO
 --- @nodiscard
@@ -1533,7 +1524,7 @@ function ImGuiPlatformIO()
         Platform_OnChangedViewport = nil,
     }
 
-    return setmetatable(this, MT.ImGuiPlatformIO)
+    return setmetatable(this, IMGUI_PLATFORM_IO)
 end
 
 --- @class ImGuiPlatformMonitor
