@@ -1423,7 +1423,7 @@ function ImGui.TextLink(label)
 end
 
 --- @param label string
---- @param url   string
+--- @param url?  string
 function ImGui.TextLinkOpenURL(label, url)
     local g = GImGui
     if url == nil then

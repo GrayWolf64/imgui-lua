@@ -4950,6 +4950,14 @@ function ImGui.GetWindowWidth()
     return window.Size.x
 end
 
+--- @return ImVec2
+--- @nodiscard
+function ImGui.GetWindowPos()
+    local g = GImGui
+    local window = g.CurrentWindow
+    return ImVec2(window.Pos.x, window.Pos.y)
+end
+
 --- @param window ImGuiWindow
 --- @param pos    ImVec2
 --- @param cond?  ImGuiCond
@@ -4980,6 +4988,13 @@ function ImGui.SetWindowPos(window, pos, cond)
     ImVec2_Copy(window.DC.CursorMaxPos, window.DC.CursorMaxPos + offset)
     ImVec2_Copy(window.DC.IdealMaxPos, window.DC.IdealMaxPos + offset)
     ImVec2_Copy(window.DC.CursorStartPos, window.DC.CursorStartPos + offset)
+end
+
+--- @return ImVec2
+--- @nodiscard
+function ImGui.GetWindowSize()
+    local window = ImGui.GetCurrentWindowRead()
+    return ImVec2(window.Size.x, window.Size.y)
 end
 
 --- @param window ImGuiWindow
