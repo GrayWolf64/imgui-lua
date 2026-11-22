@@ -3,6 +3,7 @@
 -- Deliberately follows official C++ backends (SDL, GLFW, Win32) where GMod permits and is suitable
 --
 -- Implemented features:
+--  [X] Renderer: User texture binding via AddTexture(ITexture) / RemoveTexture(ImTextureID)
 --  [X] Renderer: Texture updates for the dynamic font atlas (ImGuiBackendFlags.RendererHasTextures)
 --  [X] Renderer: Large meshes using VtxOffset (ImGuiBackendFlags.RendererHasVtxOffset)
 --  [X] Renderer: Multi-viewport rendering via VGUI Paint callbacks
@@ -444,10 +445,12 @@ end
 
 local g_Textures = {} -- All the `ITexture` available
 local g_TextureInUseMarkers = {} -- Keep the in-use status of textures
+local g_NextUserTextureID = -2 -- User IDs are negative; -1 is invalid and positive IDs belong to the atlas pool
 
 --- @class ImGui_ImplGMOD_Data
 --- @field Textures            table<ITexture> # For convenience
 --- @field TextureInUseMarkers table<bool>     # For convenience
+--- @field UserTextures        table<ImTextureID, bool>
 --- @field Window              Panel
 --- @field AppFocused          bool?           # GMod window focused
 --- @field InstalledCallbacks  bool
@@ -462,6 +465,7 @@ local function ImGui_ImplGMOD_Data()
     return {
         Textures = g_Textures,
         TextureInUseMarkers = g_TextureInUseMarkers,
+        UserTextures = {},
 
         NumFramesInFlight = 2,
         Time = 0,
@@ -794,6 +798,10 @@ function ImGui_ImplGMOD_Shutdown()
         ImGui_ImplGMOD_RestoreCallbacks(bd.Window)
     end
     ImGui_ImplGMOD_InvalidateEngineObjects()
+    for tex_id in pairs(bd.UserTextures) do
+        bd.Textures[tex_id] = nil
+    end
+    bd.UserTextures = {}
 
     io.BackendPlatformName = nil
     io.BackendPlatformUserData = nil
@@ -1081,6 +1089,33 @@ function ImGui_ImplGMOD_RenderDrawData(draw_data)
     ImGui_ImplGMOD_RestoreRenderState(bd)
 end
 
+--- Register a caller-owned texture; use ImTextureRef(tex_id) with Image/ImageButton/AddImage.
+--- Registration lasts until RemoveTexture() or shutdown of the registering backend
+--- @param texture ITexture
+--- @return ImTextureID
+local function ImGui_ImplGMOD_AddTexture(texture)
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    IM_ASSERT(bd ~= nil, "Backend must be initialized before registering textures")
+    IM_ASSERT(type(texture) == "ITexture", "Expected ITexture")
+
+    local tex_id = g_NextUserTextureID
+    g_NextUserTextureID = g_NextUserTextureID - 1
+    bd.Textures[tex_id] = texture
+    bd.UserTextures[tex_id] = true
+    return tex_id
+end
+
+--- Unregister only after all draw data referencing this ID has been rendered.
+--- Does not destroy or recycle the caller-owned texture
+--- @param tex_id ImTextureID
+local function ImGui_ImplGMOD_RemoveTexture(tex_id)
+    local bd = ImGui_ImplGMOD_GetBackendData()
+    IM_ASSERT(bd ~= nil, "Backend must be initialized before unregistering textures")
+    IM_ASSERT(bd.UserTextures[tex_id], "Texture is not registered with this backend")
+    bd.Textures[tex_id] = nil
+    bd.UserTextures[tex_id] = nil
+end
+
 -- Currently there's no way to destroy a `ITexture` unless you disconnect
 --- @param tex ImTextureData
 local function ImGui_ImplGMOD_DestroyTexture(tex)
@@ -1245,5 +1280,8 @@ return {
     Init           = ImGui_ImplGMOD_Init,
     Shutdown       = ImGui_ImplGMOD_Shutdown,
     NewFrame       = ImGui_ImplGMOD_NewFrame,
-    RenderDrawData = ImGui_ImplGMOD_RenderDrawData
+    RenderDrawData = ImGui_ImplGMOD_RenderDrawData,
+
+    AddTexture     = ImGui_ImplGMOD_AddTexture,
+    RemoveTexture  = ImGui_ImplGMOD_RemoveTexture
 }
