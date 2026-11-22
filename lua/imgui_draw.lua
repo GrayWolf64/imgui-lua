@@ -2639,7 +2639,7 @@ end
 --- @return float
 function ImFontBaked_BuildLoadGlyphAdvanceX(baked, codepoint)
     if (baked.Size >= IMGUI_FONT_SIZE_THRESHOLD_FOR_LOADADVANCEXONLYMODE) or baked.LoadNoRenderOnLayout then
-        local only_advance_x
+        local only_advance_x = 0.0
         local glyph
         glyph, only_advance_x = ImFontBaked_BuildLoadGlyph(baked, codepoint, only_advance_x)
         --- @cast only_advance_x float
