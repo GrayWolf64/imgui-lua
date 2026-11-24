@@ -5160,6 +5160,12 @@ function ImGui.GetItemRectMax()
     return g.LastItemData.Rect.Max
 end
 
+--- @return ImGuiItemFlags
+function ImGui.GetItemFlags()
+    local g = GImGui
+    return g.LastItemData.ItemFlags
+end
+
 --- @param id            ImGuiID|string
 --- @param size_arg?     ImVec2
 --- @param child_flags?  ImGuiChildFlags

@@ -32,6 +32,9 @@ local function ImGuiDemoWindowData()
 
         ShowMetrics = false,
         ShowStyleEditor = false,
+
+        LiveEditOverride = false,
+        LiveEditFlags = ImGuiItemFlags.LiveEditOnInputText,
     }
 end
 
@@ -517,8 +520,40 @@ end
 
 end
 
-local function DemoWindowWidgetsLiveEdit()
-    -- TODO:
+local DemoWindowWidgetsLiveEdit do
+
+local str = { 0 }
+local i = 0
+local f = 0.0
+
+function DemoWindowWidgetsLiveEdit(demo_data)
+    if ImGui.TreeNode("Live Edit Flags") then
+        ImGui.TextWrapped("Select whether to apply keyboard edits to backing variables _while_ typing.")
+
+        _, demo_data.LiveEditOverride = ImGui.Checkbox("Override Live Edit Flags in Demo Window", demo_data.LiveEditOverride)
+        if not demo_data.LiveEditOverride then
+            demo_data.LiveEditFlags = ImGui.GetItemFlags()
+        end
+
+        ImGui.BeginDisabled(not demo_data.LiveEditOverride)
+        ImGui.Indent()
+        _, demo_data.LiveEditFlags = ImGui.CheckboxFlags("ImGuiItemFlags.LiveEditOnInputText", demo_data.LiveEditFlags, ImGuiItemFlags.LiveEditOnInputText)
+        _, demo_data.LiveEditFlags = ImGui.CheckboxFlags("ImGuiItemFlags.LiveEditOnInputScalar", demo_data.LiveEditFlags, ImGuiItemFlags.LiveEditOnInputScalar)
+        ImGui.Unindent()
+        ImGui.EndDisabled()
+
+        ImGui.Text("Try typing '123' and seeing effect on backing value:")
+        ImGui.InputText("str", str, 32)
+        ImGui.Text("Backing value: \"%s\"", ImBuf2Str(str))
+        i = ImGui.InputInt("int", i, 0, 0)
+        ImGui.Text("Backing value: %d", i)
+        f = ImGui.SliderFloat("float", f, 0.0, 100.0)
+        ImGui.Text("Backing value: %f", f)
+
+        ImGui.TreePop()
+    end
+end
+
 end
 
 local DemoWindowWidgetsMixedValues do
@@ -918,21 +953,32 @@ end
 
 end
 
-local function DemoWindowWidgets()
+local function DemoWindowWidgets(demo_data)
     if not ImGui.CollapsingHeader("Widgets") then
         return
+    end
+
+    local override_liveedit = demo_data.LiveEditOverride
+    if override_liveedit then
+        ImGui.PushItemFlag(ImGuiItemFlags.LiveEditOnInputText, bit.band(demo_data.LiveEditFlags, ImGuiItemFlags.LiveEditOnInputText) ~= 0)
+        ImGui.PushItemFlag(ImGuiItemFlags.LiveEditOnInputScalar, bit.band(demo_data.LiveEditFlags, ImGuiItemFlags.LiveEditOnInputScalar) ~= 0)
     end
 
     DemoWindowWidgetsBasic()
     DemoWindowWidgetsBullets()
     DemoWindowWidgetsColorAndPickers()
     DemoWindowWidgetsImages()
-    DemoWindowWidgetsLiveEdit()
+    DemoWindowWidgetsLiveEdit(demo_data)
     DemoWindowWidgetsMixedValues()
     DemoWindowWidgetsPlotting()
     DemoWindowWidgetsProgressBars()
     DemoWindowWidgetsTabs()
     DemoWindowWidgetsVerticalSliders()
+
+    if override_liveedit then
+        ImGui.PopItemFlag()
+        ImGui.PopItemFlag()
+    end
 end
 
 local function DemoWindowLayout()
@@ -1644,7 +1690,7 @@ function ImGui.ShowDemoWindow(open)
         end
     end
 
-    DemoWindowWidgets()
+    DemoWindowWidgets(demo_data)
     DemoWindowLayout()
     DemoWindowPopups()
     DemoWindowTables()
