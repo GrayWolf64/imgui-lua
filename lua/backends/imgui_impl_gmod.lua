@@ -33,6 +33,10 @@ local TEXFILTER_RESET_WORKAROUND = true
 -- NOTE: requires _exclusive_ stencil ownership!
 local STENCIL_CLIPPING = false
 
+-- Select shader-backed surface.DrawPoly at module load; false keeps mesh rendering.
+-- This is _NOT_ an optimization!
+local RENDERER_USE_DRAWPOLY = false
+
 -- TODO: do we have cleaner ways of doing this?
 --- @param panel Panel
 local function VGUI_GetClientAreaOffset(panel)
@@ -972,6 +976,129 @@ local function DrawIndexed(idx_data, vtx_data, pcmd)
             _DrawIndexedTriangles(idx_data, vtx_data, pcmd, triangle_start, elem - triangle_start)
         end
     end
+end
+
+-- NOTE FOR THIS ALTERNATIVE, SLOWER RENDERER:
+--  - Driver failures may go undetected.
+--  - Tested on Windows x64/Proton; isolated 1/255 color/alpha rounding differences.
+--  - Build <name>_ps2x.hlsl with SCell555/ShaderCompile -ver 20b /O 3 and native d3dcompiler_47.
+--    Wine's builtin compiler ignored register assignments in testing.
+if RENDERER_USE_DRAWPOLY then
+    --[[
+    sampler BASETEXTURE : register(s0);
+    float4 V0 : register(c11);
+    float4 V1 : register(c12);
+    float4 V2 : register(c13);
+    struct PS_INPUT { float2 bary : TEXCOORD0; };
+    float4 Color(float2 packed) {
+        float2 high = floor(packed / 256.0);
+        float2 low = packed - high * 256.0;
+        return float4(low.x, high.x, low.y, high.y) / 255.0;
+    }
+    float4 main(PS_INPUT frag) : COLOR {
+        float3 w = float3(1 - frag.bary.x - frag.bary.y, frag.bary.x, frag.bary.y);
+        float2 uv = V0.xy * w.x + V1.xy * w.y + V2.xy * w.z;
+        float4 col = Color(V0.zw) * w.x + Color(V1.zw) * w.y + Color(V2.zw) * w.z;
+        return tex2D(BASETEXTURE, uv) * col;
+    }
+    ]]
+    -- First 12 hex digits of the compiled .vcs SHA-256 avoid stale mounted/cached shader versions
+    local DRAWPOLY_SHADER_NAME = "imgui_gmod_drawpoly_a3478dcbb953_ps20b"
+    local DRAWPOLY_SHADER_GMA =
+        "R01BRAMAAAAAAAAAAAAAAAAAAAAAAEltR3VpIERyYXdQb2x5IHNoYWRlcgB7fQBpbWd1aS1sdWEAAQAAAAEAAABzaGFkZXJz" ..
+        "L2Z4Yy9pbWd1aV9nbW9kX2RyYXdwb2x5X2EzNDc4ZGNiYjk1M19wczIwYi52Y3MAzQEAAAAAAAAIqtonAAAAAAYAAAABAAAA" ..
+        "AQAAAAAAAAAAAAAAAgAAAHpW7XQAAAAAMAAAAP/////NAQAAAAAAAJUBAEBMWk1BiAMAAIQBAABdAAAAAQAAaJ5d8ARBJ5gk" ..
+        "0FGCwM/NcEDp5xwpM4m3j0FlrRip0aJQ9vmNprqDC0NH42CkuwTkjEhv0GeY2wFLC0vjlxkt7KpaQ/XWYRG6i6LcvzSPBkNk" ..
+        "jXUPlsOBmwKCaGfF2qM0RlG2ynK6FyPWu2qigrmyOxTtoK/m1CBC2Gm32kTIb5vdVKru8+Na1ddjXvNwLfmVSLnGhL/uYcp3" ..
+        "9p0cpMleRQEN2FUUkxgfYA0Nz6kEvZvstB5gpmuZzsw6A3/+XnIVYECpXHjCFe2p6Oc0yPIm8Mz2fCpF3xTelkkkujcrRpuv" ..
+        "cegJi3ptCJ3I+W5MTk4aI3ttmL6uR67D8g1hoYMkWzUUqhVGLPWGUy9P15wgPCPNPsbJ02hYDTwzrPP0Lqpcbc6YIZIA+Pmm" ..
+        "vXV/N0iRZ+koiqK23gcIHtkh+krHqt2YKY9EJOIsTCPbx5aPv3FhfRwBS/gvbZY4ZhHQxda7Nc/lYCz/PbhrIn88qlbSPKCk" ..
+        "RkxSh8bYukgsn5UOPpyGAAD/////YYg+aQ=="
+
+    local err
+    local shader_path = "shaders/fxc/" .. DRAWPOLY_SHADER_NAME .. ".vcs"
+    if not file.Exists(shader_path, "GAME") then
+        local archive_path = "imgui_shaders/" .. DRAWPOLY_SHADER_NAME .. ".gma"
+        file.CreateDir("imgui_shaders")
+        if not file.Write(archive_path, util.Base64Decode(DRAWPOLY_SHADER_GMA)) then
+            err = "Unable to write the embedded DrawPoly shader archive"
+        elseif not game.MountGMA("data/" .. archive_path) or not file.Exists(shader_path, "GAME") then
+            err = "Unable to mount the embedded DrawPoly shader archive"
+        end
+    end
+    if err ~= nil then
+        ErrorNoHalt(err .. "\n")
+        goto __UNAVAILABLE__
+    end
+
+    local poly_mat = CreateMaterial(GMOD_MaterialName(g_InstanceId) .. "_drawpoly", "screenspace_general", {
+        ["$pixshader"  ] = DRAWPOLY_SHADER_NAME,
+        ["$basetexture"] = "error",
+        ["$vertextransform"] = 1,
+        ["$ignorez"] = 1,
+        ["$cull"   ] = 0,
+        ["$alphablend"] = 1,
+        ["$writealpha"] = 1,
+        ["$writedepth"] = 0,
+        ["$linearwrite"           ] = 1,
+        ["$linearread_basetexture"] = 1
+    })
+    if poly_mat:IsError() then
+        err = "Unable to create the DrawPoly shader material"
+        ErrorNoHalt(err .. "\n")
+        goto __UNAVAILABLE__
+    end
+
+    local params = Matrix()
+    local poly_verts = {
+        { x = 0, y = 0, u = 0, v = 0 },
+        { x = 0, y = 0, u = 1, v = 0 },
+        { x = 0, y = 0, u = 0, v = 1 }
+    }
+
+    --- @param idx_data ImDrawIdx[]
+    --- @param vtx_data ImDrawVert[]
+    --- @param pcmd     ImDrawCmd
+    function DrawIndexed(idx_data, vtx_data, pcmd)
+        local paint = surface.GetPanelPaintState()
+        local old_color = surface.GetDrawColor()
+        local old_alpha = surface.GetAlphaMultiplier()
+        local old_clipping = DisableClipping(true)
+        surface.SetAlphaMultiplier(1)
+        surface.SetDrawColor(255, 255, 255, 255)
+
+        poly_mat:SetTexture("$basetexture", g_EngineMaterial:GetTexture("$basetexture"))
+        for elem = 0, pcmd.ElemCount - 1, 3 do
+            local v0 = vtx_data[pcmd.VtxOffset + idx_data[pcmd.IdxOffset + elem + 1]]
+            local v1 = vtx_data[pcmd.VtxOffset + idx_data[pcmd.IdxOffset + elem + 2]]
+            local v2 = vtx_data[pcmd.VtxOffset + idx_data[pcmd.IdxOffset + elem + 3]]
+            -- Surface adds the active panel origin before the caller's transform
+            poly_verts[1].x = v0[1][1] - paint.translate_x
+            poly_verts[1].y = v0[1][2] - paint.translate_y
+            poly_verts[2].x = v1[1][1] - paint.translate_x
+            poly_verts[2].y = v1[1][2] - paint.translate_y
+            poly_verts[3].x = v2[1][1] - paint.translate_x
+            poly_verts[3].y = v2[1][2] - paint.translate_y
+            -- Matrix rows carry UV plus two exact 16-bit packed RGBA values
+            params:SetUnpacked(
+                v0[2][1], v0[2][2], bit.band(v0[3], 0xFFFF), bit.rshift(v0[3], 16),
+                v1[2][1], v1[2][2], bit.band(v1[3], 0xFFFF), bit.rshift(v1[3], 16),
+                v2[2][1], v2[2][2], bit.band(v2[3], 0xFFFF), bit.rshift(v2[3], 16),
+                0, 0, 0, 0
+            )
+            poly_mat:SetMatrix("$viewprojmat", params)
+            surface.SetMaterial(poly_mat)
+            surface.DrawPoly(poly_verts)
+        end
+
+        DisableClipping(old_clipping)
+        surface.SetDrawColor(old_color)
+        surface.SetAlphaMultiplier(old_alpha)
+        surface.SetMaterial(g_EngineMaterial)
+        render.SetMaterial(g_EngineMaterial)
+    end
+
+    :: __UNAVAILABLE__ ::
 end
 
 local ImGui_ImplGMOD_SetScissorRect do
