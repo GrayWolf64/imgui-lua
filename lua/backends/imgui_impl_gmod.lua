@@ -1068,6 +1068,7 @@ if RENDERER_USE_DRAWPOLY then
         surface.SetDrawColor(255, 255, 255, 255)
 
         poly_mat:SetTexture("$basetexture", g_EngineMaterial:GetTexture("$basetexture"))
+        surface.SetMaterial(poly_mat)
         for elem = 0, pcmd.ElemCount - 1, 3 do
             local v0 = vtx_data[pcmd.VtxOffset + idx_data[pcmd.IdxOffset + elem + 1]]
             local v1 = vtx_data[pcmd.VtxOffset + idx_data[pcmd.IdxOffset + elem + 2]]
@@ -1087,7 +1088,6 @@ if RENDERER_USE_DRAWPOLY then
                 0, 0, 0, 0
             )
             poly_mat:SetMatrix("$viewprojmat", params)
-            surface.SetMaterial(poly_mat)
             surface.DrawPoly(poly_verts)
         end
 
