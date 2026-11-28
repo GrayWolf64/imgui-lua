@@ -461,11 +461,18 @@ function IM_VECTOR:clear() if self.Data then self.Size = 0; self.Capacity = 0; I
 function IM_VECTOR:clear_delete() for i = 1, self.Size do self.Data[i] = nil end self.Size = 0 end
 function IM_VECTOR:empty() return self.Size == 0 end
 function IM_VECTOR:back()   IM_ASSERT(self.Size > 0) return self.Data[self.Size] end
-function IM_VECTOR:erase(i) IM_ASSERT(i >= 1 and i <= self.Size) local removed = (table.remove(self.Data, i)) ~= nil self.Size = self.Size - 1 return removed end
+function IM_VECTOR:erase(i)
+    IM_ASSERT(i >= 1 and i <= self.Size)
+    local removed = self.Data[i] ~= nil
+    ImStd.memmove(self.Data, i, self.Data, i + 1, self.Size - i)
+    self.Data[self.Size] = self._Constructor()
+    self.Size = self.Size - 1
+    return removed
+end
 local function _iter(v, i) i = i + 1 if i <= v.Size then return i, v.Data[i] end end
 function IM_VECTOR:iter() return _iter, self, 0 end
 function IM_VECTOR:find_index(value) for i = 1, self.Size do if self.Data[i] == value then return i end end return nil end
-function IM_VECTOR:erase_unsorted(index) IM_ASSERT(index >= 1 and index <= self.Size) local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = nil self.Size = self.Size - 1 return true end
+function IM_VECTOR:erase_unsorted(index) IM_ASSERT(index >= 1 and index <= self.Size) local last_idx = self.Size if index ~= last_idx then self.Data[index] = self.Data[last_idx] end self.Data[last_idx] = self._Constructor() self.Size = self.Size - 1 return true end
 function IM_VECTOR:find_erase(value) local idx = self:find_index(value) if idx then return self:erase(idx) end return false end
 function IM_VECTOR:find_erase_unsorted(value) local idx = self:find_index(value) if idx then return self:erase_unsorted(idx) end return false end
 
